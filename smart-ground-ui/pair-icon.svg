@@ -1,0 +1,83 @@
+<svg viewBox="0 0 140 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Pair: Two overlapping circles - thick center, alternating white gaps and black rings -->
+
+  <!-- Left Circle -->
+  <!-- Thick center -->
+  <circle cx="38" cy="50" r="12" fill="currentColor"/>
+
+  <!-- White line (normal) -->
+  <circle cx="38" cy="50" r="15" fill="white" stroke="none"/>
+
+  <!-- Black line (medium thick) -->
+  <circle cx="38" cy="50" r="17" fill="none" stroke="currentColor" stroke-width="2.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="38" cy="50" r="21" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="38" cy="50" r="23" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="38" cy="50" r="26" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="38" cy="50" r="28" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="38" cy="50" r="31" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="38" cy="50" r="33" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="38" cy="50" r="36" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="38" cy="50" r="38" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="38" cy="50" r="41" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) - outermost -->
+  <circle cx="38" cy="50" r="43" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- Right Circle -->
+  <!-- Thick center -->
+  <circle cx="102" cy="50" r="12" fill="currentColor"/>
+
+  <!-- White line (normal) -->
+  <circle cx="102" cy="50" r="15" fill="white" stroke="none"/>
+
+  <!-- Black line (medium thick) -->
+  <circle cx="102" cy="50" r="17" fill="none" stroke="currentColor" stroke-width="2.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="102" cy="50" r="21" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="102" cy="50" r="23" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="102" cy="50" r="26" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="102" cy="50" r="28" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="102" cy="50" r="31" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="102" cy="50" r="33" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="102" cy="50" r="36" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="102" cy="50" r="38" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="102" cy="50" r="41" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) - outermost -->
+  <circle cx="102" cy="50" r="43" fill="none" stroke="currentColor" stroke-width="1.5"/>
+</svg>

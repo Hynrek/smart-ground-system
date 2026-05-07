@@ -1,0 +1,104 @@
+/* Global Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  width: 100%;
+}
+
+:root {
+  /* Admin UI core palette */
+  --sg-brand: #1a1a2e;
+  --sg-brand-hover: #0f0f1a;
+  --sg-accent: #4fc3f7;
+  --sg-accent-hover: #2ba4d0;
+  --sg-text-primary: #1a1a2e;
+  --sg-text-muted: #718096;
+  --sg-text-faint: #a0aec0;
+  --sg-bg-page: #f7f8fc;
+  --sg-bg-card: #ffffff;
+  --sg-bg-panel: #f4f6fb;
+  --sg-border: #e2e8f0;
+  --sg-border-input: #cbd5e0;
+  --sg-radius-card: 10px;
+  --sg-radius-btn: 7px;
+  --sg-radius-input: 6px;
+
+  /* Werfer Remote Colors */
+  --werfer-pine-green: #1c3420;
+  --werfer-parchment-light: #e8dfd0;
+  --werfer-parchment-medium: #f0e8d8;
+  --werfer-cream: #fff8f2;
+  --werfer-orange-accent: #c85a0e;
+  --werfer-orange-light: #f2cdb0;
+  --werfer-green-status: #28a050;
+  --werfer-green-success: #1a6830;
+  --werfer-red-danger: #b82010;
+  --werfer-orange-warn: #c89020;
+
+  /* Werfer Typography */
+  --font-serif: 'Playfair Display', serif;
+  --font-sans: 'DM Sans', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #f7f8fc;
+  color: #1a1a2e;
+  margin: 0;
+  padding: 0;
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+}
+
+/* Remove default button styles */
+button {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Accessibility */
+:focus-visible {
+  outline: 2px solid #4fc3f7;
+  outline-offset: 2px;
+}
+
+/* Remove focus outline for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
