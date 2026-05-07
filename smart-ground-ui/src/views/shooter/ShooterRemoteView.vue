@@ -1,13 +1,60 @@
 <template>
   <div class="shooter-remote">
-    <!-- Header -->
+    <!-- Header with integrated controls -->
     <div class="page-header">
-      <button class="back-btn" @click="goBack">
-        <Icons icon="chevronLeft" :size="20" color="rgba(255,255,255,0.8)" />
-      </button>
-      <div class="header-text">
-        <h1 class="page-title">{{ range?.name ?? '…' }}</h1>
-        <p v-if="range?.description" class="page-sub">{{ range.description }}</p>
+      <div class="header-left">
+        <button class="back-btn" @click="goBack">
+          <Icons icon="chevronLeft" :size="20" color="rgba(255,255,255,0.8)" />
+        </button>
+        <div class="header-text">
+          <h1 class="page-title">{{ range?.name ?? '…' }}</h1>
+          <p v-if="range?.description" class="page-sub">{{ range.description }}</p>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- Status indicator (simplified) -->
+        <div class="header-status">
+          <button
+            class="status-indicator"
+            :class="{ locked: isLocked, ready: !isLocked }"
+            @click="toggleBlock"
+            :title="isLocked ? 'Notfallsperrung aktiv - Klick zum Entsperren' : 'Bereit - Klick zum Sperren'"
+          >
+            <Icons :icon="isLocked ? 'lock' : 'check'" :size="16" />
+            <span class="status-text">{{ isLocked ? 'Gesperrt' : 'Bereit' }}</span>
+          </button>
+        </div>
+
+        <!-- Group dropdown (only when multiple groups) -->
+        <div v-if="deviceGroups.length > 1" class="group-dropdown-wrapper" :class="{ open: isGroupDropdownOpen }">
+          <button class="group-dropdown-btn" @click="isGroupDropdownOpen = !isGroupDropdownOpen">
+            <span class="group-name">{{ selectedGroupName }}</span>
+            <Icons icon="chevronRight" :size="14" color="rgba(255,255,255,0.5)" />
+          </button>
+          <div v-if="isGroupDropdownOpen" class="group-dropdown-menu" @click.stop>
+            <button
+              v-for="group in deviceGroups"
+              :key="group.groupId"
+              class="group-option"
+              :class="{ active: store.selectedGroupId === group.groupId }"
+              @click="store.setGroupId(group.groupId); isGroupDropdownOpen = false"
+            >
+              <span class="option-name">{{ group.name }}</span>
+              <span class="option-count">{{ group.count }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Release button -->
+        <button
+          v-if="store.reservedByMe"
+          class="release-btn"
+          @click="freigeben"
+          title="Platz freigeben"
+        >
+          <Icons icon="arrowR" :size="14" />
+        </button>
       </div>
     </div>
 
@@ -29,45 +76,6 @@
         @click="store.setSessionMode('recording')"
       >
         Erfassungs-Modus
-      </button>
-    </div>
-
-    <!-- Status card -->
-    <div class="status-card" :class="`status-card--${statusKey}`">
-      <div class="status-left">
-        <span class="status-dot" :class="`status-dot--${statusKey}`" />
-        <span class="status-label">{{ statusLabel }}</span>
-      </div>
-      <div class="status-actions">
-        <button
-          v-if="store.reservedByMe"
-          class="status-btn status-btn--release"
-          @click="freigeben"
-        >
-          Freigeben
-        </button>
-        <button
-          class="status-btn status-btn--block"
-          :class="{ active: isLocked }"
-          @click="toggleBlock"
-        >
-          <Icons :icon="isLocked ? 'unlock' : 'lock'" :size="13" />
-          {{ isLocked ? 'Entsperren' : 'Sperren' }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Device type pills (only when multiple groups) -->
-    <div v-if="deviceGroups.length > 1" class="group-pills">
-      <button
-        v-for="group in deviceGroups"
-        :key="group.groupId"
-        class="group-pill"
-        :class="{ active: store.selectedGroupId === group.groupId }"
-        @click="store.setGroupId(group.groupId)"
-      >
-        {{ group.name }}
-        <span class="pill-count">{{ group.count }}</span>
       </button>
     </div>
 
@@ -155,6 +163,8 @@ const rangeStore = useRangeStore();
 const deviceStore = useDeviceStore();
 const store = useShooterRemoteStore();
 
+const isGroupDropdownOpen = ref(false);
+
 useDeviceLoader();
 
 onMounted(() => {
@@ -165,6 +175,12 @@ onMounted(() => {
 // ── Range ──────────────────────────────────────────
 const range = computed(() => rangeStore.ranges.find((r) => r.id === props.rangeId));
 const isLocked = computed(() => range.value?.locked ?? false);
+
+// ── Device groups ──────────────────────────────────
+const selectedGroupName = computed(() => {
+  const group = deviceGroups.value.find((g) => g.groupId === store.selectedGroupId);
+  return group?.name ?? 'Geräte';
+});
 
 // ── Status card ────────────────────────────────────
 const statusKey = computed(() => {
@@ -385,19 +401,29 @@ const chipLabel = (device) => {
 .page-header {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 16px 20px 20px;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
 }
 
 .back-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 8px;
-  margin-left: -8px;
+  padding: 6px;
+  margin-left: -6px;
   display: flex;
   align-items: center;
-  border-radius: 10px;
+  border-radius: 8px;
   flex-shrink: 0;
   transition: background 0.15s;
 }
@@ -414,155 +440,193 @@ const chipLabel = (device) => {
 }
 
 .page-title {
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
   color: #ffffff;
   margin: 0;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .page-sub {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* ── Status card ─────────────────────────────────── */
-.status-card {
-  margin: 0 16px 16px;
-  border-radius: 16px;
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.05);
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.status-card--reserved {
-  background: rgba(246, 173, 85, 0.08);
-  border-color: rgba(246, 173, 85, 0.2);
-}
-
-.status-card--blocked {
-  background: rgba(252, 129, 129, 0.08);
-  border-color: rgba(252, 129, 129, 0.25);
-}
-
-.status-left {
+/* ── Header Right (status, group, release) ────────── */
+.header-right {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.status-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
   flex-shrink: 0;
 }
 
-.status-dot--free { background: #48bb78; box-shadow: 0 0 6px rgba(72,187,120,0.6); }
-.status-dot--reserved { background: #f6ad55; box-shadow: 0 0 6px rgba(246,173,85,0.6); }
-.status-dot--blocked { background: #fc8181; box-shadow: 0 0 6px rgba(252,129,129,0.6); }
-
-.status-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+.header-status {
+  position: relative;
 }
 
-.status-actions {
+.status-indicator {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.status-btn {
-  padding: 7px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.status-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.status-btn--release {
-  background: rgba(246, 173, 85, 0.12);
-  border-color: rgba(246, 173, 85, 0.3);
-  color: #f6ad55;
-}
-
-.status-btn--release:hover {
-  background: rgba(246, 173, 85, 0.2);
-}
-
-.status-btn--block.active {
-  background: rgba(252, 129, 129, 0.15);
-  border-color: rgba(252, 129, 129, 0.35);
-  color: #fc8181;
-}
-
-/* ── Group pills ─────────────────────────────────── */
-.group-pills {
-  display: flex;
-  gap: 8px;
-  padding: 0 16px 14px;
-  flex-wrap: wrap;
-}
-
-.group-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 13px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px 12px;
   background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 13px;
-  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   transition: all 0.15s;
 }
 
-.group-pill:hover {
-  background: rgba(255, 255, 255, 0.09);
-  color: rgba(255, 255, 255, 0.75);
+.status-indicator:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
 }
 
-.group-pill.active {
-  background: rgba(79, 195, 247, 0.15);
-  border-color: rgba(79, 195, 247, 0.4);
-  color: #4fc3f7;
+.status-indicator.ready {
+  border-color: rgba(72, 187, 120, 0.3);
+  color: #48bb78;
 }
 
-.pill-count {
-  font-size: 11px;
+.status-indicator.locked {
+  border-color: rgba(252, 129, 129, 0.3);
+  color: #fc8181;
+  background: rgba(252, 129, 129, 0.08);
+}
+
+.status-text {
+  display: none;
+}
+
+@media (min-width: 480px) {
+  .status-text {
+    display: inline;
+  }
+}
+
+/* ── Group dropdown ──────────────────────────────── */
+.group-dropdown-wrapper {
+  position: relative;
+}
+
+.group-dropdown-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
   font-weight: 600;
-  opacity: 0.65;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
 }
+
+.group-dropdown-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.group-dropdown-btn svg {
+  transition: transform 0.2s;
+}
+
+.group-dropdown-wrapper.open .group-dropdown-btn svg {
+  transform: rotate(90deg);
+}
+
+.group-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: rgba(18, 18, 28, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 160px;
+  z-index: 40;
+  overflow: hidden;
+}
+
+.group-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.group-option:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.group-option.active {
+  background: rgba(79, 195, 247, 0.15);
+  color: #4fc3f7;
+  border-left: 2px solid #4fc3f7;
+  padding-left: 10px;
+}
+
+.option-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.option-count {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
+}
+
+/* ── Release button ──────────────────────────────– */
+.release-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(246, 173, 85, 0.12);
+  border: 1px solid rgba(246, 173, 85, 0.3);
+  border-radius: 10px;
+  color: #f6ad55;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.release-btn:hover {
+  background: rgba(246, 173, 85, 0.2);
+  border-color: rgba(246, 173, 85, 0.5);
+}
+
 
 /* ── Device section ──────────────────────────────── */
 .device-section {
