@@ -198,7 +198,7 @@ const getStepTooltip = (step) => {
     solo: 'Solo',
     pair: 'Pair',
     'a.schuss': 'a. Schuss',
-    raffale: 'Raffale (2x mit 2 Sek Verzögerung)',
+    raffale: 'Raffale (2x mit 1 Sek Verzögerung)',
   };
   const label = getStepLabel(step);
   return `Klick zum Löschen: ${label} (${labels[step.type]})`;
