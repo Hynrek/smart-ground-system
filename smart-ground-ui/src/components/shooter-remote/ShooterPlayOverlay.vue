@@ -11,27 +11,47 @@
 
     <!-- Carousel -->
     <div class="carousel-area">
-      <p v-if="store.playCurrentStep > 0" class="completed-hint">
+      <p v-if="store.playCurrentStep > 0 && !isComplete" class="completed-hint">
         Erledigt: {{ store.playCurrentStep }} ({{ completedType }})
       </p>
 
+      <!-- Program Done screen -->
+      <div v-if="isComplete" class="step-card step-card--done">
+        <span class="card-badge badge-done">Fertig</span>
+        <div class="card-label">Programm Done</div>
+        <p class="card-hint">Tippen zum Schließen →</p>
+      </div>
+
       <!-- Current step -->
-      <div v-if="currentStep" class="step-card" :class="{ 'is-raffale': currentStep.type === 'raffale' }" @click="store.advancePlayStep">
+      <div v-else-if="currentStep" class="step-card" :class="{ 'is-raffale': currentStep.type === 'raffale', 'is-aschuss': currentStep.type === 'a.schuss' }" @click="handleStepClick">
         <span class="card-badge" :class="`badge-${currentStep.type}`">{{ getTypeLabel(currentStep.type) }}</span>
-        <div class="card-label">
+        <div class="card-label" v-if="currentStep.type !== 'a.schuss'">
           {{ getStepDisplay(currentStep) }}
         </div>
+        <!-- a.Schuss two-device display -->
+        <div v-else class="aschuss-devices">
+          <div :class="{ 'device-name': true, 'is-bold': store.playPartialStep === null }">
+            {{ currentStep.alias1 }}
+          </div>
+          <span class="device-separator">+</span>
+          <div :class="{ 'device-name': true, 'is-bold': store.playPartialStep === 'first' }">
+            {{ currentStep.alias2 }}
+          </div>
+        </div>
         <!-- Raffale delay indicator -->
-        <div v-if="currentStep.type === 'raffale'" class="raffale-delay-bar">
+        <div v-if="currentStep.type === 'raffale'" class="raffale-delay-bar" v-show="store.playRaffaleStarted">
           <div class="delay-progress" :style="{ width: raffaleProgress + '%' }" />
           <span class="delay-label">2 Sek Verzögerung</span>
+          <div v-if="showMockClick" class="mock-click">{{ raffaleProgress >= 100 ? '✓' : '' }}</div>
         </div>
-        <p class="card-hint" v-if="currentStep.type !== 'raffale'">Tippen zum Weiter →</p>
-        <p class="card-hint" v-else>{{ raffaleDelayText }}</p>
+        <p class="card-hint" v-if="currentStep.type === 'solo'">Tippen zum Weiter →</p>
+        <p class="card-hint" v-else-if="currentStep.type === 'pair'">Tippen zum Weiter →</p>
+        <p class="card-hint" v-else-if="currentStep.type === 'a.schuss'">{{ aschussHint }}</p>
+        <p class="card-hint" v-else-if="currentStep.type === 'raffale'">{{ raffaleDelayText }}</p>
       </div>
 
       <!-- Next preview -->
-      <div v-if="nextStep" class="step-card step-card--preview">
+      <div v-if="nextStep && !store.playPartialStep" class="step-card step-card--preview">
         <span class="card-badge" :class="`badge-${nextStep.type}`">{{ getTypeLabel(nextStep.type) }}</span>
         <div class="card-label">
           {{ getStepDisplay(nextStep) }}
@@ -58,9 +78,16 @@ import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
 const store = useShooterRemoteStore();
 const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
+const showMockClick = ref(false);
 
+const isComplete = computed(() => !store.playProg || store.playCurrentStep >= store.playProg.length);
 const currentStep = computed(() => store.playProg?.[store.playCurrentStep] ?? null);
 const nextStep = computed(() => store.playProg?.[store.playCurrentStep + 1] ?? null);
+
+const aschussHint = computed(() => {
+  if (store.playPartialStep === null) return 'Erstes Gerät: Tippen';
+  return 'Zweites Gerät: Tippen';
+});
 
 const totalThrows = computed(() => {
   if (!store.playProg) return 0;
@@ -123,18 +150,36 @@ const dotClass = (idx) => {
   return 'dot--future';
 };
 
-// Monitor raffale delay progress
-watch(() => currentStep.value?.type, (newType) => {
-  if (newType === 'raffale') {
+const handleStepClick = async () => {
+  if (isComplete.value) {
+    store.closePlayback();
+    return;
+  }
+  await store.advancePlayStep();
+};
+
+// Monitor raffale timer
+watch(() => store.playRaffaleStarted, (started) => {
+  if (started) {
     raffaleProgress.value = 0;
+    showMockClick.value = false;
     raffaleDelayStart.value = Date.now();
     const interval = setInterval(() => {
       const elapsed = Date.now() - raffaleDelayStart.value;
       raffaleProgress.value = Math.min((elapsed / 2000) * 100, 100);
-      if (raffaleProgress.value >= 100) clearInterval(interval);
+      if (raffaleProgress.value >= 100) {
+        showMockClick.value = true;
+        clearInterval(interval);
+        // Auto-complete after mock click is shown
+        setTimeout(() => {
+          store.completeRaffaleStep();
+          showMockClick.value = false;
+        }, 500);
+      }
     }, 50);
   } else {
     raffaleProgress.value = 0;
+    showMockClick.value = false;
   }
 });
 </script>
@@ -289,6 +334,69 @@ watch(() => currentStep.value?.type, (newType) => {
   font-weight: 500;
   color: rgba(79, 195, 247, 0.6);
   margin: 4px 0 0;
+}
+
+/* ── a. Schuss device display ───────────────────── */
+.aschuss-devices {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.device-name {
+  font-size: 18px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  transition: all 0.2s;
+}
+
+.device-name.is-bold {
+  font-size: 24px;
+  font-weight: 700;
+  color: #4fc3f7;
+}
+
+.device-separator {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* ── Program Done card ──────────────────────────── */
+.step-card--done {
+  border-color: rgba(72, 187, 120, 0.35);
+}
+
+.badge-done {
+  color: rgba(72, 187, 120, 0.7);
+  background: rgba(72, 187, 120, 0.1);
+}
+
+/* ── Raffale mock click ──────────────────────────– */
+.mock-click {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  font-weight: 700;
+  color: #48bb78;
+  animation: mock-click-show 0.4s ease-out;
+}
+
+@keyframes mock-click-show {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
 }
 
 /* ── Raffale delay bar ──────────────────────────── */

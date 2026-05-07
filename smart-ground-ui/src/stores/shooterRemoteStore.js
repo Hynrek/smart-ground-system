@@ -22,6 +22,8 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
 
   const playProg = ref(null);
   const playCurrentStep = ref(0);
+  const playPartialStep = ref(null); // 'first' or 'second' for a.schuss
+  const playRaffaleStarted = ref(false);
 
   const isReserved = computed(() => reservedByMe.value);
 
@@ -177,31 +179,58 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   const advancePlayStep = async () => {
     if (!playProg.value) return;
 
-    // Send command(s) for current step before advancing
     const currentStep = playProg.value[playCurrentStep.value];
-    if (currentStep) {
-      try {
-        if (currentStep.type === 'solo') {
-          // Send command for single device
-          await sendDeviceCommand(currentStep.deviceId);
-        } else if (currentStep.type === 'pair' || currentStep.type === 'a.schuss') {
-          // Send commands for both devices in pair/a.schuss
-          await Promise.all([
-            sendDeviceCommand(currentStep.deviceId1),
-            sendDeviceCommand(currentStep.deviceId2),
-          ]);
-        } else if (currentStep.type === 'raffale') {
-          // Send command twice with 2 sec delay
-          await sendDeviceCommand(currentStep.deviceId);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          await sendDeviceCommand(currentStep.deviceId);
-        }
-      } catch (err) {
-        console.error('Failed to send device command during playback:', err);
-      }
-    }
+    if (!currentStep) return;
 
-    // Advance to next step
+    try {
+      if (currentStep.type === 'solo') {
+        await sendDeviceCommand(currentStep.deviceId);
+        moveToNextStep();
+      } else if (currentStep.type === 'pair') {
+        await Promise.all([
+          sendDeviceCommand(currentStep.deviceId1),
+          sendDeviceCommand(currentStep.deviceId2),
+        ]);
+        moveToNextStep();
+      } else if (currentStep.type === 'a.schuss') {
+        // a.schuss requires two clicks
+        if (playPartialStep.value === null) {
+          // First click: send command to first device
+          await sendDeviceCommand(currentStep.deviceId1);
+          playPartialStep.value = 'first';
+        } else if (playPartialStep.value === 'first') {
+          // Second click: send command to second device
+          await sendDeviceCommand(currentStep.deviceId2);
+          playPartialStep.value = null;
+          moveToNextStep();
+        }
+      } else if (currentStep.type === 'raffale') {
+        // Raffale: timer starts on first click, auto-advances after delay
+        if (!playRaffaleStarted.value) {
+          await sendDeviceCommand(currentStep.deviceId);
+          playRaffaleStarted.value = true;
+          // Auto-advance after 2 second delay (called from component)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to send device command during playback:', err);
+    }
+  };
+
+  const completeRaffaleStep = async () => {
+    const currentStep = playProg.value[playCurrentStep.value];
+    if (currentStep && currentStep.type === 'raffale') {
+      try {
+        await sendDeviceCommand(currentStep.deviceId);
+      } catch (err) {
+        console.error('Failed to send second raffale command:', err);
+      }
+      playRaffaleStarted.value = false;
+      moveToNextStep();
+    }
+  };
+
+  const moveToNextStep = () => {
     if (playCurrentStep.value < playProg.value.length - 1) {
       playCurrentStep.value += 1;
     } else {
@@ -212,6 +241,8 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   const closePlayback = () => {
     playProg.value = null;
     playCurrentStep.value = 0;
+    playPartialStep.value = null;
+    playRaffaleStarted.value = false;
   };
 
   const setSessionMode = (newMode) => {
@@ -243,11 +274,11 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     mode, recording,
     sessionMode, recordingActive, recordingPaused,
     programMode, pairPending, ablauf, savedPrograms, editingId,
-    playProg, playCurrentStep,
+    playProg, playCurrentStep, playPartialStep, playRaffaleStarted,
     isReserved, playProgress,
     reservePlatz, ensureReserved, releasePlatz, setGroupId,
     setMode, setSessionMode, addStep, removeStep, clearAblauf,
     startCapture, cancelCapture, saveProgram, editProgram, deleteProgram,
-    playProgram, advancePlayStep, closePlayback,
+    playProgram, advancePlayStep, completeRaffaleStep, closePlayback,
   };
 });
