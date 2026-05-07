@@ -11,6 +11,27 @@
       </div>
     </div>
 
+    <!-- Mode toggle (Throwing / Recording) -->
+    <div class="mode-toggle-bar">
+      <button
+        class="mode-btn"
+        :class="{ active: store.sessionMode === 'throwing' }"
+        @click="store.setSessionMode('throwing')"
+      >
+        Wurf-Modus
+      </button>
+      <button
+        class="mode-btn"
+        :class="{
+          active: store.sessionMode === 'recording',
+          'is-recording': store.recordingActive
+        }"
+        @click="store.setSessionMode('recording')"
+      >
+        Erfassungs-Modus
+      </button>
+    </div>
+
     <!-- Status card -->
     <div class="status-card" :class="`status-card--${statusKey}`">
       <div class="status-left">
@@ -77,11 +98,9 @@
         >
           <div class="btn-glow" />
           <div class="btn-icon-wrap">
-            <Icons
-              :icon="activeGroupIcon"
-              :size="38"
-              :color="iconColor(device)"
-            />
+            <span class="btn-letter" :style="{ color: iconColor(device) }">
+              {{ String.fromCharCode(65 + i) }}
+            </span>
           </div>
           <span class="btn-label">{{ device.alias ?? `Gerät ${i + 1}` }}</span>
           <span class="btn-status-chip" :class="chipClass(device)">{{ chipLabel(device) }}</span>
@@ -314,6 +333,52 @@ const chipLabel = (device) => {
   flex-direction: column;
   padding: env(safe-area-inset-top, 0) 0 calc(env(safe-area-inset-bottom, 0px) + 80px);
   min-height: 0;
+}
+
+/* ── Mode toggle ─────────────────────────────────── */
+.mode-toggle-bar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 11px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.mode-btn.active {
+  background: rgba(79, 195, 247, 0.15);
+  border-color: rgba(79, 195, 247, 0.4);
+  color: #4fc3f7;
+}
+
+.mode-btn.is-recording {
+  background: rgba(252, 129, 129, 0.12);
+  border-color: rgba(252, 129, 129, 0.35);
+  color: #fc8181;
+  animation: record-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes record-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 /* ── Header ──────────────────────────────────────── */
@@ -651,6 +716,13 @@ const chipLabel = (device) => {
   align-items: center;
   justify-content: center;
   transition: background 0.2s;
+  position: relative;
+}
+
+.btn-letter {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -1px;
 }
 
 .device-btn--firing .btn-icon-wrap {

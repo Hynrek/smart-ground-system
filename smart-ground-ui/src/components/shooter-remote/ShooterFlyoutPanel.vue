@@ -1,24 +1,36 @@
 <template>
   <div class="flyout-wrapper">
     <!-- Overlay (blocks device buttons when panel open) -->
-    <div v-if="isOpen" class="flyout-overlay" @click="isOpen = false" />
+    <div v-if="isOpen && !isRecordingActive" class="flyout-overlay" @click="isOpen = false" />
 
-    <!-- Handle (closed state) -->
-    <button v-if="!isOpen" class="flyout-handle" @click="isOpen = true">
+    <!-- Handle (closed state or shrunk state during recording) -->
+    <button
+      v-if="!isOpen"
+      class="flyout-handle"
+      :class="{ 'shrunk-mode': isRecordingActive }"
+      @click="togglePanel"
+    >
       <Icons icon="program" :size="15" color="rgba(255,255,255,0.8)" />
-      <Icons icon="chevronLeft" :size="11" color="rgba(255,255,255,0.5)" />
+      <Icons v-if="!isRecordingActive" icon="chevronLeft" :size="11" color="rgba(255,255,255,0.5)" />
     </button>
 
     <!-- Panel -->
-    <div class="flyout-panel" :class="{ open: isOpen }">
+    <div
+      class="flyout-panel"
+      :class="{ open: isOpen, 'shrunk': isRecordingActive && !isOpen }"
+    >
       <!-- Header -->
       <div class="flyout-header">
-        <button class="close-btn" @click="isOpen = false">
-          <Icons icon="chevronRight" :size="14" color="rgba(255,255,255,0.6)" />
+        <button class="close-btn" @click="togglePanel" v-if="isOpen || !isRecordingActive">
+          <Icons
+            :icon="isOpen ? 'chevronRight' : 'chevronLeft'"
+            :size="14"
+            color="rgba(255,255,255,0.6)"
+          />
         </button>
-        <div class="header-divider" />
+        <div v-if="isOpen || !isRecordingActive" class="header-divider" />
         <Icons icon="program" :size="14" color="rgba(255,255,255,0.6)" />
-        <span class="header-title">Programme</span>
+        <span class="header-title">{{ isRecordingActive && !isOpen ? 'Erfasst' : 'Programme' }}</span>
       </div>
 
       <!-- Capture section (only when reserved) -->
@@ -39,9 +51,20 @@
       </div>
 
       <!-- Scrollable content -->
-      <div class="flyout-content">
-        <!-- Draft steps -->
-        <div v-if="store.programMode && store.ablauf.length > 0" class="section">
+      <div class="flyout-content" :class="{ 'shrunk-content': isRecordingActive && !isOpen }">
+        <!-- Recording summary (shrunk mode) -->
+        <div v-if="isRecordingActive && !isOpen && store.ablauf.length > 0" class="recording-summary">
+          <div class="captured-items">
+            <div v-for="(step, idx) in store.ablauf" :key="step.id" class="captured-item">
+              <span class="item-code">
+                {{ step.type === 'solo' ? getLetterForDevice(step.deviceId) : `${getLetterForDevice(step.deviceId1)}+${getLetterForDevice(step.deviceId2)}` }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Draft steps (full mode) -->
+        <div v-if="store.programMode && store.ablauf.length > 0 && isOpen" class="section">
           <span class="section-label">Entwurf</span>
           <div class="ablauf-list">
             <div v-for="(step, idx) in store.ablauf" :key="step.id" class="ablauf-item">
@@ -59,8 +82,8 @@
           </div>
         </div>
 
-        <!-- Saved programmes -->
-        <div v-if="store.savedPrograms.length > 0" class="section">
+        <!-- Saved programmes (only when not recording) -->
+        <div v-if="!isRecordingActive && store.savedPrograms.length > 0" class="section">
           <span class="section-label">Gespeichert</span>
           <div class="programmes-list">
             <div v-for="prog in store.savedPrograms" :key="prog.id" class="programme-card">
@@ -85,7 +108,7 @@
         </div>
 
         <!-- Empty state -->
-        <div v-if="store.savedPrograms.length === 0 && !store.programMode" class="empty-state">
+        <div v-if="!isRecordingActive && store.savedPrograms.length === 0 && !store.programMode" class="empty-state">
           <Icons icon="program" :size="32" color="rgba(255,255,255,0.1)" />
           <p>Keine Programme</p>
         </div>
@@ -103,10 +126,18 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
+import { useDeviceStore } from '@/stores/deviceStore.js';
+import { useRangeStore } from '@/stores/rangeStore.js';
 import Icons from '@/components/Icons.vue';
 
 const store = useShooterRemoteStore();
+const deviceStore = useDeviceStore();
+const rangeStore = useRangeStore();
 const isOpen = ref(false);
+
+const isRecordingActive = computed(
+  () => store.sessionMode === 'recording' && store.recordingActive && store.programMode,
+);
 
 const toggleCapture = () => {
   if (store.programMode) {
@@ -114,6 +145,47 @@ const toggleCapture = () => {
   } else {
     store.startCapture();
   }
+};
+
+const togglePanel = () => {
+  if (isRecordingActive.value && !isOpen.value) {
+    isOpen.value = true;
+  } else {
+    isOpen.value = !isOpen.value;
+  }
+};
+
+const range = computed(() =>
+  rangeStore.ranges.find((r) => r.id === store.selectedRangeId),
+);
+
+const rangeDevices = computed(() =>
+  deviceStore.devices.filter((d) => d.rangeId === store.selectedRangeId),
+);
+
+const deviceGroups = computed(() => {
+  const map = new Map();
+  for (const d of rangeDevices.value) {
+    const name = d.groupName ?? 'Sonstige';
+    const groupId = d.groupId ?? encodeURIComponent(name);
+    const entry = map.get(groupId) ?? { name, groupId, count: 0 };
+    entry.count++;
+    map.set(groupId, entry);
+  }
+  return Array.from(map.values());
+});
+
+const activeDevices = computed(() => {
+  if (!store.selectedGroupId) return [];
+  return rangeDevices.value.filter(
+    (d) => (d.groupId ?? encodeURIComponent(d.groupName ?? '')) === store.selectedGroupId,
+  );
+});
+
+const getLetterForDevice = (deviceId) => {
+  const idx = activeDevices.value.findIndex((d) => d.id === deviceId);
+  if (idx === -1) return '?';
+  return String.fromCharCode(65 + idx);
 };
 
 const modeHint = computed(() => {
@@ -170,12 +242,18 @@ const throwCount = (steps) => steps.reduce((sum, s) => sum + (s.type === 'pair' 
   gap: 3px;
   cursor: pointer;
   pointer-events: auto;
-  transition: background 0.15s;
+  transition: background 0.15s, width 0.2s;
   backdrop-filter: blur(8px);
 }
 
 .flyout-handle:hover {
   background: rgba(255, 255, 255, 0.15);
+}
+
+.flyout-handle.shrunk-mode {
+  background: rgba(252, 129, 129, 0.12);
+  border-color: rgba(252, 129, 129, 0.35);
+  width: 52px;
 }
 
 /* ── Panel ───────────────────────────────────────── */
@@ -191,13 +269,19 @@ const throwCount = (steps) => steps.reduce((sum, s) => sum + (s.type === 'pair' 
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
-  transition: transform 220ms ease-out;
+  transition: transform 220ms ease-out, width 0.2s ease-out;
   pointer-events: auto;
 }
 
 .flyout-panel.open {
   transform: translateX(0);
   transition: transform 180ms ease-in;
+}
+
+.flyout-panel.shrunk {
+  transform: translateX(0);
+  width: 52px;
+  border-left: 1px solid rgba(252, 129, 129, 0.25);
 }
 
 /* ── Header ──────────────────────────────────────── */
@@ -208,6 +292,27 @@ const throwCount = (steps) => steps.reduce((sum, s) => sum + (s.type === 'pair' 
   padding: 14px 14px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
+  transition: padding 0.2s, gap 0.2s;
+}
+
+.flyout-panel.shrunk .flyout-header {
+  padding: 10px 6px;
+  gap: 0;
+  border-bottom-color: rgba(252, 129, 129, 0.15);
+}
+
+.flyout-panel.shrunk .close-btn {
+  flex: 1;
+}
+
+.flyout-panel.shrunk .header-divider,
+.flyout-panel.shrunk .header-title {
+  display: none;
+}
+
+.flyout-panel.shrunk .flyout-header svg {
+  width: 14px;
+  height: 14px;
 }
 
 .close-btn {
@@ -242,6 +347,10 @@ const throwCount = (steps) => steps.reduce((sum, s) => sum + (s.type === 'pair' 
   padding: 12px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
+}
+
+.flyout-panel.shrunk .capture-section {
+  display: none;
 }
 
 .capture-row {
@@ -301,6 +410,45 @@ const throwCount = (steps) => steps.reduce((sum, s) => sum + (s.type === 'pair' 
   display: flex;
   flex-direction: column;
   gap: 14px;
+  transition: padding 0.2s, gap 0.2s;
+}
+
+.flyout-content.shrunk-content {
+  padding: 8px 6px;
+  gap: 6px;
+  overflow-x: hidden;
+}
+
+/* ── Recording summary ───────────────────────────── */
+.recording-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.captured-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.captured-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(252, 129, 129, 0.12);
+  border: 1px solid rgba(252, 129, 129, 0.25);
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 32px;
+}
+
+.item-code {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fc8181;
+  letter-spacing: -0.5px;
+  text-align: center;
 }
 
 .section {
@@ -315,6 +463,10 @@ const throwCount = (steps) => steps.reduce((sum, s) => sum + (s.type === 'pair' 
   color: rgba(255, 255, 255, 0.25);
   text-transform: uppercase;
   letter-spacing: 0.7px;
+}
+
+.flyout-panel.shrunk .section-label {
+  display: none;
 }
 
 /* ── Draft steps ─────────────────────────────────── */
@@ -487,6 +639,10 @@ const throwCount = (steps) => steps.reduce((sum, s) => sum + (s.type === 'pair' 
   padding: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
+}
+
+.flyout-panel.shrunk .flyout-footer {
+  display: none;
 }
 
 .btn-clear,

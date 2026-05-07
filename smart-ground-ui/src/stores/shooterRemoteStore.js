@@ -10,6 +10,10 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   const mode = ref('solo'); // 'solo' | 'pair'
   const recording = ref({}); // Record<deviceId, boolean>
 
+  const sessionMode = ref('throwing'); // 'throwing' | 'recording'
+  const recordingActive = ref(false); // Is recording currently running
+  const recordingPaused = ref(false); // Was recording paused when switching to throwing mode
+
   const programMode = ref(false);
   const pairPending = ref(null); // { id, alias } | null
   const ablauf = ref([]);
@@ -35,6 +39,9 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     ablauf.value = [];
     pairPending.value = null;
     playProg.value = null;
+    sessionMode.value = 'throwing';
+    recordingActive.value = false;
+    recordingPaused.value = false;
   };
 
   // Called from ShooterRemoteView on mount — auto-reserves if navigated directly
@@ -186,14 +193,39 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     playCurrentStep.value = 0;
   };
 
+  const setSessionMode = (newMode) => {
+    if (newMode === 'throwing') {
+      // Switching to throwing mode — pause recording if active
+      if (recordingActive.value && programMode.value) {
+        recordingPaused.value = true;
+        recordingActive.value = false;
+      }
+    } else if (newMode === 'recording') {
+      // Switching to recording mode — resume recording if it was paused
+      if (recordingPaused.value) {
+        recordingActive.value = true;
+        recordingPaused.value = false;
+        programMode.value = true;
+      } else {
+        // Start fresh recording session
+        recordingActive.value = true;
+        programMode.value = true;
+        ablauf.value = [];
+        pairPending.value = null;
+      }
+    }
+    sessionMode.value = newMode;
+  };
+
   return {
     selectedRangeId, reservedByMe, selectedGroupId,
     mode, recording,
+    sessionMode, recordingActive, recordingPaused,
     programMode, pairPending, ablauf, savedPrograms, editingId,
     playProg, playCurrentStep,
     isReserved, playProgress,
     reservePlatz, ensureReserved, releasePlatz, setGroupId,
-    setMode, addStep, removeStep, clearAblauf,
+    setMode, setSessionMode, addStep, removeStep, clearAblauf,
     startCapture, cancelCapture, saveProgram, editProgram, deleteProgram,
     playProgram, advancePlayStep, closePlayback,
   };
