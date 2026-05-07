@@ -269,11 +269,13 @@ const errorIds = ref(new Set());
 const handleDeviceTap = async (device) => {
   if (isDeviceDisabled(device)) return;
 
-  if (store.programMode) {
+  // Only record in Recording mode when actively recording
+  if (store.sessionMode === 'recording' && store.programMode) {
     store.addStep(device.id, device);
     return;
   }
 
+  // Fire device in Throwing mode
   if (firingIds.value.has(device.id)) return;
   firingIds.value = new Set([...firingIds.value, device.id]);
   firedIds.value.delete(device.id);
@@ -354,43 +356,50 @@ const chipLabel = (device) => {
 /* ── Header mode toggle ──────────────────────────── */
 .header-mode-toggle {
   display: flex;
-  gap: 3px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
   overflow: hidden;
+  padding: 2px;
 }
 
 .mode-toggle-btn {
-  width: 28px;
-  height: 28px;
+  width: 38px;
+  height: 32px;
   padding: 0;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 12px;
-  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  font-weight: 800;
   font-family: inherit;
   cursor: pointer;
   transition: all 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 8px;
 }
 
 .mode-toggle-btn:hover {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .mode-toggle-btn.active {
-  background: rgba(79, 195, 247, 0.2);
+  background: rgba(79, 195, 247, 0.25);
+  border: 1px solid rgba(79, 195, 247, 0.4);
   color: #4fc3f7;
+  font-weight: 900;
 }
 
 .mode-toggle-btn.is-recording {
-  background: rgba(252, 129, 129, 0.2);
+  background: rgba(252, 129, 129, 0.25);
+  border: 1px solid rgba(252, 129, 129, 0.4);
   color: #fc8181;
   animation: mode-record-pulse 1.5s ease-in-out infinite;
+  font-weight: 900;
 }
 
 @keyframes mode-record-pulse {

@@ -55,11 +55,17 @@
         <!-- Recording summary (shrunk mode) -->
         <div v-if="isRecordingActive && !isOpen && store.ablauf.length > 0" class="recording-summary">
           <div class="captured-items">
-            <div v-for="(step, idx) in store.ablauf" :key="step.id" class="captured-item">
+            <button
+              v-for="(step, idx) in store.ablauf"
+              :key="step.id"
+              class="captured-item"
+              @click="store.removeStep(step.id)"
+              :title="`Klick zum Löschen: ${step.type === 'solo' ? getLetterForDevice(step.deviceId) : getLetterForDevice(step.deviceId1) + '+' + getLetterForDevice(step.deviceId2)}`"
+            >
               <span class="item-code">
                 {{ step.type === 'solo' ? getLetterForDevice(step.deviceId) : `${getLetterForDevice(step.deviceId1)}+${getLetterForDevice(step.deviceId2)}` }}
               </span>
-            </div>
+            </button>
           </div>
         </div>
 
@@ -441,6 +447,20 @@ const throwCount = (steps) => steps.reduce((sum, s) => sum + (s.type === 'pair' 
   border-radius: 8px;
   padding: 8px;
   min-height: 32px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.captured-item:hover {
+  background: rgba(252, 129, 129, 0.2);
+  border-color: rgba(252, 129, 129, 0.4);
+  transform: scale(1.05);
+}
+
+.captured-item:active {
+  transform: scale(0.95);
 }
 
 .item-code {
