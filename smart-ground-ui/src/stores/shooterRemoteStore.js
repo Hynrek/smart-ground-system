@@ -7,7 +7,7 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   const reservedByMe = ref(false);
   const selectedGroupId = ref(null);
 
-  const mode = ref('solo'); // 'solo' | 'pair'
+  const mode = ref('solo'); // 'solo' | 'pair' | 'a.schuss' | 'raffale'
   const recording = ref({}); // Record<deviceId, boolean>
 
   const sessionMode = ref('throwing'); // 'throwing' | 'recording'
@@ -70,6 +70,7 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
 
   const addStep = (deviceId, deviceData) => {
     const alias = deviceData.alias ?? 'Gerät';
+
     if (mode.value === 'solo') {
       recording.value = { ...recording.value, [deviceId]: true };
       setTimeout(() => {
@@ -78,7 +79,19 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
         recording.value = r;
       }, 500);
       ablauf.value = [...ablauf.value, { id: Date.now(), type: 'solo', alias, deviceId }];
-    } else {
+    } else if (mode.value === 'raffale') {
+      // Raffale: one device triggered twice with 2 sec delay
+      recording.value = { ...recording.value, [deviceId]: true };
+      setTimeout(() => {
+        const r = { ...recording.value };
+        delete r[deviceId];
+        recording.value = r;
+      }, 500);
+      ablauf.value = [...ablauf.value, { id: Date.now(), type: 'raffale', alias, deviceId }];
+      // Switch back to solo after raffale
+      mode.value = 'solo';
+    } else if (mode.value === 'pair' || mode.value === 'a.schuss') {
+      // Pair / a.Schuss: two devices together
       if (!pairPending.value) {
         pairPending.value = { id: deviceId, alias };
       } else if (pairPending.value.id === deviceId) {
@@ -93,12 +106,13 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
           delete r[pendingId];
           recording.value = r;
         }, 500);
+        const stepType = mode.value === 'a.schuss' ? 'a.schuss' : 'pair';
         ablauf.value = [
           ...ablauf.value,
-          { id: Date.now(), type: 'pair', alias1: pendingAlias, alias2: alias, deviceId1: pendingId, deviceId2: deviceId },
+          { id: Date.now(), type: stepType, alias1: pendingAlias, alias2: alias, deviceId1: pendingId, deviceId2: deviceId },
         ];
         pairPending.value = null;
-        // Switch back to solo mode after pair
+        // Switch back to solo mode after pair/a.schuss
         mode.value = 'solo';
       }
     }
@@ -170,12 +184,17 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
         if (currentStep.type === 'solo') {
           // Send command for single device
           await sendDeviceCommand(currentStep.deviceId);
-        } else if (currentStep.type === 'pair') {
-          // Send commands for both devices in pair
+        } else if (currentStep.type === 'pair' || currentStep.type === 'a.schuss') {
+          // Send commands for both devices in pair/a.schuss
           await Promise.all([
             sendDeviceCommand(currentStep.deviceId1),
             sendDeviceCommand(currentStep.deviceId2),
           ]);
+        } else if (currentStep.type === 'raffale') {
+          // Send command twice with 2 sec delay
+          await sendDeviceCommand(currentStep.deviceId);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          await sendDeviceCommand(currentStep.deviceId);
         }
       } catch (err) {
         console.error('Failed to send device command during playback:', err);

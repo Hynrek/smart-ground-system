@@ -59,11 +59,12 @@
               v-for="(step, idx) in store.ablauf"
               :key="step.id"
               class="captured-item"
+              :class="{ 'is-raffale': step.type === 'raffale' }"
               @click="store.removeStep(step.id)"
-              :title="`Klick zum Löschen: ${step.type === 'solo' ? getLetterForDevice(step.deviceId) : getLetterForDevice(step.deviceId1) + '+' + getLetterForDevice(step.deviceId2)}`"
+              :title="getStepTooltip(step)"
             >
               <span class="item-code">
-                {{ step.type === 'solo' ? getLetterForDevice(step.deviceId) : `${getLetterForDevice(step.deviceId1)}+${getLetterForDevice(step.deviceId2)}` }}
+                {{ getStepLabel(step) }}
               </span>
             </button>
           </div>
@@ -77,9 +78,11 @@
               <div class="step-info">
                 <span class="step-index">{{ idx + 1 }}</span>
                 <span class="step-label">
-                  {{ step.type === 'solo' ? step.alias : `${step.alias1} + ${step.alias2}` }}
+                  {{ step.type === 'solo' ? step.alias : step.type === 'raffale' ? `${step.alias} (2x)` : `${step.alias1} + ${step.alias2}` }}
                 </span>
-                <span class="step-type-chip">{{ step.type === 'solo' ? 'Solo' : 'Pair' }}</span>
+                <span class="step-type-chip" :class="`type-${step.type}`">
+                  {{ step.type === 'solo' ? 'Solo' : step.type === 'pair' ? 'Pair' : step.type === 'a.schuss' ? 'a.Schuss' : 'Raffale' }}
+                </span>
               </div>
               <button class="delete-btn" @click="store.removeStep(step.id)">
                 <Icons icon="x" :size="12" color="rgba(252,129,129,0.8)" />
@@ -201,7 +204,34 @@ const modeHint = computed(() => {
   return 'Pair — erstes Gerät wählen';
 });
 
-const throwCount = (steps) => steps.reduce((sum, s) => sum + (s.type === 'pair' ? 2 : 1), 0);
+const throwCount = (steps) => {
+  let count = 0;
+  for (const s of steps) {
+    if (s.type === 'solo') count += 1;
+    else if (s.type === 'pair' || s.type === 'a.schuss') count += 2;
+    else if (s.type === 'raffale') count += 2; // Two triggers of same device
+  }
+  return count;
+};
+
+const getStepLabel = (step) => {
+  if (step.type === 'solo') return getLetterForDevice(step.deviceId);
+  if (step.type === 'pair') return `${getLetterForDevice(step.deviceId1)}+${getLetterForDevice(step.deviceId2)}`;
+  if (step.type === 'a.schuss') return `${getLetterForDevice(step.deviceId1)}+${getLetterForDevice(step.deviceId2)}`;
+  if (step.type === 'raffale') return `${getLetterForDevice(step.deviceId)}×2`;
+  return '?';
+};
+
+const getStepTooltip = (step) => {
+  const labels = {
+    solo: 'Solo',
+    pair: 'Pair',
+    'a.schuss': 'a. Schuss',
+    raffale: 'Raffale (2x mit 2 Sek Verzögerung)',
+  };
+  const label = getStepLabel(step);
+  return `Klick zum Löschen: ${label} (${labels[step.type]})`;
+};
 </script>
 
 <style scoped>
@@ -463,6 +493,20 @@ const throwCount = (steps) => steps.reduce((sum, s) => sum + (s.type === 'pair' 
   transform: scale(0.95);
 }
 
+.captured-item.is-raffale {
+  border-color: rgba(79, 195, 247, 0.3);
+  background: rgba(79, 195, 247, 0.08);
+}
+
+.captured-item.is-raffale:hover {
+  background: rgba(79, 195, 247, 0.15);
+  border-color: rgba(79, 195, 247, 0.4);
+}
+
+.captured-item.is-raffale .item-code {
+  color: #4fc3f7;
+}
+
 .item-code {
   font-size: 12px;
   font-weight: 700;
@@ -538,6 +582,21 @@ const throwCount = (steps) => steps.reduce((sum, s) => sum + (s.type === 'pair' 
   padding: 2px 6px;
   border-radius: 10px;
   flex-shrink: 0;
+}
+
+.step-type-chip.type-pair {
+  color: rgba(72, 187, 120, 0.7);
+  background: rgba(72, 187, 120, 0.1);
+}
+
+.step-type-chip.type-a\.schuss {
+  color: rgba(246, 173, 85, 0.7);
+  background: rgba(246, 173, 85, 0.1);
+}
+
+.step-type-chip.type-raffale {
+  color: rgba(168, 85, 247, 0.7);
+  background: rgba(168, 85, 247, 0.1);
 }
 
 .delete-btn {

@@ -109,7 +109,7 @@
       </div>
     </div>
 
-    <!-- Solo / Pair toggle (fixed bottom) -->
+    <!-- Mode selector (fixed bottom) -->
     <div class="solo-pair-bar">
       <div class="solo-pair-toggle">
         <button
@@ -126,6 +126,23 @@
         >
           Pair
         </button>
+        <!-- Extra options in Erfassungs mode -->
+        <template v-if="store.sessionMode === 'recording'">
+          <button
+            class="toggle-btn"
+            :class="{ active: store.mode === 'a.schuss' }"
+            @click="store.setMode('a.schuss')"
+          >
+            a. Schuss
+          </button>
+          <button
+            class="toggle-btn"
+            :class="{ active: store.mode === 'raffale' }"
+            @click="store.setMode('raffale')"
+          >
+            Raffale
+          </button>
+        </template>
       </div>
     </div>
 
@@ -269,31 +286,113 @@ const errorIds = ref(new Set());
 const handleDeviceTap = async (device) => {
   if (isDeviceDisabled(device)) return;
 
-  // Only record in Recording mode when actively recording
+  // Recording mode: add step
   if (store.sessionMode === 'recording' && store.programMode) {
     store.addStep(device.id, device);
     return;
   }
 
-  // Fire device in Throwing mode
-  if (firingIds.value.has(device.id)) return;
-  firingIds.value = new Set([...firingIds.value, device.id]);
-  firedIds.value.delete(device.id);
-  errorIds.value.delete(device.id);
+  // Throwing mode with pair/a.schuss: handle pair selection
+  if ((store.mode === 'pair' || store.mode === 'a.schuss') && !store.programMode) {
+    if (!store.pairPending) {
+      store.pairPending = { id: device.id, alias: device.alias ?? 'Gerät' };
+    } else if (store.pairPending.id === device.id) {
+      store.pairPending = null;
+    } else {
+      // Fire both devices
+      const pendingId = store.pairPending.id;
+      store.pairPending = null;
+
+      await firePairDevices(pendingId, device.id);
+      return;
+    }
+    return;
+  }
+
+  // Throwing mode with raffale: fire device twice
+  if (store.mode === 'raffale' && !store.programMode) {
+    await fireRaffaleDevice(device.id);
+    return;
+  }
+
+  // Solo mode: fire single device
+  await fireSingleDevice(device.id);
+};
+
+const fireSingleDevice = async (deviceId) => {
+  if (firingIds.value.has(deviceId)) return;
+  firingIds.value = new Set([...firingIds.value, deviceId]);
+  firedIds.value.delete(deviceId);
+  errorIds.value.delete(deviceId);
 
   try {
-    await sendDeviceCommand(device.id);
-    firedIds.value = new Set([...firedIds.value, device.id]);
+    await sendDeviceCommand(deviceId);
+    firedIds.value = new Set([...firedIds.value, deviceId]);
     setTimeout(() => {
-      firedIds.value = new Set([...firedIds.value].filter((id) => id !== device.id));
+      firedIds.value = new Set([...firedIds.value].filter((id) => id !== deviceId));
     }, 900);
   } catch {
-    errorIds.value = new Set([...errorIds.value, device.id]);
+    errorIds.value = new Set([...errorIds.value, deviceId]);
     setTimeout(() => {
-      errorIds.value = new Set([...errorIds.value].filter((id) => id !== device.id));
+      errorIds.value = new Set([...errorIds.value].filter((id) => id !== deviceId));
     }, 1500);
   } finally {
-    firingIds.value = new Set([...firingIds.value].filter((id) => id !== device.id));
+    firingIds.value = new Set([...firingIds.value].filter((id) => id !== deviceId));
+  }
+};
+
+const firePairDevices = async (deviceId1, deviceId2) => {
+  if (firingIds.value.has(deviceId1) || firingIds.value.has(deviceId2)) return;
+  firingIds.value = new Set([...firingIds.value, deviceId1, deviceId2]);
+  firedIds.value.delete(deviceId1);
+  firedIds.value.delete(deviceId2);
+  errorIds.value.delete(deviceId1);
+  errorIds.value.delete(deviceId2);
+
+  try {
+    await Promise.all([
+      sendDeviceCommand(deviceId1),
+      sendDeviceCommand(deviceId2),
+    ]);
+    firedIds.value = new Set([...firedIds.value, deviceId1, deviceId2]);
+    setTimeout(() => {
+      firedIds.value = new Set([...firedIds.value].filter((id) => id !== deviceId1 && id !== deviceId2));
+    }, 900);
+  } catch {
+    errorIds.value = new Set([...errorIds.value, deviceId1, deviceId2]);
+    setTimeout(() => {
+      errorIds.value = new Set([...errorIds.value].filter((id) => id !== deviceId1 && id !== deviceId2));
+    }, 1500);
+  } finally {
+    firingIds.value = new Set([...firingIds.value].filter((id) => id !== deviceId1 && id !== deviceId2));
+  }
+};
+
+const fireRaffaleDevice = async (deviceId) => {
+  if (firingIds.value.has(deviceId)) return;
+  firingIds.value = new Set([...firingIds.value, deviceId]);
+  firedIds.value.delete(deviceId);
+  errorIds.value.delete(deviceId);
+
+  try {
+    // Fire once
+    await sendDeviceCommand(deviceId);
+    // Wait 2 seconds
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Fire again
+    await sendDeviceCommand(deviceId);
+
+    firedIds.value = new Set([...firedIds.value, deviceId]);
+    setTimeout(() => {
+      firedIds.value = new Set([...firedIds.value].filter((id) => id !== deviceId));
+    }, 900);
+  } catch {
+    errorIds.value = new Set([...errorIds.value, deviceId]);
+    setTimeout(() => {
+      errorIds.value = new Set([...errorIds.value].filter((id) => id !== deviceId));
+    }, 1500);
+  } finally {
+    firingIds.value = new Set([...firingIds.value].filter((id) => id !== deviceId));
   }
 };
 
