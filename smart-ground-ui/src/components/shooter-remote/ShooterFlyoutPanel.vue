@@ -21,7 +21,7 @@
     >
       <!-- Header -->
       <div class="flyout-header">
-        <button class="close-btn" @click="togglePanel" v-if="isOpen || !isRecordingActive">
+        <button v-if="isOpen || !isRecordingActive" class="close-btn" @click="togglePanel">
           <Icons
             :icon="isOpen ? 'chevronRight' : 'chevronLeft'"
             :size="14"
@@ -43,8 +43,8 @@
               :key="step.id"
               class="captured-item"
               :class="{ 'is-raffale': step.type === 'raffale' }"
-              @click="store.removeStep(step.id)"
               :title="getStepTooltip(step)"
+              @click="store.removeStep(step.id)"
             >
               <span class="item-code">
                 {{ getStepLabel(step) }}
@@ -91,7 +91,7 @@
                   <Icons icon="play" :size="12" color="#fff" />
                   Abspielen
                 </button>
-                <button class="score-btn" @click="store.playProgramWithScore(prog.id)" title="Mit Score-Tracking spielen">
+                <button class="score-btn" title="Mit Score-Tracking spielen" @click="store.playProgramWithScore(prog.id)">
                   <Icons icon="target" :size="12" color="#48bb78" />
                 </button>
                 <button class="trash-btn" @click="store.deleteProgram(prog.id)">
