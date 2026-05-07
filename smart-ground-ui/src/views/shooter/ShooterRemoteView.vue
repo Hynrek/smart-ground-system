@@ -13,16 +13,26 @@
       </div>
 
       <div class="header-right">
-        <!-- Status indicator (simplified) -->
-        <div class="header-status">
+        <!-- Mode toggle (Throwing / Recording) -->
+        <div class="header-mode-toggle">
           <button
-            class="status-indicator"
-            :class="{ locked: isLocked, ready: !isLocked }"
-            @click="toggleBlock"
-            :title="isLocked ? 'Notfallsperrung aktiv - Klick zum Entsperren' : 'Bereit - Klick zum Sperren'"
+            class="mode-toggle-btn"
+            :class="{ active: store.sessionMode === 'throwing' }"
+            @click="store.setSessionMode('throwing')"
+            title="Wurf-Modus"
           >
-            <Icons :icon="isLocked ? 'lock' : 'check'" :size="16" />
-            <span class="status-text">{{ isLocked ? 'Gesperrt' : 'Bereit' }}</span>
+            W
+          </button>
+          <button
+            class="mode-toggle-btn"
+            :class="{
+              active: store.sessionMode === 'recording',
+              'is-recording': store.recordingActive
+            }"
+            @click="store.setSessionMode('recording')"
+            title="Erfassungs-Modus"
+          >
+            E
           </button>
         </div>
 
@@ -46,38 +56,21 @@
           </div>
         </div>
 
-        <!-- Release button -->
-        <button
-          v-if="store.reservedByMe"
-          class="release-btn"
-          @click="freigeben"
-          title="Platz freigeben"
-        >
-          <Icons icon="arrowR" :size="14" />
-        </button>
+        <!-- Status indicator (emergency stop) -->
+        <div class="header-status">
+          <button
+            class="status-indicator"
+            :class="{ 'is-locked': isLocked, 'is-ready': !isLocked }"
+            @click="toggleBlock"
+            :title="isLocked ? 'Notfallsperrung aktiv - Klick zum Freigeben' : 'Klick zum Notfall Stop'"
+          >
+            <Icons :icon="isLocked ? 'unlock' : 'alert'" :size="16" />
+            <span class="status-text">{{ isLocked ? 'Freigeben' : 'Notfall Stop' }}</span>
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- Mode toggle (Throwing / Recording) -->
-    <div class="mode-toggle-bar">
-      <button
-        class="mode-btn"
-        :class="{ active: store.sessionMode === 'throwing' }"
-        @click="store.setSessionMode('throwing')"
-      >
-        Wurf-Modus
-      </button>
-      <button
-        class="mode-btn"
-        :class="{
-          active: store.sessionMode === 'recording',
-          'is-recording': store.recordingActive
-        }"
-        @click="store.setSessionMode('recording')"
-      >
-        Erfassungs-Modus
-      </button>
-    </div>
 
     <!-- Device section -->
     <div class="device-section">
@@ -145,7 +138,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
@@ -170,6 +163,13 @@ useDeviceLoader();
 onMounted(() => {
   store.ensureReserved(props.rangeId);
   initDefaultGroup();
+  // Default to solo mode
+  store.setMode('solo');
+});
+
+onUnmounted(() => {
+  // Auto-release when navigating away
+  store.releasePlatz();
 });
 
 // ── Range ──────────────────────────────────────────
@@ -351,48 +351,49 @@ const chipLabel = (device) => {
   min-height: 0;
 }
 
-/* ── Mode toggle ─────────────────────────────────── */
-.mode-toggle-bar {
+/* ── Header mode toggle ──────────────────────────── */
+.header-mode-toggle {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-.mode-btn {
-  flex: 1;
-  padding: 11px 16px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
+.mode-toggle-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
   color: rgba(255, 255, 255, 0.4);
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.mode-btn:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.08);
+.mode-toggle-btn:hover {
   color: rgba(255, 255, 255, 0.6);
 }
 
-.mode-btn.active {
-  background: rgba(79, 195, 247, 0.15);
-  border-color: rgba(79, 195, 247, 0.4);
+.mode-toggle-btn.active {
+  background: rgba(79, 195, 247, 0.2);
   color: #4fc3f7;
 }
 
-.mode-btn.is-recording {
-  background: rgba(252, 129, 129, 0.12);
-  border-color: rgba(252, 129, 129, 0.35);
+.mode-toggle-btn.is-recording {
+  background: rgba(252, 129, 129, 0.2);
   color: #fc8181;
-  animation: record-pulse 1.5s ease-in-out infinite;
+  animation: mode-record-pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes record-pulse {
+@keyframes mode-record-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
 }
@@ -492,15 +493,15 @@ const chipLabel = (device) => {
   color: rgba(255, 255, 255, 0.8);
 }
 
-.status-indicator.ready {
-  border-color: rgba(72, 187, 120, 0.3);
-  color: #48bb78;
-}
-
-.status-indicator.locked {
+.status-indicator.is-ready {
   border-color: rgba(252, 129, 129, 0.3);
   color: #fc8181;
   background: rgba(252, 129, 129, 0.08);
+}
+
+.status-indicator.is-locked {
+  border-color: rgba(72, 187, 120, 0.3);
+  color: #48bb78;
 }
 
 .status-text {
@@ -606,26 +607,6 @@ const chipLabel = (device) => {
   flex-shrink: 0;
 }
 
-/* ── Release button ──────────────────────────────– */
-.release-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: rgba(246, 173, 85, 0.12);
-  border: 1px solid rgba(246, 173, 85, 0.3);
-  border-radius: 10px;
-  color: #f6ad55;
-  cursor: pointer;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.release-btn:hover {
-  background: rgba(246, 173, 85, 0.2);
-  border-color: rgba(246, 173, 85, 0.5);
-}
 
 
 /* ── Device section ──────────────────────────────── */

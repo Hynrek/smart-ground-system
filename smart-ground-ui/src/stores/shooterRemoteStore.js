@@ -98,6 +98,8 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
           { id: Date.now(), type: 'pair', alias1: pendingAlias, alias2: alias, deviceId1: pendingId, deviceId2: deviceId },
         ];
         pairPending.value = null;
+        // Switch back to solo mode after pair
+        mode.value = 'solo';
       }
     }
   };
