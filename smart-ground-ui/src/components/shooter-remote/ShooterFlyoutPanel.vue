@@ -30,9 +30,9 @@
     <!-- Overlay (blocks device buttons when panel open) -->
     <div v-if="isOpen && !isRecordingActive" class="flyout-overlay" @click="isOpen = false" />
 
-    <!-- Handle (only in recording mode) -->
+    <!-- Handle (visible in both throwing and recording modes) -->
     <button
-      v-if="!isOpen && store.sessionMode === 'recording'"
+      v-if="!isOpen"
       class="flyout-handle"
       :class="{ 'shrunk-mode': isRecordingActive }"
       @click="togglePanel"
