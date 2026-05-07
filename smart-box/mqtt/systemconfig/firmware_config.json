@@ -1,0 +1,6 @@
+{
+  "firmware_version": "0.6",
+  "box_type": "pico2w",
+  "supported_device_kinds": ["GPIO", "LED"],
+  "supported_directions": ["INPUT", "OUTPUT"]
+}
