@@ -1,5 +1,5 @@
 <template>
-  <div v-if="store.playProg" class="play-overlay">
+  <div v-if="store.playProg || isComplete" class="play-overlay">
     <!-- Top bar -->
     <div class="play-topbar">
       <button class="end-btn" @click="store.closePlayback">Programm beenden</button>
@@ -16,9 +16,19 @@
       </p>
 
       <!-- Program Done screen -->
-      <div v-if="isComplete" class="step-card step-card--done">
+      <div v-if="isComplete" class="step-card step-card--done" @click="handleStepClick">
         <span class="card-badge badge-done">Fertig</span>
         <div class="card-label">Programm Done</div>
+        <div v-if="store.playScoreMode" class="final-score">
+          <div class="score-row">
+            <span class="score-label">Hits:</span>
+            <span class="score-value hits">{{ store.playScore.hits }}</span>
+          </div>
+          <div class="score-row">
+            <span class="score-label">Misses:</span>
+            <span class="score-value misses">{{ store.playScore.misses }}</span>
+          </div>
+        </div>
         <p class="card-hint">Tippen zum Schließen →</p>
       </div>
 
@@ -41,7 +51,7 @@
         <!-- Raffale delay indicator -->
         <div v-if="currentStep.type === 'raffale'" class="raffale-delay-bar" v-show="store.playRaffaleStarted">
           <div class="delay-progress" :style="{ width: raffaleProgress + '%' }" />
-          <span class="delay-label">2 Sek Verzögerung</span>
+          <span class="delay-label">1 Sek Verzögerung</span>
           <div v-if="showMockClick" class="mock-click">{{ raffaleProgress >= 100 ? '✓' : '' }}</div>
         </div>
         <p class="card-hint" v-if="currentStep.type === 'solo'">Tippen zum Weiter →</p>
@@ -57,6 +67,18 @@
           {{ getStepDisplay(nextStep) }}
         </div>
       </div>
+    </div>
+
+    <!-- Action buttons (score mode) -->
+    <div v-if="store.playScoreMode && store.playLastDeviceStep !== null" class="action-buttons">
+      <button class="action-btn btn-fail" @click="store.recordMiss">
+        <span class="btn-label">Fail</span>
+        <span class="btn-desc">(Not Scored)</span>
+      </button>
+      <button class="action-btn btn-no-bird" @click="store.handleNoBird">
+        <span class="btn-label">No Bird</span>
+        <span class="btn-desc">(Retry)</span>
+      </button>
     </div>
 
     <!-- Progress dots -->
@@ -155,6 +177,13 @@ const handleStepClick = async () => {
     store.closePlayback();
     return;
   }
+
+  // In score mode: if last device was clicked and waiting for action, auto-record as hit
+  if (store.playScoreMode && store.playLastDeviceStep !== null) {
+    store.recordHit();
+    return;
+  }
+
   await store.advancePlayStep();
 };
 
@@ -166,7 +195,7 @@ watch(() => store.playRaffaleStarted, (started) => {
     raffaleDelayStart.value = Date.now();
     const interval = setInterval(() => {
       const elapsed = Date.now() - raffaleDelayStart.value;
-      raffaleProgress.value = Math.min((elapsed / 2000) * 100, 100);
+      raffaleProgress.value = Math.min((elapsed / 1000) * 100, 100);
       if (raffaleProgress.value >= 100) {
         showMockClick.value = true;
         clearInterval(interval);
@@ -458,5 +487,104 @@ watch(() => store.playRaffaleStarted, (started) => {
 .dot--future {
   width: 6px;
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Score display ──────────────────────────────── */
+.final-score {
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.score-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+
+.score-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.score-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.score-value.hits {
+  color: #48bb78;
+}
+
+.score-value.misses {
+  color: #fc8181;
+}
+
+/* ── Action buttons (score mode) ────────────────── */
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.action-btn {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1.5px solid;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-fail {
+  background: rgba(252, 129, 129, 0.12);
+  border-color: rgba(252, 129, 129, 0.35);
+  color: #fc8181;
+}
+
+.btn-fail:hover {
+  background: rgba(252, 129, 129, 0.2);
+}
+
+.btn-fail:active {
+  transform: scale(0.95);
+}
+
+.btn-no-bird {
+  background: rgba(79, 195, 247, 0.12);
+  border-color: rgba(79, 195, 247, 0.35);
+  color: #4fc3f7;
+}
+
+.btn-no-bird:hover {
+  background: rgba(79, 195, 247, 0.2);
+}
+
+.btn-no-bird:active {
+  transform: scale(0.95);
+}
+
+.btn-label {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.btn-desc {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.7;
 }
 </style>

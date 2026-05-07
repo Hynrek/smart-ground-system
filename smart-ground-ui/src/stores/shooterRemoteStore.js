@@ -24,6 +24,9 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   const playCurrentStep = ref(0);
   const playPartialStep = ref(null); // 'first' or 'second' for a.schuss
   const playRaffaleStarted = ref(false);
+  const playScoreMode = ref(false); // Enable score tracking
+  const playScore = ref({ hits: 0, misses: 0, steps: [] }); // Track each step's result
+  const playLastDeviceStep = ref(null); // For "No Bird" retry
 
   const isReserved = computed(() => reservedByMe.value);
 
@@ -174,6 +177,17 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     if (!prog) return;
     playProg.value = prog.steps;
     playCurrentStep.value = 0;
+    playScoreMode.value = false;
+  };
+
+  const playProgramWithScore = (programId) => {
+    const prog = savedPrograms.value.find((p) => p.id === programId);
+    if (!prog) return;
+    playProg.value = prog.steps;
+    playCurrentStep.value = 0;
+    playScoreMode.value = true;
+    playScore.value = { hits: 0, misses: 0, steps: [] };
+    playLastDeviceStep.value = null;
   };
 
   const advancePlayStep = async () => {
@@ -185,13 +199,22 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     try {
       if (currentStep.type === 'solo') {
         await sendDeviceCommand(currentStep.deviceId);
-        moveToNextStep();
+        if (playScoreMode.value) {
+          playLastDeviceStep.value = playCurrentStep.value;
+          // Don't auto-advance in score mode, wait for hit/miss buttons
+        } else {
+          moveToNextStep();
+        }
       } else if (currentStep.type === 'pair') {
         await Promise.all([
           sendDeviceCommand(currentStep.deviceId1),
           sendDeviceCommand(currentStep.deviceId2),
         ]);
-        moveToNextStep();
+        if (playScoreMode.value) {
+          playLastDeviceStep.value = playCurrentStep.value;
+        } else {
+          moveToNextStep();
+        }
       } else if (currentStep.type === 'a.schuss') {
         // a.schuss requires two clicks
         if (playPartialStep.value === null) {
@@ -202,14 +225,21 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
           // Second click: send command to second device
           await sendDeviceCommand(currentStep.deviceId2);
           playPartialStep.value = null;
-          moveToNextStep();
+          if (playScoreMode.value) {
+            playLastDeviceStep.value = playCurrentStep.value;
+          } else {
+            moveToNextStep();
+          }
         }
       } else if (currentStep.type === 'raffale') {
         // Raffale: timer starts on first click, auto-advances after delay
         if (!playRaffaleStarted.value) {
           await sendDeviceCommand(currentStep.deviceId);
           playRaffaleStarted.value = true;
-          // Auto-advance after 2 second delay (called from component)
+          if (playScoreMode.value) {
+            playLastDeviceStep.value = playCurrentStep.value;
+          }
+          // Auto-advance after 1 second delay (called from component)
         }
       }
     } catch (err) {
@@ -226,7 +256,10 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
         console.error('Failed to send second raffale command:', err);
       }
       playRaffaleStarted.value = false;
-      moveToNextStep();
+      if (!playScoreMode.value) {
+        moveToNextStep();
+      }
+      // In score mode, wait for hit/miss buttons
     }
   };
 
@@ -238,11 +271,37 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     }
   };
 
+  const recordHit = () => {
+    if (!playScoreMode.value) return;
+    playScore.value.hits += 1;
+    playScore.value.steps.push({ step: playCurrentStep.value, result: 'hit' });
+    playLastDeviceStep.value = null;
+    moveToNextStep();
+  };
+
+  const recordMiss = () => {
+    if (!playScoreMode.value) return;
+    playScore.value.misses += 1;
+    playScore.value.steps.push({ step: playCurrentStep.value, result: 'miss' });
+    playLastDeviceStep.value = null;
+    moveToNextStep();
+  };
+
+  const handleNoBird = () => {
+    if (!playScoreMode.value || !playLastDeviceStep.value) return;
+    // Go back to last device step and reset partial step
+    playCurrentStep.value = playLastDeviceStep.value;
+    playPartialStep.value = null;
+  };
+
   const closePlayback = () => {
     playProg.value = null;
     playCurrentStep.value = 0;
     playPartialStep.value = null;
     playRaffaleStarted.value = false;
+    playScoreMode.value = false;
+    playScore.value = { hits: 0, misses: 0, steps: [] };
+    playLastDeviceStep.value = null;
   };
 
   const setSessionMode = (newMode) => {
@@ -275,10 +334,12 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     sessionMode, recordingActive, recordingPaused,
     programMode, pairPending, ablauf, savedPrograms, editingId,
     playProg, playCurrentStep, playPartialStep, playRaffaleStarted,
+    playScoreMode, playScore, playLastDeviceStep,
     isReserved, playProgress,
     reservePlatz, ensureReserved, releasePlatz, setGroupId,
     setMode, setSessionMode, addStep, removeStep, clearAblauf,
     startCapture, cancelCapture, saveProgram, editProgram, deleteProgram,
-    playProgram, advancePlayStep, completeRaffaleStep, closePlayback,
+    playProgram, playProgramWithScore, advancePlayStep, completeRaffaleStep,
+    recordHit, recordMiss, handleNoBird, closePlayback,
   };
 });
