@@ -258,6 +258,7 @@ const getStepTooltip = (step) => {
   background: rgba(252, 129, 129, 0.12);
   border-color: rgba(252, 129, 129, 0.35);
   width: 52px;
+  right: 52px;
 }
 
 /* ── Panel ───────────────────────────────────────── */
