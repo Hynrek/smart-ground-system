@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <!-- ============================================ -->
+    <!-- v1.0: Vollständiges Basis-Schema            -->
+    <!-- ============================================ -->
+
+    <changeSet id="v1.0-1" author="smartground">
+        <createTable tableName="firmware_configs">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="version" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="box_type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="firmware_configs" columnNames="version,box_type"
+            constraintName="uq_firmware_version_boxtype"/>
+    </changeSet>
+
+    <changeSet id="v1.0-2" author="smartground">
+        <createTable tableName="device_type_groups">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="v1.0-3" author="smartground">
+        <createTable tableName="signal_types">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="firmware_config_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="communication_direction" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="device" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="command" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="signal_types" baseColumnNames="firmware_config_id"
+            referencedTableName="firmware_configs" referencedColumnNames="id"
+            constraintName="fk_signal_types_firmware_config"
+            onDelete="CASCADE"/>
+        <addUniqueConstraint tableName="signal_types"
+            columnNames="firmware_config_id,device,command"
+            constraintName="uq_signal_type_per_firmware"/>
+    </changeSet>
+
+    <changeSet id="v1.0-4" author="smartground">
+        <createTable tableName="device_types">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="signal_type_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="group_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="signal_duration_ms" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="delay_signal_duration_ms" type="INTEGER"/>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="device_types" baseColumnNames="signal_type_id"
+            referencedTableName="signal_types" referencedColumnNames="id"
+            constraintName="fk_device_types_signal_type"
+            onDelete="RESTRICT"/>
+        <addForeignKeyConstraint
+            baseTableName="device_types" baseColumnNames="group_id"
+            referencedTableName="device_type_groups" referencedColumnNames="id"
+            constraintName="fk_device_types_group"
+            onDelete="RESTRICT"/>
+        <addUniqueConstraint tableName="device_types"
+            columnNames="group_id,signal_type_id"
+            constraintName="uq_device_type_per_group_signal"/>
+    </changeSet>
+
+    <changeSet id="v1.0-5" author="smartground">
+        <createTable tableName="ranges">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="description" type="TEXT"/>
+            <column name="locked" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMPTZ"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="v1.0-6" author="smartground">
+        <createTable tableName="smart_boxes">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="mac_address" type="VARCHAR(50)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="alias" type="VARCHAR(255)"/>
+            <column name="status" type="VARCHAR(50)" defaultValue="OFFLINE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_seen" type="TIMESTAMPTZ"/>
+            <column name="firmware_version" type="VARCHAR(50)"/>
+            <column name="mqtt_username" type="VARCHAR(255)"/>
+            <column name="config_synced" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="firmware_config_id" type="UUID"/>
+        </createTable>
+        <sql>ALTER TABLE smart_boxes ADD CONSTRAINT ck_smart_boxes_status CHECK (status IN ('ONLINE', 'OFFLINE', 'BLOCKED'))</sql>
+        <addForeignKeyConstraint
+            baseTableName="smart_boxes" baseColumnNames="firmware_config_id"
+            referencedTableName="firmware_configs" referencedColumnNames="id"
+            constraintName="fk_smart_boxes_firmware_config"
+            onDelete="SET NULL"/>
+    </changeSet>
+
+    <changeSet id="v1.0-7" author="smartground">
+        <createTable tableName="devices">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="smartbox_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="range_id" type="UUID"/>
+            <column name="group_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="device_type_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="alias" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="pin_config" type="TEXT"/>
+            <column name="delay_signal_duration_ms" type="INTEGER" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="blocked" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="healthy" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="devices" baseColumnNames="smartbox_id"
+            referencedTableName="smart_boxes" referencedColumnNames="id"
+            constraintName="fk_devices_smartbox_id"
+            onDelete="CASCADE"/>
+        <addForeignKeyConstraint
+            baseTableName="devices" baseColumnNames="range_id"
+            referencedTableName="ranges" referencedColumnNames="id"
+            constraintName="fk_devices_range_id"
+            onDelete="SET NULL"/>
+        <addForeignKeyConstraint
+            baseTableName="devices" baseColumnNames="group_id"
+            referencedTableName="device_type_groups" referencedColumnNames="id"
+            constraintName="fk_devices_group"
+            onDelete="RESTRICT"/>
+        <addForeignKeyConstraint
+            baseTableName="devices" baseColumnNames="device_type_id"
+            referencedTableName="device_types" referencedColumnNames="id"
+            constraintName="fk_devices_device_type_id"
+            onDelete="RESTRICT"/>
+    </changeSet>
+
+    <!-- ============================================ -->
+    <!-- v1.0-8: Seed-Daten                          -->
+    <!-- ============================================ -->
+
+    <changeSet id="v1.0-8" author="smartground">
+        <sql>
+            INSERT INTO firmware_configs (id, version, box_type)
+            VALUES (gen_random_uuid(), '0.4', 'pico');
+
+            INSERT INTO signal_types (id, firmware_config_id, communication_direction, device, command)
+            SELECT gen_random_uuid(), fc.id, 'INPUT', 'GPIO', '15'
+            FROM firmware_configs fc WHERE fc.version = '0.4' AND fc.box_type = 'pico';
+
+            INSERT INTO signal_types (id, firmware_config_id, communication_direction, device, command)
+            SELECT gen_random_uuid(), fc.id, 'INPUT', 'LED', 'OFF'
+            FROM firmware_configs fc WHERE fc.version = '0.4' AND fc.box_type = 'pico';
+
+            INSERT INTO device_type_groups (id, name) VALUES (gen_random_uuid(), 'Wurfmaschine');
+            INSERT INTO device_type_groups (id, name) VALUES (gen_random_uuid(), 'LED');
+
+            INSERT INTO device_types (id, name, signal_type_id, group_id, signal_duration_ms)
+            SELECT gen_random_uuid(), 'Werfer',
+                   (SELECT st.id FROM signal_types st
+                    JOIN firmware_configs fc ON st.firmware_config_id = fc.id
+                    WHERE fc.version = '0.4' AND st.device = 'GPIO' AND st.command = '15'),
+                   (SELECT id FROM device_type_groups WHERE name = 'Wurfmaschine'),
+                   500;
+
+            INSERT INTO device_types (id, name, signal_type_id, group_id, signal_duration_ms)
+            SELECT gen_random_uuid(), 'LED',
+                   (SELECT st.id FROM signal_types st
+                    JOIN firmware_configs fc ON st.firmware_config_id = fc.id
+                    WHERE fc.version = '0.4' AND st.device = 'LED' AND st.command = 'OFF'),
+                   (SELECT id FROM device_type_groups WHERE name = 'LED'),
+                   2000;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

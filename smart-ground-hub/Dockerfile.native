@@ -1,0 +1,12 @@
+FROM maven:3.9-eclipse-temurin-25 AS build
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn -B -DskipTests package
+
+FROM debian:bullseye-slim
+WORKDIR /app
+COPY --from=build /app/target/smartground ./smartground
+RUN chmod +x ./smartground
+EXPOSE 8080
+ENTRYPOINT ["./smartground"]

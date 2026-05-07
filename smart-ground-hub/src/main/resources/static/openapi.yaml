@@ -1,0 +1,1273 @@
+openapi: 3.0.3
+info:
+  title: SmartGround API
+  version: 2.0.0
+  description: >
+    REST API for IoT device management with MQTT-based device discovery and
+    command signaling. Includes endpoints to manage device types, register
+    devices, and trigger config pushes to SmartBox firmware via MQTT.
+
+    ## Device Management
+
+    All device operations use the flat `/api/devices` endpoint. Devices are
+    always registered on a SmartBox (network access point) but are managed
+    as a flat list with optional filtering by SmartBox or Range.
+    Use **POST /api/devices** to register and immediately trigger a config push
+    to the SmartBox firmware via MQTT.
+
+    ## Breaking changes from v2.x
+
+    - `POST /api/smart-boxes/{id}/devices` removed — use `POST /api/devices`
+    - `GET /api/smart-boxes/{id}/devices` removed — use `GET /api/devices?smartBoxId=X`
+    - `POST/DELETE /api/ranges/{rangeId}/devices/{deviceId}` removed — use `POST/DELETE /api/devices/{id}/range`
+    - `SmartBoxResponse.deviceCount` removed
+
+servers:
+  - url: http://localhost:8080
+    description: JVM App
+  - url: http://localhost:8081
+    description: Native App
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Auth
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/auth/login:
+    post:
+      summary: Authenticate and receive a JWT token
+      operationId: login
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+
+  /api/users:
+    post:
+      summary: Create a new user
+      operationId: createUser
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created successfully
+        '409':
+          description: User already exists
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DeviceType
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/device-types:
+    get:
+      summary: List all device types
+      operationId: listDeviceTypes
+      tags: [DeviceType]
+      parameters:
+        - name: firmwareConfigId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter device types by firmware configuration
+      responses:
+        '200':
+          description: A list of device types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceTypeResponse'
+
+  /api/device-types/{id}:
+    get:
+      summary: Get a device type by ID
+      operationId: getDeviceType
+      tags: [DeviceType]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device type found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceTypeResponse'
+        '404':
+          description: Device type not found
+
+    patch:
+      summary: Update a device type
+      operationId: updateDeviceType
+      tags: [DeviceType]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceTypeRequest'
+      responses:
+        '200':
+          description: Device type updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceTypeResponse'
+        '404':
+          description: Device type not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DeviceTypeGroup (consolidated under /device-types)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/device-types/groups:
+    get:
+      summary: List all device type groups
+      operationId: listDeviceTypeGroups
+      tags: [DeviceType]
+      responses:
+        '200':
+          description: A list of device type groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceTypeGroupResponse'
+
+  /api/device-types/groups/{id}:
+    get:
+      summary: Get a device type group by ID
+      operationId: getDeviceTypeGroup
+      tags: [DeviceType]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device type group found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceTypeGroupResponse'
+        '404':
+          description: Device type group not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # FirmwareConfig (consolidated under /device-types)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/device-types/firmware-configs:
+    get:
+      summary: List all firmware configurations
+      operationId: listFirmwareConfigs
+      tags: [DeviceType]
+      responses:
+        '200':
+          description: A list of firmware configurations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FirmwareConfigResponse'
+
+    post:
+      summary: Register a new firmware configuration
+      description: >
+        Creates a new firmware configuration with associated signal types and device
+        type groups. Requires ADMIN role. Each entry in signal_types both defines a
+        signal type and creates (or reuses) a named device type group.
+      operationId: registerFirmwareConfig
+      tags: [DeviceType]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterFirmwareConfigRequest'
+      responses:
+        '201':
+          description: Firmware configuration created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirmwareConfigResponse'
+        '400':
+          description: Invalid manifest or duplicate firmware version
+        '403':
+          description: User does not have ADMIN role
+
+  /api/device-types/firmware-configs/{id}:
+    get:
+      summary: Get a firmware configuration by ID
+      operationId: getFirmwareConfig
+      tags: [DeviceType]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Firmware configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirmwareConfigResponse'
+        '404':
+          description: Firmware configuration not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Device
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/devices:
+    get:
+      summary: List all devices
+      operationId: listDevices
+      tags: [Device]
+      parameters:
+        - name: rangeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter devices by range
+        - name: smartBoxId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter devices by smart box
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Zero-based page number
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Number of items per page
+      responses:
+        '200':
+          description: A list of devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevicePageResponse'
+
+    post:
+      summary: Register a device on a smart box
+      operationId: createDevice
+      tags: [Device]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeviceRequest'
+      responses:
+        '201':
+          description: Device registered and config push triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '404':
+          description: Smart box or device type not found
+
+  /api/devices/{id}:
+    get:
+      summary: Get device by ID
+      operationId: getDevice
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '404':
+          description: Device not found
+
+    patch:
+      summary: Update device properties
+      operationId: updateDevice
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceRequest'
+      responses:
+        '200':
+          description: Device updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '404':
+          description: Device not found
+
+    delete:
+      summary: Delete a device
+      operationId: deleteDevice
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Device deleted
+        '404':
+          description: Device not found
+
+  /api/devices/{id}/command:
+    post:
+      summary: Send a command to a device (routed via MQTT to the SmartBox)
+      operationId: sendDeviceCommand
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Command accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          description: Device is blocked
+        '404':
+          description: Device not found
+
+  /api/devices/{id}/range:
+    post:
+      summary: Assign device to a range
+      operationId: assignDeviceToRange
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRangeRequest'
+      responses:
+        '200':
+          description: Device assigned to range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '404':
+          description: Device or range not found
+
+    delete:
+      summary: Unassign device from its range
+      operationId: removeDeviceFromRange
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Device unassigned
+        '404':
+          description: Device not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Range
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/ranges:
+    get:
+      summary: List all ranges
+      operationId: listRanges
+      tags: [Range]
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Zero-based page number
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Number of items per page
+      responses:
+        '200':
+          description: A list of ranges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangePageResponse'
+
+    post:
+      summary: Create a new range
+      operationId: createRange
+      tags: [Range]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRangeRequest'
+      responses:
+        '201':
+          description: Range created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangeSummaryResponse'
+        '400':
+          description: Bad request
+
+  /api/ranges/{id}:
+    get:
+      summary: Get range by ID
+      operationId: getRange
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Range found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangeDetailResponse'
+        '404':
+          description: Range not found
+
+    put:
+      summary: Update a range
+      operationId: updateRange
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRangeRequest'
+      responses:
+        '200':
+          description: Range updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangeSummaryResponse'
+        '404':
+          description: Range not found
+
+    delete:
+      summary: Delete a range
+      operationId: deleteRange
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Range deleted
+        '404':
+          description: Range not found
+
+  /api/ranges/{id}/locked:
+    patch:
+      summary: Lock or unlock a range
+      description: >
+        When a range is locked, device assignment (POST/DELETE /api/ranges/{id}/devices/{deviceId})
+        is rejected with 409. Commands to devices within the range are still forwarded.
+        Locking is a safety mechanism to prevent accidental reconfiguration during an active session.
+      operationId: setRangeLocked
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetLockedRequest'
+      responses:
+        '200':
+          description: Range lock state updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangeSummaryResponse'
+        '404':
+          description: Range not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Events (SSE)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/events:
+    get:
+      summary: Server-Sent Events stream for real-time state changes
+      description: >
+        Opens a persistent SSE connection. The server pushes events whenever
+        SmartBox or Device state changes (driven by MQTT). Clients should
+        reconnect automatically on disconnect using the EventSource API.
+
+        Event types:
+        - `smartbox.status`   — SmartBox status changed (ONLINE/OFFLINE/BLOCKED)
+        - `smartbox.synced`   — SmartBox configSynced flag changed
+        - `device.health`     — Device healthy or blocked flag changed
+
+        Each event's `data` field is a JSON object. See schemas below.
+      operationId: streamEvents
+      tags: [Events]
+      responses:
+        '200':
+          description: SSE stream established
+          content:
+            text/event-stream:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/SmartBoxStatusEvent'
+                  - $ref: '#/components/schemas/SmartBoxSyncedEvent'
+                  - $ref: '#/components/schemas/DeviceHealthEvent'
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SmartBox
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/smart-boxes:
+    get:
+      summary: List all smart boxes
+      operationId: listSmartBoxes
+      tags: [SmartBox]
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Zero-based page number
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Number of items per page
+      responses:
+        '200':
+          description: A list of smart boxes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartBoxPageResponse'
+
+  /api/smart-boxes/{id}:
+    get:
+      summary: Get smart box by ID
+      operationId: getSmartBox
+      tags: [SmartBox]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Smart box found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartBoxResponse'
+        '404':
+          description: Smart box not found
+
+  /api/smart-boxes/{id}/alias:
+    patch:
+      summary: Set alias for a smart box
+      operationId: setSmartBoxAlias
+      tags: [SmartBox]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetAliasRequest'
+      responses:
+        '200':
+          description: Alias set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartBoxResponse'
+        '404':
+          description: Smart box not found
+
+  /api/smart-boxes/{id}/push-config:
+    post:
+      summary: Manually trigger a config push to a smart box
+      description: >
+        Forces the backend to re-publish the full device configuration to the
+        SmartBox via MQTT (topic: smartboxes/{mac}/config). Useful after
+        changes to device types or when a box reconnects without triggering
+        auto-push via discovery.
+      operationId: pushSmartBoxConfig
+      tags: [SmartBox]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Config push accepted (MQTT publish dispatched)
+        '404':
+          description: Smart box not found
+
+components:
+  schemas:
+
+    # ───── DeviceType ─────────────────────────────────────────────────────────
+
+    DeviceTypeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Human-readable label (e.g. "Wurfmaschine Typ A")
+        signalTypeId:
+          type: string
+          format: uuid
+        groupId:
+          type: string
+          format: uuid
+        groupName:
+          type: string
+          description: Name of the device type group this type belongs to
+        signalDurationMs:
+          type: integer
+          description: How long the signal is held active (ms)
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+          description: Optional delay before the signal fires (ms)
+        command:
+          type: string
+          description: Command string sent to the firmware (e.g. ON, OFF)
+        device:
+          type: string
+          description: Device kind as understood by the firmware (e.g. SENSOR, ACTUATOR)
+        direction:
+          type: string
+          description: Communication direction (INPUT or OUTPUT)
+
+    DeviceTypeGroupResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Group name (e.g. "Wurfmaschine", "LED-Anzeige")
+
+    FirmwareConfigResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: string
+          description: Firmware version string (e.g. "0.6v")
+        boxType:
+          type: string
+          description: Hardware variant this firmware targets
+        signalTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/FirmwareConfigSignalTypeResponse'
+
+    FirmwareConfigSignalTypeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        communicationDirection:
+          type: string
+          description: INPUT or OUTPUT
+        device:
+          type: string
+          description: SENSOR or ACTUATOR
+        command:
+          type: string
+          description: Command string sent to firmware
+
+    RegisterFirmwareConfigRequest:
+      type: object
+      required: [version, box_type, signal_types]
+      properties:
+        version:
+          type: string
+          description: Firmware version string (must be unique per box_type)
+        box_type:
+          type: string
+          description: Hardware variant identifier
+        signal_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegisterFirmwareConfigSignalTypeEntry'
+
+    RegisterFirmwareConfigSignalTypeEntry:
+      type: object
+      required: [direction, device, command, group_name, name, signal_duration_ms]
+      properties:
+        direction:
+          type: string
+          description: CommunicationDirection enum value (e.g. OUTPUT)
+        device:
+          type: string
+          description: DeviceKind enum value (e.g. ACTUATOR)
+        command:
+          type: string
+          description: Firmware command string (e.g. FIRE)
+        group_name:
+          type: string
+          description: Name of the device type group to create or reuse
+        name:
+          type: string
+          description: Name for the device type created from this signal type
+        signal_duration_ms:
+          type: integer
+          minimum: 0
+          description: Signal duration in milliseconds
+        delay_signal_duration_ms:
+          type: integer
+          nullable: true
+          description: Optional delay before the signal in milliseconds
+
+    UpdateDeviceTypeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: User-friendly label for this device type (e.g. "Wurfmaschine Typ A")
+        signalDurationMs:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: How long the signal is held active (ms)
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+          description: Optional delay before the signal fires (ms)
+
+    # ───── Device ─────────────────────────────────────────────────────────────
+
+    DeviceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        alias:
+          type: string
+        smartBoxId:
+          type: string
+          format: uuid
+          description: ID of the SmartBox this device is connected to
+        groupId:
+          type: string
+          format: uuid
+          description: Device type group
+        groupName:
+          type: string
+          description: Name of the device type group
+        deviceTypeId:
+          type: string
+          format: uuid
+        deviceType:
+          type: string
+        command:
+          type: string
+          description: Firmware command (e.g. FIRE, ON)
+        boxType:
+          type: string
+        blocked:
+          type: boolean
+        healthy:
+          type: boolean
+        signalDurationMs:
+          type: integer
+          description: How long the signal is held active
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+          description: Optional delay before signal fires
+        pinConfig:
+          $ref: '#/components/schemas/PinConfig'
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+
+    CommandRequest:
+      type: object
+      required: [command]
+      properties:
+        command:
+          type: string
+          description: Command string sent to the firmware (e.g. ON, OFF)
+
+    CommandResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+        detail:
+          type: string
+
+    # ───── Range ──────────────────────────────────────────────────────────────
+
+    RangeSummaryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        locked:
+          type: boolean
+          description: >
+            true when the range is locked. Locked ranges reject device assignment changes.
+            Use PATCH /api/ranges/{id}/locked to change this state.
+        deviceCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    RangeDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        locked:
+          type: boolean
+          description: >
+            true when the range is locked. Locked ranges reject device assignment changes.
+            Use PATCH /api/ranges/{id}/locked to change this state.
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceResponse'
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateRangeRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    UpdateRangeRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    SetLockedRequest:
+      type: object
+      required: [locked]
+      properties:
+        locked:
+          type: boolean
+
+    # ───── Events (SSE) ────────────────────────────────────────────────────────
+
+    SmartBoxStatusEvent:
+      type: object
+      description: Emitted when a SmartBox transitions between ONLINE, OFFLINE, or BLOCKED
+      required: [type, smartBoxId, status]
+      properties:
+        type:
+          type: string
+          enum: [smartbox.status]
+        smartBoxId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/SmartBoxStatus'
+
+    SmartBoxSyncedEvent:
+      type: object
+      description: Emitted when a SmartBox ACKs or loses sync with the config push
+      required: [type, smartBoxId, configSynced]
+      properties:
+        type:
+          type: string
+          enum: [smartbox.synced]
+        smartBoxId:
+          type: string
+          format: uuid
+        configSynced:
+          type: boolean
+
+    DeviceHealthEvent:
+      type: object
+      description: Emitted when a device's healthy or blocked flag changes
+      required: [type, deviceId]
+      properties:
+        type:
+          type: string
+          enum: [device.health]
+        deviceId:
+          type: string
+          format: uuid
+        healthy:
+          type: boolean
+        blocked:
+          type: boolean
+
+    # ───── SmartBox Status Enum ────────────────────────────────────────────────
+
+    SmartBoxStatus:
+      type: string
+      enum: [ONLINE, OFFLINE, BLOCKED]
+      description: SmartBox operational status
+
+    # ───── Pin Configuration ───────────────────────────────────────────────────
+
+    PinConfig:
+      type: object
+      required: [pin, mode]
+      properties:
+        pin:
+          type: integer
+          minimum: 0
+          maximum: 40
+          description: GPIO pin number on the Raspberry Pi Pico 2W (valid range 0–29 for user GPIOs; 0–40 reserved)
+        mode:
+          type: string
+          enum: [OUTPUT, INPUT, INPUT_PULLUP, INPUT_PULLDOWN, PWM]
+          description: GPIO mode as understood by the firmware
+        pwmFrequencyHz:
+          type: integer
+          minimum: 1
+          description: Required when mode is PWM. Sets the PWM carrier frequency.
+        invertLogic:
+          type: boolean
+          default: false
+          description: When true, the firmware inverts the signal (active-low wiring)
+
+    # ───── Pagination ──────────────────────────────────────────────────────────
+
+    PageMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    DevicePageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    RangePageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/RangeSummaryResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    SmartBoxPageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/SmartBoxResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    # ───── SmartBox ───────────────────────────────────────────────────────────
+
+    SmartBoxResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        macAddress:
+          type: string
+        alias:
+          type: string
+        status:
+          $ref: '#/components/schemas/SmartBoxStatus'
+        firmwareVersion:
+          type: string
+        configSynced:
+          type: boolean
+          description: >
+            true once the SmartBox has ACK'd the latest config push via
+            smartboxes/{mac}/config/ack
+
+    CreateDeviceRequest:
+      type: object
+      required: [smartBoxId, groupId, deviceTypeId, alias]
+      properties:
+        smartBoxId:
+          type: string
+          format: uuid
+          description: The SmartBox this device will be registered on
+        groupId:
+          type: string
+          format: uuid
+          description: The DeviceTypeGroup for this device
+        deviceTypeId:
+          type: string
+          format: uuid
+          description: The specific DeviceType within the group
+        alias:
+          type: string
+          description: User-friendly name for this device
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional range to assign the device to on registration
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+          description: Override delay before the signal fires (ms)
+
+    UpdateDeviceRequest:
+      type: object
+      properties:
+        alias:
+          type: string
+        signalDurationMs:
+          type: integer
+          nullable: true
+          description: How long the signal is held active (null = use device type default)
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+          description: Delay before signal fires (null = use device type default)
+        groupId:
+          type: string
+          format: uuid
+          description: Reassign device to a different device type group
+
+    AssignRangeRequest:
+      type: object
+      required: [rangeId]
+      properties:
+        rangeId:
+          type: string
+          format: uuid
+          description: ID of the range to assign this device to
+
+    SetAliasRequest:
+      type: object
+      required: [alias]
+      properties:
+        alias:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: JWT token containing username and role as claims
+
+    CreateUserRequest:
+      type: object
+      required: [username, password, role]
+      properties:
+        username:
+          type: string
+          description: Username for the new user
+        password:
+          type: string
+          description: Password for the new user
+        role:
+          type: string
+          description: User role (ADMIN or SHOOTER)
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
