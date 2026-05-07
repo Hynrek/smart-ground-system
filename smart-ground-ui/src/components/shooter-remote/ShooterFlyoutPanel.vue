@@ -91,6 +91,9 @@
                   <Icons icon="play" :size="12" color="#fff" />
                   Abspielen
                 </button>
+                <button class="score-btn" @click="store.playProgramWithScore(prog.id)" title="Mit Score-Tracking spielen">
+                  <Icons icon="target" :size="12" color="#48bb78" />
+                </button>
                 <button class="trash-btn" @click="store.deleteProgram(prog.id)">
                   <Icons icon="trash" :size="13" color="rgba(252,129,129,0.8)" />
                 </button>
@@ -584,6 +587,24 @@ const getStepTooltip = (step) => {
 }
 
 .play-btn:hover {
+  background: rgba(72, 187, 120, 0.22);
+}
+
+.score-btn {
+  background: rgba(72, 187, 120, 0.15);
+  border: 1px solid rgba(72, 187, 120, 0.3);
+  color: #48bb78;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: background 0.15s;
+}
+
+.score-btn:hover {
   background: rgba(72, 187, 120, 0.22);
 }
 
