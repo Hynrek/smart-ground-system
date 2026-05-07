@@ -66,7 +66,7 @@
         <div v-if="isRecordingActive && !isOpen && store.ablauf.length > 0" class="recording-summary">
           <div class="captured-items">
             <button
-              v-for="(step, idx) in store.ablauf"
+              v-for="step in store.ablauf"
               :key="step.id"
               class="captured-item"
               :class="{ 'is-raffale': step.type === 'raffale' }"
