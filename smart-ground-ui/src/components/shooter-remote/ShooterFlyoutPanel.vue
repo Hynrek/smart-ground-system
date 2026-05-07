@@ -3,9 +3,9 @@
     <!-- Overlay (blocks device buttons when panel open) -->
     <div v-if="isOpen && !isRecordingActive" class="flyout-overlay" @click="isOpen = false" />
 
-    <!-- Handle (closed state or shrunk state during recording) -->
+    <!-- Handle (only in recording mode) -->
     <button
-      v-if="!isOpen"
+      v-if="!isOpen && store.sessionMode === 'recording'"
       class="flyout-handle"
       :class="{ 'shrunk-mode': isRecordingActive }"
       @click="togglePanel"
@@ -31,23 +31,6 @@
         <div v-if="isOpen || !isRecordingActive" class="header-divider" />
         <Icons icon="program" :size="14" color="rgba(255,255,255,0.6)" />
         <span class="header-title">{{ isRecordingActive && !isOpen ? 'Erfasst' : 'Programme' }}</span>
-      </div>
-
-      <!-- Capture section (only when reserved) -->
-      <div v-if="store.isReserved" class="capture-section">
-        <div class="capture-row">
-          <span class="capture-label">{{ store.programMode ? 'Erfassen' : 'Programm' }}</span>
-          <button
-            class="capture-btn"
-            :class="{ 'is-capturing': store.programMode }"
-            @click="toggleCapture"
-          >
-            {{ store.programMode ? 'Abbrechen' : 'Erfassen' }}
-          </button>
-        </div>
-        <div v-if="store.programMode" class="capture-hint">
-          {{ modeHint }}
-        </div>
       </div>
 
       <!-- Scrollable content -->
@@ -148,14 +131,6 @@ const isRecordingActive = computed(
   () => store.sessionMode === 'recording' && store.recordingActive && store.programMode,
 );
 
-const toggleCapture = () => {
-  if (store.programMode) {
-    store.cancelCapture();
-  } else {
-    store.startCapture();
-  }
-};
-
 const togglePanel = () => {
   if (isRecordingActive.value && !isOpen.value) {
     isOpen.value = true;
@@ -196,13 +171,6 @@ const getLetterForDevice = (deviceId) => {
   if (idx === -1) return '?';
   return String.fromCharCode(65 + idx);
 };
-
-const modeHint = computed(() => {
-  if (!store.programMode) return '';
-  if (store.mode === 'solo') return 'Solo — Gerät antippen zum Hinzufügen';
-  if (store.pairPending) return `Pair: ${store.pairPending.alias} — zweites Gerät wählen`;
-  return 'Pair — erstes Gerät wählen';
-});
 
 const throwCount = (steps) => {
   let count = 0;
@@ -376,66 +344,6 @@ const getStepTooltip = (step) => {
   font-size: 14px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.7);
-}
-
-/* ── Capture section ─────────────────────────────── */
-.capture-section {
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  flex-shrink: 0;
-}
-
-.flyout-panel.shrunk .capture-section {
-  display: none;
-}
-
-.capture-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-
-.capture-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.35);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-
-.capture-btn {
-  background: transparent;
-  border: 1.5px dashed rgba(79, 195, 247, 0.5);
-  color: #4fc3f7;
-  border-radius: 8px;
-  padding: 5px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.capture-btn:hover {
-  background: rgba(79, 195, 247, 0.07);
-}
-
-.capture-btn.is-capturing {
-  background: rgba(252, 129, 129, 0.12);
-  border: 1.5px solid rgba(252, 129, 129, 0.4);
-  color: #fc8181;
-}
-
-.capture-hint {
-  margin-top: 8px;
-  background: rgba(79, 195, 247, 0.07);
-  border: 1px solid rgba(79, 195, 247, 0.2);
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-  line-height: 1.4;
 }
 
 /* ── Scrollable content ──────────────────────────── */
