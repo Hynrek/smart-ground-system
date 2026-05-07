@@ -703,6 +703,7 @@ const getStepTooltip = (step) => {
   align-items: center;
   justify-content: center;
   z-index: 100;
+  pointer-events: auto;
 }
 
 .mode-selection-dialog {
