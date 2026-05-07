@@ -13,6 +13,19 @@
       </div>
 
       <div class="header-right">
+        <!-- Status indicator (emergency stop) - leftmost -->
+        <div class="header-status">
+          <button
+            class="status-indicator"
+            :class="{ 'is-locked': isLocked, 'is-ready': !isLocked }"
+            @click="toggleBlock"
+            :title="isLocked ? 'Notfallsperrung aktiv - Klick zum Freigeben' : 'Klick zum Notfall Stop'"
+          >
+            <Icons :icon="isLocked ? 'unlock' : 'alert'" :size="16" />
+            <span class="status-text">{{ isLocked ? 'Freigeben' : 'Notfall Stop' }}</span>
+          </button>
+        </div>
+
         <!-- Mode toggle (Throwing / Recording) -->
         <div class="header-mode-toggle">
           <button
@@ -54,19 +67,6 @@
               <span class="option-count">{{ group.count }}</span>
             </button>
           </div>
-        </div>
-
-        <!-- Status indicator (emergency stop) -->
-        <div class="header-status">
-          <button
-            class="status-indicator"
-            :class="{ 'is-locked': isLocked, 'is-ready': !isLocked }"
-            @click="toggleBlock"
-            :title="isLocked ? 'Notfallsperrung aktiv - Klick zum Freigeben' : 'Klick zum Notfall Stop'"
-          >
-            <Icons :icon="isLocked ? 'unlock' : 'alert'" :size="16" />
-            <span class="status-text">{{ isLocked ? 'Freigeben' : 'Notfall Stop' }}</span>
-          </button>
         </div>
       </div>
     </div>
@@ -455,17 +455,18 @@ const chipLabel = (device) => {
 /* ── Header mode toggle ──────────────────────────── */
 .header-mode-toggle {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   background: rgba(255, 255, 255, 0.08);
   border: 1.5px solid rgba(255, 255, 255, 0.15);
   border-radius: 10px;
   overflow: hidden;
-  padding: 2px;
+  padding: 4px;
+  height: 100%;
 }
 
 .mode-toggle-btn {
-  width: 38px;
-  height: 32px;
+  width: 36px;
+  height: 100%;
   padding: 0;
   background: transparent;
   border: none;
@@ -478,12 +479,16 @@ const chipLabel = (device) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .mode-toggle-btn:hover {
   color: rgba(255, 255, 255, 0.7);
   background: rgba(255, 255, 255, 0.05);
+}
+
+.mode-toggle-btn:active {
+  transform: scale(0.92);
 }
 
 .mode-toggle-btn.active {
@@ -511,40 +516,48 @@ const chipLabel = (device) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 14px 16px;
+  gap: 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
   flex: 1;
 }
 
 .back-btn {
-  background: none;
-  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
-  padding: 6px;
-  margin-left: -6px;
+  padding: 8px;
   display: flex;
   align-items: center;
-  border-radius: 8px;
+  justify-content: center;
+  border-radius: 10px;
   flex-shrink: 0;
-  transition: background 0.15s;
+  transition: all 0.15s;
+  width: 36px;
+  height: 36px;
 }
 
 .back-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.back-btn:active {
+  transform: scale(0.95);
 }
 
 .header-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 
@@ -553,38 +566,41 @@ const chipLabel = (device) => {
   font-weight: 700;
   color: #ffffff;
   margin: 0;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .page-sub {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.35);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* ── Header Right (status, group, release) ────────── */
+/* ── Header Right (status, mode, group) ─────────── */
 .header-right {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  height: 36px;
 }
 
 .header-status {
   position: relative;
+  height: 100%;
 }
 
 .status-indicator {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 0 12px;
+  height: 100%;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
@@ -594,11 +610,16 @@ const chipLabel = (device) => {
   font-family: inherit;
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
 }
 
 .status-indicator:hover {
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.8);
+}
+
+.status-indicator:active {
+  transform: scale(0.95);
 }
 
 .status-indicator.is-ready {
@@ -631,7 +652,8 @@ const chipLabel = (device) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 0 12px;
+  height: 36px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
@@ -647,6 +669,10 @@ const chipLabel = (device) => {
 .group-dropdown-btn:hover {
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.8);
+}
+
+.group-dropdown-btn:active {
+  transform: scale(0.95);
 }
 
 .group-dropdown-btn svg {
