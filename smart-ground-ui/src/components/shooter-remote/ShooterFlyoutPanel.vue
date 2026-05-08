@@ -1,32 +1,5 @@
 <template>
   <div class="flyout-wrapper">
-    <!-- Program mode selection modal -->
-    <div v-if="selectedProgramId" class="mode-selection-overlay" @click="selectedProgramId = null">
-      <div class="mode-selection-dialog" @click.stop>
-        <div class="dialog-header">
-          <span class="dialog-title">Spielmodus</span>
-          <button class="dialog-close" @click="selectedProgramId = null">
-            <Icons icon="x" :size="14" color="rgba(255,255,255,0.6)" />
-          </button>
-        </div>
-        <div class="dialog-content">
-          <p class="dialog-text">Wie möchtest du das Programm spielen?</p>
-          <div class="mode-buttons">
-            <button class="mode-btn mode-normal" @click="store.playProgram(selectedProgramId); selectedProgramId = null">
-              <Icons icon="play" :size="16" color="#4fc3f7" />
-              <span class="mode-label">Normal</span>
-              <span class="mode-desc">Automatische Fortschritt</span>
-            </button>
-            <button class="mode-btn mode-score" @click="store.playProgramWithScore(selectedProgramId); selectedProgramId = null">
-              <Icons icon="target" :size="16" color="#48bb78" />
-              <span class="mode-label">Score</span>
-              <span class="mode-desc">Mit Treffern zählen</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Overlay (blocks device buttons when panel open) -->
     <div v-if="isOpen && !isRecordingActive" class="flyout-overlay" @click="isOpen = false" />
 
@@ -114,7 +87,7 @@
                 </div>
               </div>
               <div class="prog-actions">
-                <button class="play-btn" @click="selectedProgramId = prog.id">
+                <button class="play-btn" @click="store.playProgramWithScore(prog.id)">
                   <Icons icon="play" :size="12" color="#fff" />
                   Abspielen
                 </button>
@@ -153,7 +126,6 @@ const store = useShooterRemoteStore();
 const deviceStore = useDeviceStore();
 const rangeStore = useRangeStore();
 const isOpen = ref(false);
-const selectedProgramId = ref(null);
 
 const isRecordingActive = computed(
   () => store.sessionMode === 'recording' && store.recordingActive && store.programMode,
@@ -691,124 +663,5 @@ const getStepTooltip = (step) => {
 
 .btn-save:hover {
   background: rgba(72, 187, 120, 0.28);
-}
-
-/* ── Program mode selection modal ────────────────── */
-.mode-selection-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(10, 10, 18, 0.6);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  pointer-events: auto;
-}
-
-.mode-selection-dialog {
-  background: rgba(20, 25, 40, 0.95);
-  border: 1.5px solid rgba(79, 195, 247, 0.2);
-  border-radius: 20px;
-  padding: 24px;
-  max-width: 320px;
-  width: 90vw;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
-}
-
-.dialog-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.dialog-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.dialog-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.15s;
-}
-
-.dialog-close:hover {
-  opacity: 0.7;
-}
-
-.dialog-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.dialog-text {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0;
-  text-align: center;
-}
-
-.mode-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.mode-btn {
-  padding: 16px;
-  border-radius: 12px;
-  border: 1.5px solid;
-  background: rgba(255, 255, 255, 0.04);
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.2s;
-  font-family: inherit;
-}
-
-.mode-btn:active {
-  transform: scale(0.97);
-}
-
-.mode-normal {
-  border-color: rgba(79, 195, 247, 0.3);
-  color: #4fc3f7;
-}
-
-.mode-normal:hover {
-  background: rgba(79, 195, 247, 0.12);
-  border-color: rgba(79, 195, 247, 0.5);
-}
-
-.mode-score {
-  border-color: rgba(72, 187, 120, 0.3);
-  color: #48bb78;
-}
-
-.mode-score:hover {
-  background: rgba(72, 187, 120, 0.12);
-  border-color: rgba(72, 187, 120, 0.5);
-}
-
-.mode-label {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.mode-desc {
-  font-size: 11px;
-  opacity: 0.7;
 }
 </style>
