@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { sendDeviceCommand } from '@/services/deviceApi.js';
+import { useAuthStore } from '@/stores/authStore.js';
 
 export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   const selectedRangeId = ref(null);
@@ -19,6 +20,45 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   const ablauf = ref([]);
   const savedPrograms = ref([]);
   const editingId = ref(null);
+
+  const getProgramPrefix = () => {
+    const authStore = useAuthStore();
+    const userName = authStore.userName ?? 'anonymous';
+    return `${userName}_program_`;
+  };
+
+  const nextProgramKey = () => {
+    const prefix = getProgramPrefix();
+    const existing = Object.keys(localStorage)
+      .filter((k) => k.startsWith(prefix))
+      .map((k) => parseInt(k.slice(prefix.length), 10))
+      .filter((n) => !isNaN(n));
+    const nextNum = existing.length > 0 ? Math.max(...existing) + 1 : 1;
+    return `${prefix}${nextNum}`;
+  };
+
+  const loadProgramsFromStorage = () => {
+    const prefix = getProgramPrefix();
+    const programs = Object.keys(localStorage)
+      .filter((k) => k.startsWith(prefix))
+      .map((key) => {
+        try {
+          const data = JSON.parse(localStorage.getItem(key));
+          return { id: key, name: data.programName, steps: data.steps };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        const numA = parseInt(a.id.slice(prefix.length), 10);
+        const numB = parseInt(b.id.slice(prefix.length), 10);
+        return numA - numB;
+      });
+    savedPrograms.value = programs;
+  };
+
+  loadProgramsFromStorage();
 
   const playProg = ref(null);
   const playCurrentStep = ref(0);
@@ -150,9 +190,14 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     const name = programName || `Programm ${savedPrograms.value.length + 1}`;
     if (editingId.value !== null) {
       const idx = savedPrograms.value.findIndex((p) => p.id === editingId.value);
-      if (idx !== -1) savedPrograms.value[idx].steps = [...ablauf.value];
+      if (idx !== -1) {
+        savedPrograms.value[idx].steps = [...ablauf.value];
+        localStorage.setItem(editingId.value, JSON.stringify({ programName: savedPrograms.value[idx].name, steps: [...ablauf.value] }));
+      }
     } else {
-      savedPrograms.value = [...savedPrograms.value, { id: Date.now(), name, steps: [...ablauf.value] }];
+      const key = nextProgramKey();
+      localStorage.setItem(key, JSON.stringify({ programName: name, steps: [...ablauf.value] }));
+      savedPrograms.value = [...savedPrograms.value, { id: key, name, steps: [...ablauf.value] }];
     }
     ablauf.value = [];
     pairPending.value = null;
@@ -169,6 +214,7 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   };
 
   const deleteProgram = (programId) => {
+    localStorage.removeItem(programId);
     savedPrograms.value = savedPrograms.value.filter((p) => p.id !== programId);
   };
 
@@ -191,26 +237,12 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   const createPlaySession = (programId) => {
     const prog = savedPrograms.value.find((p) => p.id === programId);
     if (!prog) return null;
-
-    // Generate unique session ID
-    const sessionId = `play_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-
-    // Store program data in localStorage
-    const sessionData = {
-      programId,
-      programName: prog.name,
-      steps: prog.steps,
-      createdAt: new Date().toISOString(),
-    };
-
-    localStorage.setItem(sessionId, JSON.stringify(sessionData));
-    return sessionId;
+    return programId;
   };
 
   const loadPlaySession = (sessionId) => {
     const sessionData = localStorage.getItem(sessionId);
     if (!sessionData) return null;
-
     try {
       return JSON.parse(sessionData);
     } catch (e) {
@@ -219,9 +251,7 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     }
   };
 
-  const clearPlaySession = (sessionId) => {
-    localStorage.removeItem(sessionId);
-  };
+  const clearPlaySession = () => {};
 
   const getPointValueForStep = (step) => {
     if (step.type === 'solo') return 1;
