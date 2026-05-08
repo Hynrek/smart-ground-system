@@ -18,8 +18,8 @@
           <button
             class="status-indicator"
             :class="{ 'is-locked': isLocked, 'is-ready': !isLocked }"
-            @click="toggleBlock"
             :title="isLocked ? 'Notfallsperrung aktiv - Klick zum Freigeben' : 'Klick zum Notfall Stop'"
+            @click="toggleBlock"
           >
             <Icons :icon="isLocked ? 'unlock' : 'alert'" :size="16" />
             <span class="status-text">{{ isLocked ? 'Freigeben' : 'Notfall Stop' }}</span>
@@ -31,8 +31,8 @@
           <button
             class="mode-toggle-btn"
             :class="{ active: store.sessionMode === 'throwing' }"
-            @click="store.setSessionMode('throwing')"
             title="Wurf-Modus"
+            @click="store.setSessionMode('throwing')"
           >
             W
           </button>
@@ -42,8 +42,8 @@
               active: store.sessionMode === 'recording',
               'is-recording': store.recordingActive
             }"
-            @click="store.setSessionMode('recording')"
             title="Erfassungs-Modus"
+            @click="store.setSessionMode('recording')"
           >
             E
           </button>

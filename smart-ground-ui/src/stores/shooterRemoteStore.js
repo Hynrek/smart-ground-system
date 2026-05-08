@@ -172,14 +172,6 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     savedPrograms.value = savedPrograms.value.filter((p) => p.id !== programId);
   };
 
-  const playProgram = (programId) => {
-    const prog = savedPrograms.value.find((p) => p.id === programId);
-    if (!prog) return;
-    playProg.value = prog.steps;
-    playCurrentStep.value = 0;
-    playScoreMode.value = false;
-  };
-
   const playProgramWithScore = (programId) => {
     const prog = savedPrograms.value.find((p) => p.id === programId);
     if (!prog) return;
