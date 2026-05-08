@@ -91,19 +91,52 @@
       </div>
     </div>
 
-    <!-- Action buttons at bottom -->
+    <!-- Action buttons at bottom (always visible) -->
     <div class="action-bar">
+      <!-- Fail A -->
       <button
-        v-for="btn in actionButtons"
-        :key="btn.id"
         class="action-btn"
-        :class="{ disabled: !btn.active }"
-        :disabled="!btn.active"
-        :title="btn.label"
-        @click="btn.handler"
+        :disabled="!canFail"
+        title="Gerät A fehlgeschossen"
+        @click="store.failStep('a')"
       >
-        <span class="btn-label">{{ btn.label }}</span>
-        <span class="btn-info">{{ btn.info }}</span>
+        <span class="btn-label">Fail A</span>
+        <span class="btn-info">-1</span>
+      </button>
+
+      <!-- Fail B (only for pair/raffale) -->
+      <button
+        v-if="currentStep && ['pair', 'a.schuss', 'raffale'].includes(currentStep.type)"
+        class="action-btn"
+        :disabled="!canFail"
+        title="Gerät B fehlgeschossen"
+        @click="store.failStep('b')"
+      >
+        <span class="btn-label">Fail B</span>
+        <span class="btn-info">-1</span>
+      </button>
+
+      <!-- Fail A/B (only for pair/raffale) -->
+      <button
+        v-if="currentStep && ['pair', 'a.schuss', 'raffale'].includes(currentStep.type)"
+        class="action-btn"
+        :disabled="!canFail"
+        title="Beide Geräte fehlgeschossen"
+        @click="store.failStep('both')"
+      >
+        <span class="btn-label">Fail A/B</span>
+        <span class="btn-info">-2</span>
+      </button>
+
+      <!-- No Bird (always visible) -->
+      <button
+        class="action-btn btn-no-bird"
+        :disabled="store.playLastDeviceStep === null"
+        title="Letzten Schritt wiederholen"
+        @click="store.retryStep()"
+      >
+        <span class="btn-label">No Bird</span>
+        <span class="btn-info">Retry</span>
       </button>
     </div>
 
@@ -183,55 +216,9 @@ const showFinalScore = computed(() => {
   );
 });
 
-const actionButtons = computed(() => {
-  if (!currentStep.value || store.playLastDeviceStep === null || showCompletion.value || showFinalScore.value) {
-    return [];
-  }
-
-  const currentType = currentStep.value.type;
-  const buttons = [];
-
-  // Fail A button
-  buttons.push({
-    id: 'fail-a',
-    label: 'Fail A',
-    info: '-1',
-    active: ['solo', 'pair', 'a.schuss', 'raffale'].includes(currentType),
-    handler: () => store.failStep('a'),
-  });
-
-  // Fail B button
-  if (['pair', 'a.schuss', 'raffale'].includes(currentType)) {
-    buttons.push({
-      id: 'fail-b',
-      label: 'Fail B',
-      info: '-1',
-      active: true,
-      handler: () => store.failStep('b'),
-    });
-  }
-
-  // Fail A/B button
-  if (['pair', 'a.schuss', 'raffale'].includes(currentType)) {
-    buttons.push({
-      id: 'fail-ab',
-      label: 'Fail A/B',
-      info: '-2',
-      active: true,
-      handler: () => store.failStep('both'),
-    });
-  }
-
-  // No Bird button (always active except when done)
-  buttons.push({
-    id: 'no-bird',
-    label: 'No Bird',
-    info: 'Retry',
-    active: store.playLastDeviceStep !== null,
-    handler: () => store.retryStep(),
-  });
-
-  return buttons;
+const canFail = computed(() => {
+  // Can fail only when a step has been completed (has been done, is now green)
+  return store.playLastDeviceStep !== null && !showCompletion.value && !showFinalScore.value;
 });
 
 const getTypeLabel = (type) => {
@@ -405,7 +392,7 @@ watch(
 }
 
 .completed-card {
-  background: rgba(72, 187, 120, 0.15);
+  background: linear-gradient(90deg, rgba(72, 187, 120, 0.15) 50%, rgba(72, 187, 120, 0.15) 50%);
   border: 1px solid rgba(72, 187, 120, 0.3);
   border-radius: 12px;
   padding: 12px 16px;
@@ -415,9 +402,17 @@ watch(
   font-size: 13px;
   color: #48bb78;
   opacity: 0.7;
+  position: relative;
+  overflow: hidden;
 }
 
 .completed-card.is-failed {
+  background: linear-gradient(90deg, rgba(72, 187, 120, 0.15) 50%, rgba(252, 129, 129, 0.15) 50%);
+  border-color: rgba(252, 129, 129, 0.3);
+  color: #fc8181;
+}
+
+.completed-card.is-failed-full {
   background: rgba(252, 129, 129, 0.15);
   border-color: rgba(252, 129, 129, 0.3);
   color: #fc8181;
@@ -681,7 +676,7 @@ watch(
 /* ── Action bar (bottom buttons) ─────────────────── */
 .action-bar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   padding: 16px 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -706,13 +701,23 @@ watch(
   transition: all 0.2s;
 }
 
-.action-btn:hover:not(.disabled) {
+.action-btn:hover:not(:disabled) {
   background: rgba(252, 129, 129, 0.2);
 }
 
-.action-btn.disabled {
+.action-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+.action-btn.btn-no-bird {
+  border-color: rgba(79, 195, 247, 0.35);
+  background: rgba(79, 195, 247, 0.12);
+  color: #4fc3f7;
+}
+
+.action-btn.btn-no-bird:hover:not(:disabled) {
+  background: rgba(79, 195, 247, 0.2);
 }
 
 .btn-label {
