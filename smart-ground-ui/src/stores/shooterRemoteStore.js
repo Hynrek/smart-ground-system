@@ -188,6 +188,41 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     playLastDeviceStep.value = null;
   };
 
+  const createPlaySession = (programId) => {
+    const prog = savedPrograms.value.find((p) => p.id === programId);
+    if (!prog) return null;
+
+    // Generate unique session ID
+    const sessionId = `play_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+    // Store program data in localStorage
+    const sessionData = {
+      programId,
+      programName: prog.name,
+      steps: prog.steps,
+      createdAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem(sessionId, JSON.stringify(sessionData));
+    return sessionId;
+  };
+
+  const loadPlaySession = (sessionId) => {
+    const sessionData = localStorage.getItem(sessionId);
+    if (!sessionData) return null;
+
+    try {
+      return JSON.parse(sessionData);
+    } catch (e) {
+      console.error('Failed to parse play session:', e);
+      return null;
+    }
+  };
+
+  const clearPlaySession = (sessionId) => {
+    localStorage.removeItem(sessionId);
+  };
+
   const getPointValueForStep = (step) => {
     if (step.type === 'solo') return 1;
     if (step.type === 'pair' || step.type === 'a.schuss') return 2;
@@ -340,5 +375,6 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     startCapture, cancelCapture, saveProgram, editProgram, deleteProgram,
     playProgramWithScore, advancePlayStep, completeRaffaleStep,
     markStepDone, failStep, retryStep, closePlayback, getPointValueForStep,
+    createPlaySession, loadPlaySession, clearPlaySession,
   };
 });

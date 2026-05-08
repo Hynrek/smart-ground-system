@@ -128,7 +128,7 @@ import Icons from '@/components/Icons.vue';
 const router = useRouter();
 const props = defineProps({
   rangeId: { type: String, required: true },
-  playId: { type: String, required: true },
+  playId: { type: String, required: true }, // This is now the sessionId
 });
 
 const store = useShooterRemoteStore();
@@ -136,10 +136,25 @@ const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
 const completionVerificationDone = ref(false);
 
-// Initialize play program if not already started
+// Initialize play program from localStorage session
 if (!store.playProg) {
-  const programId = parseInt(props.playId);
-  store.playProgramWithScore(programId);
+  const sessionData = store.loadPlaySession(props.playId);
+  if (sessionData) {
+    // Initialize play state from session data
+    store.playProg = sessionData.steps;
+    store.playCurrentStep = 0;
+    store.playScoreMode = true;
+    const stepStates = sessionData.steps.map((_, idx) => ({
+      stepIndex: idx,
+      state: 'pending',
+      pointValue: store.getPointValueForStep(sessionData.steps[idx]),
+    }));
+    store.playScore = { totalPoints: 0, stepStates };
+    store.playLastDeviceStep = null;
+  } else {
+    // Session not found, redirect back
+    router.push(`/remote/${props.rangeId}`);
+  }
 }
 
 const currentStep = computed(() => store.playProg?.[store.playCurrentStep] ?? null);
@@ -268,6 +283,8 @@ const markLastStepFailed = () => {
 
 const goBack = () => {
   store.closePlayback();
+  // Clear the play session from localStorage
+  store.clearPlaySession(props.playId);
   router.push(`/remote/${props.rangeId}`);
 };
 
@@ -275,6 +292,8 @@ const goBack = () => {
 onBeforeUnmount(() => {
   if (!showFinalScore.value) {
     store.closePlayback();
+    // Clear the session if program wasn't completed
+    store.clearPlaySession(props.playId);
   }
 });
 

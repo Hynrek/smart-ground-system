@@ -204,7 +204,10 @@ const getStepTooltip = (step) => {
 };
 
 const playProgram = (programId) => {
-  router.push(`/remote/${store.selectedRangeId}/play/${programId}`);
+  const sessionId = store.createPlaySession(programId);
+  if (sessionId) {
+    router.push(`/remote/${store.selectedRangeId}/play/${sessionId}`);
+  }
 };
 </script>
 
