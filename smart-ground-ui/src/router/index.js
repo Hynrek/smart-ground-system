@@ -10,6 +10,7 @@ import LoginView from '@/views/LoginView.vue';
 import ShooterHomeView from '@/views/shooter/ShooterHomeView.vue';
 import ShooterRangeSelectView from '@/views/shooter/ShooterRangeSelectView.vue';
 import ShooterRemoteView from '@/views/shooter/ShooterRemoteView.vue';
+import ShooterPlayPage from '@/views/shooter/ShooterPlayPage.vue';
 import { useAuthStore } from '@/stores/authStore';
 
 const routes = [
@@ -32,6 +33,7 @@ const routes = [
   { path: '/home', component: ShooterHomeView, meta: { layout: 'shooter' } },
   { path: '/remote', component: ShooterRangeSelectView, meta: { layout: 'shooter' } },
   { path: '/remote/:rangeId', component: ShooterRemoteView, props: true, meta: { layout: 'shooter' } },
+  { path: '/remote/:rangeId/play/:playId', component: ShooterPlayPage, props: true, meta: { layout: 'shooter' } },
 ];
 
 const router = createRouter({

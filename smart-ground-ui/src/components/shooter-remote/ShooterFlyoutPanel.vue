@@ -87,7 +87,7 @@
                 </div>
               </div>
               <div class="prog-actions">
-                <button class="play-btn" @click="store.playProgramWithScore(prog.id)">
+                <button class="play-btn" @click="playProgram(prog.id)">
                   <Icons icon="play" :size="12" color="#fff" />
                   Abspielen
                 </button>
@@ -117,11 +117,13 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import Icons from '@/components/Icons.vue';
 
+const router = useRouter();
 const store = useShooterRemoteStore();
 const deviceStore = useDeviceStore();
 const rangeStore = useRangeStore();
@@ -199,6 +201,10 @@ const getStepTooltip = (step) => {
   };
   const label = getStepLabel(step);
   return `Klick zum Löschen: ${label} (${labels[step.type]})`;
+};
+
+const playProgram = (programId) => {
+  router.push(`/remote/${store.selectedRangeId}/play/${programId}`);
 };
 </script>
 

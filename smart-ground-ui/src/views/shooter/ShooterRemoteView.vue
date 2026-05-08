@@ -148,9 +148,6 @@
 
     <!-- Flyout panel -->
     <ShooterFlyoutPanel />
-
-    <!-- Play overlay -->
-    <ShooterPlayOverlay v-if="store.playProg" />
   </div>
 </template>
 
@@ -164,7 +161,6 @@ import { useDeviceLoader } from '@/composables/useDeviceLoader.js';
 import { sendDeviceCommand } from '@/services/deviceApi.js';
 import Icons from '@/components/Icons.vue';
 import ShooterFlyoutPanel from '@/components/shooter-remote/ShooterFlyoutPanel.vue';
-import ShooterPlayOverlay from '@/components/shooter-remote/ShooterPlayOverlay.vue';
 
 const props = defineProps({ rangeId: { type: String, required: true } });
 
