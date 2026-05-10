@@ -323,22 +323,39 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     }
   };
 
+  const getPointDeduction = (state) => {
+    if (state === 'done') return 0;
+    if (state === 'failed-both') return 2;
+    if (state === 'failed-a' || state === 'failed-b') return 1;
+    return 0;
+  };
+
+  const updateFailState = (stepState, newFailType, stepType) => {
+    const oldDeduction = getPointDeduction(stepState.state);
+
+    if (stepType === 'solo') {
+      stepState.state = 'failed-both';
+    } else {
+      stepState.state = 'failed-' + newFailType;
+    }
+
+    const newDeduction = getPointDeduction(stepState.state);
+    const pointDifference = newDeduction - oldDeduction;
+    playScore.value.totalPoints -= pointDifference;
+  };
+
   const failStep = (failType) => {
     if (!playScore.value.stepStates || playLastDeviceStep.value === null) return;
 
     const lastStepState = playScore.value.stepStates[playLastDeviceStep.value];
     const lastStep = playProg.value[playLastDeviceStep.value];
 
-    if (lastStepState.state === 'done') {
-      const deduction = failType === 'both' ? 2 : 1;
-      playScore.value.totalPoints -= deduction;
+    if (!lastStepState || !lastStep) return;
 
-      if (lastStep.type === 'solo') {
-        lastStepState.state = 'failed-both';
-      } else {
-        lastStepState.state = 'failed-' + failType;
-      }
-      moveToNextStep();
+    if (lastStepState.state === 'done') {
+      updateFailState(lastStepState, failType, lastStep.type);
+    } else if (lastStepState.state.startsWith('failed-')) {
+      updateFailState(lastStepState, failType, lastStep.type);
     }
   };
 
