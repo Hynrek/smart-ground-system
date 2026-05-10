@@ -201,7 +201,7 @@ const completedSteps = computed(() => {
 
 const showCompletion = computed(() => {
   return (
-    store.playCurrentStep >= store.playProg.length - 1 &&
+    store.playCurrentStep >= store.playProg.length &&
     !completionVerificationDone.value &&
     store.playLastDeviceStep !== null
   );
