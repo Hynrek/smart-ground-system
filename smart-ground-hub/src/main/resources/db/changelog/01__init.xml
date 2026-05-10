@@ -230,4 +230,129 @@
         </sql>
     </changeSet>
 
+    <!-- ============================================ -->
+    <!-- v1.0-9: Session & Competition Management    -->
+    <!-- ============================================ -->
+
+    <changeSet id="v1.0-9" author="smartground">
+        <!-- Erweiterte Session-Template mit Wettkampf-Feldern -->
+        <addColumn tableName="session_templates">
+            <column name="max_groups" type="INTEGER"/>
+            <column name="bracket_type" type="VARCHAR(50)"/>
+            <column name="default_tiebreaker" type="VARCHAR(50)"/>
+            <column name="publish_results" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!-- ============================================ -->
+    <!-- v1.0-10: Bracket Tournaments Infrastructure -->
+    <!-- ============================================ -->
+
+    <changeSet id="v1.0-10" author="smartground">
+        <!-- Erweiterte LiveSession für Bracket-Turniere -->
+        <addColumn tableName="live_sessions">
+            <column name="bracket_phase" type="VARCHAR(50)"/>
+            <column name="bracket_state" type="TEXT"/>
+        </addColumn>
+
+        <!-- Bracket-Matches Tabelle für Eliminierungsturniere -->
+        <createTable tableName="bracket_matches">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="session_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="match_number" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="round_number" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="contestant1_id" type="UUID"/>
+            <column name="contestant2_id" type="UUID"/>
+            <column name="winner_id" type="UUID"/>
+            <column name="score_1" type="INTEGER"/>
+            <column name="score_2" type="INTEGER"/>
+            <column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseTableName="bracket_matches" baseColumnNames="session_id"
+            referencedTableName="live_sessions" referencedColumnNames="id"
+            constraintName="fk_bracket_matches_session"
+            onDelete="CASCADE"/>
+
+        <addUniqueConstraint tableName="bracket_matches"
+            columnNames="session_id,match_number"
+            constraintName="uq_bracket_match_per_session"/>
+
+        <createIndex tableName="bracket_matches" indexName="idx_bracket_matches_session">
+            <column name="session_id"/>
+        </createIndex>
+
+        <createIndex tableName="bracket_matches" indexName="idx_bracket_matches_round">
+            <column name="session_id"/>
+            <column name="round_number"/>
+        </createIndex>
+
+        <modifySql dbms="h2">
+            <replace replace="TIMESTAMPTZ" with="TIMESTAMP"/>
+            <replace replace="CURRENT_TIMESTAMP" with="CURRENT_TIMESTAMP()"/>
+            <replace replace="gen_random_uuid()" with="RANDOM_UUID()"/>
+        </modifySql>
+    </changeSet>
+
+    <!-- ============================================ -->
+    <!-- v1.0-11: Career Statistics                  -->
+    <!-- ============================================ -->
+
+    <changeSet id="v1.0-11" author="smartground">
+        <createTable tableName="career_stats">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_wins" type="INTEGER" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="participations" type="INTEGER" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_score" type="INTEGER" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="avg_score" type="DOUBLE" defaultValueNumeric="0.0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_competed" type="TIMESTAMPTZ"/>
+            <column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="career_stats" indexName="idx_career_stats_user_id">
+            <column name="user_id"/>
+        </createIndex>
+        <createIndex tableName="career_stats" indexName="idx_career_stats_total_score">
+            <column name="total_score" descending="true"/>
+        </createIndex>
+        <modifySql dbms="h2">
+            <replace replace="TIMESTAMPTZ" with="TIMESTAMP"/>
+            <replace replace="CURRENT_TIMESTAMP" with="CURRENT_TIMESTAMP()"/>
+            <replace replace="gen_random_uuid()" with="RANDOM_UUID()"/>
+        </modifySql>
+    </changeSet>
+
 </databaseChangeLog>

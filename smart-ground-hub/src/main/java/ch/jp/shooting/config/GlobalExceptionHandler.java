@@ -1,28 +1,26 @@
-package ch.jp.shooting.api;
+package ch.jp.shooting.config;
 
-import ch.jp.shooting.exception.ConflictException;
-import ch.jp.shooting.exception.DeviceAlreadyAssignedException;
-import ch.jp.shooting.exception.DeviceNotFoundException;
-import ch.jp.shooting.exception.DeviceTemplateNotFoundException;
-import ch.jp.shooting.exception.NotFoundException;
-import ch.jp.shooting.exception.RangeHasDevicesException;
-import ch.jp.shooting.exception.RangeNameAlreadyExistsException;
-import ch.jp.shooting.exception.RangeNotFoundException;
-import ch.jp.shooting.exception.SmartBoxNotFoundException;
+import ch.jp.shooting.exception.*;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 
 import java.net.URI;
 
+/**
+ * Globaler Exception Handler für konsistente Error-Responses.
+ * Behandelt alle Domain- und Infrastructure-Exceptions.
+ */
 @RestControllerAdvice
 @NullMarked
 public class GlobalExceptionHandler {
 
+    // ── Device/Range Exceptions ──
+
     @ExceptionHandler(DeviceNotFoundException.class)
-    ProblemDetail handleNotFound(DeviceNotFoundException ex) {
+    ProblemDetail handleDeviceNotFound(DeviceNotFoundException ex) {
         var detail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
         detail.setType(URI.create("/errors/device-not-found"));
         return detail;
@@ -70,6 +68,45 @@ public class GlobalExceptionHandler {
         return detail;
     }
 
+    // ── Session/Competition Exceptions ──
+
+    @ExceptionHandler(SessionNotFoundException.class)
+    ProblemDetail handleSessionNotFound(SessionNotFoundException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        detail.setType(URI.create("/errors/session-not-found"));
+        return detail;
+    }
+
+    @ExceptionHandler(InvalidGroupRegistrationException.class)
+    ProblemDetail handleInvalidRegistration(InvalidGroupRegistrationException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        detail.setType(URI.create("/errors/invalid-registration"));
+        return detail;
+    }
+
+    @ExceptionHandler(GroupAlreadyRegisteredException.class)
+    ProblemDetail handleGroupAlreadyRegistered(GroupAlreadyRegisteredException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        detail.setType(URI.create("/errors/group-already-registered"));
+        return detail;
+    }
+
+    @ExceptionHandler(SessionStatusTransitionException.class)
+    ProblemDetail handleStatusTransition(SessionStatusTransitionException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        detail.setType(URI.create("/errors/invalid-status-transition"));
+        return detail;
+    }
+
+    @ExceptionHandler(CorrectionAuthorizationException.class)
+    ProblemDetail handleCorrectionUnauthorized(CorrectionAuthorizationException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        detail.setType(URI.create("/errors/correction-unauthorized"));
+        return detail;
+    }
+
+    // ── Generic Exceptions ──
+
     @ExceptionHandler(NotFoundException.class)
     ProblemDetail handleNotFound(NotFoundException ex) {
         var detail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
@@ -81,6 +118,16 @@ public class GlobalExceptionHandler {
     ProblemDetail handleConflict(ConflictException ex) {
         var detail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         detail.setType(URI.create("/errors/conflict"));
+        return detail;
+    }
+
+    @ExceptionHandler(Exception.class)
+    ProblemDetail handleGeneralException(Exception ex) {
+        var detail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Ein interner Fehler ist aufgetreten"
+        );
+        detail.setType(URI.create("/errors/internal-error"));
         return detail;
     }
 }
