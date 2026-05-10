@@ -262,7 +262,6 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
 
   const advancePlayStep = async () => {
     if (!playProg.value) return;
-
     const currentStep = playProg.value[playCurrentStep.value];
     if (!currentStep) return;
 
@@ -293,7 +292,6 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
         if (!playRaffaleStarted.value) {
           await sendDeviceCommand(currentStep.deviceId);
           playRaffaleStarted.value = true;
-          // Complete step after second trigger
         }
       }
     } catch (err) {
@@ -309,6 +307,7 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
       playScore.value.totalPoints += state.pointValue;
       playLastDeviceStep.value = playCurrentStep.value;
     }
+    moveToNextStep();
   };
 
   const completeRaffaleStep = async () => {
@@ -326,12 +325,19 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
 
   const failStep = (failType) => {
     if (!playScore.value.stepStates || playLastDeviceStep.value === null) return;
-    const state = playScore.value.stepStates[playLastDeviceStep.value];
-    if (state && state.state === 'done') {
-      state.state = 'failed';
-      // Deduct points based on fail type
+
+    const lastStepState = playScore.value.stepStates[playLastDeviceStep.value];
+    const lastStep = playProg.value[playLastDeviceStep.value];
+
+    if (lastStepState.state === 'done') {
       const deduction = failType === 'both' ? 2 : 1;
       playScore.value.totalPoints -= deduction;
+
+      if (lastStep.type === 'solo') {
+        lastStepState.state = 'failed-both';
+      } else {
+        lastStepState.state = 'failed-' + failType;
+      }
       moveToNextStep();
     }
   };
@@ -350,10 +356,8 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   const moveToNextStep = () => {
     if (playCurrentStep.value < playProg.value.length - 1) {
       playCurrentStep.value += 1;
-      playLastDeviceStep.value = null;
       playPartialStep.value = null;
     } else {
-      // Program complete - show completion screen
       playLastDeviceStep.value = null;
     }
   };

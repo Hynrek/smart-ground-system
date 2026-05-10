@@ -20,7 +20,7 @@
           v-for="stepIdx in completedSteps"
           :key="stepIdx"
           class="completed-card"
-          :class="{ 'is-failed': store.playScore.stepStates[stepIdx].state === 'failed' }"
+          :class="{ 'is-failed-a': store.playScore.stepStates[stepIdx].state === 'failed-a', 'is-failed-b': store.playScore.stepStates[stepIdx].state === 'failed-b', 'is-failed-full': store.playScore.stepStates[stepIdx].state === 'failed-both' }"
         >
           <span class="step-number">{{ stepIdx + 1 }}</span>
           <span class="step-type">{{ getTypeLabel(store.playProg[stepIdx].type) }}</span>
@@ -106,9 +106,8 @@
 
       <!-- Fail B (only for pair/raffale) -->
       <button
-        v-if="currentStep && ['pair', 'a.schuss', 'raffale'].includes(currentStep.type)"
         class="action-btn"
-        :disabled="!canFail"
+        :disabled="!(canFail && lastStepWasADouble)"
         title="Gerät B fehlgeschossen"
         @click="store.failStep('b')"
       >
@@ -118,9 +117,8 @@
 
       <!-- Fail A/B (only for pair/raffale) -->
       <button
-        v-if="currentStep && ['pair', 'a.schuss', 'raffale'].includes(currentStep.type)"
         class="action-btn"
-        :disabled="!canFail"
+        :disabled="!(canFail && lastStepWasADouble)"
         title="Beide Geräte fehlgeschossen"
         @click="store.failStep('both')"
       >
@@ -221,6 +219,15 @@ const canFail = computed(() => {
   return store.playLastDeviceStep !== null && !showCompletion.value && !showFinalScore.value;
 });
 
+
+const doubleTypes = ['pair', 'a.schuss', 'raffale'];
+const lastStepWasADouble = computed(() => {
+  const lastStepIndex = store.playCurrentStep - 1;
+  if (lastStepIndex < 0 || !store.playProg) return false;
+  const lastStep = store.playProg[lastStepIndex];
+  return lastStep && doubleTypes.includes(lastStep.type);
+});
+
 const getTypeLabel = (type) => {
   const labels = {
     solo: 'Solo',
@@ -270,8 +277,6 @@ const markLastStepFailed = () => {
 
 const goBack = () => {
   store.closePlayback();
-  // Clear the play session from localStorage
-  store.clearPlaySession(props.playId);
   router.push(`/remote/${props.rangeId}`);
 };
 
@@ -406,7 +411,13 @@ watch(
   overflow: hidden;
 }
 
-.completed-card.is-failed {
+.completed-card.is-failed-a {
+  background: linear-gradient(90deg, rgba(252, 129, 129, 0.15) 50%, rgba(72, 187, 120, 0.15) 50%);
+  border-color: rgba(252, 129, 129, 0.3);
+  color: #fc8181;
+}
+
+.completed-card.is-failed-b {
   background: linear-gradient(90deg, rgba(72, 187, 120, 0.15) 50%, rgba(252, 129, 129, 0.15) 50%);
   border-color: rgba(252, 129, 129, 0.3);
   color: #fc8181;
