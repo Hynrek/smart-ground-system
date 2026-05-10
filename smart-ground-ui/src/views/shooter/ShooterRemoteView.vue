@@ -157,6 +157,7 @@ import { useRouter } from 'vue-router';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
+import { useProgramStore } from '@/stores/programStore.js';
 import { useDeviceLoader } from '@/composables/useDeviceLoader.js';
 import { sendDeviceCommand } from '@/services/deviceApi.js';
 import Icons from '@/components/Icons.vue';
@@ -168,6 +169,7 @@ const router = useRouter();
 const rangeStore = useRangeStore();
 const deviceStore = useDeviceStore();
 const store = useShooterRemoteStore();
+const programStore = useProgramStore();
 
 const isGroupDropdownOpen = ref(false);
 
@@ -282,22 +284,22 @@ const errorIds = ref(new Set());
 const handleDeviceTap = async (device) => {
   if (isDeviceDisabled(device)) return;
 
-  // Recording mode: add step
-  if (store.sessionMode === 'recording' && store.programMode) {
-    store.addStep(device.id, device);
+  // Recording mode: add step to program
+  if (store.sessionMode === 'recording' && programStore.programMode) {
+    programStore.addStep(device.id, device);
     return;
   }
 
   // Throwing mode with pair/a.schuss: handle pair selection
-  if ((store.mode === 'pair' || store.mode === 'a.schuss') && !store.programMode) {
-    if (!store.pairPending) {
-      store.pairPending = { id: device.id, alias: device.alias ?? 'Gerät' };
-    } else if (store.pairPending.id === device.id) {
-      store.pairPending = null;
+  if ((store.mode === 'pair' || store.mode === 'a.schuss') && !programStore.programMode) {
+    if (!store.throwPairPending) {
+      store.throwPairPending = { id: device.id, alias: device.alias ?? 'Gerät' };
+    } else if (store.throwPairPending.id === device.id) {
+      store.throwPairPending = null;
     } else {
       // Fire both devices
-      const pendingId = store.pairPending.id;
-      store.pairPending = null;
+      const pendingId = store.throwPairPending.id;
+      store.throwPairPending = null;
 
       await firePairDevices(pendingId, device.id);
       return;
@@ -306,7 +308,7 @@ const handleDeviceTap = async (device) => {
   }
 
   // Throwing mode with raffale: fire device twice
-  if (store.mode === 'raffale' && !store.programMode) {
+  if (store.mode === 'raffale' && !programStore.programMode) {
     await fireRaffaleDevice(device.id);
     return;
   }
@@ -406,8 +408,8 @@ const deviceBtnClass = (device) => ({
   'device-btn--fired': firedIds.value.has(device.id),
   'device-btn--error': errorIds.value.has(device.id),
   'device-btn--blocked': device.blocked || isLocked.value,
-  'device-btn--recording': !!store.recording[device.id],
-  'device-btn--pair-pending': store.programMode && store.pairPending?.id === device.id,
+  'device-btn--recording': !!programStore.recording[device.id],
+  'device-btn--pair-pending': programStore.programMode && programStore.pairPending?.id === device.id,
   'device-btn--inactive': !store.reservedByMe && !isLocked.value,
 });
 
@@ -422,8 +424,8 @@ const chipClass = (device) => {
   if (!store.reservedByMe) return 'chip--free';
   if (errorIds.value.has(device.id)) return 'chip--error';
   if (firedIds.value.has(device.id)) return 'chip--fired';
-  if (store.recording[device.id]) return 'chip--recording';
-  if (store.programMode && store.pairPending?.id === device.id) return 'chip--pending';
+  if (programStore.recording[device.id]) return 'chip--recording';
+  if (programStore.programMode && programStore.pairPending?.id === device.id) return 'chip--pending';
   return 'chip--ready';
 };
 
@@ -433,8 +435,8 @@ const chipLabel = (device) => {
   if (!store.reservedByMe) return 'Frei';
   if (errorIds.value.has(device.id)) return 'Fehler';
   if (firedIds.value.has(device.id)) return 'Ausgelöst';
-  if (store.recording[device.id]) return 'Erfasst';
-  if (store.programMode && store.pairPending?.id === device.id) return 'Gewählt';
+  if (programStore.recording[device.id]) return 'Erfasst';
+  if (programStore.programMode && programStore.pairPending?.id === device.id) return 'Gewählt';
   return 'Bereit';
 };
 </script>

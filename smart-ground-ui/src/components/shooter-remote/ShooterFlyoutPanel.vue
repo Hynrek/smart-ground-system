@@ -36,54 +36,68 @@
       <!-- Scrollable content -->
       <div class="flyout-content" :class="{ 'shrunk-content': isRecordingActive && !isOpen }">
         <!-- Recording summary (shrunk mode) -->
-        <div v-if="isRecordingActive && !isOpen && store.ablauf.length > 0" class="recording-summary">
+        <div v-if="isRecordingActive && !isOpen && programStore.editingSegments.some(seg => seg.steps.length > 0)" class="recording-summary">
           <div class="captured-items">
-            <button
-              v-for="step in store.ablauf"
-              :key="step.id"
-              class="captured-item"
-              :class="{ 'is-raffale': step.type === 'raffale' }"
-              :title="getStepTooltip(step)"
-              @click="store.removeStep(step.id)"
-            >
-              <span class="item-code">
-                {{ getStepLabel(step) }}
-              </span>
-            </button>
+            <template v-for="(segment, segIdx) in programStore.editingSegments" :key="`seg-${segment.id}`">
+              <button
+                v-for="step in segment.steps"
+                :key="step.id"
+                class="captured-item"
+                :class="{ 'is-raffale': step.type === 'raffale' }"
+                :title="getStepTooltip(step)"
+                @click="programStore.removeStep(segIdx, step.id)"
+              >
+                <span class="item-code">
+                  {{ getStepLabel(step) }}
+                </span>
+              </button>
+            </template>
           </div>
         </div>
 
-        <!-- Draft steps (full mode) -->
-        <div v-if="store.programMode && store.ablauf.length > 0 && isOpen" class="section">
-          <span class="section-label">Entwurf</span>
-          <div class="ablauf-list">
-            <div v-for="(step, idx) in store.ablauf" :key="step.id" class="ablauf-item">
-              <div class="step-info">
-                <span class="step-index">{{ idx + 1 }}</span>
-                <span class="step-label">
-                  {{ step.type === 'solo' ? step.alias : step.type === 'raffale' ? `${step.alias} (2x)` : `${step.alias1} + ${step.alias2}` }}
-                </span>
-                <span class="step-type-chip" :class="`type-${step.type}`">
-                  {{ step.type === 'solo' ? 'Solo' : step.type === 'pair' ? 'Pair' : step.type === 'a.schuss' ? 'a.Schuss' : 'Raffale' }}
-                </span>
+        <!-- Draft steps (full mode) - organized by segment -->
+        <template v-if="programStore.programMode && programStore.editingSegments.some(seg => seg.steps.length > 0) && isOpen">
+          <template v-for="(segment, segIdx) in programStore.editingSegments" :key="`seg-${segment.id}`">
+            <div v-if="segment.steps.length > 0" class="section">
+              <div class="segment-header">
+                <span class="section-label">{{ segment.alias || `Segment ${segIdx + 1}` }}</span>
+                <button class="segment-add-btn" :class="{ active: programStore.activeSegmentIndex === segIdx }" @click="programStore.setActiveSegment(segIdx)">
+                  {{ programStore.activeSegmentIndex === segIdx ? 'Aktiv' : 'Auswählen' }}
+                </button>
               </div>
-              <button class="delete-btn" @click="store.removeStep(step.id)">
-                <Icons icon="x" :size="12" color="rgba(252,129,129,0.8)" />
-              </button>
+              <div class="ablauf-list">
+                <div v-for="(step, stepIdx) in segment.steps" :key="step.id" class="ablauf-item">
+                  <div class="step-info">
+                    <span class="step-index">{{ stepIdx + 1 }}</span>
+                    <span class="step-label">
+                      {{ step.type === 'solo' ? step.alias : step.type === 'raffale' ? `${step.alias} (2x)` : `${step.alias1} + ${step.alias2}` }}
+                    </span>
+                    <span class="step-type-chip" :class="`type-${step.type}`">
+                      {{ step.type === 'solo' ? 'Solo' : step.type === 'pair' ? 'Pair' : step.type === 'a.Schuss' ? 'a.Schuss' : 'Raffale' }}
+                    </span>
+                  </div>
+                  <button class="delete-btn" @click="programStore.removeStep(segIdx, step.id)">
+                    <Icons icon="x" :size="12" color="rgba(252,129,129,0.8)" />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </template>
+          <button v-if="isOpen" class="add-segment-btn" @click="programStore.addSegment">
+            + Segment hinzufügen
+          </button>
+        </template>
 
         <!-- Saved programmes (only when not recording) -->
-        <div v-if="!isRecordingActive && store.savedPrograms.length > 0" class="section">
+        <div v-if="!isRecordingActive && programStore.savedPrograms.length > 0" class="section">
           <span class="section-label">Gespeichert</span>
           <div class="programmes-list">
-            <div v-for="prog in store.savedPrograms" :key="prog.id" class="programme-card">
+            <div v-for="prog in programStore.savedPrograms" :key="prog.id" class="programme-card">
               <div class="prog-header">
                 <span class="prog-title">{{ prog.name }}</span>
                 <div class="prog-meta">
-                  <span>{{ prog.steps.length }} Schritte</span>
-                  <span>{{ throwCount(prog.steps) }} Würfe</span>
+                  <span>{{ prog.segments.length }} Segmente</span>
+                  <span>{{ throwCount(prog.segments) }} Würfe</span>
                 </div>
               </div>
               <div class="prog-actions">
@@ -91,7 +105,7 @@
                   <Icons icon="play" :size="12" color="#fff" />
                   Abspielen
                 </button>
-                <button class="trash-btn" @click="store.deleteProgram(prog.id)">
+                <button class="trash-btn" @click="programStore.deleteProgram(prog.id)">
                   <Icons icon="trash" :size="13" color="rgba(252,129,129,0.8)" />
                 </button>
               </div>
@@ -100,16 +114,16 @@
         </div>
 
         <!-- Empty state -->
-        <div v-if="!isRecordingActive && store.savedPrograms.length === 0 && !store.programMode" class="empty-state">
+        <div v-if="!isRecordingActive && programStore.savedPrograms.length === 0 && !programStore.programMode" class="empty-state">
           <Icons icon="program" :size="32" color="rgba(255,255,255,0.1)" />
           <p>Keine Programme</p>
         </div>
       </div>
 
-      <!-- Footer (save/clear when capturing) -->
-      <div v-if="store.programMode && store.ablauf.length > 0" class="flyout-footer">
-        <button class="btn-clear" @click="store.clearAblauf">Leeren</button>
-        <button class="btn-save" @click="store.saveProgram()">Speichern</button>
+      <!-- Footer (save/cancel when capturing) -->
+      <div v-if="programStore.programMode && programStore.editingSegments.some(seg => seg.steps.length > 0)" class="flyout-footer">
+        <button class="btn-clear" @click="programStore.cancelCapture">Abbrechen</button>
+        <button class="btn-save" @click="programStore.saveProgram()">Speichern</button>
       </div>
     </div>
   </div>
@@ -119,18 +133,22 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
+import { useProgramStore } from '@/stores/programStore.js';
+import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import Icons from '@/components/Icons.vue';
 
 const router = useRouter();
 const store = useShooterRemoteStore();
+const programStore = useProgramStore();
+const playStore = usePlaySessionStore();
 const deviceStore = useDeviceStore();
 const rangeStore = useRangeStore();
 const isOpen = ref(false);
 
 const isRecordingActive = computed(
-  () => store.sessionMode === 'recording' && store.recordingActive && store.programMode,
+  () => store.sessionMode === 'recording' && store.recordingActive && programStore.programMode,
 );
 
 const togglePanel = () => {
@@ -174,12 +192,14 @@ const getLetterForDevice = (deviceId) => {
   return String.fromCharCode(65 + idx);
 };
 
-const throwCount = (steps) => {
+const throwCount = (segments) => {
   let count = 0;
-  for (const s of steps) {
-    if (s.type === 'solo') count += 1;
-    else if (s.type === 'pair' || s.type === 'a.schuss') count += 2;
-    else if (s.type === 'raffale') count += 2; // Two triggers of same device
+  for (const seg of segments) {
+    for (const s of seg.steps) {
+      if (s.type === 'solo') count += 1;
+      else if (s.type === 'pair' || s.type === 'a.schuss') count += 2;
+      else if (s.type === 'raffale') count += 2; // Two triggers of same device
+    }
   }
   return count;
 };
@@ -204,10 +224,8 @@ const getStepTooltip = (step) => {
 };
 
 const playProgram = (programId) => {
-  const sessionId = store.createPlaySession(programId);
-  if (sessionId) {
-    router.push(`/remote/${store.selectedRangeId}/play/${sessionId}`);
-  }
+  playStore.playProgramWithScore(programId);
+  router.push(`/remote/${store.selectedRangeId}/play`);
 };
 </script>
 
@@ -449,6 +467,58 @@ const playProgram = (programId) => {
 
 .flyout-panel.shrunk .section-label {
   display: none;
+}
+
+/* ── Segment header ──────────────────────────────── */
+.segment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.segment-add-btn {
+  font-size: 10px;
+  padding: 3px 8px;
+  background: rgba(79, 195, 247, 0.15);
+  border: 1px solid rgba(79, 195, 247, 0.3);
+  border-radius: 4px;
+  color: rgba(79, 195, 247, 0.8);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.segment-add-btn:hover {
+  background: rgba(79, 195, 247, 0.25);
+  border-color: rgba(79, 195, 247, 0.5);
+}
+
+.segment-add-btn.active {
+  background: rgba(79, 195, 247, 0.4);
+  border-color: rgba(79, 195, 247, 0.7);
+  color: #4fc3f7;
+  font-weight: 600;
+}
+
+.add-segment-btn {
+  width: 100%;
+  padding: 10px;
+  background: rgba(76, 175, 80, 0.15);
+  border: 1px dashed rgba(76, 175, 80, 0.3);
+  border-radius: 8px;
+  color: rgba(76, 175, 80, 0.8);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+
+.add-segment-btn:hover {
+  background: rgba(76, 175, 80, 0.25);
+  border-color: rgba(76, 175, 80, 0.5);
 }
 
 /* ── Draft steps ─────────────────────────────────── */

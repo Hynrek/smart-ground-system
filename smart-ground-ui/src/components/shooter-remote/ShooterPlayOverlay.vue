@@ -1,12 +1,32 @@
 <template>
-  <div v-if="store.playProg" class="play-overlay">
+  <div v-if="playStore.playProg" class="play-overlay">
+    <!-- Player Handover Screen (multi-player) -->
+    <PlayerHandoverScreen
+      v-if="playStore.isMultiPlayer"
+      :visible="showHandover"
+      @confirm="confirmHandover"
+    />
+
     <!-- Top bar -->
     <div class="play-topbar">
-      <button class="end-btn" @click="store.closePlayback">Programm beenden</button>
+      <button class="end-btn" @click="playStore.closePlayback">Programm beenden</button>
       <div class="score-display">
         <span class="score-label">Punkte</span>
-        <span class="score-value">{{ store.playScore.totalPoints }}</span>
+        <span class="score-value">{{ playStore.playScore.totalPoints }}</span>
+        <button
+          v-if="playStore.isMultiPlayer"
+          class="scoreboard-btn"
+          :title="showScoreboard ? 'Scoreboard verbergen' : 'Scoreboard anzeigen'"
+          @click="showScoreboard = !showScoreboard"
+        >
+          ⊞
+        </button>
       </div>
+    </div>
+
+    <!-- Live Scoreboard Panel (multi-player) -->
+    <div v-if="playStore.isMultiPlayer && showScoreboard" class="scoreboard-container">
+      <LiveScoreboard />
     </div>
 
     <!-- Vertical Carousel -->
@@ -14,13 +34,13 @@
       <!-- Completed steps (scrolled up) -->
       <div v-if="completedSteps.length > 0" class="completed-steps">
         <div
-          v-for="stepIdx in completedSteps"
-          :key="stepIdx"
+          v-for="(completed, i) in completedSteps"
+          :key="`${completed.segIdx}-${completed.stepIdx}`"
           class="completed-card"
-          :class="{ 'is-failed': store.playScore.stepStates[stepIdx].state === 'failed' }"
+          :class="{ 'is-failed': playStore.playScore.stepStates.find(s => s.segmentIndex === completed.segIdx && s.stepIndex === completed.stepIdx)?.state?.includes('failed') }"
         >
-          <span class="step-number">{{ stepIdx + 1 }}</span>
-          <span class="step-type">{{ getTypeLabel(store.playProg[stepIdx].type) }}</span>
+          <span class="step-number">{{ i + 1 }}</span>
+          <span class="step-type">{{ getTypeLabel(playStore.playProg[completed.segIdx].steps[completed.stepIdx].type) }}</span>
         </div>
       </div>
 
@@ -31,11 +51,11 @@
             {{ getTypeLabel(currentStep.type) }}
           </span>
           <div v-if="currentStep.type === 'a.schuss'" class="aschuss-display">
-            <div :class="{ device: true, bold: store.playPartialStep === null }">
+            <div :class="{ device: true, bold: playStore.playPartialStep === null }">
               {{ currentStep.alias1 }}
             </div>
             <span class="separator">+</span>
-            <div :class="{ device: true, bold: store.playPartialStep === 'first' }">
+            <div :class="{ device: true, bold: playStore.playPartialStep === 'first' }">
               {{ currentStep.alias2 }}
             </div>
           </div>
@@ -44,7 +64,7 @@
           </div>
 
           <!-- Raffale timer -->
-          <div v-if="currentStep.type === 'raffale' && store.playRaffaleStarted" class="raffale-bar">
+          <div v-if="currentStep.type === 'raffale' && playStore.playRaffaleStarted" class="raffale-bar">
             <div class="progress" :style="{ width: raffaleProgress + '%' }" />
             <span class="label">{{ Math.max(0, 1 - raffaleProgress / 100).toFixed(1) }}s</span>
           </div>
@@ -80,8 +100,8 @@
       <div v-if="showFinalScore" class="final-score-screen">
         <div class="score-card">
           <div class="final-title">Programm Fertig!</div>
-          <div class="final-score-value">{{ store.playScore.totalPoints }} Punkte</div>
-          <button class="btn btn-primary" @click="store.closePlayback">
+          <div class="final-score-value">{{ playStore.playScore.totalPoints }} Punkte</div>
+          <button class="btn btn-primary" @click="playStore.closePlayback">
             Schließen
           </button>
         </div>
@@ -104,13 +124,13 @@
       </button>
     </div>
 
-    <!-- Progress dots -->
+    <!-- Progress dots (by segment) -->
     <div class="progress-dots">
       <div
-        v-for="(_, idx) in store.playProg"
-        :key="idx"
+        v-for="(_, segIdx) in playStore.playProg"
+        :key="segIdx"
         class="dot"
-        :class="getDotClass(idx)"
+        :class="getDotClass(segIdx)"
       />
     </div>
   </div>
@@ -118,41 +138,69 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
+import { usePlaySessionStore } from '@/stores/playSessionStore.js';
+import PlayerHandoverScreen from '@/components/shooter-remote/PlayerHandoverScreen.vue';
+import LiveScoreboard from '@/components/shooter-remote/LiveScoreboard.vue';
 
-const store = useShooterRemoteStore();
+const playStore = usePlaySessionStore();
 const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
 const completionVerificationDone = ref(false);
+const showHandover = ref(false);
+const showScoreboard = ref(false);
+const lastPlayerIndex = ref(0);
 
-const currentStep = computed(() => store.playProg?.[store.playCurrentStep] ?? null);
-const nextStep = computed(() => store.playProg?.[store.playCurrentStep + 1] ?? null);
+const currentStep = computed(() => playStore.currentStep);
+const nextStep = computed(() => {
+  if (!playStore.playProg) return null;
+  const nextSegIdx = playStore.currentSegmentIndex;
+  const nextStepIdx = playStore.currentStepIndex + 1;
+  const currentSeg = playStore.playProg[nextSegIdx];
+  if (currentSeg && nextStepIdx < currentSeg.steps.length) {
+    return currentSeg.steps[nextStepIdx];
+  }
+  if (nextSegIdx + 1 < playStore.playProg.length) {
+    return playStore.playProg[nextSegIdx + 1].steps[0];
+  }
+  return null;
+});
 
 const completedSteps = computed(() => {
+  if (!playStore.playProg) return [];
   const completed = [];
-  for (let i = 0; i < store.playCurrentStep; i++) {
-    completed.push(i);
+  for (let segIdx = 0; segIdx < playStore.playProg.length; segIdx++) {
+    const seg = playStore.playProg[segIdx];
+    for (let stepIdx = 0; stepIdx < seg.steps.length; stepIdx++) {
+      if (segIdx < playStore.currentSegmentIndex ||
+          (segIdx === playStore.currentSegmentIndex && stepIdx < playStore.currentStepIndex)) {
+        completed.push({ segIdx, stepIdx });
+      }
+    }
   }
   return completed;
 });
 
 const showCompletion = computed(() => {
+  if (!playStore.playProg) return false;
+  const seg = playStore.playProg[playStore.currentSegmentIndex];
   return (
-    store.playCurrentStep >= store.playProg.length - 1 &&
+    playStore.currentStepIndex >= seg.steps.length - 1 &&
     !completionVerificationDone.value &&
-    store.playLastDeviceStep !== null
+    playStore.playLastDeviceStep !== null
   );
 });
 
 const showFinalScore = computed(() => {
+  if (!playStore.playProg) return false;
   return (
-    store.playCurrentStep >= store.playProg.length - 1 &&
+    playStore.currentSegmentIndex >= playStore.playProg.length - 1 &&
+    playStore.currentStepIndex >= playStore.playProg[playStore.currentSegmentIndex].steps.length - 1 &&
     completionVerificationDone.value
   );
 });
 
 const actionButtons = computed(() => {
-  if (!currentStep.value || store.playLastDeviceStep === null || showCompletion.value || showFinalScore.value) {
+  if (!currentStep.value || playStore.playLastDeviceStep === null || showCompletion.value || showFinalScore.value) {
     return [];
   }
 
@@ -165,7 +213,7 @@ const actionButtons = computed(() => {
     label: 'Fail A',
     info: '-1',
     active: ['solo', 'pair', 'a.schuss', 'raffale'].includes(currentType),
-    handler: () => store.failStep('a'),
+    handler: () => playStore.failStep('a'),
   });
 
   // Fail B button
@@ -175,7 +223,7 @@ const actionButtons = computed(() => {
       label: 'Fail B',
       info: '-1',
       active: true,
-      handler: () => store.failStep('b'),
+      handler: () => playStore.failStep('b'),
     });
   }
 
@@ -186,7 +234,7 @@ const actionButtons = computed(() => {
       label: 'Fail A/B',
       info: '-2',
       active: true,
-      handler: () => store.failStep('both'),
+      handler: () => playStore.failStep('both'),
     });
   }
 
@@ -195,8 +243,8 @@ const actionButtons = computed(() => {
     id: 'no-bird',
     label: 'No Bird',
     info: 'Retry',
-    active: store.playLastDeviceStep !== null,
-    handler: () => store.retryStep(),
+    active: playStore.playLastDeviceStep !== null,
+    handler: () => playStore.retryStep(),
   });
 
   return buttons;
@@ -220,22 +268,22 @@ const getStepDisplay = (step) => {
 
 const getHint = (step) => {
   if (step.type === 'a.schuss') {
-    return store.playPartialStep === null ? 'Erstes Gerät: Tippen' : 'Zweites Gerät: Tippen';
+    return playStore.playPartialStep === null ? 'Erstes Gerät: Tippen' : 'Zweites Gerät: Tippen';
   }
   if (step.type === 'raffale') {
-    return store.playRaffaleStarted ? 'Warte auf Verzögerung...' : 'Erste Auslösung: Tippen';
+    return playStore.playRaffaleStarted ? 'Warte auf Verzögerung...' : 'Erste Auslösung: Tippen';
   }
   return 'Tippen zum Auslösen →';
 };
 
-const getDotClass = (idx) => {
-  if (idx < store.playCurrentStep) return 'dot--completed';
-  if (idx === store.playCurrentStep) return 'dot--current';
+const getDotClass = (segIdx) => {
+  if (segIdx < playStore.currentSegmentIndex) return 'dot--completed';
+  if (segIdx === playStore.currentSegmentIndex) return 'dot--current';
   return 'dot--pending';
 };
 
 const handleCurrentStepClick = async () => {
-  await store.advancePlayStep();
+  await playStore.advancePlayStep();
 };
 
 const markLastStepDone = () => {
@@ -243,15 +291,31 @@ const markLastStepDone = () => {
 };
 
 const markLastStepFailed = () => {
-  if (store.playLastDeviceStep !== null) {
-    store.failStep('a'); // Mark as failed
+  if (playStore.playLastDeviceStep !== null) {
+    playStore.failStep('a'); // Mark as failed
     completionVerificationDone.value = true;
   }
 };
 
+const confirmHandover = () => {
+  showHandover.value = false;
+  lastPlayerIndex.value = playStore.currentPlayerIndex;
+};
+
+// Monitor player changes for handover (multi-player)
+watch(
+  () => playStore.currentPlayerIndex,
+  (newIndex) => {
+    if (playStore.isMultiPlayer && newIndex !== lastPlayerIndex.value && newIndex > 0) {
+      showHandover.value = true;
+    }
+    lastPlayerIndex.value = newIndex;
+  }
+);
+
 // Monitor raffale timer
 watch(
-  () => store.playRaffaleStarted,
+  () => playStore.playRaffaleStarted,
   (started) => {
     if (started) {
       raffaleProgress.value = 0;
@@ -262,7 +326,7 @@ watch(
         if (raffaleProgress.value >= 100) {
           clearInterval(interval);
           setTimeout(() => {
-            store.completeRaffaleStep();
+            playStore.completeRaffaleStep();
           }, 500);
         }
       }, 50);
@@ -314,7 +378,27 @@ watch(
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: 8px;
+}
+
+.scoreboard-btn {
+  background: rgba(100, 180, 220, 0.15);
+  border: 1px solid rgba(100, 180, 220, 0.3);
+  color: rgba(100, 180, 220, 0.8);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.scoreboard-btn:hover {
+  background: rgba(100, 180, 220, 0.25);
+  border-color: rgba(100, 180, 220, 0.5);
 }
 
 .score-label {
@@ -608,99 +692,4 @@ watch(
 .btn-danger {
   background: rgba(252, 129, 129, 0.2);
   color: #fc8181;
-  border: 1px solid rgba(252, 129, 129, 0.35);
-}
-
-.btn-danger:hover {
-  background: rgba(252, 129, 129, 0.28);
-}
-
-.btn-primary {
-  width: 100%;
-  background: rgba(79, 195, 247, 0.2);
-  color: #4fc3f7;
-  border: 1px solid rgba(79, 195, 247, 0.35);
-}
-
-.btn-primary:hover {
-  background: rgba(79, 195, 247, 0.28);
-}
-
-/* ── Action bar (bottom buttons) ─────────────────── */
-.action-bar {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-  gap: 8px;
-  padding: 16px 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  flex-shrink: 0;
-  background: rgba(10, 10, 18, 0.8);
-}
-
-.action-btn {
-  padding: 12px 8px;
-  border-radius: 10px;
-  border: 1.5px solid rgba(252, 129, 129, 0.35);
-  background: rgba(252, 129, 129, 0.12);
-  color: #fc8181;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  transition: all 0.2s;
-}
-
-.action-btn:hover:not(.disabled) {
-  background: rgba(252, 129, 129, 0.2);
-}
-
-.action-btn.disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.btn-label {
-  font-weight: 700;
-  font-size: 12px;
-}
-
-.btn-info {
-  font-size: 10px;
-  opacity: 0.7;
-}
-
-/* ── Progress dots ──────────────────────────────── */
-.progress-dots {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  padding: 16px 24px;
-  flex-shrink: 0;
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 3px;
-  transition: all 0.2s;
-}
-
-.dot--completed {
-  width: 6px;
-  background: rgba(72, 187, 120, 0.4);
-}
-
-.dot--current {
-  width: 22px;
-  background: #4fc3f7;
-}
-
-.dot--pending {
-  width: 6px;
-  background: rgba(255, 255, 255, 0.08);
-}
-</style>
+  border: 1px solid rgba(252, 129, 129, 0.
