@@ -46,7 +46,9 @@
       "PowerShell(& .\\\\mvnw.cmd clean test -q 2>&1)",
       "Bash(mvn test *)",
       "Bash(cd \"/c/Users/hynre/IdeaProjects/Smart Ground/smart-ground-backend\" && find src -name \"*Exception*.java\" -o -name \"*Error*.java\" | grep -E \"\\(config|handler\\)\" | head -20)",
-      "Bash(mvn spring-boot:run -Dspring-boot.run.profiles=postgres)"
+      "Bash(mvn spring-boot:run -Dspring-boot.run.profiles=postgres)",
+      "Bash(mvnw clean *)",
+      "Bash(cmd /c mvnw.cmd clean compile)"
     ]
   }
 }

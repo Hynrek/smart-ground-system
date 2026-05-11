@@ -2,18 +2,20 @@ package ch.jp.shooting.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.jspecify.annotations.Nullable;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.util.UUID;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @org.jspecify.annotations.NullMarked
-public class UserDTO {
-    private UUID id;
+public class UpdateUserRequest {
+
+    @Nullable
     private String email;
+
+    @Nullable
     private String vorname;
+
+    @Nullable
     private String nachname;
-    private String fullName;
 
     @Nullable
     private LocalDate geburtsdatum;
@@ -23,6 +25,9 @@ public class UserDTO {
 
     @Nullable
     private String telefonnummer;
+
+    @Nullable
+    private Boolean telefonBestaetigt;
 
     @Nullable
     private String strasse;
@@ -57,28 +62,25 @@ public class UserDTO {
     @Nullable
     private LocalDate schiessLizenzVerfallsdatum;
 
+    @Nullable
     private String status;
-    private Instant erstelltAm;
-    private Instant aktualisiertAm;
 
     // ==================== CONSTRUCTORS ====================
-    public UserDTO() {}
+    public UpdateUserRequest() {}
 
     // ==================== GETTERS & SETTERS ====================
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
 
+    @Nullable
     public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public void setEmail(@Nullable String email) { this.email = email; }
 
+    @Nullable
     public String getVorname() { return vorname; }
-    public void setVorname(String vorname) { this.vorname = vorname; }
+    public void setVorname(@Nullable String vorname) { this.vorname = vorname; }
 
+    @Nullable
     public String getNachname() { return nachname; }
-    public void setNachname(String nachname) { this.nachname = nachname; }
-
-    public String getFullName() { return fullName; }
-    public void setFullName(String fullName) { this.fullName = fullName; }
+    public void setNachname(@Nullable String nachname) { this.nachname = nachname; }
 
     @Nullable
     public LocalDate getGeburtsdatum() { return geburtsdatum; }
@@ -91,6 +93,10 @@ public class UserDTO {
     @Nullable
     public String getTelefonnummer() { return telefonnummer; }
     public void setTelefonnummer(@Nullable String telefonnummer) { this.telefonnummer = telefonnummer; }
+
+    @Nullable
+    public Boolean getTelefonBestaetigt() { return telefonBestaetigt; }
+    public void setTelefonBestaetigt(@Nullable Boolean telefonBestaetigt) { this.telefonBestaetigt = telefonBestaetigt; }
 
     @Nullable
     public String getStrasse() { return strasse; }
@@ -138,12 +144,7 @@ public class UserDTO {
         this.schiessLizenzVerfallsdatum = schiessLizenzVerfallsdatum;
     }
 
+    @Nullable
     public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-
-    public Instant getErstelltAm() { return erstelltAm; }
-    public void setErstelltAm(Instant erstelltAm) { this.erstelltAm = erstelltAm; }
-
-    public Instant getAktualisiertAm() { return aktualisiertAm; }
-    public void setAktualisiertAm(Instant aktualisiertAm) { this.aktualisiertAm = aktualisiertAm; }
+    public void setStatus(@Nullable String status) { this.status = status; }
 }

@@ -29,31 +29,5 @@ public class ResultsController {
         this.webSocketService = webSocketService;
     }
 
-    /**
-     * POST /api/sessions/{sessionId}/results
-     * Reicht Spieler-Ergebnisse nach Segment-Durchlauf ein.
-     * Body: { groupId, playerId, programId, segmentId, stepResults[] }
-     * Publiziert WebSocket-Update mit neuem Leaderboard.
-     */
-    @PostMapping("/results")
-    public ResponseEntity<PlayerResultResponse> submitResults(
-            @PathVariable UUID sessionId,
-            @RequestBody SubmitResultRequest request) throws Exception {
-        PlayerResultResponse response = resultsService.submitPlayerResults(sessionId, request);
-        // WebSocket-Broadcast: aktuelles Leaderboard an alle Tablets
-        ScoreboardResponse scoreboard = resultsService.getScoreboard(sessionId);
-        webSocketService.publishScoreboardUpdate(sessionId, scoreboard);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    /**
-     * GET /api/sessions/{sessionId}/scoreboard
-     * Gibt aktuelles Leaderboard zurück (live Ranking).
-     * Response: { playerScores: [{ playerId, displayName, totalScore, rank }], groupScores: [...] }
-     */
-    @GetMapping("/scoreboard")
-    public ResponseEntity<ScoreboardResponse> getScoreboard(@PathVariable UUID sessionId) throws Exception {
-        ScoreboardResponse response = resultsService.getScoreboard(sessionId);
-        return ResponseEntity.ok(response);
-    }
+    // TODO: Implement submitPlayerResults and getScoreboard methods in ResultsService
 }

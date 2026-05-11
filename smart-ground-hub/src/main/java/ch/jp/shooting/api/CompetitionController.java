@@ -5,7 +5,6 @@ import ch.jp.shooting.exception.SessionNotFoundException;
 import ch.jp.shooting.mapper.SessionTemplateMapper;
 import ch.jp.shooting.model.SessionTemplate;
 import ch.jp.shooting.model.SessionType;
-import ch.jp.shooting.model.User;
 import ch.jp.shooting.repository.SessionTemplateRepository;
 import ch.jp.shooting.service.CompetitionService;
 import ch.jp.shooting.service.SessionWebSocketService;

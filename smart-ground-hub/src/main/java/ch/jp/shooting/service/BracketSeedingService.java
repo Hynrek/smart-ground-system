@@ -1,6 +1,8 @@
 package ch.jp.shooting.service;
 
+import ch.jp.shooting.model.BracketMatch;
 import ch.jp.shooting.model.SessionPlayer;
+import ch.jp.shooting.repository.BracketMatchRepository;
 import org.springframework.stereotype.Service;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -16,9 +18,12 @@ import java.util.stream.Collectors;
 @NullMarked
 public class BracketSeedingService {
     private final TiebreakerResolver tiebreakerResolver;
+    private final BracketMatchRepository bracketMatchRepository;
 
-    public BracketSeedingService(TiebreakerResolver tiebreakerResolver) {
+    public BracketSeedingService(TiebreakerResolver tiebreakerResolver,
+                                BracketMatchRepository bracketMatchRepository) {
         this.tiebreakerResolver = tiebreakerResolver;
+        this.bracketMatchRepository = bracketMatchRepository;
     }
 
     /**
@@ -208,10 +213,43 @@ public class BracketSeedingService {
         }
 
         if (strategy == SeedingStrategy.BALANCED) {
-            // Alternating high/low seeds
+            // Alternating high/low seeds (snake/alternating seeding)
+            // Pattern: Seed 1, Last, Seed 2, Second-Last, Seed 3, Third-Last, ...
+            // This prevents top seeds from facing each other early
+
             List<SessionPlayer> sorted = new ArrayList<>(players);
-            // TODO: Implementieren
-            return sorted;
+
+            // Zuerst nach Karriere-Statistiken sortieren (wie BY_CAREER_STATS)
+            List<UUID> playerIds = sorted.stream().map(SessionPlayer::getId).collect(Collectors.toList());
+            List<TiebreakerResolver.TiebreakerCriteria> criteria =
+                tiebreakers != null ? tiebreakers : java.util.Arrays.asList(TiebreakerResolver.TiebreakerCriteria.TOTAL_SCORE);
+
+            List<UUID> sortedIds = tiebreakerResolver.resolveTiebreaker(playerIds, criteria);
+
+            // Erstelle eine temporäre Liste für die Umsortierung
+            List<SessionPlayer> seedSorted = sortedIds.stream()
+                .map(id -> sorted.stream().filter(p -> p.getId().equals(id)).findFirst().orElse(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+            // Wende Balanced-Seeding an
+            List<SessionPlayer> balanced = new ArrayList<>();
+            int left = 0;
+            int right = seedSorted.size() - 1;
+            boolean pickFromLeft = true;
+
+            while (left <= right) {
+                if (pickFromLeft) {
+                    balanced.add(seedSorted.get(left));
+                    left++;
+                } else {
+                    balanced.add(seedSorted.get(right));
+                    right--;
+                }
+                pickFromLeft = !pickFromLeft;
+            }
+
+            return balanced;
         }
 
         return players;

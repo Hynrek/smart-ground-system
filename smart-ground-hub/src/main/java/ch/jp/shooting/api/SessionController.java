@@ -1,135 +1,94 @@
 package ch.jp.shooting.api;
 
-import ch.jp.shooting.dto.*;
-import ch.jp.shooting.model.SessionStatus;
-import ch.jp.shooting.model.SessionType;
+import ch.jp.shooting.service.BracketService;
+import ch.jp.shooting.service.GroupService;
+import ch.jp.shooting.service.LeaderboardService;
+import ch.jp.shooting.service.ResultsService;
 import ch.jp.shooting.service.SessionService;
-import ch.jp.shooting.service.SessionWebSocketService;
+import ch.jp.smartground.api.SessionApi;
+import ch.jp.smartground.model.CreateSessionRequest;
+import ch.jp.smartground.model.GroupCreateRequest;
+import ch.jp.smartground.model.GroupResponse;
+import ch.jp.smartground.model.InitializeBracketRequest;
+import ch.jp.smartground.model.PlayerResultResponse;
+import ch.jp.smartground.model.SessionLeaderboardResponse;
+import ch.jp.smartground.model.SessionPageResponse;
+import ch.jp.smartground.model.SessionResponse;
 import org.jspecify.annotations.NullMarked;
-import org.jspecify.annotations.Nullable;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
-/**
- * REST-Controller für Session-Management.
- * Endpoints: POST /api/sessions, GET /api/sessions/{id}, PATCH status, etc.
- */
 @RestController
-@RequestMapping("/api/sessions")
 @NullMarked
-public class SessionController {
+public class SessionController implements SessionApi {
     private final SessionService sessionService;
-    private final SessionWebSocketService webSocketService;
+    private final GroupService groupService;
+    private final BracketService bracketService;
+    private final LeaderboardService leaderboardService;
+    private final ResultsService resultsService;
 
     public SessionController(
             SessionService sessionService,
-            SessionWebSocketService webSocketService) {
+            GroupService groupService,
+            BracketService bracketService,
+            LeaderboardService leaderboardService,
+            ResultsService resultsService) {
         this.sessionService = sessionService;
-        this.webSocketService = webSocketService;
+        this.groupService = groupService;
+        this.bracketService = bracketService;
+        this.leaderboardService = leaderboardService;
+        this.resultsService = resultsService;
     }
 
-    /**
-     * POST /api/sessions
-     * Erstellt eine neue Spielsession.
-     */
-    @PostMapping
-    public ResponseEntity<SessionResponse> createSession(@RequestBody CreateSessionRequest request) throws Exception {
-        SessionResponse response = sessionService.createSession(request);
+    @Override
+    public ResponseEntity<SessionResponse> createSession(CreateSessionRequest createSessionRequest) {
+        SessionResponse response = sessionService.createSession(createSessionRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    /**
-     * GET /api/sessions/{id}
-     * Lädt vollständige Session-Information (für Resume nach Disconnect).
-     */
-    @GetMapping("/{id}")
-    public ResponseEntity<SessionResponse> getSession(@PathVariable UUID id) {
-        SessionResponse response = sessionService.getSession(id);
+    @Override
+    public ResponseEntity<SessionResponse> getSession(UUID sessionId) {
+        SessionResponse response = sessionService.getSession(sessionId);
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * GET /api/sessions
-     * Listet Sessions auf mit optionalen Filtern (status, type, pagination).
-     */
-    @GetMapping
-    public ResponseEntity<Page<SessionResponse>> listSessions(
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String type,
-            Pageable pageable) {
-        SessionStatus statusEnum = status != null ? SessionStatus.valueOf(status.toUpperCase()) : null;
-        SessionType typeEnum = type != null ? SessionType.valueOf(type.toUpperCase()) : null;
-
-        Page<SessionResponse> page = sessionService.listSessions(statusEnum, typeEnum, pageable);
-        return ResponseEntity.ok(page);
-    }
-
-    /**
-     * PATCH /api/sessions/{id}/status
-     * Aktualisiert den Session-Status (active, paused, completed, abandoned).
-     * Publiziert WebSocket-Update an alle Tablets.
-     */
-    @PatchMapping("/{id}/status")
-    public ResponseEntity<SessionResponse> updateStatus(
-            @PathVariable UUID id,
-            @RequestBody SessionStatusUpdateRequest request) {
-        SessionResponse response = sessionService.updateSessionStatus(id, request.status);
-        // WebSocket-Broadcast an alle Tablets dieser Session
-        webSocketService.publishSessionMessage(id, "status_changed", "Session status changed to: " + request.status);
+    @Override
+    public ResponseEntity<SessionPageResponse> listSessions(Integer page, Integer size) {
+        SessionPageResponse response = sessionService.listSessions(page, size);
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * GET /api/sessions/{id}/groups
-     * Gibt alle Gruppen einer Session zurück.
-     */
-    @GetMapping("/{id}/groups")
-    public ResponseEntity<?> getGroups(@PathVariable UUID id) {
-        var groups = sessionService.getGroups(id);
+    @Override
+    public ResponseEntity<GroupResponse> createGroup(UUID sessionId, GroupCreateRequest groupCreateRequest) {
+        GroupResponse response = groupService.createGroup(sessionId, groupCreateRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Override
+    public ResponseEntity<List<GroupResponse>> listGroups(UUID sessionId) {
+        List<GroupResponse> groups = groupService.listGroups(sessionId);
         return ResponseEntity.ok(groups);
     }
 
-    /**
-     * POST /api/sessions/{id}/groups
-     * Erstellt eine neue Gruppe in einer Session (nur im SETUP-Status).
-     */
-    @PostMapping("/{id}/groups")
-    public ResponseEntity<GroupResponse> createGroup(
-            @PathVariable UUID id,
-            @RequestBody GroupCreateRequest request) {
-        // Session laden
-        SessionResponse session = sessionService.getSession(id);
-        // TODO: Umwandlung zurück zu Entity für Service-Call (vereinfachen)
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+    @Override
+    public ResponseEntity<Void> initializeBracket(UUID sessionId, InitializeBracketRequest initializeBracketRequest) {
+        bracketService.initializeBracket(sessionId, initializeBracketRequest);
+        return ResponseEntity.ok().build();
     }
 
-    /**
-     * PUT /api/sessions/{id}/groups/{groupId}
-     * Aktualisiert eine Gruppe (nur im SETUP-Status).
-     */
-    @PutMapping("/{sessionId}/groups/{groupId}")
-    public ResponseEntity<GroupResponse> updateGroup(
-            @PathVariable UUID sessionId,
-            @PathVariable UUID groupId,
-            @RequestBody GroupCreateRequest request) {
-        GroupResponse response = sessionService.updateGroup(sessionId, groupId, request);
+    @Override
+    public ResponseEntity<SessionLeaderboardResponse> getLeaderboard(UUID sessionId) {
+        SessionLeaderboardResponse response = leaderboardService.getLeaderboard(sessionId);
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * DELETE /api/sessions/{id}/groups/{groupId}
-     * Löscht eine Gruppe (nur im SETUP-Status).
-     */
-    @DeleteMapping("/{sessionId}/groups/{groupId}")
-    public ResponseEntity<Void> deleteGroup(
-            @PathVariable UUID sessionId,
-            @PathVariable UUID groupId) {
-        sessionService.deleteGroup(sessionId, groupId);
-        return ResponseEntity.noContent().build();
+    @Override
+    public ResponseEntity<List<PlayerResultResponse>> getCompetitionResults(UUID sessionId) {
+        List<PlayerResultResponse> results = resultsService.getCompetitionResults(sessionId);
+        return ResponseEntity.ok(results);
     }
 }

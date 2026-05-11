@@ -23,6 +23,13 @@ public class LiveSession {
     private UUID id;
 
     @Column(nullable = false)
+    private String name;
+
+    @Column(columnDefinition = "TEXT")
+    @Nullable
+    private String description;
+
+    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private SessionType type; // COMPETITION, TRAINING, FREE
 
@@ -56,6 +63,14 @@ public class LiveSession {
 
     @OneToMany(mappedBy = "session", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PlayerResult> playerResults = new ArrayList<>();
+
+    @Column(name = "bracket_type")
+    @Nullable
+    private String bracketType;
+
+    @Column(name = "seeding_strategy")
+    @Nullable
+    private String seedingStrategy;
 
     /**
      * Bracket-Phase für Eliminierungsturniere (nur bei bracketType != ROUND_ROBIN).
@@ -101,6 +116,23 @@ public class LiveSession {
 
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    @Nullable
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(@Nullable String description) {
+        this.description = description;
     }
 
     public SessionType getType() {
@@ -178,6 +210,24 @@ public class LiveSession {
 
     public void setCompletedAt(@Nullable Instant completedAt) {
         this.completedAt = completedAt;
+    }
+
+    @Nullable
+    public String getBracketType() {
+        return bracketType;
+    }
+
+    public void setBracketType(@Nullable String bracketType) {
+        this.bracketType = bracketType;
+    }
+
+    @Nullable
+    public String getSeedingStrategy() {
+        return seedingStrategy;
+    }
+
+    public void setSeedingStrategy(@Nullable String seedingStrategy) {
+        this.seedingStrategy = seedingStrategy;
     }
 
     @Nullable

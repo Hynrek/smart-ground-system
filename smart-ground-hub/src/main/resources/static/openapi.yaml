@@ -644,6 +644,197 @@ paths:
                   - $ref: '#/components/schemas/DeviceHealthEvent'
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # Sessions (Competition Management)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/sessions:
+    get:
+      summary: List all sessions
+      operationId: listSessions
+      tags: [Session]
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Zero-based page number
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Number of items per page
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPageResponse'
+
+    post:
+      summary: Create a new session
+      operationId: createSession
+      tags: [Session]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: Invalid request
+
+  /api/sessions/{sessionId}:
+    get:
+      summary: Get session details
+      operationId: getSession
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Session found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '404':
+          description: Session not found
+
+  /api/sessions/{sessionId}/groups:
+    get:
+      summary: List groups in a session
+      operationId: listGroups
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupResponse'
+
+    post:
+      summary: Create a group in a session
+      operationId: createGroup
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupCreateRequest'
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+
+  /api/sessions/{sessionId}/bracket:
+    post:
+      summary: Initialize bracket tournament
+      operationId: initializeBracket
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitializeBracketRequest'
+      responses:
+        '200':
+          description: Bracket initialized
+        '404':
+          description: Session not found
+
+  /api/sessions/{sessionId}/leaderboard:
+    get:
+      summary: Get session leaderboard
+      operationId: getLeaderboard
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Leaderboard data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionLeaderboardResponse'
+        '404':
+          description: Session not found
+
+  /api/sessions/{sessionId}/results:
+    get:
+      summary: Get competition results
+      operationId: getCompetitionResults
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Competition results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlayerResultResponse'
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # SmartBox
   # ─────────────────────────────────────────────────────────────────────────────
   /api/smart-boxes:
@@ -1265,6 +1456,194 @@ components:
         role:
           type: string
           description: User role (ADMIN or SHOOTER)
+
+    # ───── Session/Competition ──────────────────────────────────────────────────
+
+    SessionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [SETUP, ACTIVE, COMPLETED, CANCELLED]
+          description: Current session status
+        sessionType:
+          type: string
+          enum: [LEAGUE, BRACKET, KNOCKOUT]
+          description: Session competition type
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateSessionRequest:
+      type: object
+      required: [name, sessionType]
+      properties:
+        name:
+          type: string
+          description: Session name
+        description:
+          type: string
+          nullable: true
+        sessionType:
+          type: string
+          enum: [LEAGUE, BRACKET, KNOCKOUT]
+          description: Competition format
+
+    SessionPageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    GroupResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sessionId:
+          type: string
+          format: uuid
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionPlayerResponse'
+        createdAt:
+          type: string
+          format: date-time
+
+    GroupCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Group name (e.g. "Gruppe 1", "Group A")
+        members:
+          type: array
+          description: Optional list of players to add to the group
+          items:
+            $ref: '#/components/schemas/SessionPlayerCreateRequest'
+
+    SessionPlayerResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [USER, GUEST]
+        displayName:
+          type: string
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+
+    SessionPlayerCreateRequest:
+      type: object
+      required: [type, displayName]
+      properties:
+        type:
+          type: string
+          enum: [USER, GUEST]
+        displayName:
+          type: string
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+
+    InitializeBracketRequest:
+      type: object
+      required: [bracketType, seedingStrategy]
+      properties:
+        bracketType:
+          type: string
+          enum: [SINGLE_ELIMINATION, DOUBLE_ELIMINATION]
+          description: Bracket tournament type
+        seedingStrategy:
+          type: string
+          enum: [BY_REGISTRATION_ORDER, BY_SCORE_RANKING, BY_TIEBREAKER]
+          description: How to seed players
+        tiebreakers:
+          type: array
+          nullable: true
+          items:
+            type: string
+            enum: [TOTAL_SCORE, WIN_RATIO, HEADTOHEAD]
+
+    SessionLeaderboardResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        standings:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardEntry'
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        playerId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        totalScore:
+          type: integer
+        maxScore:
+          type: integer
+        accuracy:
+          type: number
+          format: float
+          description: Percentage of successful shots
+
+    PlayerResultResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        playerId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        programResults:
+          type: string
+          description: JSON array of program results
+        createdAt:
+          type: string
+          format: date-time
 
   securitySchemes:
     bearerAuth:

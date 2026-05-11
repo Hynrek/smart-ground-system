@@ -1,5 +1,6 @@
 package ch.jp.shooting.model;
 
+import ch.jp.shooting.model.auth.User;
 import jakarta.persistence.*;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;

@@ -5,5 +5,6 @@
                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
 
     <include file="db/changelog/01__init.xml"/>
+    <include file="db/changelog/02__extend_users_and_auth.xml"/>
 
 </databaseChangeLog>

@@ -25,13 +25,24 @@ public class JwtService {
         this.expirationMs = expirationMs;
     }
 
-    public String generateToken(String username) {
-        return generateToken(username, null);
+    /**
+     * Generates JWT token with email (stored as subject)
+     * @param email User's email address
+     * @return JWT token
+     */
+    public String generateToken(String email) {
+        return generateToken(email, null);
     }
 
-    public String generateToken(String username, String role) {
+    /**
+     * Generates JWT token with email and optional role
+     * @param email User's email address (stored as token subject)
+     * @param role Optional role name
+     * @return JWT token
+     */
+    public String generateToken(String email, String role) {
         var builder = Jwts.builder()
-                .subject(username)
+                .subject(email)  // Email is stored as the subject
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationMs));
 
@@ -42,13 +53,18 @@ public class JwtService {
         return builder.signWith(key).compact();
     }
 
+    /**
+     * Extracts email from JWT token
+     * @param token JWT token
+     * @return Email address stored as token subject
+     */
     public String extractUsername(String token) {
         return Jwts.parser()
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload()
-                .getSubject();
+                .getSubject();  // Subject contains the email
     }
 
     public String extractRole(String token) {

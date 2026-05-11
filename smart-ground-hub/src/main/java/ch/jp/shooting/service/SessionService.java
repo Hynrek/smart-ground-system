@@ -2,7 +2,9 @@ package ch.jp.shooting.service;
 
 import ch.jp.shooting.dto.*;
 import ch.jp.shooting.model.*;
+import ch.jp.shooting.model.auth.User;
 import ch.jp.shooting.repository.*;
+import ch.jp.shooting.repository.auth.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -88,15 +90,6 @@ public class SessionService {
             }
         }
 
-        return mapSessionToResponse(session);
-    }
-
-    /**
-     * Lädt eine Session mit allen Gruppen und Ergebnissen (für Resume).
-     */
-    public SessionResponse getSession(UUID sessionId) {
-        LiveSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
         return mapSessionToResponse(session);
     }
 
@@ -341,5 +334,73 @@ public class SessionService {
         resp.totalScore = totalScore;
         resp.maxScore = maxScore;
         resp.completionPct = totalSteps > 0 ? (completedSteps * 100) / totalSteps : 0;
+    }
+
+    // ── API Adapter Methods (ch.jp.smartground.model) ──
+
+    public ch.jp.smartground.model.SessionResponse createSession(ch.jp.smartground.model.CreateSessionRequest req) {
+        LiveSession session = new LiveSession();
+        if (req.getName() != null) {
+            session.setName(req.getName());
+        }
+        if (req.getDescription() != null && req.getDescription().get() != null) {
+            session.setDescription(req.getDescription().get());
+        }
+        session.setType(SessionType.valueOf(req.getSessionType().name()));
+        session.setStatus(SessionStatus.SETUP);
+        session.setCreatedAt(Instant.now());
+
+        session = sessionRepository.save(session);
+        return mapToApiSessionResponse(session);
+    }
+
+    public ch.jp.smartground.model.SessionResponse getSession(UUID sessionId) {
+        LiveSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+        return mapToApiSessionResponse(session);
+    }
+
+    public ch.jp.smartground.model.SessionPageResponse listSessions(Integer page, Integer size) {
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        Page<LiveSession> sessions = sessionRepository.findAll(pageable);
+
+        ch.jp.smartground.model.SessionPageResponse response = new ch.jp.smartground.model.SessionPageResponse();
+        response.setContent(sessions.getContent().stream()
+                .map(this::mapToApiSessionResponse)
+                .collect(Collectors.toList()));
+
+        ch.jp.smartground.model.PageMeta meta = new ch.jp.smartground.model.PageMeta();
+        meta.setPage(sessions.getNumber());
+        meta.setSize(sessions.getSize());
+        meta.setTotalElements((int) sessions.getTotalElements());
+        meta.setTotalPages(sessions.getTotalPages());
+        response.setMeta(meta);
+
+        return response;
+    }
+
+    private ch.jp.smartground.model.SessionResponse mapToApiSessionResponse(LiveSession session) {
+        ch.jp.smartground.model.SessionResponse response = new ch.jp.smartground.model.SessionResponse();
+        response.setId(session.getId());
+        if (session.getName() != null) {
+            response.name(session.getName());
+        }
+        if (session.getDescription() != null) {
+            response.description(session.getDescription());
+        }
+        response.setStatus(ch.jp.smartground.model.SessionResponse.StatusEnum.fromValue(session.getStatus().name()));
+        response.setSessionType(ch.jp.smartground.model.SessionResponse.SessionTypeEnum.fromValue(session.getType().name()));
+
+        if (session.getCreatedAt() != null) {
+            response.createdAt(java.time.OffsetDateTime.ofInstant(session.getCreatedAt(), java.time.ZoneOffset.UTC));
+        }
+        if (session.getStartedAt() != null) {
+            response.startedAt(java.time.OffsetDateTime.ofInstant(session.getStartedAt(), java.time.ZoneOffset.UTC));
+        }
+        if (session.getCompletedAt() != null) {
+            response.completedAt(java.time.OffsetDateTime.ofInstant(session.getCompletedAt(), java.time.ZoneOffset.UTC));
+        }
+
+        return response;
     }
 }

@@ -1,7 +1,11 @@
 package ch.jp.shooting.config;
 
 import ch.jp.shooting.model.*;
+import ch.jp.shooting.model.auth.User;
+import ch.jp.shooting.model.auth.Role;
 import ch.jp.shooting.repository.*;
+import ch.jp.shooting.repository.auth.RoleRepository;
+import ch.jp.shooting.repository.auth.UserRepository;
 import org.jspecify.annotations.NullMarked;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +26,7 @@ public class DataInitializer {
     private final DeviceTypeGroupRepository deviceTypeGroupRepository;
     private final DeviceTypeRepository deviceTypeRepository;
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DataInitializer(
@@ -30,12 +35,14 @@ public class DataInitializer {
             DeviceTypeGroupRepository deviceTypeGroupRepository,
             DeviceTypeRepository deviceTypeRepository,
             UserRepository userRepository,
+            RoleRepository roleRepository,
             PasswordEncoder passwordEncoder) {
         this.firmwareConfigRepository = firmwareConfigRepository;
         this.signalTypeRepository = signalTypeRepository;
         this.deviceTypeGroupRepository = deviceTypeGroupRepository;
         this.deviceTypeRepository = deviceTypeRepository;
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -103,14 +110,61 @@ public class DataInitializer {
     }
 
     private void seedUsers() {
-        userRepository.findByUsername("admin")
+        // Check if admin user already exists
+        if (userRepository.findByEmail("admin@smartground.local").isPresent()) {
+            log.debug("Seed: Admin user bereits vorhanden – übersprungen.");
+            return;
+        }
+
+        // Create admin user
+        User admin = new User("admin@smartground.local", "Admin", "User");
+        admin.setPasswordHash(passwordEncoder.encode("admin123"));
+        admin.setStatus(User.UserStatus.ACTIVE);
+        admin.setEmailBestaetigt(true);
+        admin.setSprache("DE");
+
+        User savedAdmin = userRepository.save(admin);
+        log.info("Seed: Admin user mit Email 'admin@smartground.local' erstellt.");
+
+        // Assign ADMIN role (create if not exists)
+        Role adminRole = roleRepository.findByName("ADMIN")
             .orElseGet(() -> {
-                User admin = new User();
-                admin.setUsername("admin");
-                admin.setPassword(passwordEncoder.encode("admin123"));
-                admin.setRole(UserRole.ADMIN);
-                log.info("Seed: Admin user erstellt.");
-                return userRepository.save(admin);
+                Role newRole = new Role("ADMIN", "System administrator with full access");
+                return roleRepository.save(newRole);
             });
+
+        if (!savedAdmin.getRoles().contains(adminRole)) {
+            savedAdmin.getRoles().add(adminRole);
+            userRepository.save(savedAdmin);
+            log.info("Seed: ADMIN role dem Admin user zugewiesen.");
+        }
+
+        // Create regular shooter user
+        if (userRepository.findByEmail("user@smartground.local").isPresent()) {
+            log.debug("Seed: Shooter user bereits vorhanden – übersprungen.");
+            return;
+        }
+
+        User shooter = new User("user@smartground.local", "Test", "Schütze");
+        shooter.setPasswordHash(passwordEncoder.encode("user"));
+        shooter.setStatus(User.UserStatus.ACTIVE);
+        shooter.setEmailBestaetigt(true);
+        shooter.setSprache("DE");
+
+        User savedShooter = userRepository.save(shooter);
+        log.info("Seed: Shooter user mit Email 'user@smartground.local' erstellt.");
+
+        // Assign SHOOTER role (create if not exists)
+        Role shooterRole = roleRepository.findByName("SHOOTER")
+            .orElseGet(() -> {
+                Role newRole = new Role("SHOOTER", "Regular shooter participant");
+                return roleRepository.save(newRole);
+            });
+
+        if (!savedShooter.getRoles().contains(shooterRole)) {
+            savedShooter.getRoles().add(shooterRole);
+            userRepository.save(savedShooter);
+            log.info("Seed: SHOOTER role dem Shooter user zugewiesen.");
+        }
     }
 }
