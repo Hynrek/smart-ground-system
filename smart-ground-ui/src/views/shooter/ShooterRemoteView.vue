@@ -12,8 +12,8 @@
         </div>
       </div>
 
-      <div class="header-right">
-        <!-- Status indicator (emergency stop) - leftmost -->
+      <div class="header-center">
+        <!-- Status indicator (emergency stop) -->
         <div class="header-status">
           <button
             class="status-indicator"
@@ -69,6 +69,7 @@
           </div>
         </div>
       </div>
+
     </div>
 
 
@@ -518,6 +519,7 @@ const chipLabel = (device) => {
   padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
+  flex-wrap: wrap;
 }
 
 .header-left {
@@ -526,6 +528,16 @@ const chipLabel = (device) => {
   gap: 10px;
   min-width: 0;
   flex: 1;
+  order: 1;
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 36px;
+  order: 2;
 }
 
 .back-btn {
@@ -579,14 +591,8 @@ const chipLabel = (device) => {
   white-space: nowrap;
 }
 
-/* ── Header Right (status, mode, group) ─────────── */
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  height: 36px;
-}
+/* ── Header Center (status, mode, group) ─────────── */
+/* Already defined above with .header-center */
 
 .header-status {
   position: relative;
