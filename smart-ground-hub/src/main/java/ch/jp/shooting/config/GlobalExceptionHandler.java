@@ -4,6 +4,9 @@ import ch.jp.shooting.exception.*;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
@@ -102,6 +105,29 @@ public class GlobalExceptionHandler {
     ProblemDetail handleCorrectionUnauthorized(CorrectionAuthorizationException ex) {
         var detail = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
         detail.setType(URI.create("/errors/correction-unauthorized"));
+        return detail;
+    }
+
+    // ── Authentication Exceptions ──
+
+    @ExceptionHandler(AuthenticationException.class)
+    ProblemDetail handleAuthenticationException(AuthenticationException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        detail.setType(URI.create("/errors/authentication-failed"));
+        return detail;
+    }
+
+    @ExceptionHandler(UsernameNotFoundException.class)
+    ProblemDetail handleUsernameNotFound(UsernameNotFoundException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        detail.setType(URI.create("/errors/authentication-failed"));
+        return detail;
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    ProblemDetail handleBadCredentials(BadCredentialsException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        detail.setType(URI.create("/errors/authentication-failed"));
         return detail;
     }
 
