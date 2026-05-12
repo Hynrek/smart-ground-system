@@ -512,23 +512,23 @@ const chipLabel = (device) => {
 
 /* ── Header ──────────────────────────────────────── */
 .page-header {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
-  flex-wrap: wrap;
 }
 
 .header-left {
+  position: absolute;
+  left: 16px;
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
-  flex: 1;
-  order: 1;
 }
 
 .header-center {
@@ -537,7 +537,6 @@ const chipLabel = (device) => {
   gap: 8px;
   flex-shrink: 0;
   height: 36px;
-  order: 2;
 }
 
 .back-btn {
