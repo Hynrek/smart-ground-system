@@ -308,7 +308,7 @@ playStore.loadCompletedAblaeufe();
 
 // ── Ablauf categories ──────────────────────────────────────────────────────────
 const userAblaeufe = computed(() => {
-  return programStore.getUserAblaeufe().map(ablauf => ({
+  return programStore.getUserAblaeufeForRange(currentRangeId.value).map(ablauf => ({
     ...ablauf,
     type: 'user'
   }));
