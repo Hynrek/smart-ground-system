@@ -315,10 +315,12 @@ const userAblaeufe = computed(() => {
 });
 
 const globalAblaeufe = computed(() => {
-  return programStore.getGlobalAblaeufe().map(ablauf => ({
-    ...ablauf,
-    type: 'global'
-  }));
+  return programStore.getGlobalAblaeufe()
+    .filter(ablauf => ablauf.rangeId === currentRangeId.value)
+    .map(ablauf => ({
+      ...ablauf,
+      type: 'global'
+    }));
 });
 
 const competitionAblaeufe = computed(() => {
