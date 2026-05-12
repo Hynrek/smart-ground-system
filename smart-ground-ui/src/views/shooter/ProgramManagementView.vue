@@ -13,7 +13,174 @@
     <div class="content">
 
       <!-- ═══════════════════════════════════════════ -->
-      <!-- BLOCK 1: SEGMENTE                           -->
+      <!-- BLOCK 1: PROGRAMME                          -->
+      <!-- ═══════════════════════════════════════════ -->
+      <section class="block">
+        <div class="block-header">
+          <div class="block-title-row">
+            <span class="block-title">Programme</span>
+            <span class="block-badge">{{ programStore.savedPrograms.length }}</span>
+          </div>
+          <p class="block-desc">
+            Zusammenstellung aus 1–n Abläufen. Kann direkt auf einem Platz gestartet werden.
+          </p>
+        </div>
+
+        <!-- Programme list -->
+        <div v-if="programStore.savedPrograms.length > 0" class="program-list">
+          <div
+            v-for="prog in programStore.savedPrograms"
+            :key="prog.id"
+            class="program-card"
+            :class="{ expanded: expandedProgramId === prog.id }"
+          >
+            <div class="prog-main" @click="toggleExpand(prog.id)">
+              <div class="prog-info">
+                <span class="prog-name">{{ prog.name }}</span>
+                <div class="prog-meta-row">
+                  <span class="prog-meta-item">{{ prog.ablaeufe.length }} Abläufe</span>
+                  <span class="prog-meta-dot">·</span>
+                  <span class="prog-meta-item">{{ totalThrows(prog.ablaeufe) }} Würfe</span>
+                </div>
+              </div>
+              <Icons
+                icon="chevronRight"
+                :size="14"
+                color="rgba(255,255,255,0.3)"
+                class="expand-icon"
+                :class="{ rotated: expandedProgramId === prog.id }"
+              />
+            </div>
+
+            <!-- Expanded detail -->
+            <div v-if="expandedProgramId === prog.id" class="prog-detail">
+              <!-- Abläufe grouped by range -->
+              <div
+                v-for="rg in programRangeGroups(prog)"
+                :key="rg.rangeId ?? '__none__'"
+                class="prog-range-group"
+              >
+                <div class="prog-range-label">
+                  <Icons icon="ranges" :size="10" color="rgba(255,255,255,0.3)" />
+                  <span>{{ rg.rangeName ?? 'Kein Platz' }}</span>
+                </div>
+                <div class="prog-seg-chips">
+                  <span v-for="seg in rg.ablaeufe" :key="seg.id" class="prog-seg-chip">
+                    {{ seg.alias ?? seg.id }}
+                    <span class="chip-throws">{{ stepCount(seg.steps) }} W</span>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="prog-actions">
+                <button class="action-btn action-btn--start" @click.stop="startProgram(prog)">
+                  <Icons icon="play" :size="14" color="#4fc3f7" />
+                  Starten
+                </button>
+                <button class="action-btn action-btn--danger" @click.stop="programStore.deleteProgram(prog.id)">
+                  <Icons icon="trash" :size="13" color="rgba(252,129,129,0.7)" />
+                  Löschen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div v-if="programStore.savedPrograms.length === 0 && !creatingProgram" class="empty-block">
+          <Icons icon="program" :size="36" color="rgba(255,255,255,0.07)" />
+          <p>Noch keine Programme</p>
+          <p class="empty-hint">Kombiniere Abläufe zu einem Programm</p>
+        </div>
+
+        <!-- Create program flow -->
+        <div v-if="creatingProgram" class="create-program-panel">
+          <div class="create-panel-header">
+            <span class="create-panel-title">Neues Programm</span>
+          </div>
+
+          <!-- Name input -->
+          <div class="create-field">
+            <label class="create-label">Name</label>
+            <input
+              v-model="newProgramName"
+              class="create-input"
+              type="text"
+              placeholder="z.B. Training Woche 1"
+              maxlength="50"
+            />
+          </div>
+
+          <!-- Ablauf picker hint -->
+          <div class="create-field">
+            <label class="create-label">
+              Abläufe auswählen
+              <span class="create-label-count">{{ selectedAblaufIds.size }} gewählt</span>
+            </label>
+            <p v-if="programStore.savedAblaeufe.length === 0" class="create-no-ablaeufe">
+              Noch keine Abläufe vorhanden. Zeichne zuerst Abläufe im Erfassen-Modus auf.
+            </p>
+            <p v-else class="create-hint">Tippe auf Abläufe oben, um sie auszuwählen.</p>
+          </div>
+
+          <!-- Selected segments preview -->
+          <div v-if="selectedAblaufIds.size > 0" class="create-preview">
+            <div
+              v-for="rg in selectedRangeGroups"
+              :key="rg.rangeId ?? '__none__'"
+              class="prog-range-group"
+            >
+              <div class="prog-range-label">
+                <Icons icon="ranges" :size="10" color="rgba(255,255,255,0.3)" />
+                <span>{{ rg.rangeName ?? 'Kein Platz' }}</span>
+              </div>
+              <div class="prog-seg-chips">
+                <span
+                  v-for="seg in rg.ablaeufe"
+                  :key="seg.id"
+                  class="prog-seg-chip prog-seg-chip--selected"
+                >
+                  {{ seg.name }}
+                  <span class="chip-throws">{{ stepCount(seg.steps) }} W</span>
+                  <button class="chip-remove" @click="toggleAblaufSelection(seg.id)">
+                    <Icons icon="x" :size="9" color="rgba(255,255,255,0.5)" />
+                  </button>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Create actions -->
+          <div class="create-actions">
+            <button class="action-btn action-btn--cancel" @click="cancelCreateProgram">
+              Abbrechen
+            </button>
+            <button
+              class="action-btn action-btn--create"
+              :disabled="selectedAblaufIds.size === 0"
+              @click="confirmCreateProgram"
+            >
+              <Icons icon="check" :size="13" color="#fff" />
+              Erstellen
+            </button>
+          </div>
+        </div>
+
+        <!-- New program button -->
+        <button
+          v-if="!creatingProgram"
+          class="new-program-btn"
+          :disabled="programStore.savedAblaeufe.length === 0"
+          @click="startCreateProgram"
+        >
+          <Icons icon="plus" :size="16" color="rgba(79,195,247,0.8)" />
+          Neues Programm
+        </button>
+      </section>
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- BLOCK 2: ABLÄUFE                            -->
       <!-- ═══════════════════════════════════════════ -->
       <section class="block">
         <div class="block-header">
@@ -29,11 +196,23 @@
         <!-- User segments, grouped by range -->
         <template v-if="programStore.savedAblaeufe.length > 0">
           <div v-for="group in ablaufGroups" :key="group.rangeId ?? '__no_range__'" class="range-group">
-            <div class="range-group-label">
+            <button
+              class="range-group-header"
+              @click="toggleRangeGroup(group.rangeId ?? '__no_range__')"
+            >
+              <Icons
+                icon="chevronRight"
+                :size="12"
+                color="rgba(255,255,255,0.3)"
+                class="range-group-chevron"
+                :class="{ rotated: expandedRangeGroups.has(group.rangeId ?? '__no_range__') }"
+              />
               <Icons icon="ranges" :size="11" color="rgba(255,255,255,0.3)" />
               <span>{{ group.rangeName ?? 'Kein Platz zugeordnet' }}</span>
-            </div>
-            <div class="segment-list">
+            </button>
+            <div
+              v-if="expandedRangeGroups.has(group.rangeId ?? '__no_range__')"
+              class="segment-list">
               <div
                 v-for="seg in group.ablaeufe"
                 :key="seg.id"
@@ -368,6 +547,16 @@ const confirmRename = (segId) => {
   renamingAblaufId.value = null;
 };
 
+// ── Range group expand/collapse ────────────────────────────────────────────
+const expandedRangeGroups = ref(new Set());
+
+const toggleRangeGroup = (rangeId) => {
+  const next = new Set(expandedRangeGroups.value);
+  if (next.has(rangeId)) next.delete(rangeId);
+  else next.add(rangeId);
+  expandedRangeGroups.value = next;
+};
+
 // ── Expand program cards ───────────────────────────────────────────────────
 const expandedProgramId = ref(null);
 
@@ -627,10 +816,40 @@ const stepTypeLabel = (type) => {
   letter-spacing: 0;
 }
 
+/* ── Range group header ──────────────────────────── */
+.range-group-header {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.28);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.range-group-header:hover {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.range-group-chevron {
+  transition: transform 0.2s;
+}
+
+.range-group-chevron.rotated {
+  transform: rotate(90deg);
+}
+
 /* ── Ablauf card ────────────────────────────────── */
 .segment-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 

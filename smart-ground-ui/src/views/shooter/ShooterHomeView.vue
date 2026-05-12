@@ -27,6 +27,14 @@
         <span class="tile-desc">Geräte steuern</span>
       </button>
 
+      <button class="app-tile app-tile--available" @click="router.push('/programmes')">
+        <div class="tile-icon-wrap tile-icon-wrap--orange">
+          <Icons icon="program" :size="36" color="#f6ad55" />
+        </div>
+        <span class="tile-label">Programme</span>
+        <span class="tile-desc">Abläufe & Trainings</span>
+      </button>
+
       <button class="app-tile app-tile--available" @click="router.push('/competition/live')">
         <div class="tile-icon-wrap tile-icon-wrap--green">
           <Icons icon="target" :size="36" color="#48bb78" />
@@ -41,14 +49,6 @@
         </div>
         <span class="tile-label">Karriere</span>
         <span class="tile-desc">Meine Statistiken</span>
-      </button>
-
-      <button class="app-tile app-tile--available" @click="router.push('/programmes')">
-        <div class="tile-icon-wrap tile-icon-wrap--orange">
-          <Icons icon="program" :size="36" color="#f6ad55" />
-        </div>
-        <span class="tile-label">Programme</span>
-        <span class="tile-desc">Abläufe & Trainings</span>
       </button>
     </div>
   </div>
