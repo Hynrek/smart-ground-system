@@ -188,6 +188,10 @@ onUnmounted(() => {
   store.releasePlatz();
 });
 
+watch(() => store.sessionMode, () => {
+  store.setMode('solo');
+});
+
 // ── Range ──────────────────────────────────────────
 const range = computed(() => rangeStore.ranges.find((r) => r.id === props.rangeId));
 const isLocked = computed(() => range.value?.locked ?? false);
