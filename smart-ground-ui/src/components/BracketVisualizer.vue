@@ -1,6 +1,6 @@
 <template>
   <div class="bracket-visualizer">
-    <div class="bracket-container" ref="container">
+    <div ref="container" class="bracket-container">
       <svg :viewBox="`0 0 ${svgWidth} ${svgHeight}`" class="bracket-svg" preserveAspectRatio="xMinYMin meet">
         <!-- Verbindungslinien (müssen vor den Match-Boxen gezeichnet werden) -->
         <g class="connection-lines">

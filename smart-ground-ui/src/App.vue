@@ -15,8 +15,10 @@ const navMap = {
   '/ranges': 'ranges',
   '/smartboxes': 'smartboxes',
   '/device-type-groups': 'device-type-groups',
-  '/deviceTypes': 'templates',
+  '/competition': 'competition',
+  '/programme': 'programme',
   '/users': 'users',
+  '/profile': 'profile',
 };
 
 const activeNav = computed(() => navMap[route.path] || 'ranges');

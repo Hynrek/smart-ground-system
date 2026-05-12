@@ -50,7 +50,7 @@
           <span class="card-badge" :class="`badge-${currentStep.type}`">
             {{ getTypeLabel(currentStep.type) }}
           </span>
-          <div v-if="currentStep.type === 'a.schuss'" class="aschuss-display">
+          <div v-if="currentStep.type === 'a_schuss'" class="aschuss-display">
             <div :class="{ device: true, bold: playStore.playPartialStep === null }">
               {{ currentStep.alias1 }}
             </div>
@@ -74,25 +74,14 @@
       </div>
 
       <!-- Next step preview -->
-      <div v-if="nextStep && !showCompletion" class="next-step-preview">
-        <div class="preview-card">
+      <div v-if="nextStep && !showFinalScore" class="next-step-preview">
+        <div
+          class="preview-card"
+          :class="{ 'is-fertig': isFertig(nextStep) }"
+          @click="handleNextStepClick"
+        >
           <span class="preview-type">{{ getTypeLabel(nextStep.type) }}</span>
           <span class="preview-label">{{ getStepDisplay(nextStep) }}</span>
-        </div>
-      </div>
-
-      <!-- Completion screen -->
-      <div v-if="showCompletion && !showFinalScore" class="completion-screen">
-        <div class="completion-card">
-          <div class="card-title">Letzten Schritt überprüfen?</div>
-          <div class="button-group">
-            <button class="btn btn-success" @click="markLastStepDone">
-              Treffer ✓
-            </button>
-            <button class="btn btn-danger" @click="markLastStepFailed">
-              Fehlschuss ✗
-            </button>
-          </div>
         </div>
       </div>
 
@@ -139,30 +128,31 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
+import { StepType } from '@/constants/playEnums.js';
 import PlayerHandoverScreen from '@/components/shooter-remote/PlayerHandoverScreen.vue';
 import LiveScoreboard from '@/components/shooter-remote/LiveScoreboard.vue';
 
 const playStore = usePlaySessionStore();
 const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
-const completionVerificationDone = ref(false);
 const showHandover = ref(false);
 const showScoreboard = ref(false);
 const lastPlayerIndex = ref(0);
 
+const fertigStep = { type: 'fertig', alias: 'Fertig' };
+
 const currentStep = computed(() => playStore.currentStep);
+
 const nextStep = computed(() => {
-  if (!playStore.playProg) return null;
-  const nextSegIdx = playStore.currentSegmentIndex;
-  const nextStepIdx = playStore.currentStepIndex + 1;
-  const currentSeg = playStore.playProg[nextSegIdx];
-  if (currentSeg && nextStepIdx < currentSeg.steps.length) {
-    return currentSeg.steps[nextStepIdx];
+  const seg = playStore.currentAblauf;
+  if (!seg || !playStore.playProg) return fertigStep;
+  if (playStore.currentStepIndex < seg.steps.length - 1) {
+    return seg.steps[playStore.currentStepIndex + 1];
   }
-  if (nextSegIdx + 1 < playStore.playProg.length) {
-    return playStore.playProg[nextSegIdx + 1].steps[0];
+  if (playStore.currentAblaufIndex < playStore.playProg.length - 1) {
+    return playStore.playProg[playStore.currentAblaufIndex + 1].steps[0];
   }
-  return null;
+  return fertigStep;
 });
 
 const completedSteps = computed(() => {
@@ -171,8 +161,10 @@ const completedSteps = computed(() => {
   for (let segIdx = 0; segIdx < playStore.playProg.length; segIdx++) {
     const seg = playStore.playProg[segIdx];
     for (let stepIdx = 0; stepIdx < seg.steps.length; stepIdx++) {
-      if (segIdx < playStore.currentSegmentIndex ||
-          (segIdx === playStore.currentSegmentIndex && stepIdx < playStore.currentStepIndex)) {
+      if (
+        segIdx < playStore.currentAblaufIndex ||
+        (segIdx === playStore.currentAblaufIndex && stepIdx < playStore.currentStepIndex)
+      ) {
         completed.push({ segIdx, stepIdx });
       }
     }
@@ -180,105 +172,73 @@ const completedSteps = computed(() => {
   return completed;
 });
 
-const showCompletion = computed(() => {
-  if (!playStore.playProg) return false;
-  const seg = playStore.playProg[playStore.currentSegmentIndex];
-  return (
-    playStore.currentStepIndex >= seg.steps.length - 1 &&
-    !completionVerificationDone.value &&
-    playStore.playLastDeviceStep !== null
-  );
-});
+const showFinalScore = computed(() => playStore.playComplete);
 
-const showFinalScore = computed(() => {
-  if (!playStore.playProg) return false;
-  return (
-    playStore.currentSegmentIndex >= playStore.playProg.length - 1 &&
-    playStore.currentStepIndex >= playStore.playProg[playStore.currentSegmentIndex].steps.length - 1 &&
-    completionVerificationDone.value
-  );
-});
+const isFertig = (step) => step?.type === 'fertig';
+
+const doubleTypes = [StepType.PAIR, StepType.A_SCHUSS, StepType.RAFFALE];
 
 const actionButtons = computed(() => {
-  if (!currentStep.value || playStore.playLastDeviceStep === null || showCompletion.value || showFinalScore.value) {
-    return [];
+  const canFail = playStore.playLastDeviceStep !== null && !playStore.playComplete;
+  if (!canFail) return [];
+
+  const lastStep = playStore.playLastDeviceStep
+    ? playStore.playProg?.[playStore.playLastDeviceStep.segmentIdx]?.steps[playStore.playLastDeviceStep.stepIdx]
+    : null;
+  const isDouble = lastStep ? doubleTypes.includes(lastStep.type) : false;
+  const atEnd = playStore.isAtProgramEnd;
+
+  const fail = (type) => () => {
+    playStore.failStep(type);
+    if (atEnd) playStore.confirmComplete();
+  };
+
+  const buttons = [
+    { id: 'fail-a', label: 'Fail A', info: '-1', active: true, handler: fail('a') },
+  ];
+  if (isDouble) {
+    buttons.push({ id: 'fail-b', label: 'Fail B', info: '-1', active: true, handler: fail('b') });
+    buttons.push({ id: 'fail-ab', label: 'Fail A/B', info: '-2', active: true, handler: fail('both') });
   }
-
-  const currentType = currentStep.value.type;
-  const buttons = [];
-
-  // Fail A button
-  buttons.push({
-    id: 'fail-a',
-    label: 'Fail A',
-    info: '-1',
-    active: ['solo', 'pair', 'a.schuss', 'raffale'].includes(currentType),
-    handler: () => playStore.failStep('a'),
-  });
-
-  // Fail B button
-  if (['pair', 'a.schuss', 'raffale'].includes(currentType)) {
-    buttons.push({
-      id: 'fail-b',
-      label: 'Fail B',
-      info: '-1',
-      active: true,
-      handler: () => playStore.failStep('b'),
-    });
-  }
-
-  // Fail A/B button
-  if (['pair', 'a.schuss', 'raffale'].includes(currentType)) {
-    buttons.push({
-      id: 'fail-ab',
-      label: 'Fail A/B',
-      info: '-2',
-      active: true,
-      handler: () => playStore.failStep('both'),
-    });
-  }
-
-  // No Bird button (always active except when done)
   buttons.push({
     id: 'no-bird',
     label: 'No Bird',
     info: 'Retry',
-    active: playStore.playLastDeviceStep !== null,
+    active: playStore.canRetry,
     handler: () => playStore.retryStep(),
   });
 
   return buttons;
 });
 
-const getTypeLabel = (type) => {
-  const labels = {
-    solo: 'Solo',
-    pair: 'Pair',
-    'a.schuss': 'a. Schuss',
-    raffale: 'Raffale',
-  };
-  return labels[type] || type;
-};
+const getTypeLabel = (type) => ({
+  [StepType.SOLO]: 'Solo',
+  [StepType.PAIR]: 'Pair',
+  [StepType.A_SCHUSS]: 'a. Schuss',
+  [StepType.RAFFALE]: 'Raffale',
+  fertig: 'Fertig',
+})[type] ?? type;
 
 const getStepDisplay = (step) => {
-  if (step.type === 'solo') return step.alias;
-  if (step.type === 'raffale') return `${step.alias} (2×)`;
+  if (step.type === 'fertig') return 'Programm abgeschlossen';
+  if (step.type === StepType.SOLO) return step.alias;
+  if (step.type === StepType.RAFFALE) return `${step.alias} (2×)`;
   return `${step.alias1} + ${step.alias2}`;
 };
 
 const getHint = (step) => {
-  if (step.type === 'a.schuss') {
+  if (step.type === StepType.A_SCHUSS) {
     return playStore.playPartialStep === null ? 'Erstes Gerät: Tippen' : 'Zweites Gerät: Tippen';
   }
-  if (step.type === 'raffale') {
+  if (step.type === StepType.RAFFALE) {
     return playStore.playRaffaleStarted ? 'Warte auf Verzögerung...' : 'Erste Auslösung: Tippen';
   }
   return 'Tippen zum Auslösen →';
 };
 
 const getDotClass = (segIdx) => {
-  if (segIdx < playStore.currentSegmentIndex) return 'dot--completed';
-  if (segIdx === playStore.currentSegmentIndex) return 'dot--current';
+  if (segIdx < playStore.currentAblaufIndex) return 'dot--completed';
+  if (segIdx === playStore.currentAblaufIndex) return 'dot--current';
   return 'dot--pending';
 };
 
@@ -286,15 +246,8 @@ const handleCurrentStepClick = async () => {
   await playStore.advancePlayStep();
 };
 
-const markLastStepDone = () => {
-  completionVerificationDone.value = true;
-};
-
-const markLastStepFailed = () => {
-  if (playStore.playLastDeviceStep !== null) {
-    playStore.failStep('a'); // Mark as failed
-    completionVerificationDone.value = true;
-  }
+const handleNextStepClick = () => {
+  if (isFertig(nextStep.value)) playStore.confirmComplete();
 };
 
 const confirmHandover = () => {
@@ -616,6 +569,21 @@ watch(
   opacity: 0.3;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
+  cursor: default;
+}
+
+.preview-card.is-fertig {
+  opacity: 1;
+  background: rgba(72, 187, 120, 0.15);
+  border-color: rgba(72, 187, 120, 0.3);
+  color: #48bb78;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preview-card.is-fertig:hover {
+  background: rgba(72, 187, 120, 0.25);
+  border-color: rgba(72, 187, 120, 0.5);
 }
 
 .preview-type {

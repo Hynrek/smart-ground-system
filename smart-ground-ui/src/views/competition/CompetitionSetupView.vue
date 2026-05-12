@@ -10,27 +10,27 @@
     <!-- Groups Section -->
     <div class="setup-section">
       <h2>Gruppen</h2>
-      <button @click="showGroupForm = true" class="btn btn-primary">+ Gruppe hinzufügen</button>
+      <button class="btn btn-primary" @click="showGroupForm = true">+ Gruppe hinzufügen</button>
 
       <div v-if="showGroupForm" class="group-form">
         <input v-model="newGroup.name" placeholder="Gruppenname" />
-        <button @click="addGroup" class="btn btn-primary">Hinzufügen</button>
-        <button @click="showGroupForm = false" class="btn btn-secondary">Abbrechen</button>
+        <button class="btn btn-primary" @click="addGroup">Hinzufügen</button>
+        <button class="btn btn-secondary" @click="showGroupForm = false">Abbrechen</button>
       </div>
 
       <div class="groups-list">
         <div v-for="group in groups" :key="group.id" class="group-item">
           <h4>{{ group.name }}</h4>
           <p>{{ group.members ? group.members.length : 0 }} Spieler</p>
-          <button @click="editGroup(group.id)" class="btn btn-small">Bearbeiten</button>
-          <button @click="deleteGroup(group.id)" class="btn btn-small btn-danger">Löschen</button>
+          <button class="btn btn-small" @click="editGroup(group.id)">Bearbeiten</button>
+          <button class="btn btn-small btn-danger" @click="deleteGroup(group.id)">Löschen</button>
         </div>
       </div>
     </div>
 
     <!-- Start Button -->
     <div class="setup-actions">
-      <button @click="startCompetition" class="btn btn-primary btn-large" :disabled="groups.length === 0">
+      <button class="btn btn-primary btn-large" :disabled="groups.length === 0" @click="startCompetition">
         Wettkampf starten
       </button>
       <router-link to="/competition" class="btn btn-secondary">Zurück</router-link>

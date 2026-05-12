@@ -3,10 +3,10 @@
     <div class="leaderboard-header">
       <h1>Wettkampf-Ergebnisse</h1>
       <div class="header-actions">
-        <button @click="exportLeaderboard('json')" class="btn btn-secondary">
+        <button class="btn btn-secondary" @click="exportLeaderboard('json')">
           Als JSON exportieren
         </button>
-        <button @click="exportLeaderboard('csv')" class="btn btn-secondary">
+        <button class="btn btn-secondary" @click="exportLeaderboard('csv')">
           Als CSV exportieren
         </button>
         <router-link to="/competition" class="btn btn-primary">Zurück zur Übersicht</router-link>

@@ -1,0 +1,745 @@
+<template>
+  <div class="player-setup-container">
+    <div class="setup-header">
+      <h1>Player Setup</h1>
+      <p class="subtitle">Register players and assign them to groups</p>
+    </div>
+
+    <div class="setup-content">
+      <!-- Left Panel: Player Registration -->
+      <div class="left-panel">
+        <div class="section">
+          <h2>Players</h2>
+
+          <!-- New Player Form -->
+          <div class="new-player-form">
+            <h3>Add New Player</h3>
+            <div class="form-group">
+              <label for="firstName">First Name</label>
+              <input
+                id="firstName"
+                v-model="newPlayer.firstName"
+                type="text"
+                placeholder="First name"
+              />
+            </div>
+            <div class="form-group">
+              <label for="lastName">Last Name</label>
+              <input
+                id="lastName"
+                v-model="newPlayer.lastName"
+                type="text"
+                placeholder="Last name"
+              />
+            </div>
+            <button
+              class="btn btn-primary"
+              :disabled="!newPlayer.firstName || !newPlayer.lastName"
+              @click="registerNewPlayer"
+            >
+              Register Player
+            </button>
+            <div v-if="message" :class="['message', message.type]">
+              {{ message.text }}
+            </div>
+          </div>
+
+          <!-- Existing Players List -->
+          <div class="existing-players">
+            <h3>Available Players</h3>
+            <div class="players-list">
+              <div
+                v-for="player in availablePlayers"
+                :key="player.id"
+                class="player-item"
+                :class="{ selected: selectedPlayers.includes(player.id) }"
+                @click="selectPlayer(player)"
+              >
+                <div class="checkbox">
+                  <input
+                    type="checkbox"
+                    :checked="selectedPlayers.includes(player.id)"
+                    @change="togglePlayerSelection(player.id)"
+                  />
+                </div>
+                <div class="player-info">
+                  <div class="player-name">{{ player.firstName }} {{ player.lastName }}</div>
+                  <div class="player-meta">ID: {{ player.id }}</div>
+                </div>
+              </div>
+            </div>
+            <p v-if="availablePlayers.length === 0" class="empty-state">
+              No players available. Register a new player to get started.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Group Assignment -->
+      <div class="right-panel">
+        <div class="section">
+          <h2>Groups</h2>
+
+          <!-- New Group Form -->
+          <div class="new-group-form">
+            <h3>Create Group</h3>
+            <div class="form-group">
+              <label for="groupName">Group Name</label>
+              <input
+                id="groupName"
+                v-model="newGroup.name"
+                type="text"
+                placeholder="e.g., Group A, Team 1"
+              />
+            </div>
+            <button
+              class="btn btn-secondary"
+              :disabled="!newGroup.name"
+              @click="createGroup"
+            >
+              Create Group
+            </button>
+          </div>
+
+          <!-- Groups and Assignments -->
+          <div class="groups-list">
+            <h3>Current Groups</h3>
+            <div v-if="groups.length === 0" class="empty-state">
+              No groups yet. Create a group to start assigning players.
+            </div>
+            <div v-for="group in groups" :key="group.id" class="group-card">
+              <div class="group-header">
+                <h4>{{ group.name }}</h4>
+                <button
+                  class="btn-icon"
+                  title="Delete group"
+                  @click="deleteGroup(group.id)"
+                >
+                  ✕
+                </button>
+              </div>
+              <div class="group-players">
+                <div
+                  v-for="player in group.players"
+                  :key="player.id"
+                  class="group-player"
+                >
+                  <span>{{ player.firstName }} {{ player.lastName }}</span>
+                  <button
+                    class="btn-remove"
+                    @click="removePlayerFromGroup(group.id, player.id)"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div v-if="group.players.length === 0" class="no-players">
+                  No players assigned
+                </div>
+              </div>
+
+              <!-- Assign Selected Players to This Group -->
+              <div v-if="selectedPlayers.length > 0" class="assign-section">
+                <button
+                  class="btn btn-sm btn-assign"
+                  @click="assignPlayersToGroup(group.id)"
+                >
+                  Assign {{ selectedPlayers.length }} Player(s)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="setup-actions">
+      <button class="btn btn-secondary" @click="goBack">Back</button>
+      <button
+        class="btn btn-primary btn-lg"
+        :disabled="!canProceed"
+        @click="proceedToSession"
+      >
+        Proceed to Session
+      </button>
+    </div>
+
+    <!-- Validation Messages -->
+    <div v-if="validationErrors.length > 0" class="validation-errors">
+      <h3>Setup Issues</h3>
+      <ul>
+        <li v-for="(error, index) in validationErrors" :key="index">
+          {{ error }}
+        </li>
+      </ul>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { usePlaySessionStore } from '@/stores/playSessionStore'
+import { useGuestStore } from '@/stores/guestStore'
+
+const router = useRouter()
+const playSessionStore = usePlaySessionStore()
+const guestStore = useGuestStore()
+
+// State
+const newPlayer = ref({
+  firstName: '',
+  lastName: ''
+})
+
+const newGroup = ref({
+  name: ''
+})
+
+const selectedPlayers = ref([])
+const message = ref(null)
+const groups = ref([])
+const availablePlayers = ref([])
+
+// Load players from session
+onMounted(async () => {
+  // Get players already in session
+  if (playSessionStore.currentSession?.players) {
+    availablePlayers.value = playSessionStore.currentSession.players
+  }
+
+  // Get groups from session
+  if (playSessionStore.currentSession?.groups) {
+    groups.value = playSessionStore.currentSession.groups
+  }
+})
+
+// Methods
+const registerNewPlayer = () => {
+  if (!newPlayer.value.firstName || !newPlayer.value.lastName) {
+    showMessage('Please fill in both first and last name', 'error')
+    return
+  }
+
+  const player = {
+    id: `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    firstName: newPlayer.value.firstName,
+    lastName: newPlayer.value.lastName,
+    createdAt: new Date().toISOString()
+  }
+
+  availablePlayers.value.push(player)
+
+  // Update session store
+  if (!playSessionStore.currentSession.players) {
+    playSessionStore.currentSession.players = []
+  }
+  playSessionStore.currentSession.players.push(player)
+
+  // Reset form
+  newPlayer.value = { firstName: '', lastName: '' }
+  showMessage('Player registered successfully', 'success')
+}
+
+const selectPlayer = (player) => {
+  const index = selectedPlayers.value.indexOf(player.id)
+  if (index > -1) {
+    selectedPlayers.value.splice(index, 1)
+  } else {
+    selectedPlayers.value.push(player.id)
+  }
+}
+
+const togglePlayerSelection = (playerId) => {
+  const index = selectedPlayers.value.indexOf(playerId)
+  if (index > -1) {
+    selectedPlayers.value.splice(index, 1)
+  } else {
+    selectedPlayers.value.push(playerId)
+  }
+}
+
+const createGroup = () => {
+  if (!newGroup.value.name) {
+    showMessage('Please enter a group name', 'error')
+    return
+  }
+
+  // Check for duplicate names
+  if (groups.value.some(g => g.name === newGroup.value.name)) {
+    showMessage('A group with this name already exists', 'error')
+    return
+  }
+
+  const group = {
+    id: `group_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    name: newGroup.value.name,
+    players: [],
+    createdAt: new Date().toISOString()
+  }
+
+  groups.value.push(group)
+
+  // Update session store
+  if (!playSessionStore.currentSession.groups) {
+    playSessionStore.currentSession.groups = []
+  }
+  playSessionStore.currentSession.groups.push(group)
+
+  newGroup.value = { name: '' }
+  showMessage('Group created successfully', 'success')
+}
+
+const assignPlayersToGroup = (groupId) => {
+  const group = groups.value.find(g => g.id === groupId)
+  if (!group) return
+
+  selectedPlayers.value.forEach(playerId => {
+    const player = availablePlayers.value.find(p => p.id === playerId)
+    if (player && !group.players.some(p => p.id === playerId)) {
+      group.players.push(player)
+    }
+  })
+
+  selectedPlayers.value = []
+  showMessage('Players assigned to group', 'success')
+}
+
+const removePlayerFromGroup = (groupId, playerId) => {
+  const group = groups.value.find(g => g.id === groupId)
+  if (group) {
+    group.players = group.players.filter(p => p.id !== playerId)
+  }
+}
+
+const deleteGroup = (groupId) => {
+  if (confirm('Are you sure you want to delete this group?')) {
+    groups.value = groups.value.filter(g => g.id !== groupId)
+  }
+}
+
+const showMessage = (text, type = 'info') => {
+  message.value = { text, type }
+  setTimeout(() => {
+    message.value = null
+  }, 3000)
+}
+
+const goBack = () => {
+  router.back()
+}
+
+// Computed properties
+const validationErrors = computed(() => {
+  const errors = []
+
+  if (availablePlayers.value.length === 0) {
+    errors.push('At least one player is required')
+  }
+
+  if (groups.value.length === 0) {
+    errors.push('At least one group is required')
+  }
+
+  const assignedPlayers = new Set()
+  groups.value.forEach(group => {
+    group.players.forEach(player => {
+      assignedPlayers.add(player.id)
+    })
+  })
+
+  if (assignedPlayers.size === 0) {
+    errors.push('All players must be assigned to a group')
+  }
+
+  if (assignedPlayers.size < availablePlayers.value.length) {
+    const unassigned = availablePlayers.value.length - assignedPlayers.size
+    errors.push(`${unassigned} player(s) not assigned to any group`)
+  }
+
+  return errors
+})
+
+const canProceed = computed(() => {
+  return validationErrors.value.length === 0
+})
+
+const proceedToSession = () => {
+  if (!canProceed.value) {
+    showMessage('Please fix all issues before proceeding', 'error')
+    return
+  }
+
+  // Update session with final player and group assignments
+  playSessionStore.currentSession.players = availablePlayers.value
+  playSessionStore.currentSession.groups = groups.value
+
+  // Navigate to competition or next phase
+  router.push({ name: 'CompetitionMode' })
+}
+</script>
+
+<style scoped>
+.player-setup-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.setup-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.setup-header h1 {
+  font-size: 2.5rem;
+  color: #2c3e50;
+  margin: 0 0 0.5rem 0;
+}
+
+.subtitle {
+  color: #7f8c8d;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.setup-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.left-panel,
+.right-panel {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.section h2 {
+  color: #2c3e50;
+  margin-top: 0;
+  border-bottom: 2px solid #ecf0f1;
+  padding-bottom: 1rem;
+}
+
+.new-player-form,
+.new-group-form {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+}
+
+.new-player-form h3,
+.new-group-form h3 {
+  margin-top: 0;
+  color: #34495e;
+  font-size: 1.1rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #34495e;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  transition: border-color 0.3s;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background: #3498db;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2980b9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.btn-primary:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #95a5a6;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #7f8c8d;
+  transform: translateY(-2px);
+}
+
+.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.btn-assign {
+  background: #27ae60;
+  color: white;
+  width: 100%;
+}
+
+.btn-assign:hover {
+  background: #229954;
+}
+
+.btn-lg {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  cursor: pointer;
+  font-size: 1.5rem;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.btn-icon:hover {
+  background: rgba(231, 76, 60, 0.1);
+}
+
+.btn-remove {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 6px;
+}
+
+.message {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.message.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.message.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.player-item {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+.player-item:hover {
+  background: #ecf0f1;
+}
+
+.player-item.selected {
+  background: #d4edda;
+  border-color: #27ae60;
+}
+
+.checkbox {
+  margin-right: 1rem;
+}
+
+.checkbox input[type='checkbox'] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+.player-info {
+  flex: 1;
+}
+
+.player-name {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.player-meta {
+  font-size: 0.8rem;
+  color: #7f8c8d;
+  margin-top: 0.25rem;
+}
+
+.groups-list {
+  margin-top: 2rem;
+}
+
+.groups-list h3 {
+  color: #34495e;
+  font-size: 1.1rem;
+  margin-top: 0;
+}
+
+.group-card {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  border-left: 4px solid #3498db;
+}
+
+.group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.group-header h4 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+.group-players {
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  min-height: 40px;
+}
+
+.group-player {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.group-player:last-child {
+  border-bottom: none;
+}
+
+.no-players {
+  color: #95a5a6;
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+
+.assign-section {
+  margin-top: 0.5rem;
+}
+
+.empty-state {
+  color: #95a5a6;
+  font-style: italic;
+  text-align: center;
+  padding: 1rem;
+}
+
+.setup-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.validation-errors {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+  padding: 1.5rem;
+  border-radius: 8px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.validation-errors h3 {
+  margin-top: 0;
+}
+
+.validation-errors ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.validation-errors li {
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .setup-content {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .setup-actions {
+    flex-direction: column;
+  }
+
+  .btn-lg {
+    width: 100%;
+  }
+
+  .setup-header h1 {
+    font-size: 1.8rem;
+  }
+}
+</style>

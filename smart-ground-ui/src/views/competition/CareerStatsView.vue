@@ -4,16 +4,16 @@
       <h1>Karriere-Statistiken</h1>
       <div class="filter-tabs">
         <button
-          @click="activeTab = 'score'"
           class="tab-btn"
           :class="{ active: activeTab === 'score' }"
+          @click="activeTab = 'score'"
         >
           Nach Punkten
         </button>
         <button
-          @click="activeTab = 'wins'"
           class="tab-btn"
           :class="{ active: activeTab === 'wins' }"
+          @click="activeTab = 'wins'"
         >
           Nach Siegen
         </button>

@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/config.js';
+import { BASE_URL } from './apiClient.js';
 
 /**
  * API-Service für Wettkampf-Verwaltung.
@@ -12,7 +12,7 @@ export const competitionService = {
    * @returns {Promise<Page<CompetitionTemplateResponse>>}
    */
   async listTemplates(params = {}) {
-    const url = new URL(`${API_BASE_URL}/session-templates`);
+    const url = new URL(`${BASE_URL}/session-templates`);
     if (params.type) url.searchParams.append('type', params.type);
     if (params.page !== undefined) url.searchParams.append('page', params.page);
     if (params.size !== undefined) url.searchParams.append('size', params.size);
@@ -28,7 +28,7 @@ export const competitionService = {
    * @returns {Promise<CompetitionTemplateResponse>}
    */
   async createTemplate(templateData) {
-    const response = await fetch(`${API_BASE_URL}/session-templates`, {
+    const response = await fetch(`${BASE_URL}/session-templates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(templateData),
@@ -44,7 +44,7 @@ export const competitionService = {
    * @returns {Promise<CompetitionTemplateResponse>}
    */
   async updateTemplate(templateId, templateData) {
-    const response = await fetch(`${API_BASE_URL}/session-templates/${templateId}`, {
+    const response = await fetch(`${BASE_URL}/session-templates/${templateId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(templateData),
@@ -59,7 +59,7 @@ export const competitionService = {
    * @returns {Promise<void>}
    */
   async deleteTemplate(templateId) {
-    const response = await fetch(`${API_BASE_URL}/session-templates/${templateId}`, {
+    const response = await fetch(`${BASE_URL}/session-templates/${templateId}`, {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error(`Failed to delete template: ${response.status}`);
@@ -73,7 +73,7 @@ export const competitionService = {
    * @returns {Promise<SessionResponse>}
    */
   async createSession(request) {
-    const response = await fetch(`${API_BASE_URL}/sessions`, {
+    const response = await fetch(`${BASE_URL}/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
@@ -89,7 +89,7 @@ export const competitionService = {
    * @returns {Promise<SessionResponse>}
    */
   async updateSessionStatus(sessionId, newStatus) {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/status`, {
+    const response = await fetch(`${BASE_URL}/sessions/${sessionId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
@@ -108,7 +108,7 @@ export const competitionService = {
    * @returns {Promise<void>}
    */
   async registerGroupAtRange(sessionId, groupId, rangeId) {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/groups/${groupId}/register`, {
+    const response = await fetch(`${BASE_URL}/sessions/${sessionId}/groups/${groupId}/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rangeId }),
@@ -123,7 +123,7 @@ export const competitionService = {
    * @returns {Promise<void>}
    */
   async unregisterGroupFromRange(sessionId, groupId) {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/groups/${groupId}/register`, {
+    const response = await fetch(`${BASE_URL}/sessions/${sessionId}/groups/${groupId}/register`, {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error(`Failed to unregister group: ${response.status}`);
@@ -136,7 +136,7 @@ export const competitionService = {
    * @returns {Promise<{ active: ShooterGroup[], queue: ShooterGroup[] }>}
    */
   async getGroupsAtRange(sessionId, rangeId) {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/range/${rangeId}/groups`);
+    const response = await fetch(`${BASE_URL}/sessions/${sessionId}/range/${rangeId}/groups`);
     if (!response.ok) throw new Error(`Failed to get groups at range: ${response.status}`);
     return response.json();
   },
@@ -149,7 +149,7 @@ export const competitionService = {
    * @returns {Promise<SessionLeaderboardResponse>}
    */
   async getSessionLeaderboard(sessionId) {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/leaderboard`);
+    const response = await fetch(`${BASE_URL}/sessions/${sessionId}/leaderboard`);
     if (!response.ok) throw new Error(`Failed to get leaderboard: ${response.status}`);
     return response.json();
   },
@@ -162,7 +162,7 @@ export const competitionService = {
    */
   async exportLeaderboard(sessionId, format = 'json') {
     const response = await fetch(
-      `${API_BASE_URL}/sessions/${sessionId}/leaderboard/export?format=${format}`
+      `${BASE_URL}/sessions/${sessionId}/leaderboard/export?format=${format}`
     );
     if (!response.ok) throw new Error(`Failed to export leaderboard: ${response.status}`);
     return response.blob();
@@ -174,7 +174,7 @@ export const competitionService = {
    * @returns {Promise<Page<CareerStatsResponse>>}
    */
   async getTopPlayers(params = {}) {
-    const url = new URL(`${API_BASE_URL}/career-stats/top-players`);
+    const url = new URL(`${BASE_URL}/career-stats/top-players`);
     if (params.page !== undefined) url.searchParams.append('page', params.page);
     if (params.size !== undefined) url.searchParams.append('size', params.size);
 
@@ -189,7 +189,7 @@ export const competitionService = {
    * @returns {Promise<Page<CareerStatsResponse>>}
    */
   async getTopPlayersByWins(params = {}) {
-    const url = new URL(`${API_BASE_URL}/career-stats/top-players/wins`);
+    const url = new URL(`${BASE_URL}/career-stats/top-players/wins`);
     if (params.page !== undefined) url.searchParams.append('page', params.page);
     if (params.size !== undefined) url.searchParams.append('size', params.size);
 
@@ -204,7 +204,7 @@ export const competitionService = {
    * @returns {Promise<CareerStatsResponse>}
    */
   async getCareerStats(userId) {
-    const response = await fetch(`${API_BASE_URL}/career-stats/${userId}`);
+    const response = await fetch(`${BASE_URL}/career-stats/${userId}`);
     if (!response.ok) throw new Error(`Failed to get career stats: ${response.status}`);
     return response.json();
   },

@@ -33,13 +33,13 @@
           <p v-if="template.defaultTiebreaker">Tiebreaker: {{ template.defaultTiebreaker }}</p>
         </div>
         <div class="card-actions">
-          <button @click="selectTemplate(template)" class="btn btn-primary">
+          <button class="btn btn-primary" @click="selectTemplate(template)">
             Starten
           </button>
           <router-link :to="`/competition/template/${template.id}/edit`" class="btn btn-secondary">
             Bearbeiten
           </router-link>
-          <button @click="deleteTemplateConfirm(template.id)" class="btn btn-danger">
+          <button class="btn btn-danger" @click="deleteTemplateConfirm(template.id)">
             Löschen
           </button>
         </div>

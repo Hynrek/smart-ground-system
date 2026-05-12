@@ -5,8 +5,8 @@
       <div class="session-info">
         <span>Status: {{ competitionStore.currentSession?.status }}</span>
         <div class="session-controls">
-          <button @click="pauseSession" class="btn btn-secondary">Unterbrechen</button>
-          <button @click="endSession" class="btn btn-danger">Beenden</button>
+          <button class="btn btn-secondary" @click="pauseSession">Unterbrechen</button>
+          <button class="btn btn-danger" @click="endSession">Beenden</button>
         </div>
       </div>
     </div>
@@ -19,9 +19,9 @@
           <button
             v-for="range in availableRanges"
             :key="range.id"
-            @click="selectRange(range.id)"
             class="btn range-btn"
             :class="{ active: competitionStore.selectedRange === range.id }"
+            @click="selectRange(range.id)"
           >
             {{ range.name }}
           </button>
@@ -45,7 +45,7 @@
               <div v-if="competitionStore.rangeQueue.length > 0" class="queue-list">
                 <div v-for="group in competitionStore.rangeQueue" :key="group.id" class="queue-item">
                   <span>{{ group.name }}</span>
-                  <button @click="registerGroupAtRange(group.id)" class="btn btn-small">Aktivieren</button>
+                  <button class="btn btn-small" @click="registerGroupAtRange(group.id)">Aktivieren</button>
                 </div>
               </div>
               <p v-else class="empty">Keine wartenden Gruppen</p>
@@ -67,7 +67,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useCompetitionStore } from '@/stores/competitionStore.js';
-import LiveScoreboard from '@/components/LiveScoreboard.vue';
+import LiveScoreboard from '@/components/shooter-remote/LiveScoreboard.vue';
 
 const router = useRouter();
 const route = useRoute();

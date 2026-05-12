@@ -15,18 +15,32 @@ const generateUUID = () => {
 };
 
 export const useProgramStore = defineStore('program', () => {
+  // ── Capture state (Erfassen-Modus) ───────────────────────────────────────
   const recording = ref({});
   const programMode = ref(false);
   const pairPending = ref(null);
-  const activeSegmentIndex = ref(0);
+  const activeAblaufIndex = ref(0);
   const editingId = ref(null);
+  const editingAblauf = ref([]);
+
+  // ── Persisted state ───────────────────────────────────────────────────────
+  // Alle Abläufe: user-eigene (ownership:'user') + platzweite (ownership:'range')
+  const savedAblaeufe = ref([]);
   const savedPrograms = ref([]);
-  const editingSegments = ref([]);
+  const pendingProgramId = ref(null);
+
+  // ── Storage key helpers ───────────────────────────────────────────────────
+  // Platzweite Abläufe — global, nicht benutzerspezifisch
+  const RANGE_ABLAUF_PREFIX = '_sg_range_ablauf_';
 
   const getProgramPrefix = () => {
     const authStore = useAuthStore();
-    const userName = authStore.userName ?? 'anonymous';
-    return `${userName}_program_`;
+    return `${authStore.userName ?? 'anonymous'}_program_`;
+  };
+
+  const getAblaufPrefix = () => {
+    const authStore = useAuthStore();
+    return `${authStore.userName ?? 'anonymous'}_ablauf_`;
   };
 
   const nextProgramKey = () => {
@@ -35,21 +49,51 @@ export const useProgramStore = defineStore('program', () => {
       .filter((k) => k.startsWith(prefix))
       .map((k) => parseInt(k.slice(prefix.length), 10))
       .filter((n) => !isNaN(n));
-    const nextNum = existing.length > 0 ? Math.max(...existing) + 1 : 1;
-    return `${prefix}${nextNum}`;
+    return `${prefix}${existing.length > 0 ? Math.max(...existing) + 1 : 1}`;
   };
 
+  const nextAblaufKey = () => {
+    const prefix = getAblaufPrefix();
+    const existing = Object.keys(localStorage)
+      .filter((k) => k.startsWith(prefix))
+      .map((k) => parseInt(k.slice(prefix.length), 10))
+      .filter((n) => !isNaN(n));
+    return `${prefix}${existing.length > 0 ? Math.max(...existing) + 1 : 1}`;
+  };
+
+  const nextRangeAblaufKey = () => {
+    const existing = Object.keys(localStorage)
+      .filter((k) => k.startsWith(RANGE_ABLAUF_PREFIX))
+      .map((k) => parseInt(k.slice(RANGE_ABLAUF_PREFIX.length), 10))
+      .filter((n) => !isNaN(n));
+    return `${RANGE_ABLAUF_PREFIX}${existing.length > 0 ? Math.max(...existing) + 1 : 1}`;
+  };
+
+  // ── Load from localStorage ────────────────────────────────────────────────
   const loadProgramsFromStorage = () => {
     const prefix = getProgramPrefix();
-    const programs = Object.keys(localStorage)
+    savedPrograms.value = Object.keys(localStorage)
       .filter((k) => k.startsWith(prefix))
       .map((key) => {
         try {
           const data = JSON.parse(localStorage.getItem(key));
-          if (data.steps && !data.segments) {
-            data.segments = [{ id: 's1', alias: null, steps: data.steps }];
+          // Backward compat: old format had top-level steps array
+          if (data.steps && !data.ablaeufe && !data.segments) {
+            data.ablaeufe = [{ id: 's1', alias: null, steps: data.steps }];
           }
-          return { id: key, name: data.programName, segments: data.segments };
+          // Backward compat: old format used 'segments' key
+          if (!data.ablaeufe && data.segments) {
+            data.ablaeufe = data.segments;
+          }
+          return {
+            id: key,
+            name: data.programName,
+            ablaeufe: (data.ablaeufe ?? []).map((abl) => ({
+              ...abl,
+              rangeId: abl.rangeId ?? null,
+              rangeName: abl.rangeName ?? null,
+            })),
+          };
         } catch {
           return null;
         }
@@ -60,57 +104,69 @@ export const useProgramStore = defineStore('program', () => {
         const numB = parseInt(b.id.slice(prefix.length), 10);
         return numA - numB;
       });
-    savedPrograms.value = programs;
+  };
+
+  const loadAblaeufeFromStorage = () => {
+    const parseAblauf = (key, defaultOwnership) => {
+      try {
+        const data = JSON.parse(localStorage.getItem(key));
+        return {
+          id: key,
+          name: data.ablaufName ?? data.segmentName,   // backward compat
+          rangeId: data.rangeId ?? null,
+          rangeName: data.rangeName ?? null,
+          steps: data.steps ?? [],
+          createdAt: data.createdAt ?? 0,
+          ownership: data.ownership ?? defaultOwnership,
+        };
+      } catch {
+        return null;
+      }
+    };
+
+    const userPrefix = getAblaufPrefix();
+    const userAblaeufe = Object.keys(localStorage)
+      .filter((k) => k.startsWith(userPrefix))
+      .map((k) => parseAblauf(k, 'user'))
+      .filter(Boolean);
+
+    const rangeAblaeufe = Object.keys(localStorage)
+      .filter((k) => k.startsWith(RANGE_ABLAUF_PREFIX))
+      .map((k) => parseAblauf(k, 'range'))
+      .filter(Boolean);
+
+    savedAblaeufe.value = [...userAblaeufe, ...rangeAblaeufe]
+      .sort((a, b) => a.createdAt - b.createdAt);
   };
 
   loadProgramsFromStorage();
+  loadAblaeufeFromStorage();
 
+  // ── Capture lifecycle ─────────────────────────────────────────────────────
   const resetCapture = () => {
     programMode.value = false;
     pairPending.value = null;
-    activeSegmentIndex.value = 0;
+    activeAblaufIndex.value = 0;
   };
 
   const startCapture = () => {
     const shooterRemoteStore = useShooterRemoteStore();
     if (!shooterRemoteStore.isReserved) return;
     programMode.value = true;
-    activeSegmentIndex.value = 0;
-    editingSegments.value = [{ id: generateUUID(), alias: null, steps: [] }];
+    activeAblaufIndex.value = 0;
+    editingAblauf.value = [{ id: generateUUID(), alias: null, steps: [] }];
     editingId.value = null;
   };
 
   const cancelCapture = () => {
     programMode.value = false;
     pairPending.value = null;
-    editingSegments.value = [];
-    activeSegmentIndex.value = 0;
+    editingAblauf.value = [];
+    activeAblaufIndex.value = 0;
     editingId.value = null;
   };
 
-  const addSegment = () => {
-    const newSeg = { id: generateUUID(), alias: null, steps: [] };
-    editingSegments.value = [...editingSegments.value, newSeg];
-    activeSegmentIndex.value = editingSegments.value.length - 1;
-  };
-
-  const setActiveSegment = (index) => {
-    activeSegmentIndex.value = index;
-    pairPending.value = null;
-  };
-
-  const setSegmentAlias = (index, alias) => {
-    const segs = [...editingSegments.value];
-    segs[index] = { ...segs[index], alias: alias || null };
-    editingSegments.value = segs;
-  };
-
-  const removeSegment = (index) => {
-    if (editingSegments.value.length <= 1) return;
-    editingSegments.value = editingSegments.value.filter((_, i) => i !== index);
-    activeSegmentIndex.value = Math.min(activeSegmentIndex.value, editingSegments.value.length - 1);
-  };
-
+  // ── Step recording ────────────────────────────────────────────────────────
   const addStep = (deviceId, deviceData) => {
     const alias = deviceData.alias ?? 'Gerät';
     const shooterRemoteStore = useShooterRemoteStore();
@@ -123,9 +179,9 @@ export const useProgramStore = defineStore('program', () => {
         recording.value = r;
       }, 500);
       const step = { id: Date.now(), type: 'solo', alias, deviceId };
-      const segs = [...editingSegments.value];
-      segs[activeSegmentIndex.value].steps = [...segs[activeSegmentIndex.value].steps, step];
-      editingSegments.value = segs;
+      const segs = [...editingAblauf.value];
+      segs[0].steps = [...segs[0].steps, step];
+      editingAblauf.value = segs;
     } else if (shooterRemoteStore.mode === 'raffale') {
       recording.value = { ...recording.value, [deviceId]: true };
       setTimeout(() => {
@@ -134,11 +190,11 @@ export const useProgramStore = defineStore('program', () => {
         recording.value = r;
       }, 500);
       const step = { id: Date.now(), type: 'raffale', alias, deviceId };
-      const segs = [...editingSegments.value];
-      segs[activeSegmentIndex.value].steps = [...segs[activeSegmentIndex.value].steps, step];
-      editingSegments.value = segs;
+      const segs = [...editingAblauf.value];
+      segs[0].steps = [...segs[0].steps, step];
+      editingAblauf.value = segs;
       shooterRemoteStore.setMode('solo');
-    } else if (shooterRemoteStore.mode === 'pair' || shooterRemoteStore.mode === 'a.schuss') {
+    } else if (shooterRemoteStore.mode === 'pair' || shooterRemoteStore.mode === 'a_schuss') {
       if (!pairPending.value) {
         pairPending.value = { id: deviceId, alias };
       } else if (pairPending.value.id === deviceId) {
@@ -153,7 +209,7 @@ export const useProgramStore = defineStore('program', () => {
           delete r[pendingId];
           recording.value = r;
         }, 500);
-        const stepType = shooterRemoteStore.mode === 'a.schuss' ? 'a.schuss' : 'pair';
+        const stepType = shooterRemoteStore.mode === 'a_schuss' ? 'a_schuss' : 'pair';
         const step = {
           id: Date.now(),
           type: stepType,
@@ -162,87 +218,143 @@ export const useProgramStore = defineStore('program', () => {
           deviceId1: pendingId,
           deviceId2: deviceId,
         };
-        const segs = [...editingSegments.value];
-        segs[activeSegmentIndex.value].steps = [...segs[activeSegmentIndex.value].steps, step];
-        editingSegments.value = segs;
+        const segs = [...editingAblauf.value];
+        segs[0].steps = [...segs[0].steps, step];
+        editingAblauf.value = segs;
         pairPending.value = null;
         shooterRemoteStore.setMode('solo');
       }
     }
   };
 
-  const removeStep = (segmentIndex, stepId) => {
-    const segs = [...editingSegments.value];
-    segs[segmentIndex] = {
-      ...segs[segmentIndex],
-      steps: segs[segmentIndex].steps.filter((s) => s.id !== stepId),
+  const removeStep = (ablaufIndex, stepId) => {
+    const segs = [...editingAblauf.value];
+    segs[ablaufIndex] = {
+      ...segs[ablaufIndex],
+      steps: segs[ablaufIndex].steps.filter((s) => s.id !== stepId),
     };
-    editingSegments.value = segs;
+    editingAblauf.value = segs;
   };
 
-  const saveProgram = (programName = null) => {
-    if (editingSegments.value.every((seg) => seg.steps.length === 0)) return;
-    const name = programName || `Programm ${savedPrograms.value.length + 1}`;
-    if (editingId.value !== null) {
-      const idx = savedPrograms.value.findIndex((p) => p.id === editingId.value);
-      if (idx !== -1) {
-        savedPrograms.value[idx].segments = [...editingSegments.value];
-        localStorage.setItem(
-          editingId.value,
-          JSON.stringify({
-            programName: savedPrograms.value[idx].name,
-            segments: [...editingSegments.value],
-          })
-        );
-      }
-    } else {
-      const key = nextProgramKey();
-      localStorage.setItem(
-        key,
-        JSON.stringify({ programName: name, segments: [...editingSegments.value] })
-      );
-      savedPrograms.value = [
-        ...savedPrograms.value,
-        { id: key, name, segments: [...editingSegments.value] },
-      ];
-    }
+  // ── Ablauf persistence ────────────────────────────────────────────────────
+  /**
+   * Speichert den aktuellen Erfassungs-Ablauf.
+   * ownership: 'user' (privat) | 'range' (platzweit sichtbar, nur Admin/Owner)
+   */
+  const saveAblauf = (ablaufName, rangeId = null, rangeName = null, ownership = 'user') => {
+    const steps = editingAblauf.value[0]?.steps ?? [];
+    if (steps.length === 0) return;
+    const name = ablaufName?.trim() || `Ablauf ${savedAblaeufe.value.length + 1}`;
+    const key = ownership === 'range' ? nextRangeAblaufKey() : nextAblaufKey();
+    const createdAt = Date.now();
+    const data = { ablaufName: name, rangeId, rangeName, steps, createdAt, ownership };
+    localStorage.setItem(key, JSON.stringify(data));
+    savedAblaeufe.value = [
+      ...savedAblaeufe.value,
+      { id: key, name, rangeId, rangeName, steps: [...steps], createdAt, ownership },
+    ];
     cancelCapture();
   };
 
-  const editProgram = (programId) => {
-    const prog = savedPrograms.value.find((p) => p.id === programId);
-    if (!prog) return;
-    editingId.value = programId;
-    editingSegments.value = prog.segments.map((seg) => ({ ...seg, steps: [...seg.steps] }));
-    activeSegmentIndex.value = 0;
-    programMode.value = true;
+  const deleteAblauf = (ablaufId) => {
+    localStorage.removeItem(ablaufId);
+    savedAblaeufe.value = savedAblaeufe.value.filter((s) => s.id !== ablaufId);
+  };
+
+  const renameAblauf = (ablaufId, newName) => {
+    const abl = savedAblaeufe.value.find((s) => s.id === ablaufId);
+    if (!abl) return;
+    abl.name = newName;
+    try {
+      const stored = JSON.parse(localStorage.getItem(ablaufId));
+      if (stored) {
+        stored.ablaufName = newName;
+        localStorage.setItem(ablaufId, JSON.stringify(stored));
+      }
+    } catch { /* ignorieren */ }
+  };
+
+  // ── Program persistence ───────────────────────────────────────────────────
+  /**
+   * Erstellt ein Programm aus einer Liste von Ablauf-Objekten.
+   * selectedAblaeufe: Array von { id, name, rangeId, rangeName, steps }
+   */
+  const createProgram = (programName, selectedAblaeufe) => {
+    if (selectedAblaeufe.length === 0) return;
+    const name = programName?.trim() || `Programm ${savedPrograms.value.length + 1}`;
+    const key = nextProgramKey();
+    // Abläufe werden vollständig eingebettet (Snapshot für Playback)
+    const ablaeufe = selectedAblaeufe.map((abl) => ({
+      id: abl.id,
+      alias: abl.name,
+      rangeId: abl.rangeId,
+      rangeName: abl.rangeName,
+      steps: [...abl.steps],
+    }));
+    localStorage.setItem(key, JSON.stringify({ programName: name, ablaeufe }));
+    savedPrograms.value = [...savedPrograms.value, { id: key, name, ablaeufe }];
   };
 
   const deleteProgram = (programId) => {
     localStorage.removeItem(programId);
     savedPrograms.value = savedPrograms.value.filter((p) => p.id !== programId);
+    if (pendingProgramId.value === programId) pendingProgramId.value = null;
+  };
+
+  // ── Pending program (für "Starten" aus Programm-Verwaltung) ───────────────
+  const setPendingProgram = (programId) => {
+    pendingProgramId.value = programId;
+  };
+
+  const clearPendingProgram = () => {
+    pendingProgramId.value = null;
+  };
+
+  // ── Legacy: saveProgram ───────────────────────────────────────────────────
+  /** @deprecated Wird durch saveAblauf ersetzt. */
+  const saveProgram = (programName = null) => {
+    if (editingAblauf.value.every((abl) => abl.steps.length === 0)) return;
+    const name = programName || `Programm ${savedPrograms.value.length + 1}`;
+    const key = nextProgramKey();
+    localStorage.setItem(key, JSON.stringify({ programName: name, ablaeufe: [...editingAblauf.value] }));
+    savedPrograms.value = [
+      ...savedPrograms.value,
+      { id: key, name, ablaeufe: [...editingAblauf.value] },
+    ];
+    cancelCapture();
   };
 
   return {
+    // Capture state
     recording,
     programMode,
     pairPending,
-    activeSegmentIndex,
+    activeAblaufIndex,
     editingId,
+    editingAblauf,
+    // Persisted state
+    savedAblaeufe,
     savedPrograms,
-    editingSegments,
+    pendingProgramId,
+    // Capture lifecycle
     resetCapture,
     startCapture,
     cancelCapture,
-    addSegment,
-    setActiveSegment,
-    setSegmentAlias,
-    removeSegment,
+    // Step recording
     addStep,
     removeStep,
-    saveProgram,
-    editProgram,
+    // Ablauf actions
+    saveAblauf,
+    deleteAblauf,
+    renameAblauf,
+    loadAblaeufeFromStorage,
+    // Program actions
+    createProgram,
     deleteProgram,
+    setPendingProgram,
+    clearPendingProgram,
     loadProgramsFromStorage,
+    // Legacy
+    saveProgram,
   };
 });

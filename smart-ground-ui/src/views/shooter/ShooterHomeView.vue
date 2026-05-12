@@ -27,13 +27,29 @@
         <span class="tile-desc">Geräte steuern</span>
       </button>
 
-      <div class="app-tile app-tile--soon">
-        <div class="tile-icon-wrap tile-icon-wrap--muted">
-          <Icons icon="target" :size="36" color="rgba(255,255,255,0.18)" />
+      <button class="app-tile app-tile--available" @click="router.push('/competition/live')">
+        <div class="tile-icon-wrap tile-icon-wrap--green">
+          <Icons icon="target" :size="36" color="#48bb78" />
         </div>
-        <span class="tile-label">Schiessprogramm</span>
-        <span class="tile-coming">Bald verfügbar</span>
-      </div>
+        <span class="tile-label">Wettkampf</span>
+        <span class="tile-desc">Teilnehmen & Ergebnisse</span>
+      </button>
+
+      <button class="app-tile app-tile--available" @click="router.push('/career-stats')">
+        <div class="tile-icon-wrap tile-icon-wrap--purple">
+          <Icons icon="target" :size="36" color="#a855f7" />
+        </div>
+        <span class="tile-label">Karriere</span>
+        <span class="tile-desc">Meine Statistiken</span>
+      </button>
+
+      <button class="app-tile app-tile--available" @click="router.push('/programmes')">
+        <div class="tile-icon-wrap tile-icon-wrap--orange">
+          <Icons icon="program" :size="36" color="#f6ad55" />
+        </div>
+        <span class="tile-label">Programme</span>
+        <span class="tile-desc">Abläufe & Trainings</span>
+      </button>
     </div>
   </div>
 </template>
@@ -187,6 +203,18 @@ const handleLogout = () => {
 
 .tile-icon-wrap--cyan {
   background: rgba(79, 195, 247, 0.15);
+}
+
+.tile-icon-wrap--green {
+  background: rgba(72, 187, 120, 0.15);
+}
+
+.tile-icon-wrap--purple {
+  background: rgba(168, 85, 247, 0.15);
+}
+
+.tile-icon-wrap--orange {
+  background: rgba(246, 173, 85, 0.15);
 }
 
 .tile-icon-wrap--muted {

@@ -130,8 +130,8 @@
         <template v-if="store.sessionMode === 'recording'">
           <button
             class="toggle-btn"
-            :class="{ active: store.mode === 'a.schuss' }"
-            @click="store.setMode('a.schuss')"
+            :class="{ active: store.mode === 'a_schuss' }"
+            @click="store.setMode('a_schuss')"
           >
             a. Schuss
           </button>
@@ -291,7 +291,7 @@ const handleDeviceTap = async (device) => {
   }
 
   // Throwing mode with pair/a.schuss: handle pair selection
-  if ((store.mode === 'pair' || store.mode === 'a.schuss') && !programStore.programMode) {
+  if ((store.mode === 'pair' || store.mode === 'a_schuss') && !programStore.programMode) {
     if (!store.throwPairPending) {
       store.throwPairPending = { id: device.id, alias: device.alias ?? 'Gerät' };
     } else if (store.throwPairPending.id === device.id) {

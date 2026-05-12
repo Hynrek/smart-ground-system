@@ -1,0 +1,1238 @@
+<template>
+  <div class="programme-view">
+    <!-- Top bar -->
+    <div class="top-bar">
+      <button class="back-btn" @click="router.push('/home')">
+        <Icons icon="chevronLeft" :size="18" color="rgba(255,255,255,0.7)" />
+      </button>
+      <h1 class="page-title">Programme</h1>
+      <div class="top-bar-spacer" />
+    </div>
+
+    <!-- Scrollable content -->
+    <div class="content">
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- BLOCK 1: SEGMENTE                           -->
+      <!-- ═══════════════════════════════════════════ -->
+      <section class="block">
+        <div class="block-header">
+          <div class="block-title-row">
+            <span class="block-title">Abläufe</span>
+            <span class="block-badge">{{ programStore.savedAblaeufe.length }}</span>
+          </div>
+          <p class="block-desc">
+            Im Erfassen-Modus aufgezeichnete Bewegungsabfolgen. Können zu Programmen zusammengestellt werden.
+          </p>
+        </div>
+
+        <!-- User segments, grouped by range -->
+        <template v-if="programStore.savedAblaeufe.length > 0">
+          <div v-for="group in ablaufGroups" :key="group.rangeId ?? '__no_range__'" class="range-group">
+            <div class="range-group-label">
+              <Icons icon="ranges" :size="11" color="rgba(255,255,255,0.3)" />
+              <span>{{ group.rangeName ?? 'Kein Platz zugeordnet' }}</span>
+            </div>
+            <div class="segment-list">
+              <div
+                v-for="seg in group.ablaeufe"
+                :key="seg.id"
+                class="segment-card"
+                :class="{ 'is-selected': selectedAblaufIds.has(seg.id) }"
+                @click="creatingProgram ? toggleAblaufSelection(seg.id) : null"
+              >
+                <div class="seg-main">
+                  <div class="seg-info">
+                    <template v-if="renamingAblaufId === seg.id">
+                      <input
+                        ref="renameInputRef"
+                        v-model="renameValue"
+                        class="rename-input"
+                        type="text"
+                        maxlength="40"
+                        @keyup.enter="confirmRename(seg.id)"
+                        @keyup.escape="renamingAblaufId = null"
+                        @click.stop
+                      />
+                    </template>
+                    <template v-else>
+                      <span class="seg-name">{{ seg.name }}</span>
+                      <span v-if="seg.ownership === 'range'" class="ownership-chip">Platz</span>
+                    </template>
+                    <span class="seg-meta">{{ stepCount(seg.steps) }} Würfe</span>
+                  </div>
+                  <!-- Eigene Abläufe: umbenennen + löschen. Platz-Abläufe: nur löschen für Admin -->
+                  <div v-if="!creatingProgram" class="seg-actions">
+                    <button
+                      v-if="seg.ownership !== 'range' && renamingAblaufId === seg.id"
+                      class="icon-btn icon-btn--confirm"
+                      title="Umbenennen bestätigen"
+                      @click.stop="confirmRename(seg.id)"
+                    >
+                      <Icons icon="check" :size="13" color="#48bb78" />
+                    </button>
+                    <button
+                      v-else-if="seg.ownership !== 'range'"
+                      class="icon-btn"
+                      title="Umbenennen"
+                      @click.stop="startRename(seg)"
+                    >
+                      <Icons icon="edit" :size="13" color="rgba(255,255,255,0.4)" />
+                    </button>
+                    <button
+                      v-if="seg.ownership !== 'range' || authStore.isAdminOrOwner()"
+                      class="icon-btn icon-btn--danger"
+                      title="Löschen"
+                      @click.stop="programStore.deleteAblauf(seg.id)"
+                    >
+                      <Icons icon="trash" :size="13" color="rgba(252,129,129,0.6)" />
+                    </button>
+                  </div>
+                  <div v-else class="seg-check">
+                    <div class="check-circle" :class="{ active: selectedAblaufIds.has(seg.id) }">
+                      <Icons v-if="selectedAblaufIds.has(seg.id)" icon="check" :size="11" color="#fff" />
+                    </div>
+                  </div>
+                </div>
+                <div class="seg-steps-preview">
+                  <span
+                    v-for="(step, i) in seg.steps.slice(0, 8)"
+                    :key="step.id"
+                    class="step-dot"
+                    :class="`dot-${step.type}`"
+                    :title="stepTypeLabel(step.type)"
+                  />
+                  <span v-if="seg.steps.length > 8" class="step-dot-more">
+                    +{{ seg.steps.length - 8 }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Empty state -->
+        <div v-if="programStore.savedAblaeufe.length === 0" class="empty-block">
+          <Icons icon="program" :size="36" color="rgba(255,255,255,0.07)" />
+          <p>Noch keine Abläufe</p>
+          <p class="empty-hint">Zeichne Abläufe im Erfassen-Modus auf (Remote → Platz wählen → Modus E)</p>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- BLOCK 2: PROGRAMME                          -->
+      <!-- ═══════════════════════════════════════════ -->
+      <section class="block">
+        <div class="block-header">
+          <div class="block-title-row">
+            <span class="block-title">Programme</span>
+            <span class="block-badge">{{ programStore.savedPrograms.length }}</span>
+          </div>
+          <p class="block-desc">
+            Zusammenstellung aus 1–n Abläufen. Kann direkt auf einem Platz gestartet werden.
+          </p>
+        </div>
+
+        <!-- Programme list -->
+        <div v-if="programStore.savedPrograms.length > 0" class="program-list">
+          <div
+            v-for="prog in programStore.savedPrograms"
+            :key="prog.id"
+            class="program-card"
+            :class="{ expanded: expandedProgramId === prog.id }"
+          >
+            <div class="prog-main" @click="toggleExpand(prog.id)">
+              <div class="prog-info">
+                <span class="prog-name">{{ prog.name }}</span>
+                <div class="prog-meta-row">
+                  <span class="prog-meta-item">{{ prog.ablaeufe.length }} Abläufe</span>
+                  <span class="prog-meta-dot">·</span>
+                  <span class="prog-meta-item">{{ totalThrows(prog.ablaeufe) }} Würfe</span>
+                </div>
+              </div>
+              <Icons
+                icon="chevronRight"
+                :size="14"
+                color="rgba(255,255,255,0.3)"
+                class="expand-icon"
+                :class="{ rotated: expandedProgramId === prog.id }"
+              />
+            </div>
+
+            <!-- Expanded detail -->
+            <div v-if="expandedProgramId === prog.id" class="prog-detail">
+              <!-- Abläufe grouped by range -->
+              <div
+                v-for="rg in programRangeGroups(prog)"
+                :key="rg.rangeId ?? '__none__'"
+                class="prog-range-group"
+              >
+                <div class="prog-range-label">
+                  <Icons icon="ranges" :size="10" color="rgba(255,255,255,0.3)" />
+                  <span>{{ rg.rangeName ?? 'Kein Platz' }}</span>
+                </div>
+                <div class="prog-seg-chips">
+                  <span v-for="seg in rg.ablaeufe" :key="seg.id" class="prog-seg-chip">
+                    {{ seg.alias ?? seg.id }}
+                    <span class="chip-throws">{{ stepCount(seg.steps) }} W</span>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="prog-actions">
+                <button class="action-btn action-btn--start" @click.stop="startProgram(prog)">
+                  <Icons icon="play" :size="14" color="#4fc3f7" />
+                  Starten
+                </button>
+                <button class="action-btn action-btn--danger" @click.stop="programStore.deleteProgram(prog.id)">
+                  <Icons icon="trash" :size="13" color="rgba(252,129,129,0.7)" />
+                  Löschen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div v-if="programStore.savedPrograms.length === 0 && !creatingProgram" class="empty-block">
+          <Icons icon="program" :size="36" color="rgba(255,255,255,0.07)" />
+          <p>Noch keine Programme</p>
+          <p class="empty-hint">Kombiniere Abläufe zu einem Programm</p>
+        </div>
+
+        <!-- Create program flow -->
+        <div v-if="creatingProgram" class="create-program-panel">
+          <div class="create-panel-header">
+            <span class="create-panel-title">Neues Programm</span>
+          </div>
+
+          <!-- Name input -->
+          <div class="create-field">
+            <label class="create-label">Name</label>
+            <input
+              v-model="newProgramName"
+              class="create-input"
+              type="text"
+              placeholder="z.B. Training Woche 1"
+              maxlength="50"
+            />
+          </div>
+
+          <!-- Ablauf picker hint -->
+          <div class="create-field">
+            <label class="create-label">
+              Abläufe auswählen
+              <span class="create-label-count">{{ selectedAblaufIds.size }} gewählt</span>
+            </label>
+            <p v-if="programStore.savedAblaeufe.length === 0" class="create-no-ablaeufe">
+              Noch keine Abläufe vorhanden. Zeichne zuerst Abläufe im Erfassen-Modus auf.
+            </p>
+            <p v-else class="create-hint">Tippe auf Abläufe oben, um sie auszuwählen.</p>
+          </div>
+
+          <!-- Selected segments preview -->
+          <div v-if="selectedAblaufIds.size > 0" class="create-preview">
+            <div
+              v-for="rg in selectedRangeGroups"
+              :key="rg.rangeId ?? '__none__'"
+              class="prog-range-group"
+            >
+              <div class="prog-range-label">
+                <Icons icon="ranges" :size="10" color="rgba(255,255,255,0.3)" />
+                <span>{{ rg.rangeName ?? 'Kein Platz' }}</span>
+              </div>
+              <div class="prog-seg-chips">
+                <span
+                  v-for="seg in rg.ablaeufe"
+                  :key="seg.id"
+                  class="prog-seg-chip prog-seg-chip--selected"
+                >
+                  {{ seg.name }}
+                  <span class="chip-throws">{{ stepCount(seg.steps) }} W</span>
+                  <button class="chip-remove" @click="toggleAblaufSelection(seg.id)">
+                    <Icons icon="x" :size="9" color="rgba(255,255,255,0.5)" />
+                  </button>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Create actions -->
+          <div class="create-actions">
+            <button class="action-btn action-btn--cancel" @click="cancelCreateProgram">
+              Abbrechen
+            </button>
+            <button
+              class="action-btn action-btn--create"
+              :disabled="selectedAblaufIds.size === 0"
+              @click="confirmCreateProgram"
+            >
+              <Icons icon="check" :size="13" color="#fff" />
+              Erstellen
+            </button>
+          </div>
+        </div>
+
+        <!-- New program button -->
+        <button
+          v-if="!creatingProgram"
+          class="new-program-btn"
+          :disabled="programStore.savedAblaeufe.length === 0"
+          @click="startCreateProgram"
+        >
+          <Icons icon="plus" :size="16" color="rgba(79,195,247,0.8)" />
+          Neues Programm
+        </button>
+      </section>
+
+    </div>
+
+    <!-- Range select sheet (shown when starting a program) -->
+    <div v-if="startingProgram" class="range-sheet-overlay" @click="startingProgram = null">
+      <div class="range-sheet" @click.stop>
+        <div class="range-sheet-header">
+          <span class="range-sheet-title">Platz wählen</span>
+          <p class="range-sheet-sub">Auf welchem Platz soll „{{ startingProgram.name }}" gestartet werden?</p>
+        </div>
+        <div v-if="rangeStore.isLoading" class="range-sheet-loading">Lade Plätze…</div>
+        <div v-else-if="availableRanges.length === 0" class="range-sheet-empty">
+          Keine Plätze verfügbar
+        </div>
+        <div v-else class="range-sheet-list">
+          <button
+            v-for="range in availableRanges"
+            :key="range.id"
+            class="range-sheet-item"
+            @click="launchProgram(range.id)"
+          >
+            <div class="range-item-info">
+              <span class="range-item-name">{{ range.name }}</span>
+              <span v-if="range.description" class="range-item-desc">{{ range.description }}</span>
+            </div>
+            <Icons icon="chevronRight" :size="14" color="rgba(255,255,255,0.3)" />
+          </button>
+        </div>
+        <button class="range-sheet-cancel" @click="startingProgram = null">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
+import { useProgramStore } from '@/stores/programStore.js';
+import { useRangeStore } from '@/stores/rangeStore.js';
+import { useAuthStore } from '@/stores/authStore.js';
+import Icons from '@/components/Icons.vue';
+
+const router = useRouter();
+const programStore = useProgramStore();
+const rangeStore = useRangeStore();
+const authStore = useAuthStore();
+
+// Lade Plätze beim Öffnen (falls noch nicht geladen)
+if (!rangeStore.ranges?.length) {
+  rangeStore.loadApiData?.();
+}
+
+// ── Ablauf grouping ───────────────────────────────────────────────────────
+const ablaufGroups = computed(() => {
+  const map = new Map();
+  for (const seg of programStore.savedAblaeufe) {
+    const key = seg.rangeId ?? '__no_range__';
+    if (!map.has(key)) {
+      map.set(key, { rangeId: seg.rangeId, rangeName: seg.rangeName, ablaeufe: [] });
+    }
+    map.get(key).ablaeufe.push(seg);
+  }
+  return Array.from(map.values());
+});
+
+// ── Rename logic ───────────────────────────────────────────────────────────
+const renamingAblaufId = ref(null);
+const renameValue = ref('');
+const renameInputRef = ref(null);
+
+const startRename = (seg) => {
+  renamingAblaufId.value = seg.id;
+  renameValue.value = seg.name;
+  nextTick(() => renameInputRef.value?.[0]?.focus?.() ?? renameInputRef.value?.focus?.());
+};
+
+const confirmRename = (segId) => {
+  if (renameValue.value.trim()) {
+    programStore.renameAblauf(segId, renameValue.value.trim());
+  }
+  renamingAblaufId.value = null;
+};
+
+// ── Expand program cards ───────────────────────────────────────────────────
+const expandedProgramId = ref(null);
+
+const toggleExpand = (programId) => {
+  expandedProgramId.value = expandedProgramId.value === programId ? null : programId;
+};
+
+const programRangeGroups = (prog) => {
+  const map = new Map();
+  for (const seg of prog.ablaeufe) {
+    const key = seg.rangeId ?? '__none__';
+    if (!map.has(key)) {
+      map.set(key, { rangeId: seg.rangeId, rangeName: seg.rangeName, ablaeufe: [] });
+    }
+    map.get(key).ablaeufe.push(seg);
+  }
+  return Array.from(map.values());
+};
+
+// ── Create program flow ────────────────────────────────────────────────────
+const creatingProgram = ref(false);
+const newProgramName = ref('');
+const selectedAblaufIds = ref(new Set());
+
+const startCreateProgram = () => {
+  creatingProgram.value = true;
+  selectedAblaufIds.value = new Set();
+  newProgramName.value = '';
+};
+
+const cancelCreateProgram = () => {
+  creatingProgram.value = false;
+  selectedAblaufIds.value = new Set();
+};
+
+const toggleAblaufSelection = (segId) => {
+  const next = new Set(selectedAblaufIds.value);
+  if (next.has(segId)) next.delete(segId);
+  else next.add(segId);
+  selectedAblaufIds.value = next;
+};
+
+// Alle Abläufe (user + range) die ausgewählt sind
+const selectedAblaeufe = computed(() =>
+  programStore.savedAblaeufe.filter((s) => selectedAblaufIds.value.has(s.id)),
+);
+
+const selectedRangeGroups = computed(() => {
+  const map = new Map();
+  for (const seg of selectedAblaeufe.value) {
+    const key = seg.rangeId ?? '__none__';
+    if (!map.has(key)) {
+      map.set(key, { rangeId: seg.rangeId, rangeName: seg.rangeName, ablaeufe: [] });
+    }
+    map.get(key).ablaeufe.push(seg);
+  }
+  return Array.from(map.values());
+});
+
+const confirmCreateProgram = () => {
+  if (selectedAblaufIds.value.size === 0) return;
+  programStore.createProgram(newProgramName.value, selectedAblaeufe.value);
+  creatingProgram.value = false;
+  selectedAblaufIds.value = new Set();
+  newProgramName.value = '';
+};
+
+// ── Start program (range picker) ───────────────────────────────────────────
+const startingProgram = ref(null);
+
+const availableRanges = computed(() =>
+  (rangeStore.ranges ?? []).filter((r) => !r.locked),
+);
+
+const startProgram = (prog) => {
+  startingProgram.value = prog;
+};
+
+const launchProgram = (rangeId) => {
+  if (!startingProgram.value) return;
+  programStore.setPendingProgram(startingProgram.value.id);
+  startingProgram.value = null;
+  router.push(`/remote/${rangeId}`);
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const stepCount = (steps) => {
+  let count = 0;
+  for (const s of steps) {
+    if (s.type === 'solo') count += 1;
+    else if (s.type === 'pair' || s.type === 'a_schuss') count += 2;
+    else if (s.type === 'raffale') count += 2;
+  }
+  return count;
+};
+
+const totalThrows = (segments) => segments.reduce((sum, seg) => sum + stepCount(seg.steps), 0);
+
+const stepTypeLabel = (type) => {
+  const map = { solo: 'Solo', pair: 'Pair', 'a_schuss': 'a.Schuss', raffale: 'Raffale' };
+  return map[type] ?? type;
+};
+</script>
+
+<style scoped>
+.programme-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #1a1a2e;
+  color: #fff;
+}
+
+/* ── Top bar ─────────────────────────────────────── */
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.back-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.back-btn:hover { background: rgba(255, 255, 255, 0.1); }
+
+.page-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.top-bar-spacer { flex: 1; }
+
+/* ── Content ─────────────────────────────────────── */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0 40px;
+}
+
+/* ── Block ───────────────────────────────────────── */
+.block {
+  padding: 20px 16px 0;
+}
+
+.block + .block {
+  margin-top: 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 24px;
+}
+
+.block-header {
+  margin-bottom: 16px;
+}
+
+.block-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.block-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.block-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 2px 8px;
+}
+
+.block-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Range group ─────────────────────────────────── */
+.range-group {
+  margin-bottom: 14px;
+}
+
+.range-group-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.28);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+
+.range-group-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 1px 6px;
+}
+
+.seg-range-badge {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.seg-range-badge--system {
+  color: rgba(246, 173, 85, 0.6);
+}
+
+.ownership-chip {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(79, 195, 247, 0.8);
+  background: rgba(79, 195, 247, 0.1);
+  border: 1px solid rgba(79, 195, 247, 0.2);
+  border-radius: 20px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.coming-soon-chip {
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(246, 173, 85, 0.6);
+  background: rgba(246, 173, 85, 0.1);
+  border-radius: 20px;
+  padding: 2px 6px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ── Ablauf card ────────────────────────────────── */
+.segment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.segment-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px 14px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.segment-card.is-selected {
+  background: rgba(79, 195, 247, 0.08);
+  border-color: rgba(79, 195, 247, 0.4);
+}
+
+.seg-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.seg-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.seg-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seg-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.seg-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.icon-btn:hover { background: rgba(255, 255, 255, 0.07); }
+.icon-btn--danger:hover { background: rgba(252, 129, 129, 0.1); }
+.icon-btn--confirm:hover { background: rgba(72, 187, 120, 0.1); }
+
+.seg-check { flex-shrink: 0; }
+
+.check-circle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.check-circle.active {
+  background: rgba(79, 195, 247, 0.8);
+  border-color: #4fc3f7;
+}
+
+.seg-steps-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.step-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.step-dot.dot-solo { background: rgba(79, 195, 247, 0.5); }
+.step-dot.dot-pair { background: rgba(72, 187, 120, 0.5); }
+.step-dot.dot-a_schuss { background: rgba(246, 173, 85, 0.5); }
+.step-dot.dot-raffale { background: rgba(168, 85, 247, 0.5); }
+
+.step-dot-more {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  align-self: center;
+}
+
+.rename-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(79, 195, 247, 0.4);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 4px 8px;
+  outline: none;
+}
+
+/* ── Empty states ────────────────────────────────── */
+.empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.empty-block p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.2);
+  margin: 0;
+}
+
+.empty-hint {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.12) !important;
+  line-height: 1.5;
+}
+
+.empty-sub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 0;
+}
+
+.empty-sub p {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.15);
+  margin: 0;
+}
+
+/* ── Program card ────────────────────────────────── */
+.program-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.program-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.program-card.expanded {
+  border-color: rgba(79, 195, 247, 0.25);
+}
+
+.prog-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.prog-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.prog-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.prog-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.prog-meta-item {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.prog-meta-dot {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.15);
+}
+
+.expand-icon {
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.expand-icon.rotated {
+  transform: rotate(90deg);
+}
+
+/* ── Program detail (expanded) ───────────────────── */
+.prog-detail {
+  padding: 0 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prog-range-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+}
+
+.prog-range-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.prog-seg-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prog-seg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.prog-seg-chip--selected {
+  background: rgba(79, 195, 247, 0.12);
+  border-color: rgba(79, 195, 247, 0.3);
+  color: #4fc3f7;
+}
+
+.chip-throws {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.prog-seg-chip--selected .chip-throws {
+  color: rgba(79, 195, 247, 0.5);
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.chip-remove:hover { opacity: 1; }
+
+.prog-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Action buttons ──────────────────────────────── */
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  border: 1px solid transparent;
+}
+
+.action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.action-btn--start {
+  background: rgba(79, 195, 247, 0.12);
+  border-color: rgba(79, 195, 247, 0.3);
+  color: #4fc3f7;
+}
+
+.action-btn--start:hover:not(:disabled) {
+  background: rgba(79, 195, 247, 0.2);
+}
+
+.action-btn--danger {
+  background: rgba(252, 129, 129, 0.08);
+  border-color: rgba(252, 129, 129, 0.2);
+  color: rgba(252, 129, 129, 0.7);
+  flex: none;
+  padding: 10px 14px;
+}
+
+.action-btn--danger:hover {
+  background: rgba(252, 129, 129, 0.14);
+}
+
+.action-btn--cancel {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.action-btn--cancel:hover { background: rgba(255, 255, 255, 0.05); }
+
+.action-btn--create {
+  background: rgba(79, 195, 247, 0.2);
+  border-color: rgba(79, 195, 247, 0.4);
+  color: #4fc3f7;
+}
+
+.action-btn--create:hover:not(:disabled) {
+  background: rgba(79, 195, 247, 0.28);
+}
+
+/* ── New program button ──────────────────────────── */
+.new-program-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px;
+  background: transparent;
+  border: 1.5px dashed rgba(79, 195, 247, 0.25);
+  border-radius: 14px;
+  color: rgba(79, 195, 247, 0.6);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 4px;
+}
+
+.new-program-btn:hover:not(:disabled) {
+  background: rgba(79, 195, 247, 0.06);
+  border-color: rgba(79, 195, 247, 0.4);
+  color: rgba(79, 195, 247, 0.9);
+}
+
+.new-program-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ── Create program panel ────────────────────────── */
+.create-program-panel {
+  background: rgba(79, 195, 247, 0.04);
+  border: 1px solid rgba(79, 195, 247, 0.2);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.create-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.create-panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(79, 195, 247, 0.9);
+}
+
+.create-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.create-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.create-label-count {
+  background: rgba(79, 195, 247, 0.15);
+  color: rgba(79, 195, 247, 0.8);
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.create-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.create-input:focus {
+  border-color: rgba(79, 195, 247, 0.3);
+}
+
+.create-no-ablaeufe,
+.create-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.25);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.create-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(79, 195, 247, 0.08);
+  border: 1px solid rgba(79, 195, 247, 0.15);
+  border-radius: 12px;
+}
+
+.create-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(79, 195, 247, 0.15);
+}
+
+/* ── Range sheet (modal) ──────────────────────────── */
+.range-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  z-index: 100;
+}
+
+.range-sheet {
+  width: 100%;
+  background: #1a1a2e;
+  border-radius: 20px 20px 0 0;
+  padding: 20px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.range-sheet-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.range-sheet-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.range-sheet-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+.range-sheet-loading {
+  text-align: center;
+  padding: 24px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.range-sheet-empty {
+  text-align: center;
+  padding: 24px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.range-sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.range-sheet-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.range-sheet-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.range-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.range-item-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.range-item-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.range-sheet-cancel {
+  width: 100%;
+  padding: 11px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.range-sheet-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+</style>

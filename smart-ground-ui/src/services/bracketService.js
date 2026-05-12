@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/config.js';
+import { BASE_URL } from './apiClient.js';
 
 /**
  * API-Service für Bracket-Turniere (Single/Double Elimination).
@@ -9,7 +9,7 @@ export const bracketService = {
    * POST /api/sessions/{sessionId}/bracket
    */
   async initializeBracket(sessionId, config) {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/bracket`, {
+    const response = await fetch(`${BASE_URL}/sessions/${sessionId}/bracket`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -30,7 +30,7 @@ export const bracketService = {
    * GET /api/sessions/{sessionId}/bracket
    */
   async getBracketState(sessionId) {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/bracket`);
+    const response = await fetch(`${BASE_URL}/sessions/${sessionId}/bracket`);
     if (!response.ok) {
       throw new Error(`Failed to get bracket state: ${response.status}`);
     }
@@ -42,7 +42,7 @@ export const bracketService = {
    * GET /api/sessions/{sessionId}/bracket/phase
    */
   async getBracketPhase(sessionId) {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/bracket/phase`);
+    const response = await fetch(`${BASE_URL}/sessions/${sessionId}/bracket/phase`);
     if (!response.ok) {
       throw new Error(`Failed to get bracket phase: ${response.status}`);
     }
@@ -55,7 +55,7 @@ export const bracketService = {
    * PUT /api/sessions/{sessionId}/bracket/seeding
    */
   async confirmSeeding(sessionId) {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/bracket/seeding`, {
+    const response = await fetch(`${BASE_URL}/sessions/${sessionId}/bracket/seeding`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -71,7 +71,7 @@ export const bracketService = {
    * PUT /api/sessions/{sessionId}/bracket/start
    */
   async startBracketPlay(sessionId) {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/bracket/start`, {
+    const response = await fetch(`${BASE_URL}/sessions/${sessionId}/bracket/start`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -87,7 +87,7 @@ export const bracketService = {
    * GET /api/sessions/{sessionId}/bracket/matches?round={roundNumber}
    */
   async listMatches(sessionId, roundNumber = null) {
-    const url = new URL(`${API_BASE_URL}/sessions/${sessionId}/bracket/matches`);
+    const url = new URL(`${BASE_URL}/sessions/${sessionId}/bracket/matches`);
     if (roundNumber !== null) {
       url.searchParams.append('round', roundNumber);
     }
@@ -104,7 +104,7 @@ export const bracketService = {
    * GET /api/sessions/{sessionId}/bracket/matches/next
    */
   async getNextMatch(sessionId) {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/bracket/matches/next`);
+    const response = await fetch(`${BASE_URL}/sessions/${sessionId}/bracket/matches/next`);
     if (response.status === 204) {
       return null; // No more matches
     }
@@ -120,7 +120,7 @@ export const bracketService = {
    */
   async recordMatchWinner(sessionId, matchNumber, result) {
     const response = await fetch(
-      `${API_BASE_URL}/sessions/${sessionId}/bracket/matches/${matchNumber}`,
+      `${BASE_URL}/sessions/${sessionId}/bracket/matches/${matchNumber}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -143,7 +143,7 @@ export const bracketService = {
    * GET /api/sessions/{sessionId}/bracket/leaderboard
    */
   async getBracketLeaderboard(sessionId) {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/bracket/leaderboard`);
+    const response = await fetch(`${BASE_URL}/sessions/${sessionId}/bracket/leaderboard`);
     if (!response.ok) {
       throw new Error(`Failed to get bracket leaderboard: ${response.status}`);
     }
@@ -155,7 +155,7 @@ export const bracketService = {
    * GET /api/sessions/{sessionId}/bracket/export?format={format}
    */
   async exportBracket(sessionId, format = 'json') {
-    const url = new URL(`${API_BASE_URL}/sessions/${sessionId}/bracket/export`);
+    const url = new URL(`${BASE_URL}/sessions/${sessionId}/bracket/export`);
     url.searchParams.append('format', format);
 
     const response = await fetch(url);

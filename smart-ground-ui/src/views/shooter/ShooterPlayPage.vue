@@ -2,38 +2,40 @@
   <div v-if="store.playProg" class="play-page">
     <!-- Top bar -->
     <div class="play-topbar">
-      <button class="back-btn" @click="goBack">
-        <Icons icon="chevronLeft" :size="20" color="rgba(255,255,255,0.8)" />
-        Zurück
-      </button>
+      <div class="player-info">
+        <button class="back-btn" @click="goBack">
+          <Icons icon="chevronLeft" :size="20" color="rgba(255,255,255,0.8)" />
+          Zurück
+        </button>
+        <span v-if="store.currentPlayer" class="player-name">
+          {{ store.currentPlayer.displayName }}
+        </span>
+      </div>
       <div class="score-display">
         <span class="score-label">Punkte</span>
         <span class="score-value">{{ store.playScore.totalPoints }}</span>
       </div>
     </div>
 
-    <!-- Vertical Carousel -->
+    <!-- Vertical Carousel (Top Down: Next → Current → Done) -->
     <div class="carousel-area">
-      <!-- Completed steps (scrolled up) -->
-      <div v-if="completedSteps.length > 0" class="completed-steps">
-        <div
-          v-for="stepIdx in completedSteps"
-          :key="stepIdx"
-          class="completed-card"
-          :class="{ 'is-failed-a': store.playScore.stepStates[stepIdx].state === 'failed-a', 'is-failed-b': store.playScore.stepStates[stepIdx].state === 'failed-b', 'is-failed-full': store.playScore.stepStates[stepIdx].state === 'failed-both' }"
-        >
-          <span class="step-number">{{ stepIdx + 1 }}</span>
-          <span class="step-type">{{ getTypeLabel(store.playProg[stepIdx].type) }}</span>
+      <!-- Part 1: Next step preview (top) -->
+      <div v-if="nextStep && !showFinalScore" class="carousel-section next-section">
+        <div class="section-label">Nächster Schritt</div>
+        <div class="preview-card" :class="{ 'is-fertig': isFertig(nextStep) }" @click="handleNextStepClick">
+          <span class="preview-type">{{ getTypeLabel(nextStep.type) }}</span>
+          <span class="preview-label">{{ getStepDisplay(nextStep) }}</span>
         </div>
       </div>
 
-      <!-- Current step (center - main focus) -->
-      <div v-if="currentStep" class="current-step-container">
+      <!-- Part 2: Current step (center - main focus) -->
+      <div v-if="currentStep" class="carousel-section current-section">
+        <div class="section-label">Aktueller Schritt</div>
         <div class="step-card" :class="`is-${currentStep.type}`" @click="handleCurrentStepClick">
           <span class="card-badge" :class="`badge-${currentStep.type}`">
             {{ getTypeLabel(currentStep.type) }}
           </span>
-          <div v-if="currentStep.type === 'a.schuss'" class="aschuss-display">
+          <div v-if="currentStep.type === 'a_schuss'" class="aschuss-display">
             <div :class="{ device: true, bold: store.playPartialStep === null }">
               {{ currentStep.alias1 }}
             </div>
@@ -56,25 +58,18 @@
         </div>
       </div>
 
-      <!-- Next step preview -->
-      <div v-if="nextStep && !showCompletion" class="next-step-preview">
-        <div class="preview-card">
-          <span class="preview-type">{{ getTypeLabel(nextStep.type) }}</span>
-          <span class="preview-label">{{ getStepDisplay(nextStep) }}</span>
-        </div>
-      </div>
-
-      <!-- Completion screen -->
-      <div v-if="showCompletion && !showFinalScore" class="completion-screen">
-        <div class="completion-card">
-          <div class="card-title">Letzten Schritt überprüfen?</div>
-          <div class="button-group">
-            <button class="btn btn-success" @click="markLastStepDone">
-              Treffer ✓
-            </button>
-            <button class="btn btn-danger" @click="markLastStepFailed">
-              Fehlschuss ✗
-            </button>
+      <!-- Part 3: Completed steps (bottom, scrollable) -->
+      <div v-if="completedSteps.length > 0" class="carousel-section done-section">
+        <div class="section-label">Abgeschlossene Schritte</div>
+        <div class="completed-steps-scroll">
+          <div
+            v-for="(step, idx) in recentCompletedSteps"
+            :key="`${step.segIdx}-${step.stepIdx}`"
+            class="completed-card"
+            :class="getCompletedCardClass(step.segIdx, step.stepIdx)"
+          >
+            <span class="step-number">{{ completedSteps.length - recentCompletedSteps.length + idx + 1 }}</span>
+            <span class="step-type">{{ getTypeLabel(store.playProg[step.segIdx].steps[step.stepIdx].type) }}</span>
           </div>
         </div>
       </div>
@@ -98,7 +93,7 @@
         class="action-btn"
         :disabled="!canFail"
         title="Gerät A fehlgeschossen"
-        @click="store.failStep('a')"
+        @click="handleFailStep('a')"
       >
         <span class="btn-label">Fail A</span>
         <span class="btn-info">-1</span>
@@ -109,7 +104,7 @@
         class="action-btn"
         :disabled="!(canFail && lastStepWasADouble)"
         title="Gerät B fehlgeschossen"
-        @click="store.failStep('b')"
+        @click="handleFailStep('b')"
       >
         <span class="btn-label">Fail B</span>
         <span class="btn-info">-1</span>
@@ -120,7 +115,7 @@
         class="action-btn"
         :disabled="!(canFail && lastStepWasADouble)"
         title="Beide Geräte fehlgeschossen"
-        @click="store.failStep('both')"
+        @click="handleFailStep('both')"
       >
         <span class="btn-label">Fail A/B</span>
         <span class="btn-info">-2</span>
@@ -129,7 +124,7 @@
       <!-- No Bird (always visible) -->
       <button
         class="action-btn btn-no-bird"
-        :disabled="store.playLastDeviceStep === null"
+        :disabled="!store.canRetry"
         title="Letzten Schritt wiederholen"
         @click="store.retryStep()"
       >
@@ -139,12 +134,12 @@
     </div>
 
     <!-- Progress dots -->
-    <div class="progress-dots">
+    <div v-if="store.playProg" class="progress-dots">
       <div
-        v-for="(_, idx) in store.playProg"
-        :key="idx"
+        v-for="(flatIdx) in computeFlatStepCount()"
+        :key="flatIdx"
         class="dot"
-        :class="getDotClass(idx)"
+        :class="getDotClass(flatIdx)"
       />
     </div>
   </div>
@@ -153,126 +148,143 @@
 <script setup>
 import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
-import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
+import { usePlaySessionStore } from '@/stores/playSessionStore.js';
+import { StepState, StepType } from '@/constants/playEnums.js';
 import Icons from '@/components/Icons.vue';
 
 const router = useRouter();
 const props = defineProps({
   rangeId: { type: String, required: true },
-  playId: { type: String, required: true }, // This is now the sessionId
 });
 
-const store = useShooterRemoteStore();
+const store = usePlaySessionStore();
 const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
-const completionVerificationDone = ref(false);
 
-// Initialize play program from localStorage session
 if (!store.playProg) {
-  const sessionData = store.loadPlaySession(props.playId);
-  if (sessionData) {
-    // Initialize play state from session data
-    store.playProg = sessionData.steps;
-    store.playCurrentStep = 0;
-    store.playScoreMode = true;
-    const stepStates = sessionData.steps.map((_, idx) => ({
-      stepIndex: idx,
-      state: 'pending',
-      pointValue: store.getPointValueForStep(sessionData.steps[idx]),
-    }));
-    store.playScore = { totalPoints: 0, stepStates };
-    store.playLastDeviceStep = null;
-  } else {
-    // Session not found, redirect back
-    router.push(`/remote/${props.rangeId}`);
-  }
+  router.push(`/remote/${props.rangeId}`);
 }
 
-const currentStep = computed(() => store.playProg?.[store.playCurrentStep] ?? null);
-const nextStep = computed(() => store.playProg?.[store.playCurrentStep + 1] ?? null);
+// ── Carousel data ─────────────────────────────────────────────────────────────
+const fertigStep = { type: 'fertig', alias: 'Fertig' };
+
+const currentStep = computed(() => store.currentStep);
+
+const nextStep = computed(() => {
+  const seg = store.currentAblauf;
+  if (!seg || !store.playProg) return fertigStep;
+  if (store.currentStepIndex < seg.steps.length - 1) {
+    return seg.steps[store.currentStepIndex + 1];
+  }
+  if (store.currentAblaufIndex < store.playProg.length - 1) {
+    return store.playProg[store.currentAblaufIndex + 1].steps[0];
+  }
+  return fertigStep;
+});
 
 const completedSteps = computed(() => {
   const completed = [];
-  for (let i = 0; i < store.playCurrentStep; i++) {
-    completed.push(i);
+  if (!store.playProg) return completed;
+  for (let segIdx = 0; segIdx < store.currentAblaufIndex; segIdx++) {
+    for (let stepIdx = 0; stepIdx < store.playProg[segIdx].steps.length; stepIdx++) {
+      completed.push({ segIdx, stepIdx });
+    }
+  }
+  for (let stepIdx = 0; stepIdx < store.currentStepIndex; stepIdx++) {
+    completed.push({ segIdx: store.currentAblaufIndex, stepIdx });
   }
   return completed;
 });
 
-const showCompletion = computed(() => {
-  return (
-    store.playCurrentStep >= store.playProg.length &&
-    !completionVerificationDone.value &&
-    store.playLastDeviceStep !== null
-  );
-});
+const recentCompletedSteps = computed(() => completedSteps.value.slice(-3));
 
-const showFinalScore = computed(() => {
-  return (
-    store.playCurrentStep >= store.playProg.length - 1 &&
-    completionVerificationDone.value
-  );
-});
+// ── Derived display state ─────────────────────────────────────────────────────
+const showFinalScore = computed(() => store.playComplete);
 
-const canFail = computed(() => {
-  // Can fail only when a step has been completed (has been done, is now green)
-  return store.playLastDeviceStep !== null && !showCompletion.value && !showFinalScore.value;
-});
+const isFertig = (step) => step?.type === 'fertig';
 
+// Fail buttons are active whenever there is a last fired step and the program
+// is not already concluded.
+const canFail = computed(() =>
+  store.playLastDeviceStep !== null && !store.playComplete
+);
 
-const doubleTypes = ['pair', 'a.schuss', 'raffale'];
+// Fail B / Fail A+B only make sense when the last fired step was a multi-target type.
+const doubleTypes = [StepType.PAIR, StepType.A_SCHUSS, StepType.RAFFALE];
 const lastStepWasADouble = computed(() => {
-  const lastStepIndex = store.playCurrentStep - 1;
-  if (lastStepIndex < 0 || !store.playProg) return false;
-  const lastStep = store.playProg[lastStepIndex];
-  return lastStep && doubleTypes.includes(lastStep.type);
+  if (!store.playLastDeviceStep) return false;
+  const { segmentIdx, stepIdx } = store.playLastDeviceStep;
+  const step = store.playProg?.[segmentIdx]?.steps[stepIdx];
+  return step ? doubleTypes.includes(step.type) : false;
 });
 
-const getTypeLabel = (type) => {
-  const labels = {
-    solo: 'Solo',
-    pair: 'Pair',
-    'a.schuss': 'a. Schuss',
-    raffale: 'Raffale',
-  };
-  return labels[type] || type;
-};
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const getTypeLabel = (type) => ({
+  [StepType.SOLO]: 'Solo',
+  [StepType.PAIR]: 'Pair',
+  [StepType.A_SCHUSS]: 'a. Schuss',
+  [StepType.RAFFALE]: 'Raffale',
+  fertig: 'Fertig',
+})[type] ?? type;
 
 const getStepDisplay = (step) => {
-  if (step.type === 'solo') return step.alias;
-  if (step.type === 'raffale') return `${step.alias} (2×)`;
+  if (step.type === 'fertig') return 'Programm abgeschlossen';
+  if (step.type === StepType.SOLO) return step.alias;
+  if (step.type === StepType.RAFFALE) return `${step.alias} (2×)`;
   return `${step.alias1} + ${step.alias2}`;
 };
 
 const getHint = (step) => {
-  if (step.type === 'a.schuss') {
+  if (step.type === StepType.A_SCHUSS) {
     return store.playPartialStep === null ? 'Erstes Gerät: Tippen' : 'Zweites Gerät: Tippen';
   }
-  if (step.type === 'raffale') {
+  if (step.type === StepType.RAFFALE) {
     return store.playRaffaleStarted ? 'Warte auf Verzögerung...' : 'Erste Auslösung: Tippen';
   }
   return 'Tippen zum Auslösen →';
 };
 
-const getDotClass = (idx) => {
-  if (idx < store.playCurrentStep) return 'dot--completed';
-  if (idx === store.playCurrentStep) return 'dot--current';
+const getCompletedCardClass = (segIdx, stepIdx) => {
+  const state = store.playScore.stepStates.find(
+    (s) => s.playerId === store.currentPlayer?.id && s.ablaufIndex === segIdx && s.stepIndex === stepIdx
+  );
+  if (!state) return '';
+  if (state.state === StepState.FAILED_A) return 'is-failed-a';
+  if (state.state === StepState.FAILED_B) return 'is-failed-b';
+  if (state.state === StepState.FAILED_BOTH) return 'is-failed-full';
+  return '';
+};
+
+const computeFlatStepCount = () => {
+  if (!store.playProg) return [];
+  const total = store.playProg.reduce((sum, seg) => sum + seg.steps.length, 0);
+  return Array.from({ length: total }, (_, i) => i);
+};
+
+const getDotClass = (flatIdx) => {
+  if (!store.playProg) return 'dot--pending';
+  const currentFlat =
+    store.playProg.slice(0, store.currentAblaufIndex).reduce((sum, seg) => sum + seg.steps.length, 0) +
+    store.currentStepIndex;
+  if (flatIdx < currentFlat) return 'dot--completed';
+  if (flatIdx === currentFlat) return 'dot--current';
   return 'dot--pending';
 };
 
+// ── Handlers ──────────────────────────────────────────────────────────────────
 const handleCurrentStepClick = async () => {
   await store.advancePlayStep();
 };
 
-const markLastStepDone = () => {
-  completionVerificationDone.value = true;
+const handleNextStepClick = () => {
+  if (isFertig(nextStep.value)) store.confirmComplete();
 };
 
-const markLastStepFailed = () => {
-  if (store.playLastDeviceStep !== null) {
-    store.failStep('a');
-    completionVerificationDone.value = true;
-  }
+const handleFailStep = (failType) => {
+  store.failStep(failType);
+  // At program end the Fertig card is acting as the implicit hit-confirm;
+  // using a fail button is the user's explicit confirmation that they're done.
+  if (store.isAtProgramEnd) store.confirmComplete();
 };
 
 const goBack = () => {
@@ -280,13 +292,8 @@ const goBack = () => {
   router.push(`/remote/${props.rangeId}`);
 };
 
-// Cleanup when leaving the page
 onBeforeUnmount(() => {
-  if (!showFinalScore.value) {
-    store.closePlayback();
-    // Clear the session if program wasn't completed
-    store.clearPlaySession(props.playId);
-  }
+  if (!store.playComplete) store.closePlayback();
 });
 
 // Monitor raffale timer
@@ -332,6 +339,18 @@ watch(
   padding: 20px 24px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   flex-shrink: 0;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.player-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
 }
 
 .back-btn {
@@ -380,20 +399,52 @@ watch(
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 24px;
-  gap: 16px;
+  padding: 16px 24px;
+  gap: 20px;
   overflow-y: auto;
 }
 
-/* Completed steps */
-.completed-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* Carousel sections */
+.carousel-section {
   width: 100%;
   max-width: 340px;
-  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+/* Next section (top) */
+.next-section {
+  flex-shrink: 0;
+}
+
+/* Current section (middle) */
+.current-section {
+  flex-shrink: 0;
+}
+
+/* Done section (bottom, scrollable) */
+.done-section {
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+/* Completed steps */
+.completed-steps-scroll {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .completed-card {
@@ -439,25 +490,17 @@ watch(
   opacity: 0.8;
 }
 
-/* Current step */
-.current-step-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 340px;
-}
 
 .step-card {
   background: rgba(255, 255, 255, 0.06);
   border: 1.5px solid rgba(79, 195, 247, 0.35);
   border-radius: 20px;
-  padding: 32px 28px;
+  padding: 24px 24px;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   cursor: pointer;
   transition: transform 0.1s;
   animation: slideInUp 300ms ease-out;
@@ -510,7 +553,7 @@ watch(
 }
 
 .card-label {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   color: #ffffff;
   text-align: center;
@@ -575,21 +618,31 @@ watch(
   margin-top: 4px;
 }
 
-/* Next step preview */
-.next-step-preview {
-  width: 100%;
-  max-width: 340px;
-}
 
 .preview-card {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  padding: 16px;
+  padding: 12px 14px;
   text-align: center;
   opacity: 0.3;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
+  cursor: default;
+}
+
+.preview-card.is-fertig {
+  opacity: 1;
+  background: rgba(72, 187, 120, 0.15);
+  border-color: rgba(72, 187, 120, 0.3);
+  color: #48bb78;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preview-card.is-fertig:hover {
+  background: rgba(72, 187, 120, 0.25);
+  border-color: rgba(72, 187, 120, 0.5);
 }
 
 .preview-type {

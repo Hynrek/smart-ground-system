@@ -35,69 +35,91 @@
 
       <!-- Scrollable content -->
       <div class="flyout-content" :class="{ 'shrunk-content': isRecordingActive && !isOpen }">
+
         <!-- Recording summary (shrunk mode) -->
-        <div v-if="isRecordingActive && !isOpen && programStore.editingSegments.some(seg => seg.steps.length > 0)" class="recording-summary">
+        <div
+          v-if="isRecordingActive && !isOpen && currentSteps.length > 0"
+          class="recording-summary"
+        >
           <div class="captured-items">
-            <template v-for="(segment, segIdx) in programStore.editingSegments" :key="`seg-${segment.id}`">
-              <button
-                v-for="step in segment.steps"
-                :key="step.id"
-                class="captured-item"
-                :class="{ 'is-raffale': step.type === 'raffale' }"
-                :title="getStepTooltip(step)"
-                @click="programStore.removeStep(segIdx, step.id)"
-              >
-                <span class="item-code">
-                  {{ getStepLabel(step) }}
-                </span>
-              </button>
-            </template>
+            <button
+              v-for="step in currentSteps"
+              :key="step.id"
+              class="captured-item"
+              :class="{ 'is-raffale': step.type === 'raffale' }"
+              :title="getStepTooltip(step)"
+              @click="programStore.removeStep(0, step.id)"
+            >
+              <span class="item-code">{{ getStepLabel(step) }}</span>
+            </button>
           </div>
         </div>
 
-        <!-- Draft steps (full mode) - organized by segment -->
-        <template v-if="programStore.programMode && programStore.editingSegments.some(seg => seg.steps.length > 0) && isOpen">
-          <template v-for="(segment, segIdx) in programStore.editingSegments" :key="`seg-${segment.id}`">
-            <div v-if="segment.steps.length > 0" class="section">
-              <div class="segment-header">
-                <span class="section-label">{{ segment.alias || `Segment ${segIdx + 1}` }}</span>
-                <button class="segment-add-btn" :class="{ active: programStore.activeSegmentIndex === segIdx }" @click="programStore.setActiveSegment(segIdx)">
-                  {{ programStore.activeSegmentIndex === segIdx ? 'Aktiv' : 'Auswählen' }}
+        <!-- Draft steps (full mode, recording active) -->
+        <template v-if="programStore.programMode && currentSteps.length > 0 && isOpen">
+          <div class="section">
+            <span class="section-label">Erfasste Schritte</span>
+            <div class="ablauf-list">
+              <div v-for="(step, stepIdx) in currentSteps" :key="step.id" class="ablauf-item">
+                <div class="step-info">
+                  <span class="step-index">{{ stepIdx + 1 }}</span>
+                  <span class="step-label">
+                    {{ stepDisplayLabel(step) }}
+                  </span>
+                  <span class="step-type-chip" :class="`type-${step.type}`">
+                    {{ stepTypeLabel(step.type) }}
+                  </span>
+                </div>
+                <button class="delete-btn" @click="programStore.removeStep(0, step.id)">
+                  <Icons icon="x" :size="12" color="rgba(252,129,129,0.8)" />
                 </button>
               </div>
-              <div class="ablauf-list">
-                <div v-for="(step, stepIdx) in segment.steps" :key="step.id" class="ablauf-item">
-                  <div class="step-info">
-                    <span class="step-index">{{ stepIdx + 1 }}</span>
-                    <span class="step-label">
-                      {{ step.type === 'solo' ? step.alias : step.type === 'raffale' ? `${step.alias} (2x)` : `${step.alias1} + ${step.alias2}` }}
-                    </span>
-                    <span class="step-type-chip" :class="`type-${step.type}`">
-                      {{ step.type === 'solo' ? 'Solo' : step.type === 'pair' ? 'Pair' : step.type === 'a.Schuss' ? 'a.Schuss' : 'Raffale' }}
-                    </span>
-                  </div>
-                  <button class="delete-btn" @click="programStore.removeStep(segIdx, step.id)">
-                    <Icons icon="x" :size="12" color="rgba(252,129,129,0.8)" />
-                  </button>
-                </div>
-              </div>
             </div>
-          </template>
-          <button v-if="isOpen" class="add-segment-btn" @click="programStore.addSegment">
-            + Segment hinzufügen
-          </button>
+          </div>
         </template>
 
+        <!-- Pending program highlight (not recording, pendingProgramId set) -->
+        <div
+          v-if="!isRecordingActive && pendingProgram"
+          class="pending-program-section"
+        >
+          <span class="section-label">Bereit zum Starten</span>
+          <div class="pending-program-card">
+            <div class="pending-prog-info">
+              <Icons icon="program" :size="14" color="#4fc3f7" />
+              <span class="pending-prog-name">{{ pendingProgram.name }}</span>
+            </div>
+            <div class="pending-prog-meta">
+              {{ pendingProgram.ablaeufe.length }} Abläufe ·
+              {{ throwCount(pendingProgram.ablaeufe) }} Würfe
+            </div>
+            <div class="pending-prog-actions">
+              <button class="play-btn play-btn--pending" @click="playPendingProgram">
+                <Icons icon="play" :size="12" color="#fff" />
+                Starten
+              </button>
+              <button class="trash-btn" @click="programStore.clearPendingProgram()">
+                <Icons icon="x" :size="13" color="rgba(255,255,255,0.4)" />
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Saved programmes (only when not recording) -->
-        <div v-if="!isRecordingActive && programStore.savedPrograms.length > 0" class="section">
-          <span class="section-label">Gespeichert</span>
+        <div v-if="!isRecordingActive && filteredPrograms.length > 0" class="section">
+          <span class="section-label">Programme</span>
           <div class="programmes-list">
-            <div v-for="prog in programStore.savedPrograms" :key="prog.id" class="programme-card">
+            <div
+              v-for="prog in filteredPrograms"
+              :key="prog.id"
+              class="programme-card"
+              :class="{ 'is-pending': prog.id === programStore.pendingProgramId }"
+            >
               <div class="prog-header">
                 <span class="prog-title">{{ prog.name }}</span>
                 <div class="prog-meta">
-                  <span>{{ prog.segments.length }} Segmente</span>
-                  <span>{{ throwCount(prog.segments) }} Würfe</span>
+                  <span>{{ prog.ablaeufe.length }} Abläufe</span>
+                  <span>{{ throwCount(prog.ablaeufe) }} Würfe</span>
                 </div>
               </div>
               <div class="prog-actions">
@@ -114,29 +136,61 @@
         </div>
 
         <!-- Empty state -->
-        <div v-if="!isRecordingActive && programStore.savedPrograms.length === 0 && !programStore.programMode" class="empty-state">
+        <div
+          v-if="!isRecordingActive && filteredPrograms.length === 0 && !pendingProgram"
+          class="empty-state"
+        >
           <Icons icon="program" :size="32" color="rgba(255,255,255,0.1)" />
           <p>Keine Programme</p>
+          <p class="empty-hint">Erstelle Programme in der Programme-Ansicht</p>
         </div>
       </div>
 
-      <!-- Footer (save/cancel when capturing) -->
-      <div v-if="programStore.programMode && programStore.editingSegments.some(seg => seg.steps.length > 0)" class="flyout-footer">
-        <button class="btn-clear" @click="programStore.cancelCapture">Abbrechen</button>
-        <button class="btn-save" @click="programStore.saveProgram()">Speichern</button>
+      <!-- Footer: Naming prompt OR cancel when capturing -->
+      <div v-if="programStore.programMode && currentSteps.length > 0" class="flyout-footer">
+        <template v-if="namingMode">
+          <div class="naming-row">
+            <input
+              ref="nameInputRef"
+              v-model="ablaufNameInput"
+              class="ablauf-name-input"
+              type="text"
+              placeholder="Ablauf benennen…"
+              maxlength="40"
+              @keyup.enter="confirmSaveAblauf"
+              @keyup.escape="namingMode = false"
+            />
+            <button class="btn-save" @click="confirmSaveAblauf">
+              <Icons icon="check" :size="13" color="#48bb78" />
+            </button>
+            <button class="btn-clear btn-clear--icon" @click="namingMode = false">
+              <Icons icon="x" :size="13" color="#fc8181" />
+            </button>
+          </div>
+          <!-- Platz-weit Option: nur für Admin/Owner sichtbar -->
+          <label v-if="authStore.isAdminOrOwner()" class="range-ownership-toggle">
+            <input v-model="saveAsRange" type="checkbox" />
+            <span>Für alle auf diesem Platz</span>
+          </label>
+        </template>
+        <template v-else>
+          <button class="btn-clear" @click="programStore.cancelCapture">Abbrechen</button>
+          <button class="btn-save" @click="openNamingMode">Speichern</button>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
 import { useProgramStore } from '@/stores/programStore.js';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useRangeStore } from '@/stores/rangeStore.js';
+import { useAuthStore } from '@/stores/authStore.js';
 import Icons from '@/components/Icons.vue';
 
 const router = useRouter();
@@ -145,10 +199,31 @@ const programStore = useProgramStore();
 const playStore = usePlaySessionStore();
 const deviceStore = useDeviceStore();
 const rangeStore = useRangeStore();
+const authStore = useAuthStore();
+
 const isOpen = ref(false);
+const namingMode = ref(false);
+const ablaufNameInput = ref('');
+const saveAsRange = ref(false);
+const nameInputRef = ref(null);
 
 const isRecordingActive = computed(
   () => store.sessionMode === 'recording' && store.recordingActive && programStore.programMode,
+);
+
+// Immer Ablauf-Index 0 — Erfassen hat nur noch ein Ablauf
+const currentSteps = computed(() => programStore.editingAblauf[0]?.steps ?? []);
+
+// Pending program (gesetzt aus Programme-Ansicht → Starten)
+const pendingProgram = computed(() =>
+  programStore.pendingProgramId
+    ? programStore.savedPrograms.find((p) => p.id === programStore.pendingProgramId) ?? null
+    : null,
+);
+
+// Programme ohne das pending (um Dopplung zu vermeiden)
+const filteredPrograms = computed(() =>
+  programStore.savedPrograms.filter((p) => p.id !== programStore.pendingProgramId),
 );
 
 const togglePanel = () => {
@@ -159,25 +234,28 @@ const togglePanel = () => {
   }
 };
 
-const range = computed(() =>
-  rangeStore.ranges.find((r) => r.id === store.selectedRangeId),
-);
+// ── Naming mode ────────────────────────────────────────────────────────────
+const openNamingMode = () => {
+  ablaufNameInput.value = '';
+  saveAsRange.value = false;
+  namingMode.value = true;
+  nextTick(() => nameInputRef.value?.focus());
+};
 
+const confirmSaveAblauf = () => {
+  const rangeId = store.selectedRangeId;
+  const range = rangeStore.ranges.find((r) => r.id === rangeId);
+  const ownership = saveAsRange.value ? 'range' : 'user';
+  programStore.saveAblauf(ablaufNameInput.value, rangeId, range?.name ?? null, ownership);
+  namingMode.value = false;
+  ablaufNameInput.value = '';
+  saveAsRange.value = false;
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
 const rangeDevices = computed(() =>
   deviceStore.devices.filter((d) => d.rangeId === store.selectedRangeId),
 );
-
-const deviceGroups = computed(() => {
-  const map = new Map();
-  for (const d of rangeDevices.value) {
-    const name = d.groupName ?? 'Sonstige';
-    const groupId = d.groupId ?? encodeURIComponent(name);
-    const entry = map.get(groupId) ?? { name, groupId, count: 0 };
-    entry.count++;
-    map.set(groupId, entry);
-  }
-  return Array.from(map.values());
-});
 
 const activeDevices = computed(() => {
   if (!store.selectedGroupId) return [];
@@ -188,8 +266,7 @@ const activeDevices = computed(() => {
 
 const getLetterForDevice = (deviceId) => {
   const idx = activeDevices.value.findIndex((d) => d.id === deviceId);
-  if (idx === -1) return '?';
-  return String.fromCharCode(65 + idx);
+  return idx === -1 ? '?' : String.fromCharCode(65 + idx);
 };
 
 const throwCount = (segments) => {
@@ -197,34 +274,48 @@ const throwCount = (segments) => {
   for (const seg of segments) {
     for (const s of seg.steps) {
       if (s.type === 'solo') count += 1;
-      else if (s.type === 'pair' || s.type === 'a.schuss') count += 2;
-      else if (s.type === 'raffale') count += 2; // Two triggers of same device
+      else if (s.type === 'pair' || s.type === 'a_schuss') count += 2;
+      else if (s.type === 'raffale') count += 2;
     }
   }
   return count;
 };
 
+const stepDisplayLabel = (step) => {
+  if (step.type === 'solo') return step.alias;
+  if (step.type === 'raffale') return `${step.alias} (2×)`;
+  return `${step.alias1} + ${step.alias2}`;
+};
+
+const stepTypeLabel = (type) => {
+  const map = { solo: 'Solo', pair: 'Pair', 'a_schuss': 'a.Schuss', raffale: 'Raffale' };
+  return map[type] ?? type;
+};
+
 const getStepLabel = (step) => {
   if (step.type === 'solo') return getLetterForDevice(step.deviceId);
   if (step.type === 'pair') return `${getLetterForDevice(step.deviceId1)}+${getLetterForDevice(step.deviceId2)}`;
-  if (step.type === 'a.schuss') return `${getLetterForDevice(step.deviceId1)}+${getLetterForDevice(step.deviceId2)}`;
+  if (step.type === 'a_schuss') return `${getLetterForDevice(step.deviceId1)}+${getLetterForDevice(step.deviceId2)}`;
   if (step.type === 'raffale') return `${getLetterForDevice(step.deviceId)}×2`;
   return '?';
 };
 
 const getStepTooltip = (step) => {
-  const labels = {
-    solo: 'Solo',
-    pair: 'Pair',
-    'a.schuss': 'a. Schuss',
-    raffale: 'Raffale (2x mit 1 Sek Verzögerung)',
-  };
-  const label = getStepLabel(step);
-  return `Klick zum Löschen: ${label} (${labels[step.type]})`;
+  const labels = { solo: 'Solo', pair: 'Pair', 'a_schuss': 'a. Schuss', raffale: 'Raffale (2×)' };
+  return `Klick zum Löschen: ${getStepLabel(step)} (${labels[step.type]})`;
 };
 
+// ── Playback ───────────────────────────────────────────────────────────────
 const playProgram = (programId) => {
   playStore.playProgramWithScore(programId);
+  router.push(`/remote/${store.selectedRangeId}/play`);
+};
+
+const playPendingProgram = () => {
+  const id = programStore.pendingProgramId;
+  if (!id) return;
+  programStore.clearPendingProgram();
+  playStore.playProgramWithScore(id);
   router.push(`/remote/${store.selectedRangeId}/play`);
 };
 </script>
@@ -238,7 +329,6 @@ const playProgram = (programId) => {
   width: 280px;
   pointer-events: none;
   z-index: 30;
-  /* Panel slides in from the right without affecting layout when closed */
 }
 
 /* ── Overlay ─────────────────────────────────────── */
@@ -251,7 +341,6 @@ const playProgram = (programId) => {
   background: rgba(0, 0, 0, 0.2);
   pointer-events: auto;
   z-index: 25;
-  /* Overlay only covers device area on left, allows panel interaction on right */
 }
 
 /* ── Handle ──────────────────────────────────────── */
@@ -321,7 +410,7 @@ const playProgram = (programId) => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 14px 14px;
+  padding: 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
   transition: padding 0.2s, gap 0.2s;
@@ -333,18 +422,9 @@ const playProgram = (programId) => {
   border-bottom-color: rgba(252, 129, 129, 0.15);
 }
 
-.flyout-panel.shrunk .close-btn {
-  flex: 1;
-}
-
 .flyout-panel.shrunk .header-divider,
 .flyout-panel.shrunk .header-title {
   display: none;
-}
-
-.flyout-panel.shrunk .flyout-header svg {
-  width: 14px;
-  height: 14px;
 }
 
 .close-btn {
@@ -391,7 +471,7 @@ const playProgram = (programId) => {
   overflow-x: hidden;
 }
 
-/* ── Recording summary ───────────────────────────── */
+/* ── Recording summary (shrunk) ──────────────────── */
 .recording-summary {
   display: flex;
   flex-direction: column;
@@ -425,18 +505,9 @@ const playProgram = (programId) => {
   transform: scale(1.05);
 }
 
-.captured-item:active {
-  transform: scale(0.95);
-}
-
 .captured-item.is-raffale {
   border-color: rgba(79, 195, 247, 0.3);
   background: rgba(79, 195, 247, 0.08);
-}
-
-.captured-item.is-raffale:hover {
-  background: rgba(79, 195, 247, 0.15);
-  border-color: rgba(79, 195, 247, 0.4);
 }
 
 .captured-item.is-raffale .item-code {
@@ -451,6 +522,7 @@ const playProgram = (programId) => {
   text-align: center;
 }
 
+/* ── Sections ────────────────────────────────────── */
 .section {
   display: flex;
   flex-direction: column;
@@ -467,58 +539,6 @@ const playProgram = (programId) => {
 
 .flyout-panel.shrunk .section-label {
   display: none;
-}
-
-/* ── Segment header ──────────────────────────────── */
-.segment-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.segment-add-btn {
-  font-size: 10px;
-  padding: 3px 8px;
-  background: rgba(79, 195, 247, 0.15);
-  border: 1px solid rgba(79, 195, 247, 0.3);
-  border-radius: 4px;
-  color: rgba(79, 195, 247, 0.8);
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.segment-add-btn:hover {
-  background: rgba(79, 195, 247, 0.25);
-  border-color: rgba(79, 195, 247, 0.5);
-}
-
-.segment-add-btn.active {
-  background: rgba(79, 195, 247, 0.4);
-  border-color: rgba(79, 195, 247, 0.7);
-  color: #4fc3f7;
-  font-weight: 600;
-}
-
-.add-segment-btn {
-  width: 100%;
-  padding: 10px;
-  background: rgba(76, 175, 80, 0.15);
-  border: 1px dashed rgba(76, 175, 80, 0.3);
-  border-radius: 8px;
-  color: rgba(76, 175, 80, 0.8);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.2s;
-  margin-top: 4px;
-}
-
-.add-segment-btn:hover {
-  background: rgba(76, 175, 80, 0.25);
-  border-color: rgba(76, 175, 80, 0.5);
 }
 
 /* ── Draft steps ─────────────────────────────────── */
@@ -572,20 +592,9 @@ const playProgram = (programId) => {
   flex-shrink: 0;
 }
 
-.step-type-chip.type-pair {
-  color: rgba(72, 187, 120, 0.7);
-  background: rgba(72, 187, 120, 0.1);
-}
-
-.step-type-chip.type-a\.schuss {
-  color: rgba(246, 173, 85, 0.7);
-  background: rgba(246, 173, 85, 0.1);
-}
-
-.step-type-chip.type-raffale {
-  color: rgba(168, 85, 247, 0.7);
-  background: rgba(168, 85, 247, 0.1);
-}
+.step-type-chip.type-pair { color: rgba(72,187,120,0.7); background: rgba(72,187,120,0.1); }
+.step-type-chip.type-a\.schuss { color: rgba(246,173,85,0.7); background: rgba(246,173,85,0.1); }
+.step-type-chip.type-raffale { color: rgba(168,85,247,0.7); background: rgba(168,85,247,0.1); }
 
 .delete-btn {
   background: none;
@@ -599,8 +608,46 @@ const playProgram = (programId) => {
   flex-shrink: 0;
 }
 
-.delete-btn:hover {
-  background: rgba(252, 129, 129, 0.1);
+.delete-btn:hover { background: rgba(252, 129, 129, 0.1); }
+
+/* ── Pending program ─────────────────────────────── */
+.pending-program-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pending-program-card {
+  background: rgba(79, 195, 247, 0.08);
+  border: 1px solid rgba(79, 195, 247, 0.3);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pending-prog-info {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.pending-prog-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4fc3f7;
+}
+
+.pending-prog-meta {
+  font-size: 11px;
+  color: rgba(79, 195, 247, 0.5);
+}
+
+.pending-prog-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
 /* ── Saved programmes ────────────────────────────── */
@@ -618,6 +665,11 @@ const playProgram = (programId) => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.programme-card.is-pending {
+  border-color: rgba(79, 195, 247, 0.3);
+  background: rgba(79, 195, 247, 0.05);
 }
 
 .prog-header {
@@ -662,9 +714,16 @@ const playProgram = (programId) => {
   transition: background 0.15s;
 }
 
-.play-btn:hover {
-  background: rgba(72, 187, 120, 0.22);
+.play-btn:hover { background: rgba(72, 187, 120, 0.22); }
+
+.play-btn--pending {
+  background: rgba(79, 195, 247, 0.2);
+  border-color: rgba(79, 195, 247, 0.4);
+  color: #4fc3f7;
+  flex: 1;
 }
+
+.play-btn--pending:hover { background: rgba(79, 195, 247, 0.28); }
 
 .trash-btn {
   background: none;
@@ -678,9 +737,7 @@ const playProgram = (programId) => {
   transition: background 0.15s;
 }
 
-.trash-btn:hover {
-  background: rgba(252, 129, 129, 0.1);
-}
+.trash-btn:hover { background: rgba(252, 129, 129, 0.1); }
 
 /* ── Empty state ─────────────────────────────────── */
 .empty-state {
@@ -689,7 +746,7 @@ const playProgram = (programId) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   padding: 32px 12px;
 }
 
@@ -699,13 +756,26 @@ const playProgram = (programId) => {
   margin: 0;
 }
 
+.empty-hint {
+  font-size: 11px !important;
+  color: rgba(255, 255, 255, 0.13) !important;
+  text-align: center;
+}
+
 /* ── Footer ──────────────────────────────────────── */
 .flyout-footer {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   padding: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
+}
+
+.naming-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .flyout-panel.shrunk .flyout-footer {
@@ -730,8 +800,16 @@ const playProgram = (programId) => {
   color: #fc8181;
 }
 
-.btn-clear:hover {
-  background: rgba(252, 129, 129, 0.07);
+.btn-clear:hover { background: rgba(252, 129, 129, 0.07); }
+
+.btn-clear--icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-save {
@@ -740,7 +818,54 @@ const playProgram = (programId) => {
   color: #48bb78;
 }
 
-.btn-save:hover {
-  background: rgba(72, 187, 120, 0.28);
+.btn-save:hover { background: rgba(72, 187, 120, 0.28); }
+
+/* Name input in footer */
+.ablauf-name-input {
+  flex: 1;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 12px;
+  font-family: inherit;
+  padding: 0 10px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.ablauf-name-input:focus {
+  border-color: rgba(79, 195, 247, 0.5);
+}
+
+.ablauf-name-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Range-ownership toggle */
+.range-ownership-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  padding: 0 2px;
+}
+
+.range-ownership-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #4fc3f7;
+  cursor: pointer;
+}
+
+.range-ownership-toggle span {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.range-ownership-toggle:has(input:checked) span {
+  color: #4fc3f7;
 }
 </style>

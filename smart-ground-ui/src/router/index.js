@@ -11,6 +11,16 @@ import ShooterHomeView from '@/views/shooter/ShooterHomeView.vue';
 import ShooterRangeSelectView from '@/views/shooter/ShooterRangeSelectView.vue';
 import ShooterRemoteView from '@/views/shooter/ShooterRemoteView.vue';
 import ShooterPlayPage from '@/views/shooter/ShooterPlayPage.vue';
+import CompetitionTemplateListView from '@/views/competition/CompetitionTemplateListView.vue';
+import CompetitionSetupView from '@/views/competition/CompetitionSetupView.vue';
+import CompetitionLiveView from '@/views/competition/CompetitionLiveView.vue';
+import CompetitionLeaderboardView from '@/views/competition/CompetitionLeaderboardView.vue';
+import CareerStatsView from '@/views/competition/CareerStatsView.vue';
+import ProgramManagementView from '@/views/shooter/ProgramManagementView.vue';
+import ProgrammeAdminView from '@/views/ProgrammeAdminView.vue';
+import CompetitionBracketView from '@/views/CompetitionBracketView.vue';
+import PlayerSetupView from '@/views/PlayerSetupView.vue';
+import CompetitionManagementView from '@/views/CompetitionManagementView.vue';
 import { useAuthStore } from '@/stores/authStore';
 
 const routes = [
@@ -28,12 +38,22 @@ const routes = [
   { path: '/admin/firmware-configs', component: FirmwareConfigsView, meta: { layout: 'admin', requiresAdmin: true } },
   { path: '/users', component: UsersView, meta: { layout: 'admin' } },
   { path: '/profile', component: ProfileView, meta: { layout: 'admin' } },
+  { path: '/player-setup', component: PlayerSetupView, meta: { layout: 'admin' } },
+  { path: '/competition', component: CompetitionManagementView, meta: { layout: 'admin' } },
+  { path: '/competition/templates', component: CompetitionTemplateListView, meta: { layout: 'admin' } },
+  { path: '/competition/setup', component: CompetitionSetupView, meta: { layout: 'admin' } },
+  { path: '/competition/bracket', component: CompetitionBracketView, meta: { layout: 'admin' } },
+  { path: '/programme', component: ProgrammeAdminView, meta: { layout: 'admin' } },
 
   // ── Shooter routes ────────────────────────────────────────────────────
   { path: '/home', component: ShooterHomeView, meta: { layout: 'shooter' } },
   { path: '/remote', component: ShooterRangeSelectView, meta: { layout: 'shooter' } },
   { path: '/remote/:rangeId', component: ShooterRemoteView, props: true, meta: { layout: 'shooter' } },
-  { path: '/remote/:rangeId/play/:playId', component: ShooterPlayPage, props: true, meta: { layout: 'shooter' } },
+  { path: '/remote/:rangeId/play', component: ShooterPlayPage, props: true, meta: { layout: 'shooter' } },
+  { path: '/competition/live', component: CompetitionLiveView, meta: { layout: 'shooter' } },
+  { path: '/competition/leaderboard', component: CompetitionLeaderboardView, meta: { layout: 'shooter' } },
+  { path: '/career-stats', component: CareerStatsView, meta: { layout: 'shooter' } },
+  { path: '/programmes', component: ProgramManagementView, meta: { layout: 'shooter' } },
 ];
 
 const router = createRouter({
