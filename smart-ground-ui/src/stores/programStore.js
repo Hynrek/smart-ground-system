@@ -301,6 +301,19 @@ export const useProgramStore = defineStore('program', () => {
     if (pendingProgramId.value === programId) pendingProgramId.value = null;
   };
 
+  const renameProgram = (programId, newName) => {
+    const prog = savedPrograms.value.find((p) => p.id === programId);
+    if (!prog) return;
+    prog.name = newName;
+    try {
+      const stored = JSON.parse(localStorage.getItem(programId));
+      if (stored) {
+        stored.programName = newName;
+        localStorage.setItem(programId, JSON.stringify(stored));
+      }
+    } catch { /* ignorieren */ }
+  };
+
   // ── Pending program (für "Starten" aus Programm-Verwaltung) ───────────────
   const setPendingProgram = (programId) => {
     pendingProgramId.value = programId;
@@ -385,6 +398,7 @@ export const useProgramStore = defineStore('program', () => {
     // Program actions
     createProgram,
     deleteProgram,
+    renameProgram,
     setPendingProgram,
     clearPendingProgram,
     loadProgramsFromStorage,

@@ -34,16 +34,56 @@
             class="program-card"
             :class="{ expanded: expandedProgramId === prog.id }"
           >
-            <div class="prog-main" @click="toggleExpand(prog.id)">
+            <div class="prog-main" @click="renamingProgramId !== prog.id ? toggleExpand(prog.id) : null">
               <div class="prog-info">
-                <span class="prog-name">{{ prog.name }}</span>
-                <div class="prog-meta-row">
-                  <span class="prog-meta-item">{{ prog.ablaeufe.length }} Abläufe</span>
-                  <span class="prog-meta-dot">·</span>
-                  <span class="prog-meta-item">{{ totalThrows(prog.ablaeufe) }} Würfe</span>
-                </div>
+                <template v-if="renamingProgramId === prog.id">
+                  <input
+                    ref="programRenameInputRef"
+                    v-model="programRenameValue"
+                    class="rename-input"
+                    type="text"
+                    maxlength="50"
+                    @keyup.enter="confirmRenameProgram(prog.id)"
+                    @keyup.escape="renamingProgramId = null"
+                    @click.stop
+                  />
+                </template>
+                <template v-else>
+                  <span class="prog-name">{{ prog.name }}</span>
+                  <div class="prog-meta-row">
+                    <span class="prog-meta-item">{{ prog.ablaeufe.length }} Abläufe</span>
+                    <span class="prog-meta-dot">·</span>
+                    <span class="prog-meta-item">{{ totalThrows(prog.ablaeufe) }} Würfe</span>
+                  </div>
+                </template>
+              </div>
+              <div v-if="renamingProgramId === prog.id" class="prog-actions-inline" @click.stop>
+                <button
+                  class="icon-btn icon-btn--confirm"
+                  title="Umbenennen bestätigen"
+                  @click="confirmRenameProgram(prog.id)"
+                >
+                  <Icons icon="check" :size="13" color="#48bb78" />
+                </button>
+                <button
+                  class="icon-btn"
+                  title="Abbrechen"
+                  @click="renamingProgramId = null"
+                >
+                  <Icons icon="x" :size="13" color="rgba(255,255,255,0.4)" />
+                </button>
+              </div>
+              <div v-else class="prog-actions-inline" @click.stop>
+                <button
+                  class="icon-btn"
+                  title="Umbenennen"
+                  @click="startRenameProg(prog)"
+                >
+                  <Icons icon="edit" :size="13" color="rgba(255,255,255,0.4)" />
+                </button>
               </div>
               <Icons
+                v-if="renamingProgramId !== prog.id"
                 icon="chevronRight"
                 :size="14"
                 color="rgba(255,255,255,0.3)"
@@ -392,9 +432,25 @@ const toggleRangeGroup = (rangeId) => {
 
 // ── Expand program cards ───────────────────────────────────────────────────
 const expandedProgramId = ref(null);
+const renamingProgramId = ref(null);
+const programRenameValue = ref('');
+const programRenameInputRef = ref(null);
 
 const toggleExpand = (programId) => {
   expandedProgramId.value = expandedProgramId.value === programId ? null : programId;
+};
+
+const startRenameProg = (prog) => {
+  renamingProgramId.value = prog.id;
+  programRenameValue.value = prog.name;
+  nextTick(() => programRenameInputRef.value?.[0]?.focus?.() ?? programRenameInputRef.value?.focus?.());
+};
+
+const confirmRenameProgram = (progId) => {
+  if (programRenameValue.value.trim()) {
+    programStore.renameProgram(progId, programRenameValue.value.trim());
+  }
+  renamingProgramId.value = null;
 };
 
 const programRangeGroups = (prog) => {
@@ -899,6 +955,12 @@ const stepTypeLabel = (type) => {
 .prog-meta-dot {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.15);
+}
+
+.prog-actions-inline {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .expand-icon {
