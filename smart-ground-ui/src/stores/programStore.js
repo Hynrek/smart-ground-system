@@ -324,6 +324,35 @@ export const useProgramStore = defineStore('program', () => {
     cancelCapture();
   };
 
+  // ── Ablauf retrieval by category ────────────────────────────────────────────
+  /**
+   * Gets user-created Abläufe (ownership: 'user')
+   */
+  const getUserAblaeufe = () => {
+    return savedAblaeufe.value.filter((abl) => abl.ownership === 'user');
+  };
+
+  /**
+   * Gets globally published Abläufe (ownership: 'range')
+   */
+  const getGlobalAblaeufe = () => {
+    return savedAblaeufe.value.filter((abl) => abl.ownership === 'range');
+  };
+
+  /**
+   * Gets Abläufe assigned to a specific range (for Trainings/Wettkämpfe)
+   */
+  const getAblaeufeForRange = (rangeId) => {
+    return savedAblaeufe.value.filter((abl) => abl.rangeId === rangeId);
+  };
+
+  /**
+   * Gets user Abläufe for a specific range
+   */
+  const getUserAblaeufeForRange = (rangeId) => {
+    return getUserAblaeufe().filter((abl) => abl.rangeId === rangeId);
+  };
+
   return {
     // Capture state
     recording,
@@ -348,6 +377,11 @@ export const useProgramStore = defineStore('program', () => {
     deleteAblauf,
     renameAblauf,
     loadAblaeufeFromStorage,
+    // Ablauf retrieval
+    getUserAblaeufe,
+    getGlobalAblaeufe,
+    getAblaeufeForRange,
+    getUserAblaeufeForRange,
     // Program actions
     createProgram,
     deleteProgram,

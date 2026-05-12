@@ -26,6 +26,11 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   const roundOrder = ref([]);
   const roundStartIndex = ref(0);
 
+  // ── Completion tracking ──────────────────────────────────────────────────────
+  // Persistent storage of completed Ablauf IDs (for Training/Wettkampf sessions)
+  const completedAblaeufe = ref(new Set());
+  const COMPLETED_ABLAUF_KEY = 'sg_completed_ablaeufe';
+
   // ── Core computed ───────────────────────────────────────────────────────────
   const currentAblauf = computed(() => playProg.value?.[currentAblaufIndex.value] ?? null);
 
@@ -338,6 +343,37 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     roundStartIndex.value = playerIndex;
   };
 
+  // ── Completion tracking actions ──────────────────────────────────────────────
+  const loadCompletedAblaeufe = () => {
+    try {
+      const stored = localStorage.getItem(COMPLETED_ABLAUF_KEY);
+      if (stored) {
+        completedAblaeufe.value = new Set(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error('Failed to load completed ablaeufe:', e);
+    }
+  };
+
+  const saveCompletedAblaeufe = () => {
+    try {
+      localStorage.setItem(COMPLETED_ABLAUF_KEY, JSON.stringify([...completedAblaeufe.value]));
+    } catch (e) {
+      console.error('Failed to save completed ablaeufe:', e);
+    }
+  };
+
+  const markAblaufComplete = (ablaufId) => {
+    if (ablaufId) {
+      completedAblaeufe.value.add(ablaufId);
+      saveCompletedAblaeufe();
+    }
+  };
+
+  const isAblaufCompleted = (ablaufId) => {
+    return ablaufId ? completedAblaeufe.value.has(ablaufId) : false;
+  };
+
   return {
     // State
     playProg,
@@ -353,6 +389,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     currentPlayerIndex,
     roundOrder,
     roundStartIndex,
+    completedAblaeufe,
     // Computed
     currentAblauf,
     currentStep,
@@ -380,5 +417,9 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     buildRoundOrder,
     endPlayerTurn,
     setRoundStartOverride,
+    loadCompletedAblaeufe,
+    saveCompletedAblaeufe,
+    markAblaufComplete,
+    isAblaufCompleted,
   };
 });
