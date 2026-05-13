@@ -1,5 +1,40 @@
 <template>
-  <div v-if="store.playProg" class="play-page">
+  <!-- Group setup modal (shown before play starts) -->
+  <div v-if="store.showGroupSetup" class="play-page group-setup-page">
+    <div class="group-modal-overlay">
+      <div class="group-modal">
+        <h2 class="modal-title">Gruppe einrichten</h2>
+
+        <div class="player-list">
+          <div v-for="(player, i) in groupPlayers" :key="player.id" class="player-row">
+            <span class="player-number">{{ i + 1 }}:</span>
+            <span class="player-display-name">{{ player.displayName }}</span>
+            <button
+              v-if="groupPlayers.length > 1"
+              class="player-remove-btn"
+              @click="removePlayer(i)"
+            >
+              <Icons icon="x" :size="12" color="#fc8181" />
+            </button>
+          </div>
+        </div>
+
+        <button class="add-player-btn" @click="addPlayer">
+          + Schütze hinzufügen
+        </button>
+
+        <div class="modal-actions">
+          <button class="btn btn-cancel" @click="cancelGroupSetup">Abbrechen</button>
+          <button class="btn btn-primary" :disabled="groupPlayers.length === 0" @click="beginGroupPlay">
+            Starten
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main play view -->
+  <div v-else-if="store.playProg" class="play-page">
     <!-- Top bar -->
     <div class="play-topbar">
       <div class="player-info">
@@ -11,42 +46,64 @@
           {{ store.currentPlayer.displayName }}
         </span>
       </div>
-      <div class="score-display">
-        <span class="score-label">Punkte</span>
-        <span class="score-value">{{ store.playScore.totalPoints }}</span>
+      <div class="topbar-right">
+        <div v-if="store.isMultiPlayer" class="score-display">
+          <span class="score-label">Spieler</span>
+          <span class="score-value player-count-val">
+            {{ store.currentPlayerIndex + 1 }}/{{ store.sessionPlayers.length }}
+          </span>
+        </div>
+        <div class="score-display">
+          <span class="score-label">Punkte</span>
+          <span class="score-value">
+            {{ currentPlayerPoints }}<span class="score-max">/{{ maxPoints }}</span>
+          </span>
+        </div>
       </div>
     </div>
 
     <!-- Vertical Carousel (Top Down: Next → Current → Done) -->
     <div class="carousel-area">
-      <!-- Part 1: Next step preview (top) -->
-      <div v-if="nextStep && !showFinalScore" class="carousel-section next-section">
-        <div class="section-label">Nächster Schritt</div>
-        <div class="preview-card" :class="{ 'is-fertig': isFertig(nextStep) }" @click="handleNextStepClick">
+      <!-- Part 1: Next step preview (top) — hidden when next is fertig (Getroffen card takes over) -->
+      <div v-if="nextStep && !isFertig(nextStep) && !showFinalScore" class="carousel-section next-section">
+        <div class="section-label">
+          Nächster Schritt
+          <span class="section-label-count">({{ currentFlatStepIndex + 2 }} von {{ totalSteps }})</span>
+        </div>
+        <div class="preview-card" @click="handleNextStepClick">
           <span class="preview-type">{{ getTypeLabel(nextStep.type) }}</span>
           <span class="preview-label">{{ getStepDisplay(nextStep) }}</span>
         </div>
       </div>
 
       <!-- Part 2: Current step (center - main focus) -->
-      <div v-if="currentStep" class="carousel-section current-section">
+      <div v-if="(currentStep || store.isAtProgramEnd) && !showFinalScore" class="carousel-section current-section">
         <div class="section-label">Aktueller Schritt</div>
-        <div class="step-card" :class="`is-${currentStep.type}`" @click="handleCurrentStepClick">
+
+        <!-- Regular step card -->
+        <div v-if="currentStep" class="step-card" :class="`is-${currentStep.type}`" @click="handleCurrentStepClick">
           <span class="card-badge" :class="`badge-${currentStep.type}`">
             {{ getTypeLabel(currentStep.type) }}
           </span>
+
+          <!-- a_schuss: letter per device, active one highlighted -->
           <div v-if="currentStep.type === 'a_schuss'" class="aschuss-display">
-            <div :class="{ device: true, bold: store.playPartialStep === null }">
-              {{ currentStep.alias1 }}
+            <div class="aschuss-item" :class="{ active: store.playPartialStep === null }">
+              <span class="aschuss-main">{{ currentStep.letter1 ?? '?' }}</span>
+              <span class="aschuss-sub">{{ currentStep.alias1 }}</span>
             </div>
             <span class="separator">+</span>
-            <div :class="{ device: true, bold: store.playPartialStep === 'first' }">
-              {{ currentStep.alias2 }}
+            <div class="aschuss-item" :class="{ active: store.playPartialStep === 'first' }">
+              <span class="aschuss-main">{{ currentStep.letter2 ?? '?' }}</span>
+              <span class="aschuss-sub">{{ currentStep.alias2 }}</span>
             </div>
           </div>
-          <div v-else class="card-label">
-            {{ getStepDisplay(currentStep) }}
-          </div>
+
+          <!-- solo / pair / raffale: letter big, alias below -->
+          <template v-else>
+            <div class="card-label">{{ getStepLetter(currentStep) }}</div>
+            <div class="card-alias">{{ getStepAliasDisplay(currentStep) }}</div>
+          </template>
 
           <!-- Raffale timer -->
           <div v-if="currentStep.type === 'raffale' && store.playRaffaleStarted" class="raffale-bar">
@@ -55,6 +112,19 @@
           </div>
 
           <p class="hint">{{ getHint(currentStep) }}</p>
+        </div>
+
+        <!-- Getroffen card — shown when all steps are done -->
+        <div v-else-if="store.isAtProgramEnd" class="step-card getroffen-card" @click="handlePlayerComplete">
+          <span class="card-badge badge-getroffen">
+            {{ store.isMultiPlayer && store.nextPlayer ? `Schütze ${store.currentPlayerIndex + 1} Fertig` : 'Fertig' }}
+          </span>
+          <div class="card-label getroffen-label">Getroffen</div>
+          <p class="hint">
+            {{ store.isMultiPlayer && store.nextPlayer
+              ? `Weiter zu ${store.nextPlayer.displayName} →`
+              : 'Tippen zum Beenden →' }}
+          </p>
         </div>
       </div>
 
@@ -69,16 +139,52 @@
             :class="getCompletedCardClass(step.segIdx, step.stepIdx)"
           >
             <span class="step-number">{{ completedSteps.length - recentCompletedSteps.length + idx + 1 }}</span>
-            <span class="step-type">{{ getTypeLabel(store.playProg[step.segIdx].steps[step.stepIdx].type) }}</span>
+            <span class="step-type">{{ getCompletedStepShortLabel(step.segIdx, step.stepIdx) }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Final score screen -->
-      <div v-if="showFinalScore" class="final-score-screen">
-        <div class="score-card">
+      <!-- Final score screen: solo -->
+      <div v-if="showFinalScore && !store.isMultiPlayer" class="final-score-screen">
+        <div class="score-card solo-score-card">
           <div class="final-title">Programm Fertig!</div>
           <div class="final-score-value">{{ store.playScore.totalPoints }} Punkte</div>
+          <ScoreTable
+            v-if="store.sessionPlayers.length > 0"
+            :step-states="store.playScore.stepStates"
+            :program="store.playProg"
+            :players="store.sessionPlayers"
+          />
+          <button class="btn btn-primary" @click="goBack">
+            Zurück zu Programmen
+          </button>
+        </div>
+      </div>
+
+      <!-- Final score screen: group -->
+      <div v-else-if="showFinalScore && store.isMultiPlayer" class="final-score-screen">
+        <div class="score-card group-score-card">
+          <div class="final-title">Gruppe Fertig! 🏆</div>
+          <div class="group-scores-list">
+            <div
+              v-for="(ps, i) in playerFinalScores"
+              :key="ps.player.id"
+              class="group-score-row"
+              :class="{ 'is-top': i === 0 }"
+            >
+              <span class="rank-badge">{{ i + 1 }}</span>
+              <span class="group-player-name">{{ ps.player.displayName }}</span>
+              <span class="group-player-points">
+                {{ ps.earnedPts }}<span class="group-points-max">/{{ ps.maxPts }}</span>
+              </span>
+            </div>
+          </div>
+          <ScoreTable
+            v-if="store.sessionPlayers.length > 0"
+            :step-states="store.playScore.stepStates"
+            :program="store.playProg"
+            :players="store.sessionPlayers"
+          />
           <button class="btn btn-primary" @click="goBack">
             Zurück zu Programmen
           </button>
@@ -88,36 +194,36 @@
 
     <!-- Action buttons at bottom (always visible) -->
     <div class="action-bar">
-      <!-- Fail A -->
+      <!-- Fail first device -->
       <button
         class="action-btn"
         :disabled="!canFail"
-        title="Gerät A fehlgeschossen"
+        :title="failLabelA"
         @click="handleFailStep('a')"
       >
-        <span class="btn-label">Fail A</span>
+        <span class="btn-label">{{ failLabelA }}</span>
         <span class="btn-info">-1</span>
       </button>
 
-      <!-- Fail B (only for pair/raffale) -->
+      <!-- Fail second device (only for pair/a_schuss/raffale) -->
       <button
         class="action-btn"
         :disabled="!(canFail && lastStepWasADouble)"
-        title="Gerät B fehlgeschossen"
+        :title="failLabelB"
         @click="handleFailStep('b')"
       >
-        <span class="btn-label">Fail B</span>
+        <span class="btn-label">{{ failLabelB }}</span>
         <span class="btn-info">-1</span>
       </button>
 
-      <!-- Fail A/B (only for pair/raffale) -->
+      <!-- Fail both (only for pair/a_schuss/raffale) -->
       <button
         class="action-btn"
         :disabled="!(canFail && lastStepWasADouble)"
-        title="Beide Geräte fehlgeschossen"
+        :title="failLabelBoth"
         @click="handleFailStep('both')"
       >
-        <span class="btn-label">Fail A/B</span>
+        <span class="btn-label">{{ failLabelBoth }}</span>
         <span class="btn-info">-2</span>
       </button>
 
@@ -145,12 +251,14 @@
   </div>
 </template>
 
+
 <script setup>
 import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import { StepState, StepType } from '@/constants/playEnums.js';
 import Icons from '@/components/Icons.vue';
+import ScoreTable from '@/components/shooter/ScoreTable.vue';
 
 const router = useRouter();
 const props = defineProps({
@@ -161,9 +269,37 @@ const store = usePlaySessionStore();
 const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
 
-if (!store.playProg) {
+// Load pending program if coming from Programme Management View
+if (store.pendingProgramInfo) {
+  store.loadPendingProgram();
+  store.clearPendingProgram();
+}
+
+if (!store.playProg && !store.showGroupSetup) {
   router.push(`/remote/${props.rangeId}`);
 }
+
+// ── Group setup ───────────────────────────────────────────────────────────────
+let _nextPlayerId = 1;
+const groupPlayers = ref([{ id: `gp-${_nextPlayerId++}`, displayName: 'Schütze 1' }]);
+
+const addPlayer = () => {
+  const n = groupPlayers.value.length + 1;
+  groupPlayers.value.push({ id: `gp-${_nextPlayerId++}`, displayName: `Schütze ${n}` });
+};
+
+const removePlayer = (index) => {
+  groupPlayers.value.splice(index, 1);
+};
+
+const beginGroupPlay = () => {
+  store.startGroupPlay(groupPlayers.value, props.rangeId, 'Platz');
+};
+
+const cancelGroupSetup = () => {
+  store.cancelGroupSetup();
+  router.push(`/remote/${props.rangeId}`);
+};
 
 // ── Carousel data ─────────────────────────────────────────────────────────────
 const fertigStep = { type: 'fertig', alias: 'Fertig' };
@@ -198,6 +334,59 @@ const completedSteps = computed(() => {
 
 const recentCompletedSteps = computed(() => completedSteps.value.slice(-3));
 
+// ── Progress numbers ──────────────────────────────────────────────────────────
+const totalSteps = computed(() => {
+  if (!store.playProg) return 0;
+  return store.playProg.reduce((sum, seg) => sum + seg.steps.length, 0);
+});
+
+const currentFlatStepIndex = computed(() => {
+  if (!store.playProg) return 0;
+  return (
+    store.playProg.slice(0, store.currentAblaufIndex).reduce((sum, seg) => sum + seg.steps.length, 0) +
+    store.currentStepIndex
+  );
+});
+
+// ── Max possible points ───────────────────────────────────────────────────────
+const maxPoints = computed(() => {
+  const playerId = store.currentPlayer?.id;
+  return store.playScore.stepStates
+    .filter((s) => s.playerId === playerId)
+    .reduce((sum, s) => sum + s.pointValue, 0);
+});
+
+// Points earned by the current player, accounting for fail deductions
+const currentPlayerPoints = computed(() => {
+  const playerId = store.currentPlayer?.id;
+  if (!playerId) return 0;
+  return store.playScore.stepStates
+    .filter((s) => s.playerId === playerId)
+    .reduce((sum, s) => {
+      if (s.state === StepState.PENDING) return sum;
+      const deduction =
+        s.state === StepState.FAILED_BOTH ? 2
+        : (s.state === StepState.FAILED_A || s.state === StepState.FAILED_B) ? 1 : 0;
+      return sum + Math.max(0, s.pointValue - deduction);
+    }, 0);
+});
+
+// Per-player final scores for the group success screen
+const playerFinalScores = computed(() =>
+  store.sessionPlayers.map((player) => {
+    const states = store.playScore.stepStates.filter((s) => s.playerId === player.id);
+    const maxPts = states.reduce((sum, s) => sum + s.pointValue, 0);
+    const earnedPts = states.reduce((sum, s) => {
+      if (s.state === StepState.PENDING) return sum;
+      const deduction =
+        s.state === StepState.FAILED_BOTH ? 2
+        : (s.state === StepState.FAILED_A || s.state === StepState.FAILED_B) ? 1 : 0;
+      return sum + Math.max(0, s.pointValue - deduction);
+    }, 0);
+    return { player, earnedPts, maxPts };
+  }).sort((a, b) => b.earnedPts - a.earnedPts)
+);
+
 // ── Derived display state ─────────────────────────────────────────────────────
 const showFinalScore = computed(() => store.playComplete);
 
@@ -213,9 +402,38 @@ const canFail = computed(() =>
 const doubleTypes = [StepType.PAIR, StepType.A_SCHUSS, StepType.RAFFALE];
 const lastStepWasADouble = computed(() => {
   if (!store.playLastDeviceStep) return false;
-  const { segmentIdx, stepIdx } = store.playLastDeviceStep;
-  const step = store.playProg?.[segmentIdx]?.steps[stepIdx];
+  const { ablaufIdx, stepIdx } = store.playLastDeviceStep;
+  const step = store.playProg?.[ablaufIdx]?.steps[stepIdx];
   return step ? doubleTypes.includes(step.type) : false;
+});
+
+// The actual step object that was last fired (for dynamic fail button labels)
+const lastFiredStep = computed(() => {
+  if (!store.playLastDeviceStep) return null;
+  const { ablaufIdx, stepIdx } = store.playLastDeviceStep;
+  return store.playProg?.[ablaufIdx]?.steps[stepIdx] ?? null;
+});
+
+const failLabelA = computed(() => {
+  const s = lastFiredStep.value;
+  if (!s) return 'Fail 1';
+  if (s.type === StepType.SOLO) return `Fail ${s.letter ?? '1'}`;
+  if (s.type === StepType.RAFFALE) return `Fail ${s.letter ?? '1'} 1.`;
+  return `Fail ${s.letter1 ?? '1'}`;
+});
+
+const failLabelB = computed(() => {
+  const s = lastFiredStep.value;
+  if (!s) return 'Fail 2';
+  if (s.type === StepType.RAFFALE) return `Fail ${s.letter ?? '1'} 2.`;
+  return `Fail ${s.letter2 ?? '2'}`;
+});
+
+const failLabelBoth = computed(() => {
+  const s = lastFiredStep.value;
+  if (!s) return 'Fail 1/2';
+  if (s.type === StepType.RAFFALE) return `Fail ${s.letter ?? '1'}/2`;
+  return `Fail ${s.letter1 ?? '1'}/${s.letter2 ?? '2'}`;
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -227,11 +445,38 @@ const getTypeLabel = (type) => ({
   fertig: 'Fertig',
 })[type] ?? type;
 
-const getStepDisplay = (step) => {
-  if (step.type === 'fertig') return 'Programm abgeschlossen';
+// Letter-based display (main large label on the step card)
+const getStepLetter = (step) => {
+  if (!step || step.type === 'fertig') return '';
+  if (step.type === StepType.SOLO || step.type === StepType.RAFFALE) return step.letter ?? '?';
+  return `${step.letter1 ?? '?'} + ${step.letter2 ?? '?'}`;
+};
+
+// Alias-based display (secondary, smaller text under the letter)
+const getStepAliasDisplay = (step) => {
+  if (!step || step.type === 'fertig') return '';
   if (step.type === StepType.SOLO) return step.alias;
   if (step.type === StepType.RAFFALE) return `${step.alias} (2×)`;
   return `${step.alias1} + ${step.alias2}`;
+};
+
+// Letter-based display for the next-step preview card
+const getStepDisplay = (step) => {
+  if (step.type === 'fertig') return 'Programm abgeschlossen';
+  if (step.type === StepType.SOLO) return step.letter ?? step.alias;
+  if (step.type === StepType.RAFFALE) return `${step.letter ?? step.alias} (2×)`;
+  const l1 = step.letter1 ?? step.alias1;
+  const l2 = step.letter2 ?? step.alias2;
+  return `${l1} + ${l2}`;
+};
+
+// Short label for completed cards: "Solo – A", "Pair – A+B" etc.
+const getCompletedStepShortLabel = (segIdx, stepIdx) => {
+  const s = store.playProg?.[segIdx]?.steps[stepIdx];
+  if (!s) return '';
+  const t = getTypeLabel(s.type);
+  if (s.type === StepType.SOLO || s.type === StepType.RAFFALE) return `${t} – ${s.letter ?? '?'}`;
+  return `${t} – ${s.letter1 ?? '?'}+${s.letter2 ?? '?'}`;
 };
 
 const getHint = (step) => {
@@ -245,29 +490,26 @@ const getHint = (step) => {
 };
 
 const getCompletedCardClass = (segIdx, stepIdx) => {
+  const step = store.playProg?.[segIdx]?.steps[stepIdx];
+  const classes = step?.type ? [`type-${step.type}`] : [];
   const state = store.playScore.stepStates.find(
     (s) => s.playerId === store.currentPlayer?.id && s.ablaufIndex === segIdx && s.stepIndex === stepIdx
   );
-  if (!state) return '';
-  if (state.state === StepState.FAILED_A) return 'is-failed-a';
-  if (state.state === StepState.FAILED_B) return 'is-failed-b';
-  if (state.state === StepState.FAILED_BOTH) return 'is-failed-full';
-  return '';
+  if (state?.state === StepState.FAILED_A) classes.push('is-failed-a');
+  else if (state?.state === StepState.FAILED_B) classes.push('is-failed-b');
+  else if (state?.state === StepState.FAILED_BOTH) classes.push('is-failed-full');
+  return classes;
 };
 
 const computeFlatStepCount = () => {
   if (!store.playProg) return [];
-  const total = store.playProg.reduce((sum, seg) => sum + seg.steps.length, 0);
-  return Array.from({ length: total }, (_, i) => i);
+  return Array.from({ length: totalSteps.value }, (_, i) => i);
 };
 
 const getDotClass = (flatIdx) => {
   if (!store.playProg) return 'dot--pending';
-  const currentFlat =
-    store.playProg.slice(0, store.currentAblaufIndex).reduce((sum, seg) => sum + seg.steps.length, 0) +
-    store.currentStepIndex;
-  if (flatIdx < currentFlat) return 'dot--completed';
-  if (flatIdx === currentFlat) return 'dot--current';
+  if (flatIdx < currentFlatStepIndex.value) return 'dot--completed';
+  if (flatIdx === currentFlatStepIndex.value) return 'dot--current';
   return 'dot--pending';
 };
 
@@ -277,14 +519,20 @@ const handleCurrentStepClick = async () => {
 };
 
 const handleNextStepClick = () => {
-  if (isFertig(nextStep.value)) store.confirmComplete();
+  if (isFertig(nextStep.value)) handlePlayerComplete();
+};
+
+const handlePlayerComplete = () => {
+  if (store.isMultiPlayer) {
+    store.advanceToNextPlayer();
+  } else {
+    store.confirmComplete();
+  }
 };
 
 const handleFailStep = (failType) => {
   store.failStep(failType);
-  // At program end the Fertig card is acting as the implicit hit-confirm;
-  // using a fail button is the user's explicit confirmation that they're done.
-  if (store.isAtProgramEnd) store.confirmComplete();
+  if (store.isAtProgramEnd) handlePlayerComplete();
 };
 
 const goBack = () => {
@@ -331,6 +579,127 @@ watch(
   z-index: 50;
 }
 
+/* ── Group setup page ───────────────────────────── */
+.group-setup-page {
+  background: rgba(10, 10, 18, 0.97);
+}
+
+.group-modal-overlay {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.group-modal {
+  background: rgba(24, 24, 40, 0.98);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 28px 24px;
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  text-align: center;
+}
+
+.player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.player-number {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(79, 195, 247, 0.7);
+  min-width: 22px;
+}
+
+.player-display-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.player-remove-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.player-remove-btn:hover {
+  background: rgba(252, 129, 129, 0.1);
+}
+
+.add-player-btn {
+  width: 100%;
+  padding: 11px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.add-player-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-cancel {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(252, 129, 129, 0.35);
+  background: rgba(252, 129, 129, 0.1);
+  color: #fc8181;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-cancel:hover {
+  background: rgba(252, 129, 129, 0.18);
+}
+
 /* ── Top bar ────────────────────────────────────── */
 .play-topbar {
   display: flex;
@@ -351,6 +720,16 @@ watch(
   font-size: 16px;
   font-weight: 600;
   color: #ffffff;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.player-count-val {
+  font-size: 20px !important;
 }
 
 .back-btn {
@@ -393,6 +772,12 @@ watch(
   color: #48bb78;
 }
 
+.score-max {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.3);
+}
+
 /* ── Carousel area ───────────────────────────────── */
 .carousel-area {
   flex: 1;
@@ -419,6 +804,16 @@ watch(
   color: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
   letter-spacing: 0.8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-label-count {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.25);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 /* Next section (top) */
@@ -560,27 +955,63 @@ watch(
   line-height: 1.2;
 }
 
+.card-alias {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+  margin-top: -4px;
+}
+
+/* Getroffen card (program complete) */
+.getroffen-card {
+  border-color: rgba(72, 187, 120, 0.5) !important;
+  background: rgba(72, 187, 120, 0.08) !important;
+}
+
+.badge-getroffen {
+  color: rgba(72, 187, 120, 0.7);
+  background: rgba(72, 187, 120, 0.15);
+}
+
+.getroffen-label {
+  color: #48bb78;
+}
+
+/* a_schuss: each device shown as letter + alias column */
 .aschuss-display {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
-.aschuss-display .device {
-  font-size: 18px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.6);
-  transition: all 0.2s;
+.aschuss-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  opacity: 0.4;
+  transition: opacity 0.2s;
 }
 
-.aschuss-display .device.bold {
-  font-size: 24px;
+.aschuss-item.active {
+  opacity: 1;
+}
+
+.aschuss-main {
+  font-size: 28px;
   font-weight: 700;
   color: #4fc3f7;
+  line-height: 1;
+}
+
+.aschuss-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .aschuss-display .separator {
   color: rgba(255, 255, 255, 0.3);
+  font-size: 18px;
 }
 
 .raffale-bar {
@@ -794,6 +1225,64 @@ watch(
   opacity: 0.7;
 }
 
+/* ── Group score screen ─────────────────────────── */
+.group-score-card {
+  background: rgba(72, 187, 120, 0.1) !important;
+}
+
+.group-scores-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.group-score-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.group-score-row.is-top {
+  background: rgba(72, 187, 120, 0.15);
+  border-color: rgba(72, 187, 120, 0.3);
+}
+
+.rank-badge {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  min-width: 20px;
+}
+
+.group-score-row.is-top .rank-badge {
+  color: #48bb78;
+}
+
+.group-player-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: left;
+}
+
+.group-player-points {
+  font-size: 16px;
+  font-weight: 700;
+  color: #48bb78;
+}
+
+.group-points-max {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.3);
+}
+
 /* ── Progress dots ──────────────────────────────── */
 .progress-dots {
   display: flex;
@@ -823,5 +1312,22 @@ watch(
 .dot--pending {
   width: 6px;
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Score card adjustments for ScoreTable ──────────────────────── */
+.solo-score-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.group-score-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 80vh;
+  overflow-y: auto;
 }
 </style>

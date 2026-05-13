@@ -4,6 +4,18 @@ import { useProgramStore } from '@/stores/programStore.js';
 import { sendDeviceCommand } from '@/services/deviceApi.js';
 import { StepState, StepType, PartialStep, FailType } from '@/constants/playEnums.js';
 
+// Helper to generate UUID
+const generateUUID = () => {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export { StepState, StepType, PartialStep, FailType };
 
 export const usePlaySessionStore = defineStore('playSession', () => {
@@ -25,6 +37,19 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   const currentPlayerIndex = ref(0);
   const roundOrder = ref([]);
   const roundStartIndex = ref(0);
+  const completedPlayerCount = ref(0);
+
+  // ── Group setup state ────────────────────────────────────────────────────────
+  const pendingGroupAblaeufe = ref(null);
+  const showGroupSetup = ref(false);
+
+  // ── Pending program (from Programme Management View) ──────────────────────────
+  const pendingProgramInfo = ref(null); // { programId, rangeId }
+
+  // ── Active sessions (persistent across page reloads) ────────────────────────
+  const activeSessions = ref([]);
+  const currentSessionId = ref(null);
+  const SESSIONS_KEY = 'sg_active_sessions';
 
   // ── Completion tracking ──────────────────────────────────────────────────────
   // Persistent storage of completed Ablauf IDs (for Training/Wettkampf sessions)
@@ -55,6 +80,13 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   const isLastPlayerInRound = computed(() =>
     currentPlayerIndex.value === roundOrder.value.length - 1
   );
+
+  const nextPlayer = computed(() => {
+    if (!isMultiPlayer.value) return null;
+    const nextIdx = currentPlayerIndex.value + 1;
+    if (nextIdx >= sessionPlayers.value.length) return null;
+    return sessionPlayers.value[nextIdx] ?? null;
+  });
 
   // ── Score / progress computed ───────────────────────────────────────────────
   const completionPct = computed(() => {
@@ -142,6 +174,91 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     const count = sessionPlayers.value.length;
     if (count === 0) { roundOrder.value = []; return; }
     roundOrder.value = Array.from({ length: count }, (_, i) => (roundStartIndex.value + i) % count);
+  };
+
+  // Load pending program and prepare for group setup
+  const loadPendingProgram = () => {
+    if (!pendingProgramInfo.value) return null;
+    const { programId } = pendingProgramInfo.value;
+    const prog = programStore.savedPrograms.find((p) => p.id === programId);
+    if (!prog) return null;
+
+    // Stage the ablaeufe for group setup
+    pendingGroupAblaeufe.value = prog.ablaeufe;
+    showGroupSetup.value = true;
+
+    return prog;
+  };
+
+  const clearPendingProgram = () => {
+    pendingProgramInfo.value = null;
+  };
+
+  // ── Session persistence ──────────────────────────────────────────────────────
+  const loadActiveSessions = () => {
+    const stored = localStorage.getItem(SESSIONS_KEY);
+    if (stored) {
+      try {
+        activeSessions.value = JSON.parse(stored);
+      } catch {
+        activeSessions.value = [];
+      }
+    }
+  };
+
+  const saveSessions = () => {
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(activeSessions.value));
+  };
+
+  const stopSession = (sessionId) => {
+    activeSessions.value = activeSessions.value.filter((s) => s.sessionId !== sessionId);
+    if (currentSessionId.value === sessionId) {
+      currentSessionId.value = null;
+      closePlayback();
+    }
+    saveSessions();
+  };
+
+  const resumeSession = (sessionId) => {
+    const session = activeSessions.value.find((s) => s.sessionId === sessionId);
+    if (!session) return false;
+
+    const prog = programStore.savedPrograms.find((p) => p.id === session.programId);
+    if (!prog) return false;
+
+    currentSessionId.value = sessionId;
+    playProg.value = prog.ablaeufe;
+    sessionPlayers.value = session.players;
+    currentPlayerIndex.value = 0;
+    currentAblaufIndex.value = 0;
+    currentStepIndex.value = 0;
+    playScoreMode.value = true;
+    playPartialStep.value = null;
+    playRaffaleStarted.value = false;
+    playLastDeviceStep.value = null;
+    playComplete.value = false;
+
+    // Initialize playScore with stepStates for all players
+    const stepStates = [];
+    prog.ablaeufe.forEach((seg, segIdx) => {
+      seg.steps.forEach((step, stepIdx) => {
+        session.players.forEach((player) => {
+          stepStates.push({
+            playerId: player.id,
+            ablaufIndex: segIdx,
+            stepIndex: stepIdx,
+            state: StepState.PENDING,
+            pointValue: getPointValueForStep(step),
+            noBirds: 0,
+            pointsEarned: 0,
+          });
+        });
+      });
+    });
+    playScore.value = { totalPoints: 0, stepStates };
+    showGroupSetup.value = false;
+
+    return true;
   };
 
   // ── Playback actions ─────────────────────────────────────────────────────────
@@ -279,7 +396,8 @@ export const usePlaySessionStore = defineStore('playSession', () => {
       stepState.state = StepState.FAILED_BOTH;
     }
 
-    playScore.value.totalPoints -= getPointDeduction(stepState.state) - oldDeduction;
+    const rawDeduction = getPointDeduction(stepState.state) - oldDeduction;
+    playScore.value.totalPoints -= Math.min(rawDeduction, stepState.pointValue);
   };
 
   const failStep = (failType) => {
@@ -310,6 +428,12 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   // (clicking Fertig or using a fail button at program end).
   const confirmComplete = () => {
     playComplete.value = true;
+    // Remove session from active sessions
+    if (currentSessionId.value) {
+      activeSessions.value = activeSessions.value.filter((s) => s.sessionId !== currentSessionId.value);
+      currentSessionId.value = null;
+      saveSessions();
+    }
   };
 
   const closePlayback = () => {
@@ -322,6 +446,96 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     playScore.value = { totalPoints: 0, stepStates: [] };
     playLastDeviceStep.value = null;
     playComplete.value = false;
+    sessionPlayers.value = [];
+    currentPlayerIndex.value = 0;
+    completedPlayerCount.value = 0;
+    showGroupSetup.value = false;
+    pendingGroupAblaeufe.value = null;
+  };
+
+  const setPendingGroupAblaeufe = (ablaeufe) => {
+    pendingGroupAblaeufe.value = ablaeufe;
+    showGroupSetup.value = true;
+  };
+
+  const cancelGroupSetup = () => {
+    showGroupSetup.value = false;
+    pendingGroupAblaeufe.value = null;
+  };
+
+  const startGroupPlay = (players, rangeId = null, rangeName = null) => {
+    if (!pendingGroupAblaeufe.value) return;
+    const ablaeufe = pendingGroupAblaeufe.value;
+
+    setupPlayers(players);
+    completedPlayerCount.value = 0;
+
+    playProg.value = ablaeufe;
+    currentAblaufIndex.value = 0;
+    currentStepIndex.value = 0;
+    playScoreMode.value = true;
+    playPartialStep.value = null;
+    playRaffaleStarted.value = false;
+    playLastDeviceStep.value = null;
+    playComplete.value = false;
+
+    const stepStates = [];
+    players.forEach((player) => {
+      ablaeufe.forEach((seg, segIdx) => {
+        seg.steps.forEach((step, stepIdx) => {
+          stepStates.push({
+            playerId: player.id,
+            ablaufIndex: segIdx,
+            stepIndex: stepIdx,
+            state: StepState.PENDING,
+            pointValue: getPointValueForStep(step),
+            noBirds: 0,
+            pointsEarned: 0,
+          });
+        });
+      });
+    });
+    playScore.value = { totalPoints: 0, stepStates };
+
+    // Create active session if rangeId is provided
+    if (rangeId) {
+      const sessionId = generateUUID();
+      currentSessionId.value = sessionId;
+      const programId = programStore.pendingProgramId?.value || null;
+      const programName = programStore.savedPrograms.find((p) => p.id === programId)?.name || 'Programm';
+
+      const session = {
+        sessionId,
+        programId,
+        programName,
+        rangeId,
+        rangeName: rangeName || `Platz ${rangeId}`,
+        players: [...players],
+        startedAt: Date.now(),
+        completionPct: 0,
+        status: 'active',
+      };
+
+      activeSessions.value.push(session);
+      saveSessions();
+    }
+
+    showGroupSetup.value = false;
+    pendingGroupAblaeufe.value = null;
+  };
+
+  const advanceToNextPlayer = () => {
+    completedPlayerCount.value += 1;
+    if (completedPlayerCount.value >= sessionPlayers.value.length) {
+      playComplete.value = true;
+    } else {
+      currentPlayerIndex.value += 1;
+      currentAblaufIndex.value = 0;
+      currentStepIndex.value = 0;
+      playPartialStep.value = null;
+      playRaffaleStarted.value = false;
+      playLastDeviceStep.value = null;
+    }
   };
 
   // ── Multi-player actions ─────────────────────────────────────────────────────
@@ -374,6 +588,10 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     return ablaufId ? completedAblaeufe.value.has(ablaufId) : false;
   };
 
+  // Initialize: load persisted sessions and completed ablaeufe
+  loadActiveSessions();
+  loadCompletedAblaeufe();
+
   return {
     // State
     playProg,
@@ -390,6 +608,12 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     roundOrder,
     roundStartIndex,
     completedAblaeufe,
+    completedPlayerCount,
+    pendingGroupAblaeufe,
+    showGroupSetup,
+    pendingProgramInfo,
+    activeSessions,
+    currentSessionId,
     // Computed
     currentAblauf,
     currentStep,
@@ -397,6 +621,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     currentPlayer,
     isMultiPlayer,
     isLastPlayerInRound,
+    nextPlayer,
     completionPct,
     ablaufCompletionPct,
     playProgress,
@@ -417,9 +642,19 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     buildRoundOrder,
     endPlayerTurn,
     setRoundStartOverride,
+    setPendingGroupAblaeufe,
+    cancelGroupSetup,
+    startGroupPlay,
+    advanceToNextPlayer,
     loadCompletedAblaeufe,
     saveCompletedAblaeufe,
     markAblaufComplete,
     isAblaufCompleted,
+    loadPendingProgram,
+    clearPendingProgram,
+    loadActiveSessions,
+    saveSessions,
+    stopSession,
+    resumeSession,
   };
 });

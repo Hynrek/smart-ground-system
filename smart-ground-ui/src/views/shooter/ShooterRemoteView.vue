@@ -96,7 +96,7 @@
           class="device-btn"
           :class="deviceBtnClass(device)"
           :disabled="isDeviceDisabled(device)"
-          @click="handleDeviceTap(device)"
+          @click="handleDeviceTap(device, i)"
         >
           <div class="btn-glow" />
           <div class="btn-icon-wrap">
@@ -286,12 +286,12 @@ const firingIds = ref(new Set());
 const firedIds = ref(new Set());
 const errorIds = ref(new Set());
 
-const handleDeviceTap = async (device) => {
+const handleDeviceTap = async (device, deviceIndex = 0) => {
   if (isDeviceDisabled(device)) return;
 
   // Recording mode: add step to program
   if (store.sessionMode === 'recording' && programStore.programMode) {
-    programStore.addStep(device.id, device);
+    programStore.addStep(device.id, device, deviceIndex);
     return;
   }
 

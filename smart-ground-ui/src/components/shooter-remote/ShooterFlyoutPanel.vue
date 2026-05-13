@@ -46,7 +46,7 @@
               v-for="step in currentSteps"
               :key="step.id"
               class="captured-item"
-              :class="{ 'is-raffale': step.type === 'raffale' }"
+              :class="`type-${step.type}`"
               :title="getStepTooltip(step)"
               @click="programStore.removeStep(0, step.id)"
             >
@@ -104,9 +104,13 @@
                     <span v-if="isAblaufCompleted(ablauf.id)" class="completion-badge">✓ Done</span>
                   </button>
                   <div v-if="expandedAblaufId === ablauf.id" class="ablauf-actions">
-                    <button class="action-btn action-play" @click="playAblauf(ablauf, 'wettkampf')">
+                    <button class="action-btn action-play" @click="playAblaufSolo(ablauf)">
                       <Icons icon="play" :size="12" color="#fff" />
-                      Abspielen
+                      Als Solo Starten
+                    </button>
+                    <button class="action-btn action-group" @click="playAblaufGroup(ablauf)">
+                      <Icons icon="program" :size="12" color="#fff" />
+                      Als Gruppe Starten
                     </button>
                   </div>
                 </div>
@@ -138,9 +142,13 @@
                     <span v-if="isAblaufCompleted(ablauf.id)" class="completion-badge">✓ Done</span>
                   </button>
                   <div v-if="expandedAblaufId === ablauf.id" class="ablauf-actions">
-                    <button class="action-btn action-play" @click="playAblauf(ablauf, 'training')">
+                    <button class="action-btn action-play" @click="playAblaufSolo(ablauf)">
                       <Icons icon="play" :size="12" color="#fff" />
-                      Abspielen
+                      Als Solo Starten
+                    </button>
+                    <button class="action-btn action-group" @click="playAblaufGroup(ablauf)">
+                      <Icons icon="program" :size="12" color="#fff" />
+                      Als Gruppe Starten
                     </button>
                   </div>
                 </div>
@@ -171,9 +179,13 @@
                     <span class="ablauf-name">{{ ablauf.name }}</span>
                   </button>
                   <div v-if="expandedAblaufId === ablauf.id" class="ablauf-actions">
-                    <button class="action-btn action-play" @click="playAblauf(ablauf, 'user')">
+                    <button class="action-btn action-play" @click="playAblaufSolo(ablauf)">
                       <Icons icon="play" :size="12" color="#fff" />
-                      Abspielen
+                      Als Solo Starten
+                    </button>
+                    <button class="action-btn action-group" @click="playAblaufGroup(ablauf)">
+                      <Icons icon="program" :size="12" color="#fff" />
+                      Als Gruppe Starten
                     </button>
                     <button class="action-btn action-edit" @click="editAblauf(ablauf.id)">
                       <Icons icon="edit" :size="12" color="#fbb" />
@@ -212,9 +224,13 @@
                     <span class="ablauf-name">{{ ablauf.name }}</span>
                   </button>
                   <div v-if="expandedAblaufId === ablauf.id" class="ablauf-actions">
-                    <button class="action-btn action-play" @click="playAblauf(ablauf, 'global')">
+                    <button class="action-btn action-play" @click="playAblaufSolo(ablauf)">
                       <Icons icon="play" :size="12" color="#fff" />
-                      Abspielen
+                      Als Solo Starten
+                    </button>
+                    <button class="action-btn action-group" @click="playAblaufGroup(ablauf)">
+                      <Icons icon="program" :size="12" color="#fff" />
+                      Als Gruppe Starten
                     </button>
                   </div>
                 </div>
@@ -354,27 +370,30 @@ const isAblaufCompleted = (ablaufId) => {
   return playStore.isAblaufCompleted(ablaufId);
 };
 
-const playAblauf = (ablauf, type) => {
-  // Create a temporary program with this single ablauf
+const buildAblaufSegment = (ablauf) => ({
+  id: ablauf.id,
+  alias: ablauf.name,
+  rangeId: ablauf.rangeId,
+  rangeName: ablauf.rangeName,
+  steps: ablauf.steps,
+});
+
+const playAblaufSolo = (ablauf) => {
   const tempProgram = {
     id: `temp_${ablauf.id}`,
     name: ablauf.name,
-    ablaeufe: [
-      {
-        id: ablauf.id,
-        alias: ablauf.name,
-        rangeId: ablauf.rangeId,
-        rangeName: ablauf.rangeName,
-        steps: ablauf.steps,
-      }
-    ]
+    ablaeufe: [buildAblaufSegment(ablauf)],
   };
-  playStore.playProgramWithScore(tempProgram.id);
-  // Temporarily add to saved programs
   programStore.savedPrograms.push(tempProgram);
   playStore.playProgramWithScore(tempProgram.id);
-  // Remove from temporary storage
-  programStore.savedPrograms = programStore.savedPrograms.filter(p => p.id !== tempProgram.id);
+  programStore.savedPrograms = programStore.savedPrograms.filter((p) => p.id !== tempProgram.id);
+  isOpen.value = false;
+  router.push(`/remote/${currentRangeId.value}/play`);
+};
+
+const playAblaufGroup = (ablauf) => {
+  playStore.setPendingGroupAblaeufe([buildAblaufSegment(ablauf)]);
+  isOpen.value = false;
   router.push(`/remote/${currentRangeId.value}/play`);
 };
 
@@ -625,8 +644,8 @@ const getStepTooltip = (step) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(252, 129, 129, 0.12);
-  border: 1px solid rgba(252, 129, 129, 0.25);
+  background: rgba(79, 195, 247, 0.12);
+  border: 1px solid rgba(79, 195, 247, 0.25);
   border-radius: 8px;
   padding: 8px;
   min-height: 32px;
@@ -637,18 +656,45 @@ const getStepTooltip = (step) => {
 }
 
 .captured-item:hover {
-  background: rgba(252, 129, 129, 0.2);
-  border-color: rgba(252, 129, 129, 0.4);
+  background: rgba(79, 195, 247, 0.2);
+  border-color: rgba(79, 195, 247, 0.4);
   transform: scale(1.05);
 }
 
-.captured-item.is-raffale {
-  border-color: rgba(79, 195, 247, 0.3);
-  background: rgba(79, 195, 247, 0.08);
+.captured-item.type-solo {
+  border-color: rgba(79, 195, 247, 0.25);
+  background: rgba(79, 195, 247, 0.12);
 }
 
-.captured-item.is-raffale .item-code {
-  color: #4fc3f7;
+.captured-item.type-solo .item-code {
+  color: rgba(79, 195, 247, 0.7);
+}
+
+.captured-item.type-pair {
+  border-color: rgba(72, 187, 120, 0.25);
+  background: rgba(72, 187, 120, 0.12);
+}
+
+.captured-item.type-pair .item-code {
+  color: rgba(72, 187, 120, 0.7);
+}
+
+.captured-item.type-a_schuss {
+  border-color: rgba(246, 173, 85, 0.25);
+  background: rgba(246, 173, 85, 0.12);
+}
+
+.captured-item.type-a_schuss .item-code {
+  color: rgba(246, 173, 85, 0.7);
+}
+
+.captured-item.type-raffale {
+  border-color: rgba(168, 85, 247, 0.25);
+  background: rgba(168, 85, 247, 0.12);
+}
+
+.captured-item.type-raffale .item-code {
+  color: rgba(168, 85, 247, 0.7);
 }
 
 .item-code {
@@ -768,6 +814,16 @@ const getStepTooltip = (step) => {
 
 .action-play:hover {
   background: rgba(72, 187, 120, 0.22);
+}
+
+.action-group {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+}
+
+.action-group:hover {
+  background: rgba(168, 85, 247, 0.22);
 }
 
 .action-edit {

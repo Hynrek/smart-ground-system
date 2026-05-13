@@ -7,7 +7,16 @@
       "Bash(./mvnw clean *)",
       "Bash(cd \"C:\\\\\\\\Users\\\\\\\\hynre\\\\\\\\IdeaProjects\\\\\\\\Smart Ground\\\\\\\\smart-ground-backend\")",
       "Bash(mvnw.bat clean *)",
-      "mcp__Claude_in_Chrome__tabs_context_mcp"
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(cd \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\" && find src/main/java -name \"*Controller.java\" | head -20)",
+      "PowerShell(cd 'C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend'; .\\\\mvnw.cmd clean generate-sources 2>&1 | Where-Object { $_ -match '\\(BUILD|ERROR|WARNING\\)' })",
+      "Bash(echo '.fuse_hidden*')",
+      "Bash(git rm *)",
+      "Bash(rm -f src/components/shooter-remote/.fuse_hidden* src/constants/.fuse_hidden* src/stores/.fuse_hidden* src/views/.fuse_hidden* src/views/shooter/.fuse_hidden*)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5173)"
     ]
   }
 }

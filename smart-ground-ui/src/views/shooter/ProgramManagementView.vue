@@ -9,8 +9,31 @@
       <div class="top-bar-spacer" />
     </div>
 
+    <!-- Tab toggle -->
+    <div class="tab-toggle">
+      <button
+        class="tab-btn"
+        :class="{ active: !showActiveProgramsTab }"
+        @click="showActiveProgramsTab = false"
+      >
+        Programme
+      </button>
+      <button
+        class="tab-btn"
+        :class="{ active: showActiveProgramsTab }"
+        @click="showActiveProgramsTab = true"
+      >
+        Aktive Programme
+      </button>
+    </div>
+
     <!-- Scrollable content -->
     <div class="content">
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- TAB 1: PROGRAMME MANAGEMENT                 -->
+      <!-- ═══════════════════════════════════════════ -->
+      <template v-if="!showActiveProgramsTab">
 
       <!-- ═══════════════════════════════════════════ -->
       <!-- BLOCK 1: PROGRAMME                          -->
@@ -338,6 +361,68 @@
         </div>
       </section>
 
+      </template>
+
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- TAB 2: AKTIVE PROGRAMME                     -->
+      <!-- ═══════════════════════════════════════════ -->
+      <template v-if="showActiveProgramsTab">
+      <section class="block">
+        <div class="block-header">
+          <div class="block-title-row">
+            <span class="block-title">Aktive Programme</span>
+            <span class="block-badge">{{ playSessionStore.activeSessions.length }}</span>
+          </div>
+          <p class="block-desc">
+            Aktuell laufende Programme. Klick auf Fortfahren um fortzufahren, oder Stoppen um abzubrechen.
+          </p>
+        </div>
+
+        <!-- Active sessions list -->
+        <div v-if="playSessionStore.activeSessions.length > 0" class="active-sessions-list">
+          <div
+            v-for="session in playSessionStore.activeSessions"
+            :key="session.sessionId"
+            class="session-card"
+          >
+            <div class="session-main">
+              <div class="session-info">
+                <span class="session-program">{{ session.programName }}</span>
+                <span class="session-range">{{ session.rangeName }} • {{ session.players.length }} {{ session.players.length === 1 ? 'Schütze' : 'Schützen' }}</span>
+              </div>
+            </div>
+
+            <!-- Progress bar -->
+            <div class="progress-bar-container">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: session.completionPct + '%' }" />
+              </div>
+              <span class="progress-label">{{ session.completionPct }}%</span>
+            </div>
+
+            <!-- Actions -->
+            <div class="session-actions">
+              <button class="action-btn action-btn--continue" @click="resumeSession(session)">
+                <Icons icon="play" :size="13" color="#4fc3f7" />
+                Fortfahren
+              </button>
+              <button class="action-btn action-btn--stop" @click="stopSessionConfirm(session)">
+                <Icons icon="x" :size="13" color="rgba(252,129,129,0.7)" />
+                Stoppen
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div v-if="playSessionStore.activeSessions.length === 0" class="empty-block">
+          <Icons icon="program" :size="36" color="rgba(255,255,255,0.07)" />
+          <p>Keine aktiven Programme</p>
+          <p class="empty-hint">Starte ein Programm zum Erfassen von Würfen.</p>
+        </div>
+      </section>
+      </template>
+
     </div>
 
     <!-- Range select sheet (shown when starting a program) -->
@@ -377,12 +462,17 @@ import { useRouter } from 'vue-router';
 import { useProgramStore } from '@/stores/programStore.js';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useAuthStore } from '@/stores/authStore.js';
+import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import Icons from '@/components/Icons.vue';
 
 const router = useRouter();
 const programStore = useProgramStore();
 const rangeStore = useRangeStore();
 const authStore = useAuthStore();
+const playSessionStore = usePlaySessionStore();
+
+// Active programs tab
+const showActiveProgramsTab = ref(false);
 
 // Lade Plätze beim Öffnen (falls noch nicht geladen)
 if (!rangeStore.ranges?.length) {
@@ -526,9 +616,14 @@ const startProgram = (prog) => {
 
 const launchProgram = (rangeId) => {
   if (!startingProgram.value) return;
-  programStore.setPendingProgram(startingProgram.value.id);
+  // Store pending program info and navigate to play view
+  playSessionStore.pendingProgramInfo = {
+    programId: startingProgram.value.id,
+    rangeId,
+  };
   startingProgram.value = null;
-  router.push(`/remote/${rangeId}`);
+  // Navigate directly to play view to trigger group setup
+  router.push(`/remote/${rangeId}/play`);
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -547,6 +642,19 @@ const totalThrows = (segments) => segments.reduce((sum, seg) => sum + stepCount(
 const stepTypeLabel = (type) => {
   const map = { solo: 'Solo', pair: 'Pair', 'a_schuss': 'a.Schuss', raffale: 'Raffale' };
   return map[type] ?? type;
+};
+
+// ── Active programs actions ───────────────────────────────────────
+const resumeSession = (session) => {
+  if (playSessionStore.resumeSession(session.sessionId)) {
+    router.push(`/remote/${session.rangeId}/play`);
+  }
+};
+
+const stopSessionConfirm = (session) => {
+  if (confirm(`Möchtest du „${session.programName}" wirklich abbrechen?`)) {
+    playSessionStore.stopSession(session.sessionId);
+  }
 };
 </script>
 
@@ -1348,5 +1456,160 @@ const stepTypeLabel = (type) => {
 
 .range-sheet-cancel:hover {
   background: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Tab toggle ──────────────────────────────── */
+.tab-toggle {
+  display: flex;
+  gap: 8px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tab-btn.active {
+  background: rgba(79, 195, 247, 0.18);
+  border-color: rgba(79, 195, 247, 0.4);
+  color: #4fc3f7;
+}
+
+.tab-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ── Active sessions list ───────────────────── */
+.active-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.session-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s;
+}
+
+.session-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.session-program {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-range {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.progress-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(79, 195, 247, 0.6), rgba(79, 195, 247, 0.9));
+  width: 0;
+  transition: width 0.3s ease;
+}
+
+.progress-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(79, 195, 247, 0.8);
+  min-width: 35px;
+  text-align: right;
+}
+
+.session-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  border: 1px solid transparent;
+}
+
+.action-btn--continue {
+  background: rgba(79, 195, 247, 0.12);
+  border-color: rgba(79, 195, 247, 0.3);
+  color: #4fc3f7;
+}
+
+.action-btn--continue:hover {
+  background: rgba(79, 195, 247, 0.2);
+}
+
+.action-btn--stop {
+  background: rgba(252, 129, 129, 0.08);
+  border-color: rgba(252, 129, 129, 0.2);
+  color: rgba(252, 129, 129, 0.7);
+  flex: none;
+  padding: 10px 14px;
+}
+
+.action-btn--stop:hover {
+  background: rgba(252, 129, 129, 0.14);
 }
 </style>
