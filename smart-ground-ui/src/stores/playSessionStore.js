@@ -562,10 +562,10 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     pendingGroupAblaeufe.value = null;
   };
 
-  const advanceToNextPlayer = () => {
+  const advanceToNextPlayer = async () => {
     completedPlayerCount.value += 1;
     if (completedPlayerCount.value >= sessionPlayers.value.length) {
-      playComplete.value = true;
+      await confirmComplete();
     } else {
       currentPlayerIndex.value += 1;
       currentAblaufIndex.value = 0;
