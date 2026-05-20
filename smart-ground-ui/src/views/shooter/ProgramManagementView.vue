@@ -345,7 +345,7 @@
                 </div>
                 <div class="seg-steps-preview">
                   <span
-                    v-for="(step, i) in seg.steps.slice(0, 8)"
+                    v-for="step in seg.steps.slice(0, 8)"
                     :key="step.id"
                     class="step-dot"
                     :class="`dot-${step.type}`"
