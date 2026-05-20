@@ -31,6 +31,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   const playScore = ref({ totalPoints: 0, stepStates: [] });
   const playLastDeviceStep = ref(null); // { ablaufIdx, stepIdx } of last fired step
   const playComplete = ref(false);      // true once the user confirms program end
+  const activeBlockContext = ref(null); // { instanceId, blockId } | null
 
   // ── Multi-player state ──────────────────────────────────────────────────────
   const sessionPlayers = ref([]);
@@ -45,6 +46,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
   // ── Pending program (from Programme Management View) ──────────────────────────
   const pendingProgramInfo = ref(null); // { programId, rangeId }
+  const _pendingProgramId = ref(null);  // Internal only — persists programId through session init
 
   // ── Active sessions (persistent across page reloads) ────────────────────────
   const activeSessions = ref([]);
@@ -162,6 +164,21 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     return 0;
   };
 
+  const buildPlayerResults = () => {
+    return sessionPlayers.value.map((player) => {
+      const states = playScore.value.stepStates.filter((s) => s.playerId === player.id);
+      const totalPoints = states.reduce((sum, s) => sum + s.pointsEarned, 0);
+      const maxPoints = states.reduce((sum, s) => sum + s.pointValue, 0);
+      return {
+        playerId: player.id,
+        displayName: player.displayName,
+        totalPoints,
+        maxPoints,
+        stepStates: states.map((s) => ({ ...s })),
+      };
+    });
+  };
+
   // ── Player setup ─────────────────────────────────────────────────────────────
   const setupPlayers = (players) => {
     sessionPlayers.value = players;
@@ -180,6 +197,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   const loadPendingProgram = () => {
     if (!pendingProgramInfo.value) return null;
     const { programId } = pendingProgramInfo.value;
+    _pendingProgramId.value = programId;  // Persist for startGroupPlay
     const prog = programStore.savedPrograms.find((p) => p.id === programId);
     if (!prog) return null;
 
@@ -426,9 +444,19 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
   // Called by the UI when the user confirms the program is finished
   // (clicking Fertig or using a fail button at program end).
-  const confirmComplete = () => {
+  const confirmComplete = async () => {
     playComplete.value = true;
-    // Remove session from active sessions
+    // Notify active program store if playing a block instance
+    if (activeBlockContext.value) {
+      const { useActiveProgramStore } = await import('@/stores/activeProgramStore.js');
+      useActiveProgramStore().markBlockDone(
+        activeBlockContext.value.instanceId,
+        activeBlockContext.value.blockId,
+        buildPlayerResults(),
+      );
+      activeBlockContext.value = null;
+    }
+    // Remove legacy session from active sessions
     if (currentSessionId.value) {
       activeSessions.value = activeSessions.value.filter((s) => s.sessionId !== currentSessionId.value);
       currentSessionId.value = null;
@@ -463,7 +491,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     pendingGroupAblaeufe.value = null;
   };
 
-  const startGroupPlay = (players, rangeId = null, rangeName = null) => {
+  const startGroupPlay = async (players, rangeId = null, rangeName = null, instanceId = null, blockId = null) => {
     if (!pendingGroupAblaeufe.value) return;
     const ablaeufe = pendingGroupAblaeufe.value;
 
@@ -497,11 +525,11 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     });
     playScore.value = { totalPoints: 0, stepStates };
 
-    // Create active session if rangeId is provided
-    if (rangeId) {
+    // Create active session if rangeId is provided (legacy, not used for block instances)
+    if (rangeId && !instanceId) {
       const sessionId = generateUUID();
       currentSessionId.value = sessionId;
-      const programId = programStore.pendingProgramId?.value || null;
+      const programId = _pendingProgramId.value;
       const programName = programStore.savedPrograms.find((p) => p.id === programId)?.name || 'Programm';
 
       const session = {
@@ -518,6 +546,16 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
       activeSessions.value.push(session);
       saveSessions();
+      _pendingProgramId.value = null;  // Clear after session is created
+    }
+
+    // Set block context when playing from an active program instance
+    if (instanceId && blockId) {
+      activeBlockContext.value = { instanceId, blockId };
+      const { useActiveProgramStore } = await import('@/stores/activeProgramStore.js');
+      useActiveProgramStore().markBlockInProgress(instanceId, blockId);
+    } else {
+      activeBlockContext.value = null;
     }
 
     showGroupSetup.value = false;
@@ -603,6 +641,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     playScore,
     playLastDeviceStep,
     playComplete,
+    activeBlockContext,
     sessionPlayers,
     currentPlayerIndex,
     roundOrder,
@@ -637,6 +676,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     retryStep,
     confirmComplete,
     closePlayback,
+    buildPlayerResults,
     getPointValueForStep,
     setupPlayers,
     buildRoundOrder,
