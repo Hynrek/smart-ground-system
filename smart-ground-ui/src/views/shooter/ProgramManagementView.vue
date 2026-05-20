@@ -460,11 +460,8 @@
             >
               <!-- Header row -->
               <div class="session-main">
-                <div class="session-info">
-                  <span class="session-program">{{ inst.templateName }}</span>
-                  <span class="session-range">{{ new Date(inst.completedAt).toLocaleDateString('de-CH') }}</span>
-                </div>
-                <span class="total-wuerfe">{{ getTotalWuerfe(inst) }} Würfe</span>
+                <span class="session-program">{{ inst.templateName }}</span>
+                <span class="total-wuerfe">{{ new Date(inst.completedAt).toLocaleDateString('de-CH') }}</span>
               </div>
 
               <!-- Per-player summary chips (always visible) -->
