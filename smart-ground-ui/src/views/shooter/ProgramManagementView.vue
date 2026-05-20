@@ -455,31 +455,53 @@
             <div
               v-for="inst in activeProgramStore.completedInstances"
               :key="inst.instanceId"
-              class="session-card"
+              class="session-card completed-card"
+              @click="toggleCompletedCard(inst.instanceId)"
             >
+              <!-- Header row -->
               <div class="session-main">
                 <div class="session-info">
                   <span class="session-program">{{ inst.templateName }}</span>
-                  <span class="session-range">
-                    {{ new Date(inst.completedAt).toLocaleDateString('de-CH') }}
-                    · {{ inst.players.map(p => p.displayName).join(', ') }}
-                  </span>
+                  <span class="session-range">{{ new Date(inst.completedAt).toLocaleDateString('de-CH') }}</span>
+                </div>
+                <span class="total-wuerfe">{{ getTotalWuerfe(inst) }} Würfe</span>
+              </div>
+
+              <!-- Per-player summary chips (always visible) -->
+              <div class="player-summaries">
+                <div
+                  v-for="ps in getPlayerSummaries(inst)"
+                  :key="ps.player.id"
+                  class="player-summary-chip"
+                >
+                  <span class="ps-name">{{ ps.player.displayName }}</span>
+                  <span class="ps-pts">{{ ps.totalPts }}/{{ ps.maxPts }}</span>
+                  <span class="ps-pct">{{ ps.hitPct }}%</span>
                 </div>
               </div>
 
-              <div class="completed-scores">
-                <div v-for="block in inst.blocks" :key="block.blockId">
-                  <template v-if="block.result">
-                    <div
-                      v-for="pr in block.result.playerResults"
-                      :key="pr.playerId"
-                      class="completed-score-row"
-                    >
-                      <span class="completed-score-player">{{ pr.displayName }}</span>
-                      <span class="completed-score-block">{{ block.ablaufAlias }}</span>
-                      <span class="completed-score-pts">{{ pr.totalPoints }}/{{ pr.maxPoints }}</span>
-                    </div>
-                  </template>
+              <!-- Expandable detail: scores grouped by player -->
+              <div v-if="expandedCards.has(inst.instanceId)" class="completed-detail" @click.stop>
+                <div
+                  v-for="ps in getPlayerSummaries(inst)"
+                  :key="ps.player.id"
+                  class="player-detail-section"
+                >
+                  <div class="player-detail-header">
+                    <span class="pd-name">{{ ps.player.displayName }}</span>
+                    <span class="pd-total">{{ ps.totalPts }}/{{ ps.maxPts }}</span>
+                  </div>
+                  <div
+                    v-for="{ block, pr } in getBlocksForPlayer(inst, ps.player.id)"
+                    :key="block.blockId"
+                    class="completed-score-row"
+                  >
+                    <span class="completed-score-block">
+                      <span class="completed-score-range">{{ block.rangeName }}</span>
+                      {{ block.ablaufAlias }}
+                    </span>
+                    <span class="completed-score-pts">{{ pr.totalPoints }}/{{ pr.maxPoints }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -751,6 +773,34 @@ const resumeSession = (session) => {
     router.push(`/remote/${session.rangeId}/play`);
   }
 };
+
+// ── Completed card expand/collapse ───────────────────────────────────────────
+const expandedCards = ref(new Set());
+const toggleCompletedCard = (instanceId) => {
+  const s = new Set(expandedCards.value);
+  if (s.has(instanceId)) s.delete(instanceId);
+  else s.add(instanceId);
+  expandedCards.value = s;
+};
+
+const getTotalWuerfe = (inst) => inst.blocks.reduce((sum, b) => {
+  return sum + (b.steps?.length ?? b.result?.playerResults?.[0]?.stepStates?.length ?? 0);
+}, 0);
+
+const getPlayerSummaries = (inst) => inst.players.map((player) => {
+  let totalPts = 0, maxPts = 0;
+  for (const block of inst.blocks) {
+    const pr = block.result?.playerResults?.find((r) => r.playerId === player.id);
+    if (!pr) continue;
+    totalPts += pr.totalPoints;
+    maxPts += pr.maxPoints;
+  }
+  return { player, totalPts, maxPts, hitPct: maxPts > 0 ? Math.round(totalPts / maxPts * 100) : 0 };
+});
+
+const getBlocksForPlayer = (inst, playerId) => inst.blocks
+  .map((block) => ({ block, pr: block.result?.playerResults?.find((r) => r.playerId === playerId) }))
+  .filter(({ pr }) => pr != null);
 
 const stopInstanceConfirm = (inst) => {
   if (confirm(`Möchtest du „${inst.templateName}" wirklich abbrechen?`)) {
@@ -1775,37 +1825,115 @@ const confirmRenameSession = (sessionId) => {
   white-space: nowrap;
 }
 
-/* ── Completed scores ────────────────────────────── */
-.completed-scores {
+/* ── Completed card ──────────────────────────────── */
+.completed-card {
+  cursor: pointer;
+  user-select: none;
+}
+
+.total-wuerfe {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.35);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.player-summaries {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding-top: 6px;
 }
 
-.completed-score-row {
+.player-summary-chip {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 12px;
 }
 
-.completed-score-player {
+.ps-name {
   color: rgba(255, 255, 255, 0.6);
-  min-width: 80px;
-}
-
-.completed-score-block {
   flex: 1;
-  color: rgba(255, 255, 255, 0.35);
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.completed-score-pts {
+.ps-pts {
   font-weight: 700;
   color: rgba(79, 195, 247, 0.9);
-  min-width: 40px;
+}
+
+.ps-pct {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  min-width: 36px;
   text-align: right;
+}
+
+.completed-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.player-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.player-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pd-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.pd-total {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(79, 195, 247, 0.8);
+}
+
+.completed-score-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+.completed-score-block {
+  flex: 1;
+  color: rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.completed-score-range {
+  color: rgba(255, 255, 255, 0.25);
+  margin-right: 4px;
+}
+
+.completed-score-pts {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
 }
 </style>
