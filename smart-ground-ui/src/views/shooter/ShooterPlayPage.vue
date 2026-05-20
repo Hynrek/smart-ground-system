@@ -156,7 +156,7 @@
             :players="store.sessionPlayers"
           />
           <button class="btn btn-primary" @click="goBack">
-            Zurück zu Programmen
+            Beenden
           </button>
         </div>
       </div>
@@ -186,7 +186,7 @@
             :players="store.sessionPlayers"
           />
           <button class="btn btn-primary" @click="goBack">
-            Zurück zu Programmen
+            Beenden
           </button>
         </div>
       </div>

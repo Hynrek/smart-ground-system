@@ -182,7 +182,7 @@ const getStepRowClass = (stepState) => {
 
 .step-row {
   display: grid;
-  grid-template-columns: 40px 80px 60px 60px;
+  grid-template-columns: 40px 1fr auto auto;
   gap: 8px;
   padding: 6px 8px;
   border-radius: 8px;
