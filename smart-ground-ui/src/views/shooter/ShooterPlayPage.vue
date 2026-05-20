@@ -269,7 +269,7 @@ const store = usePlaySessionStore();
 const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
 
-if (!store.playProg && !store.showGroupSetup) {
+if (!store.playProg && !store.showGroupSetup && !store.pendingProgramInfo) {
   router.push(`/remote/${props.rangeId}`);
 }
 
