@@ -415,7 +415,9 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     }
 
     const rawDeduction = getPointDeduction(stepState.state) - oldDeduction;
-    playScore.value.totalPoints -= Math.min(rawDeduction, stepState.pointValue);
+    const actualDeduction = Math.min(rawDeduction, stepState.pointValue);
+    playScore.value.totalPoints -= actualDeduction;
+    stepState.pointsEarned = Math.max(0, stepState.pointsEarned - actualDeduction);
   };
 
   const failStep = (failType) => {
