@@ -13,17 +13,24 @@
     <div class="tab-toggle">
       <button
         class="tab-btn"
-        :class="{ active: !showActiveProgramsTab }"
-        @click="showActiveProgramsTab = false"
+        :class="{ active: activeTab === 'programmes' }"
+        @click="activeTab = 'programmes'"
       >
         Programme
       </button>
       <button
         class="tab-btn"
-        :class="{ active: showActiveProgramsTab }"
-        @click="showActiveProgramsTab = true"
+        :class="{ active: activeTab === 'active' }"
+        @click="activeTab = 'active'"
       >
         Aktive Programme
+      </button>
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'completed' }"
+        @click="activeTab = 'completed'"
+      >
+        Abgeschlossen
       </button>
     </div>
 
@@ -33,7 +40,7 @@
       <!-- ═══════════════════════════════════════════ -->
       <!-- TAB 1: PROGRAMME MANAGEMENT                 -->
       <!-- ═══════════════════════════════════════════ -->
-      <template v-if="!showActiveProgramsTab">
+      <template v-if="activeTab === 'programmes'">
 
       <!-- ═══════════════════════════════════════════ -->
       <!-- BLOCK 1: PROGRAMME                          -->
@@ -137,7 +144,7 @@
 
               <!-- Actions -->
               <div class="prog-actions">
-                <button class="action-btn action-btn--start" @click.stop="startProgram(prog)">
+                <button class="action-btn action-btn--start" @click.stop="openStartModal(prog)">
                   <Icons icon="play" :size="14" color="#4fc3f7" />
                   Starten
                 </button>
@@ -366,91 +373,171 @@
       <!-- ═══════════════════════════════════════════ -->
       <!-- TAB 2: AKTIVE PROGRAMME                     -->
       <!-- ═══════════════════════════════════════════ -->
-      <template v-if="showActiveProgramsTab">
+      <template v-if="activeTab === 'active'">
       <section class="block">
         <div class="block-header">
           <div class="block-title-row">
             <span class="block-title">Aktive Programme</span>
-            <span class="block-badge">{{ playSessionStore.activeSessions.length }}</span>
+            <span class="block-badge">{{ activeProgramStore.activeInstances.length }}</span>
           </div>
           <p class="block-desc">
-            Aktuell laufende Programme. Klick auf Fortfahren um fortzufahren, oder Stoppen um abzubrechen.
+            Gestartete Programme. Blöcke erscheinen auf den zugehörigen Plätzen.
           </p>
         </div>
 
-        <!-- Active sessions list -->
-        <div v-if="playSessionStore.activeSessions.length > 0" class="active-sessions-list">
+        <div v-if="activeProgramStore.activeInstances.length > 0" class="active-sessions-list">
           <div
-            v-for="session in playSessionStore.activeSessions"
-            :key="session.sessionId"
+            v-for="inst in activeProgramStore.activeInstances"
+            :key="inst.instanceId"
             class="session-card"
           >
             <div class="session-main">
               <div class="session-info">
-                <span class="session-program">{{ session.programName }}</span>
-                <span class="session-range">{{ session.rangeName }} • {{ session.players.length }} {{ session.players.length === 1 ? 'Schütze' : 'Schützen' }}</span>
+                <span class="session-program">{{ inst.templateName }}</span>
+                <span class="session-range">
+                  {{ inst.players.map(p => p.displayName).join(', ') }}
+                  · {{ inst.blocks.filter(b => b.status === 'done').length }}/{{ inst.blocks.length }} Blöcke
+                </span>
+              </div>
+              <button class="icon-btn" title="Stoppen" @click="stopInstanceConfirm(inst)">
+                <Icons icon="x" :size="13" color="rgba(252,129,129,0.6)" />
+              </button>
+            </div>
+
+            <div class="block-status-list">
+              <div
+                v-for="block in inst.blocks"
+                :key="block.blockId"
+                class="block-status-row"
+              >
+                <span class="block-status-dot" :class="`dot-${block.status}`" />
+                <span class="block-status-range">{{ block.rangeName ?? 'Kein Platz' }}</span>
+                <span class="block-status-name">{{ block.ablaufAlias }}</span>
               </div>
             </div>
 
-            <!-- Progress bar -->
             <div class="progress-bar-container">
               <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: session.completionPct + '%' }" />
+                <div
+                  class="progress-fill"
+                  :style="{ width: (inst.blocks.filter(b => b.status === 'done').length / inst.blocks.length * 100) + '%' }"
+                />
               </div>
-              <span class="progress-label">{{ session.completionPct }}%</span>
-            </div>
-
-            <!-- Actions -->
-            <div class="session-actions">
-              <button class="action-btn action-btn--continue" @click="resumeSession(session)">
-                <Icons icon="play" :size="13" color="#4fc3f7" />
-                Fortfahren
-              </button>
-              <button class="action-btn action-btn--stop" @click="stopSessionConfirm(session)">
-                <Icons icon="x" :size="13" color="rgba(252,129,129,0.7)" />
-                Stoppen
-              </button>
+              <span class="progress-label">
+                {{ inst.blocks.filter(b => b.status === 'done').length }}/{{ inst.blocks.length }}
+              </span>
             </div>
           </div>
         </div>
 
-        <!-- Empty state -->
-        <div v-if="playSessionStore.activeSessions.length === 0" class="empty-block">
+        <div v-if="activeProgramStore.activeInstances.length === 0" class="empty-block">
           <Icons icon="program" :size="36" color="rgba(255,255,255,0.07)" />
           <p>Keine aktiven Programme</p>
-          <p class="empty-hint">Starte ein Programm zum Erfassen von Würfen.</p>
+          <p class="empty-hint">Starte ein Programm über den Programme-Tab.</p>
         </div>
       </section>
       </template>
 
+      <!-- ═══════════════════════════════════════════ -->
+      <!-- TAB 3: ABGESCHLOSSENE PROGRAMME             -->
+      <!-- ═══════════════════════════════════════════ -->
+      <template v-if="activeTab === 'completed'">
+        <section class="block">
+          <div class="block-header">
+            <div class="block-title-row">
+              <span class="block-title">Abgeschlossene Programme</span>
+              <span class="block-badge">{{ activeProgramStore.completedInstances.length }}</span>
+            </div>
+            <p class="block-desc">Fertig gespielte Programme. Basis für zukünftige Statistiken.</p>
+          </div>
+
+          <div v-if="activeProgramStore.completedInstances.length > 0" class="active-sessions-list">
+            <div
+              v-for="inst in activeProgramStore.completedInstances"
+              :key="inst.instanceId"
+              class="session-card"
+            >
+              <div class="session-main">
+                <div class="session-info">
+                  <span class="session-program">{{ inst.templateName }}</span>
+                  <span class="session-range">
+                    {{ new Date(inst.completedAt).toLocaleDateString('de-CH') }}
+                    · {{ inst.players.map(p => p.displayName).join(', ') }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="completed-scores">
+                <div v-for="block in inst.blocks" :key="block.blockId">
+                  <template v-if="block.result">
+                    <div
+                      v-for="pr in block.result.playerResults"
+                      :key="pr.playerId"
+                      class="completed-score-row"
+                    >
+                      <span class="completed-score-player">{{ pr.displayName }}</span>
+                      <span class="completed-score-block">{{ block.ablaufAlias }}</span>
+                      <span class="completed-score-pts">{{ pr.totalPoints }}/{{ pr.maxPoints }}</span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="activeProgramStore.completedInstances.length === 0" class="empty-block">
+            <Icons icon="program" :size="36" color="rgba(255,255,255,0.07)" />
+            <p>Noch keine abgeschlossenen Programme</p>
+          </div>
+        </section>
+      </template>
+
     </div>
 
-    <!-- Range select sheet (shown when starting a program) -->
-    <div v-if="startingProgram" class="range-sheet-overlay" @click="startingProgram = null">
-      <div class="range-sheet" @click.stop>
-        <div class="range-sheet-header">
-          <span class="range-sheet-title">Platz wählen</span>
-          <p class="range-sheet-sub">Auf welchem Platz soll „{{ startingProgram.name }}" gestartet werden?</p>
-        </div>
-        <div v-if="rangeStore.isLoading" class="range-sheet-loading">Lade Plätze…</div>
-        <div v-else-if="availableRanges.length === 0" class="range-sheet-empty">
-          Keine Plätze verfügbar
-        </div>
-        <div v-else class="range-sheet-list">
-          <button
-            v-for="range in availableRanges"
-            :key="range.id"
-            class="range-sheet-item"
-            @click="launchProgram(range.id)"
+    <!-- ── Inline Program Start Modal ──────────────────── -->
+    <div v-if="startingProgram" class="start-modal-overlay" @click.self="cancelStartProgram">
+      <div class="start-modal">
+        <h3 class="start-modal-title">{{ startingProgram.name }} starten</h3>
+
+        <div class="start-modal-players">
+          <div
+            v-for="(player, i) in startModalPlayers"
+            :key="player.id"
+            class="start-player-row"
           >
-            <div class="range-item-info">
-              <span class="range-item-name">{{ range.name }}</span>
-              <span v-if="range.description" class="range-item-desc">{{ range.description }}</span>
-            </div>
-            <Icons icon="chevronRight" :size="14" color="rgba(255,255,255,0.3)" />
+            <span class="start-player-num">{{ i + 1 }}:</span>
+            <input
+              v-model="player.displayName"
+              class="start-player-input"
+              type="text"
+              :placeholder="`Schütze ${i + 1}`"
+              maxlength="30"
+            />
+            <button
+              v-if="startModalPlayers.length > 1"
+              class="icon-btn icon-btn--danger"
+              @click="removeStartModalPlayer(i)"
+            >
+              <Icons icon="x" :size="11" color="#fc8181" />
+            </button>
+          </div>
+        </div>
+
+        <button class="add-player-btn" @click="addStartModalPlayer">
+          + Schütze hinzufügen
+        </button>
+
+        <div class="start-modal-actions">
+          <button class="action-btn action-btn--cancel" @click="cancelStartProgram">Abbrechen</button>
+          <button
+            class="action-btn action-btn--start"
+            :disabled="startModalPlayers.length === 0"
+            @click="confirmStartProgram"
+          >
+            <Icons icon="play" :size="14" color="#4fc3f7" />
+            Starten
           </button>
         </div>
-        <button class="range-sheet-cancel" @click="startingProgram = null">Abbrechen</button>
       </div>
     </div>
   </div>
@@ -460,24 +547,61 @@
 import { ref, computed, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProgramStore } from '@/stores/programStore.js';
-import { useRangeStore } from '@/stores/rangeStore.js';
 import { useAuthStore } from '@/stores/authStore.js';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
+import { useActiveProgramStore } from '@/stores/activeProgramStore.js';
 import Icons from '@/components/Icons.vue';
 
 const router = useRouter();
 const programStore = useProgramStore();
-const rangeStore = useRangeStore();
 const authStore = useAuthStore();
 const playSessionStore = usePlaySessionStore();
+const activeProgramStore = useActiveProgramStore();
 
 // Active programs tab
-const showActiveProgramsTab = ref(false);
+const activeTab = ref(
+  router.currentRoute.value.query.tab === 'active' ? 'active'
+  : router.currentRoute.value.query.tab === 'completed' ? 'completed'
+  : 'programmes'
+);
 
-// Lade Plätze beim Öffnen (falls noch nicht geladen)
-if (!rangeStore.ranges?.length) {
-  rangeStore.loadApiData?.();
-}
+// ── Inline program start modal ────────────────────────────────────────────
+const startingProgram = ref(null);
+const startModalPlayers = ref([]);
+let _nextStartPlayerId = 1;
+
+const openStartModal = (prog) => {
+  startingProgram.value = prog;
+  _nextStartPlayerId = 1;
+  startModalPlayers.value = [{ id: `sp-${_nextStartPlayerId++}`, displayName: 'Schütze 1', type: 'guest' }];
+};
+
+const addStartModalPlayer = () => {
+  const n = startModalPlayers.value.length + 1;
+  startModalPlayers.value.push({ id: `sp-${_nextStartPlayerId++}`, displayName: `Schütze ${n}`, type: 'guest' });
+};
+
+const removeStartModalPlayer = (index) => {
+  startModalPlayers.value.splice(index, 1);
+};
+
+const confirmStartProgram = () => {
+  if (!startingProgram.value || startModalPlayers.value.length === 0) return;
+  activeProgramStore.startProgram(startingProgram.value, startModalPlayers.value);
+  startingProgram.value = null;
+  startModalPlayers.value = [];
+  activeTab.value = 'active';
+};
+
+const cancelStartProgram = () => {
+  startingProgram.value = null;
+  startModalPlayers.value = [];
+};
+
+// ── Active session rename logic ────────────────────────────────────────────
+const renamingSessionId = ref(null);
+const sessionRenameValue = ref('');
+const sessionRenameInputRef = ref(null);
 
 // ── Ablauf grouping ───────────────────────────────────────────────────────
 const ablaufGroups = computed(() => {
@@ -603,29 +727,6 @@ const confirmCreateProgram = () => {
   newProgramName.value = '';
 };
 
-// ── Start program (range picker) ───────────────────────────────────────────
-const startingProgram = ref(null);
-
-const availableRanges = computed(() =>
-  (rangeStore.ranges ?? []).filter((r) => !r.locked),
-);
-
-const startProgram = (prog) => {
-  startingProgram.value = prog;
-};
-
-const launchProgram = (rangeId) => {
-  if (!startingProgram.value) return;
-  // Store pending program info and navigate to play view
-  playSessionStore.pendingProgramInfo = {
-    programId: startingProgram.value.id,
-    rangeId,
-  };
-  startingProgram.value = null;
-  // Navigate directly to play view to trigger group setup
-  router.push(`/remote/${rangeId}/play`);
-};
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 const stepCount = (steps) => {
   let count = 0;
@@ -651,10 +752,25 @@ const resumeSession = (session) => {
   }
 };
 
-const stopSessionConfirm = (session) => {
-  if (confirm(`Möchtest du „${session.programName}" wirklich abbrechen?`)) {
-    playSessionStore.stopSession(session.sessionId);
+const stopInstanceConfirm = (inst) => {
+  if (confirm(`Möchtest du „${inst.templateName}" wirklich abbrechen?`)) {
+    activeProgramStore.stopInstance(inst.instanceId);
   }
+};
+
+const startRenameSession = (session) => {
+  renamingSessionId.value = session.sessionId;
+  sessionRenameValue.value = session.programName;
+  nextTick(() => sessionRenameInputRef.value?.focus());
+};
+
+const confirmRenameSession = (sessionId) => {
+  const session = playSessionStore.activeSessions.find((s) => s.sessionId === sessionId);
+  if (session && sessionRenameValue.value.trim()) {
+    session.programName = sessionRenameValue.value.trim();
+    playSessionStore.saveSessions();
+  }
+  renamingSessionId.value = null;
 };
 </script>
 
@@ -1343,121 +1459,6 @@ const stopSessionConfirm = (session) => {
   border-top: 1px solid rgba(79, 195, 247, 0.15);
 }
 
-/* ── Range sheet (modal) ──────────────────────────── */
-.range-sheet-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
-  z-index: 100;
-}
-
-.range-sheet {
-  width: 100%;
-  background: #1a1a2e;
-  border-radius: 20px 20px 0 0;
-  padding: 20px 16px 24px;
-  display: flex;
-  flex-direction: column;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.range-sheet-header {
-  text-align: center;
-  margin-bottom: 16px;
-}
-
-.range-sheet-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #fff;
-  display: block;
-  margin-bottom: 4px;
-}
-
-.range-sheet-sub {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
-  margin: 0;
-}
-
-.range-sheet-loading {
-  text-align: center;
-  padding: 24px;
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.range-sheet-empty {
-  text-align: center;
-  padding: 24px;
-  color: rgba(255, 255, 255, 0.3);
-}
-
-.range-sheet-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.range-sheet-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.range-sheet-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.range-item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.range-item-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.range-item-desc {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.3);
-}
-
-.range-sheet-cancel {
-  width: 100%;
-  padding: 11px;
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 14px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.range-sheet-cancel:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
 /* ── Tab toggle ──────────────────────────────── */
 .tab-toggle {
   display: flex;
@@ -1533,6 +1534,37 @@ const stopSessionConfirm = (session) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.session-program:hover {
+  color: rgba(79, 195, 247, 0.9);
+}
+
+.session-rename-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(79, 195, 247, 0.4);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 15px;
+  font-family: inherit;
+  padding: 6px 10px;
+  outline: none;
+  margin-bottom: 4px;
+}
+
+.session-rename-input:focus {
+  border-color: rgba(79, 195, 247, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.session-rename-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  align-items: center;
 }
 
 .session-range {
@@ -1611,5 +1643,169 @@ const stopSessionConfirm = (session) => {
 
 .action-btn--stop:hover {
   background: rgba(252, 129, 129, 0.14);
+}
+
+/* ── Start modal ──────────────────────────────────── */
+.start-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+
+.start-modal {
+  background: rgba(24, 24, 40, 0.98);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 24px;
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.start-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  text-align: center;
+}
+
+.start-modal-players {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.start-player-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.start-player-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(79, 195, 247, 0.7);
+  min-width: 20px;
+}
+
+.start-player-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 8px 10px;
+  outline: none;
+}
+
+.start-player-input:focus {
+  border-color: rgba(79, 195, 247, 0.3);
+}
+
+.add-player-btn {
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.add-player-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.start-modal-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Block status list ───────────────────────────── */
+.block-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.block-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.block-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.block-status-dot.dot-pending { background: rgba(255, 255, 255, 0.2); }
+.block-status-dot.dot-in_progress { background: rgba(246, 173, 85, 0.8); }
+.block-status-dot.dot-done { background: rgba(72, 187, 120, 0.7); }
+
+.block-status-range {
+  color: rgba(255, 255, 255, 0.35);
+  min-width: 60px;
+}
+
+.block-status-name {
+  color: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Completed scores ────────────────────────────── */
+.completed-scores {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.completed-score-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.completed-score-player {
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 80px;
+}
+
+.completed-score-block {
+  flex: 1;
+  color: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.completed-score-pts {
+  font-weight: 700;
+  color: rgba(79, 195, 247, 0.9);
+  min-width: 40px;
+  text-align: right;
 }
 </style>

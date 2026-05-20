@@ -80,6 +80,35 @@
 
         <!-- Ablauf-centered view (when not recording) -->
         <template v-if="!isRecordingActive && isOpen">
+          <!-- Programme Blöcke -->
+          <template v-if="programmeBlocks.length > 0">
+            <div class="section">
+              <span class="section-label">Programme</span>
+              <div class="ablaeufe-list">
+                <div
+                  v-for="block in programmeBlocks"
+                  :key="block.blockId"
+                  class="ablauf-card"
+                >
+                  <button class="ablauf-header-btn" @click="playBlock(block)">
+                    <div class="block-info">
+                      <span class="ablauf-name">{{ block.ablaufAlias }}</span>
+                      <span class="block-template-name">{{ block.templateName }}</span>
+                    </div>
+                    <span class="block-status-badge" :class="`status-${block.status}`">
+                      {{ block.status === 'in_progress' ? '◑' : '●' }}
+                    </span>
+                  </button>
+                  <div class="ablauf-actions">
+                    <div class="session-meta">
+                      {{ block.players.map(p => p.displayName).join(', ') }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
           <!-- Offene Wettkämpfe -->
           <template v-if="competitionAblaeufe.length > 0">
             <div class="section">
@@ -240,7 +269,7 @@
 
           <!-- Empty state -->
           <div
-            v-if="competitionAblaeufe.length === 0 && trainingAblaeufe.length === 0 && userAblaeufe.length === 0 && globalAblaeufe.length === 0"
+            v-if="programmeBlocks.length === 0 && competitionAblaeufe.length === 0 && trainingAblaeufe.length === 0 && userAblaeufe.length === 0 && globalAblaeufe.length === 0"
             class="empty-state"
           >
             <Icons icon="program" :size="32" color="rgba(255,255,255,0.1)" />
@@ -294,6 +323,7 @@ import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useAuthStore } from '@/stores/authStore.js';
+import { useActiveProgramStore } from '@/stores/activeProgramStore.js';
 import Icons from '@/components/Icons.vue';
 
 const router = useRouter();
@@ -303,6 +333,7 @@ const playStore = usePlaySessionStore();
 const deviceStore = useDeviceStore();
 const rangeStore = useRangeStore();
 const authStore = useAuthStore();
+const activeProgramStore = useActiveProgramStore();
 
 const isOpen = ref(false);
 const namingMode = ref(false);
@@ -350,6 +381,29 @@ const trainingAblaeufe = computed(() => {
   // This is a placeholder for future API integration
   return [];
 });
+
+const programmeBlocks = computed(() =>
+  activeProgramStore.getBlocksForRange(currentRangeId.value)
+);
+
+const playBlock = (block) => {
+  playStore.pendingProgramInfo = {
+    ablauf: {
+      id: block.ablaufId,
+      name: block.ablaufAlias,
+      alias: block.ablaufAlias,
+      steps: block.steps,
+      rangeId: block.rangeId,
+      rangeName: block.rangeName,
+    },
+    rangeId: currentRangeId.value,
+    instanceId: block.instanceId,
+    blockId: block.blockId,
+    players: block.players,
+  };
+  isOpen.value = false;
+  router.push(`/remote/${currentRangeId.value}/play`);
+};
 
 const togglePanel = () => {
   if (isRecordingActive.value && !isOpen.value) {
@@ -790,6 +844,12 @@ const getStepTooltip = (step) => {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.session-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 0 10px 4px;
+}
+
 .action-btn {
   display: flex;
   align-items: center;
@@ -1043,5 +1103,35 @@ const getStepTooltip = (step) => {
 
 .range-ownership-toggle:has(input:checked) span {
   color: #4fc3f7;
+}
+
+.block-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.block-template-name {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.block-status-badge {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.block-status-badge.status-pending {
+  color: rgba(79, 195, 247, 0.5);
+}
+
+.block-status-badge.status-in_progress {
+  color: rgba(246, 173, 85, 0.8);
 }
 </style>

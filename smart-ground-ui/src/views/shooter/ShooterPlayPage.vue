@@ -269,12 +269,6 @@ const store = usePlaySessionStore();
 const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
 
-// Load pending program if coming from Programme Management View
-if (store.pendingProgramInfo) {
-  store.loadPendingProgram();
-  store.clearPendingProgram();
-}
-
 if (!store.playProg && !store.showGroupSetup) {
   router.push(`/remote/${props.rangeId}`);
 }
@@ -282,6 +276,23 @@ if (!store.playProg && !store.showGroupSetup) {
 // ── Group setup ───────────────────────────────────────────────────────────────
 let _nextPlayerId = 1;
 const groupPlayers = ref([{ id: `gp-${_nextPlayerId++}`, displayName: 'Schütze 1' }]);
+
+// Capture block context and stage the ablauf before clearing pendingProgramInfo
+const _blockContext = ref(null);
+if (store.pendingProgramInfo) {
+  const info = store.pendingProgramInfo;
+  store.setPendingGroupAblaeufe([info.ablauf]);
+  if (info.instanceId && info.blockId) {
+    _blockContext.value = { instanceId: info.instanceId, blockId: info.blockId };
+  }
+  if (info.players?.length) {
+    groupPlayers.value = info.players.map((p, i) => ({
+      id: p.id ?? `gp-${i + 1}`,
+      displayName: p.displayName,
+    }));
+  }
+  store.clearPendingProgram();
+}
 
 const addPlayer = () => {
   const n = groupPlayers.value.length + 1;
@@ -293,7 +304,13 @@ const removePlayer = (index) => {
 };
 
 const beginGroupPlay = () => {
-  store.startGroupPlay(groupPlayers.value, props.rangeId, 'Platz');
+  store.startGroupPlay(
+    groupPlayers.value,
+    props.rangeId,
+    'Platz',
+    _blockContext.value?.instanceId ?? null,
+    _blockContext.value?.blockId ?? null,
+  );
 };
 
 const cancelGroupSetup = () => {
