@@ -341,6 +341,76 @@ export const useProgramStore = defineStore('program', () => {
     cancelCapture();
   };
 
+  // ── Training template persistence ─────────────────────────────────────────
+  const savedTrainings = ref([]);
+
+  const getTrainingPrefix = () => {
+    const authStore = useAuthStore();
+    return `${authStore.userName ?? 'anonymous'}_training_`;
+  };
+
+  const nextTrainingKey = () => {
+    const prefix = getTrainingPrefix();
+    const existing = Object.keys(localStorage)
+      .filter((k) => k.startsWith(prefix))
+      .map((k) => parseInt(k.slice(prefix.length), 10))
+      .filter((n) => !isNaN(n));
+    return `${prefix}${existing.length > 0 ? Math.max(...existing) + 1 : 1}`;
+  };
+
+  const loadTrainingsFromStorage = () => {
+    const prefix = getTrainingPrefix();
+    savedTrainings.value = Object.keys(localStorage)
+      .filter((k) => k.startsWith(prefix))
+      .map((key) => {
+        try {
+          const data = JSON.parse(localStorage.getItem(key));
+          return { id: key, name: data.trainingName, programmes: data.programmes ?? [] };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        const numA = parseInt(a.id.slice(prefix.length), 10);
+        const numB = parseInt(b.id.slice(prefix.length), 10);
+        return numA - numB;
+      });
+  };
+
+  const createTraining = (trainingName, selectedProgrammes) => {
+    if (selectedProgrammes.length === 0) return;
+    const name = trainingName?.trim() || `Training ${savedTrainings.value.length + 1}`;
+    const key = nextTrainingKey();
+    const programmes = selectedProgrammes.map((prog) => ({
+      id: prog.id,
+      name: prog.name,
+      ablaeufe: prog.ablaeufe.map((abl) => ({ ...abl })),
+    }));
+    localStorage.setItem(key, JSON.stringify({ trainingName: name, programmes }));
+    savedTrainings.value = [...savedTrainings.value, { id: key, name, programmes }];
+  };
+
+  const deleteTraining = (trainingId) => {
+    localStorage.removeItem(trainingId);
+    savedTrainings.value = savedTrainings.value.filter((t) => t.id !== trainingId);
+  };
+
+  const renameTraining = (trainingId, newName) => {
+    const training = savedTrainings.value.find((t) => t.id === trainingId);
+    if (!training) return;
+    training.name = newName;
+    try {
+      const stored = JSON.parse(localStorage.getItem(trainingId));
+      if (stored) {
+        stored.trainingName = newName;
+        localStorage.setItem(trainingId, JSON.stringify(stored));
+      }
+    } catch { /* ignorieren */ }
+  };
+
+  loadTrainingsFromStorage();
+
   // ── Ablauf retrieval by category ────────────────────────────────────────────
   /**
    * Gets user-created Abläufe (ownership: 'user')
@@ -382,6 +452,7 @@ export const useProgramStore = defineStore('program', () => {
     savedAblaeufe,
     savedPrograms,
     pendingProgramId,
+    savedTrainings,
     // Capture lifecycle
     resetCapture,
     startCapture,
@@ -406,6 +477,11 @@ export const useProgramStore = defineStore('program', () => {
     setPendingProgram,
     clearPendingProgram,
     loadProgramsFromStorage,
+    // Training actions
+    loadTrainingsFromStorage,
+    createTraining,
+    deleteTraining,
+    renameTraining,
     // Legacy
     saveProgram,
   };
