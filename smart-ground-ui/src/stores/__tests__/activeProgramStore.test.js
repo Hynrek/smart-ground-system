@@ -185,4 +185,38 @@ describe('useActiveProgramStore — Training', () => {
     const blocks = store.getBlocksForRange('r1')
     expect(blocks[0].instanceType).toBe('programm')
   })
+
+  it('markBlockDone on training advances to next phase when all blocks in phase are done', () => {
+    const store = useActiveProgramStore()
+    const inst = store.startTraining(trainingTemplate, players)
+    const block = inst.phases[0].blocks[0]
+    store.markBlockDone(inst.instanceId, block.blockId, [])
+    const updated = store.activeInstances[0]
+    expect(updated.currentPhaseIndex).toBe(1)
+    expect(updated.phases[0].status).toBe('done')
+    expect(updated.phases[1].status).toBe('active')
+    expect(store.getBlocksForRange('r2')).toHaveLength(1)
+  })
+
+  it('markBlockDone on training completes instance when last phase done', () => {
+    const store = useActiveProgramStore()
+    const inst = store.startTraining(trainingTemplate, players)
+    const block0 = inst.phases[0].blocks[0]
+    store.markBlockDone(inst.instanceId, block0.blockId, [])
+    const block1 = store.activeInstances[0].phases[1].blocks[0]
+    store.markBlockDone(inst.instanceId, block1.blockId, [])
+    expect(store.activeInstances).toHaveLength(0)
+    expect(store.completedInstances).toHaveLength(1)
+    expect(store.completedInstances[0].type).toBe('training')
+    expect(store.completedInstances[0].completedAt).toBeDefined()
+  })
+
+  it('markBlockDone on training stores result on block', () => {
+    const store = useActiveProgramStore()
+    const inst = store.startTraining(trainingTemplate, players)
+    const block = inst.phases[0].blocks[0]
+    const results = [{ playerId: 'p1', displayName: 'Schütze 1', totalPoints: 5, maxPoints: 5, stepStates: [] }]
+    store.markBlockDone(inst.instanceId, block.blockId, results)
+    expect(store.activeInstances[0].phases[0].blocks[0].result.playerResults).toHaveLength(1)
+  })
 })

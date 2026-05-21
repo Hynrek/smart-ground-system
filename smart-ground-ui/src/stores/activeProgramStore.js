@@ -135,16 +135,40 @@ export const useActiveProgramStore = defineStore('activeProgram', () => {
   const markBlockDone = (instanceId, blockId, playerResults) => {
     const inst = activeInstances.value.find((i) => i.instanceId === instanceId)
     if (!inst) return
-    const block = inst.blocks.find((b) => b.blockId === blockId)
-    if (!block) return
-    block.status = 'done'
-    block.completedAt = Date.now()
-    block.result = { playerResults }
 
-    if (inst.blocks.every((b) => b.status === 'done')) {
-      completedInstances.value.push({ ...inst, completedAt: Date.now() })
-      activeInstances.value = activeInstances.value.filter((i) => i.instanceId !== instanceId)
-      _saveCompleted()
+    if (inst.type === 'training') {
+      const phase = inst.phases[inst.currentPhaseIndex]
+      if (!phase) return
+      const block = phase.blocks.find((b) => b.blockId === blockId)
+      if (!block) return
+      block.status = 'done'
+      block.completedAt = Date.now()
+      block.result = { playerResults }
+
+      if (phase.blocks.every((b) => b.status === 'done')) {
+        phase.status = 'done'
+        const nextIndex = inst.currentPhaseIndex + 1
+        if (nextIndex < inst.phases.length) {
+          inst.currentPhaseIndex = nextIndex
+          inst.phases[nextIndex].status = 'active'
+        } else {
+          completedInstances.value.push({ ...inst, completedAt: Date.now() })
+          activeInstances.value = activeInstances.value.filter((i) => i.instanceId !== instanceId)
+          _saveCompleted()
+        }
+      }
+    } else {
+      const block = inst.blocks.find((b) => b.blockId === blockId)
+      if (!block) return
+      block.status = 'done'
+      block.completedAt = Date.now()
+      block.result = { playerResults }
+
+      if (inst.blocks.every((b) => b.status === 'done')) {
+        completedInstances.value.push({ ...inst, completedAt: Date.now() })
+        activeInstances.value = activeInstances.value.filter((i) => i.instanceId !== instanceId)
+        _saveCompleted()
+      }
     }
     _saveActive()
   }
