@@ -2328,6 +2328,238 @@ components:
         totalPages:
           type: integer
 
+    # ───── DeviceType ─────────────────────────────────────────────────────────
+
+    DeviceTypeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        signalTypeId:
+          type: string
+          format: uuid
+        groupId:
+          type: string
+          format: uuid
+        groupName:
+          type: string
+        signalDurationMs:
+          type: integer
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+        command:
+          type: string
+        device:
+          type: string
+        direction:
+          type: string
+
+    DeviceTypeGroupResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    FirmwareConfigResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: string
+        boxType:
+          type: string
+        signalTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/FirmwareConfigSignalTypeResponse'
+
+    FirmwareConfigSignalTypeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        communicationDirection:
+          type: string
+        device:
+          type: string
+        command:
+          type: string
+
+    RegisterFirmwareConfigRequest:
+      type: object
+      required: [version, box_type, signal_types]
+      properties:
+        version:
+          type: string
+        box_type:
+          type: string
+        signal_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegisterFirmwareConfigSignalTypeEntry'
+
+    RegisterFirmwareConfigSignalTypeEntry:
+      type: object
+      required: [direction, device, command, group_name, name, signal_duration_ms]
+      properties:
+        direction:
+          type: string
+        device:
+          type: string
+        command:
+          type: string
+        group_name:
+          type: string
+        name:
+          type: string
+        signal_duration_ms:
+          type: integer
+          minimum: 0
+        delay_signal_duration_ms:
+          type: integer
+          nullable: true
+
+    UpdateDeviceTypeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        signalDurationMs:
+          type: integer
+          nullable: true
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+
+    # ───── Device ─────────────────────────────────────────────────────────────
+
+    DeviceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        alias:
+          type: string
+        smartBoxId:
+          type: string
+          format: uuid
+        groupId:
+          type: string
+          format: uuid
+        groupName:
+          type: string
+        deviceTypeId:
+          type: string
+          format: uuid
+        deviceType:
+          type: string
+        command:
+          type: string
+        boxType:
+          type: string
+        blocked:
+          type: boolean
+        healthy:
+          type: boolean
+        signalDurationMs:
+          type: integer
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+        pinConfig:
+          $ref: '#/components/schemas/PinConfig'
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+
+    CommandResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+        detail:
+          type: string
+
+    # ───── Range ──────────────────────────────────────────────────────────────
+
+    RangeSummaryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        locked:
+          type: boolean
+        deviceCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    RangeDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        locked:
+          type: boolean
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceResponse'
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateRangeRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    UpdateRangeRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    SetLockedRequest:
+      type: object
+      required: [locked]
+      properties:
+        locked:
+          type: boolean
+
+    # ─────────────────────────────────────────────────────────────────────────
+
     DevicePageResponse:
       type: object
       properties:
