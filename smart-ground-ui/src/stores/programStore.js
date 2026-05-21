@@ -167,47 +167,47 @@ export const useProgramStore = defineStore('program', () => {
   };
 
   // ── Step recording ────────────────────────────────────────────────────────
-  const addStep = (deviceId, deviceData, deviceIndex = 0) => {
-    const alias = deviceData.alias ?? 'Gerät';
-    const letter = String.fromCharCode(65 + deviceIndex);
+  const addStep = (positionId, position, positionLabel) => {
+    const alias = position.device?.alias ?? position.label;
+    const letter = positionLabel;
     const shooterRemoteStore = useShooterRemoteStore();
 
     if (shooterRemoteStore.mode === 'solo') {
-      recording.value = { ...recording.value, [deviceId]: true };
+      recording.value = { ...recording.value, [positionId]: true };
       setTimeout(() => {
         const r = { ...recording.value };
-        delete r[deviceId];
+        delete r[positionId];
         recording.value = r;
       }, 500);
-      const step = { id: Date.now(), type: 'solo', alias, deviceId, letter };
+      const step = { id: Date.now(), type: 'solo', alias, positionId, letter };
       const segs = [...editingAblauf.value];
       segs[0].steps = [...segs[0].steps, step];
       editingAblauf.value = segs;
     } else if (shooterRemoteStore.mode === 'raffale') {
-      recording.value = { ...recording.value, [deviceId]: true };
+      recording.value = { ...recording.value, [positionId]: true };
       setTimeout(() => {
         const r = { ...recording.value };
-        delete r[deviceId];
+        delete r[positionId];
         recording.value = r;
       }, 500);
-      const step = { id: Date.now(), type: 'raffale', alias, deviceId, letter };
+      const step = { id: Date.now(), type: 'raffale', alias, positionId, letter };
       const segs = [...editingAblauf.value];
       segs[0].steps = [...segs[0].steps, step];
       editingAblauf.value = segs;
       shooterRemoteStore.setMode('solo');
     } else if (shooterRemoteStore.mode === 'pair' || shooterRemoteStore.mode === 'a_schuss') {
       if (!pairPending.value) {
-        pairPending.value = { id: deviceId, alias, letter };
-      } else if (pairPending.value.id === deviceId) {
+        pairPending.value = { id: positionId, alias, letter };
+      } else if (pairPending.value.id === positionId) {
         pairPending.value = null;
       } else {
         const pendingId = pairPending.value.id;
         const pendingAlias = pairPending.value.alias;
         const pendingLetter = pairPending.value.letter;
-        recording.value = { ...recording.value, [deviceId]: true, [pendingId]: true };
+        recording.value = { ...recording.value, [positionId]: true, [pendingId]: true };
         setTimeout(() => {
           const r = { ...recording.value };
-          delete r[deviceId];
+          delete r[positionId];
           delete r[pendingId];
           recording.value = r;
         }, 500);
@@ -217,8 +217,8 @@ export const useProgramStore = defineStore('program', () => {
           type: stepType,
           alias1: pendingAlias,
           alias2: alias,
-          deviceId1: pendingId,
-          deviceId2: deviceId,
+          positionId1: pendingId,
+          positionId2: positionId,
           letter1: pendingLetter,
           letter2: letter,
         };
