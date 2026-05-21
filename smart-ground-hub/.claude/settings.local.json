@@ -48,7 +48,25 @@
       "Bash(cd \"/c/Users/hynre/IdeaProjects/Smart Ground/smart-ground-backend\" && find src -name \"*Exception*.java\" -o -name \"*Error*.java\" | grep -E \"\\(config|handler\\)\" | head -20)",
       "Bash(mvn spring-boot:run -Dspring-boot.run.profiles=postgres)",
       "Bash(mvnw clean *)",
-      "Bash(cmd /c mvnw.cmd clean compile)"
+      "Bash(cmd /c mvnw.cmd clean compile)",
+      "Skill(superpowers:executing-plans)",
+      "Skill(superpowers:executing-plans:*)",
+      "Skill(superpowers:subagent-driven-development)",
+      "Skill(superpowers:subagent-driven-development:*)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\\\\src\\\\main\\\\java\\\\ch\\\\jp\\\\shooting\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(xargs ls -1)",
+      "Bash(xargs basename -a)",
+      "Bash(grep -E \"\\\\.\\(java|class\\)$\")",
+      "Bash(./mvnw generate-sources *)",
+      "Bash(ls mvnw*)",
+      "Bash(ls *.cmd)",
+      "Bash(cmd.exe /c \"mvnw.cmd generate-sources\")",
+      "Bash(\"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\\\\mvnw.cmd\" generate-sources)",
+      "Bash(cd /c/Users/hynre/IdeaProjects && find . -name \"mvnw*\" -o -name \"pom.xml\" | grep \"smart-ground-backend\" | head -5)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }

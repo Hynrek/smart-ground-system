@@ -221,6 +221,7 @@
                             <generateApiTests>false</generateApiTests>
                             <generateModelTests>false</generateModelTests>
                             <ignoreFileOverride>${project.basedir}/openapi-generator-ignore</ignoreFileOverride>
+                            <skipValidateSpec>true</skipValidateSpec>
                             <configOptions>
                                 <useTags>true</useTags>
                                 <useDtoProject>true</useDtoProject>

@@ -941,330 +941,1347 @@ paths:
         '404':
           description: Smart box not found
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Guests
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/guests:
+    get:
+      summary: List all guests
+      operationId: listGuests
+      tags: [Guest]
+      responses:
+        '200':
+          description: List of guests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GuestResponse'
+    post:
+      summary: Create a new guest
+      operationId: createGuest
+      tags: [Guest]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGuestRequest'
+      responses:
+        '201':
+          description: Guest created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestResponse'
+
+  /api/guests/{id}:
+    put:
+      summary: Update a guest's display name
+      operationId: updateGuest
+      tags: [Guest]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGuestRequest'
+      responses:
+        '200':
+          description: Guest updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestResponse'
+        '404':
+          description: Guest not found
+    delete:
+      summary: Delete a guest
+      operationId: deleteGuest
+      tags: [Guest]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Guest deleted
+        '404':
+          description: Guest not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Abläufe (Sequences)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/ablaeufe:
+    get:
+      summary: List Abläufe visible to the current user
+      description: >
+        Returns the calling user's own Abläufe (ownership=user) plus all
+        range-published Abläufe (ownership=range). Admins and Ground Owners see
+        all Abläufe. Results can be narrowed with query parameters.
+      operationId: listAblaeufe
+      tags: [Programme]
+      parameters:
+        - name: ownership
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [user, range]
+          description: Filter by ownership type
+        - name: rangeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by range assignment
+      responses:
+        '200':
+          description: List of Abläufe
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AblaufResponse'
+    post:
+      summary: Create a new Ablauf
+      operationId: createAblauf
+      tags: [Programme]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAblaufRequest'
+      responses:
+        '201':
+          description: Ablauf created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AblaufResponse'
+        '400':
+          description: Validation error (e.g. empty steps array)
+
+  /api/ablaeufe/{id}:
+    get:
+      summary: Get an Ablauf by ID
+      operationId: getAblauf
+      tags: [Programme]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ablauf detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AblaufResponse'
+        '403':
+          description: Ablauf belongs to another user
+        '404':
+          description: Ablauf not found
+    put:
+      summary: Rename or reassign an Ablauf
+      operationId: updateAblauf
+      tags: [Programme]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAblaufRequest'
+      responses:
+        '200':
+          description: Ablauf updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AblaufResponse'
+        '403':
+          description: Not the owner of this Ablauf
+        '404':
+          description: Ablauf not found
+    delete:
+      summary: Delete an Ablauf
+      operationId: deleteAblauf
+      tags: [Programme]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Ablauf deleted
+        '403':
+          description: Not the owner of this Ablauf
+        '404':
+          description: Ablauf not found
+
+  /api/ablaeufe/{id}/ownership:
+    patch:
+      summary: Publish Ablauf to the range or make it private again
+      description: >
+        Changing ownership to 'range' makes the Ablauf visible to all users.
+        Only ADMIN and GROUND_OWNER roles may publish to the range.
+        Reverting to 'user' removes it from the global list.
+      operationId: updateAblaufOwnership
+      tags: [Programme]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAblaufOwnershipRequest'
+      responses:
+        '200':
+          description: Ownership updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AblaufResponse'
+        '403':
+          description: Insufficient role to publish to range
+        '404':
+          description: Ablauf not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Programme
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/programmes:
+    get:
+      summary: List Programmes owned by the current user
+      operationId: listProgrammes
+      tags: [Programme]
+      responses:
+        '200':
+          description: List of Programmes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProgrammeResponse'
+    post:
+      summary: Create a new Programme from a list of Abläufe
+      description: >
+        The selected Abläufe are snapshotted into the Programme at creation time.
+        Later edits to the source Abläufe do not affect this Programme.
+        Provide ablaufIds in the desired playback order.
+      operationId: createProgramme
+      tags: [Programme]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProgrammeRequest'
+      responses:
+        '201':
+          description: Programme created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgrammeResponse'
+        '400':
+          description: Validation error
+        '404':
+          description: One or more Ablauf IDs not found
+
+  /api/programmes/{id}:
+    get:
+      summary: Get a Programme by ID
+      operationId: getProgramme
+      tags: [Programme]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Programme detail (includes full embedded Abläufe with steps)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgrammeResponse'
+        '403':
+          description: Programme belongs to another user
+        '404':
+          description: Programme not found
+    put:
+      summary: Rename a Programme
+      operationId: updateProgramme
+      tags: [Programme]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProgrammeRequest'
+      responses:
+        '200':
+          description: Programme updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgrammeResponse'
+        '403':
+          description: Not the owner
+        '404':
+          description: Programme not found
+    delete:
+      summary: Delete a Programme
+      operationId: deleteProgramme
+      tags: [Programme]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Programme deleted
+        '403':
+          description: Not the owner
+        '404':
+          description: Programme not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Trainings
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/trainings:
+    get:
+      summary: List Trainings owned by the current user
+      operationId: listTrainings
+      tags: [Training]
+      responses:
+        '200':
+          description: List of Trainings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrainingResponse'
+    post:
+      summary: Create a new Training from a list of Programmes
+      description: >
+        Programmes are snapshotted (with all their embedded Abläufe and steps)
+        at creation time. Provide programmeIds in the desired execution order.
+      operationId: createTraining
+      tags: [Training]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTrainingRequest'
+      responses:
+        '201':
+          description: Training created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingResponse'
+        '400':
+          description: Validation error
+        '404':
+          description: One or more Programme IDs not found
+
+  /api/trainings/{id}:
+    get:
+      summary: Get a Training by ID
+      operationId: getTraining
+      tags: [Training]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Training detail (full nested snapshot)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingResponse'
+        '403':
+          description: Training belongs to another user
+        '404':
+          description: Training not found
+    put:
+      summary: Rename a Training
+      operationId: updateTraining
+      tags: [Training]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTrainingRequest'
+      responses:
+        '200':
+          description: Training updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingResponse'
+        '403':
+          description: Not the owner
+        '404':
+          description: Training not found
+    delete:
+      summary: Delete a Training
+      operationId: deleteTraining
+      tags: [Training]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Training deleted
+        '403':
+          description: Not the owner
+        '404':
+          description: Training not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Play Instances (live execution of a Programme or Training)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/play-instances/programme:
+    post:
+      summary: Start a Programme play instance
+      description: >
+        Launches a new active run of a Programme for one or more players.
+        The backend creates a block for every Ablauf in the Programme and
+        sets all blocks to 'pending'. Players can be registered users or guests.
+      operationId: startProgrammeInstance
+      tags: [PlayInstance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartProgrammeInstanceRequest'
+      responses:
+        '201':
+          description: Play instance created and active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayInstanceResponse'
+        '404':
+          description: Programme not found
+
+  /api/play-instances/training:
+    post:
+      summary: Start a Training play instance
+      description: >
+        Launches a new active run of a Training. The backend maps each
+        Programme in the Training to a phase, and each Ablauf to a block within
+        that phase. Only the first phase starts as 'active'; subsequent phases
+        unlock automatically when the previous phase completes.
+      operationId: startTrainingInstance
+      tags: [PlayInstance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartTrainingInstanceRequest'
+      responses:
+        '201':
+          description: Play instance created and active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayInstanceResponse'
+        '404':
+          description: Training not found
+
+  /api/play-instances:
+    get:
+      summary: List play instances
+      description: >
+        Returns active instances by default. Use the 'status' filter for
+        completed or cancelled instances. The 'rangeId' filter returns only
+        instances that have at least one pending or in-progress block on that
+        range — useful for the range-specific live view.
+      operationId: listPlayInstances
+      tags: [PlayInstance]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, completed, cancelled]
+          description: "Filter by instance status (default: active)"
+        - name: rangeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter instances that have blocks on this range
+      responses:
+        '200':
+          description: List of play instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlayInstanceResponse'
+
+  /api/play-instances/{instanceId}:
+    get:
+      summary: Get a single play instance
+      operationId: getPlayInstance
+      tags: [PlayInstance]
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Play instance detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayInstanceResponse'
+        '404':
+          description: Instance not found
+    delete:
+      summary: Stop/cancel a play instance
+      operationId: stopPlayInstance
+      tags: [PlayInstance]
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Instance cancelled
+        '404':
+          description: Instance not found
+
+  /api/play-instances/{instanceId}/blocks/{blockId}/start:
+    post:
+      summary: Mark a block as in-progress
+      description: >
+        Called when the range starts executing this Ablauf block. Transitions
+        the block from 'pending' to 'in_progress'. Idempotent if already
+        in_progress.
+      operationId: startBlock
+      tags: [PlayInstance]
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Block marked as in_progress; updated instance returned
+          content:
+            application/json:
+                $ref: '#/components/schemas/PlayInstanceResponse'
+        '404':
+          description: Instance or block not found
+        '409':
+          description: Block is already done
+
+  /api/play-instances/{instanceId}/blocks/{blockId}/complete:
+    post:
+      summary: Mark a block as done and persist player results
+      description: >
+        Stores the per-player score and step-state data for this block.
+        If all blocks in the current phase are done, the backend advances the
+        Training to the next phase (or marks the whole instance as completed).
+        For a Programme instance, completing all blocks closes the instance.
+      operationId: completeBlock
+      tags: [PlayInstance]
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteBlockRequest'
+      responses:
+        '200':
+          description: Block completed; updated instance returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayInstanceResponse'
+        '404':
+          description: Instance or block not found
+        '409':
+          description: Block is not in in_progress state
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Play Results (history of completed play instances)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/play-results:
+    get:
+      summary: List completed play results (paginated)
+      description: >
+        Historical record of all completed Programme and Training runs.
+        Ordered by completedAt descending.
+      operationId: listPlayResults
+      tags: [PlayResult]
+      parameters:
+        - name: rangeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter results that involved blocks on this range
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Earliest completedAt (ISO 8601)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Latest completedAt (ISO 8601)
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated list of play results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayResultPage'
+
+  /api/play-results/{resultId}:
+    get:
+      summary: Get a single play result with full detail
+      operationId: getPlayResult
+      tags: [PlayResult]
+      parameters:
+        - name: resultId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Play result with all block results and step states
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayResultResponse'
+        '404':
+          description: Result not found
+
 components:
   schemas:
 
-    # ───── DeviceType ─────────────────────────────────────────────────────────
+    # ───── Guest ──────────────────────────────────────────────────────────────
 
-    DeviceTypeResponse:
+    GuestResponse:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        name:
+        displayName:
           type: string
-          description: Human-readable label (e.g. "Wurfmaschine Typ A")
-        signalTypeId:
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateGuestRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    UpdateGuestRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    # ───── Step primitives ────────────────────────────────────────────────────
+
+    StepType:
+      type: string
+      enum: [solo, pair, a_schuss, raffale]
+      description: >
+        solo     — one device fires once.
+        pair     — two devices fire simultaneously.
+        a_schuss — two devices fire in sequence (tap A then tap B).
+        raffale  — same device fires twice (start tap then end tap).
+
+    StepState:
+      type: string
+      enum: [pending, done, failed-a, failed-b, failed-both]
+      description: >
+        Result of a single step for one player.
+        failed-a / failed-b apply to pair/a_schuss where only one bird was missed.
+        failed-both means both missed (or solo failed).
+
+    Step:
+      type: object
+      required: [id, type]
+      description: >
+        A single throw event within an Ablauf.
+        Fields populated depend on step type.
+      properties:
+        id:
+          type: string
+          description: >
+            Client-generated identifier (UUID or timestamp string).
+            Used for ordering and stable referencing in results.
+        type:
+          $ref: '#/components/schemas/StepType'
+        deviceId:
           type: string
           format: uuid
-        groupId:
-          type: string
-          format: uuid
-        groupName:
-          type: string
-          description: Name of the device type group this type belongs to
-        signalDurationMs:
-          type: integer
-          description: How long the signal is held active (ms)
-        delaySignalDurationMs:
-          type: integer
           nullable: true
-          description: Optional delay before the signal fires (ms)
-        command:
-          type: string
-          description: Command string sent to the firmware (e.g. ON, OFF)
-        device:
-          type: string
-          description: Device kind as understood by the firmware (e.g. SENSOR, ACTUATOR)
-        direction:
-          type: string
-          description: Communication direction (INPUT or OUTPUT)
-
-    DeviceTypeGroupResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-          description: Group name (e.g. "Wurfmaschine", "LED-Anzeige")
-
-    FirmwareConfigResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        version:
-          type: string
-          description: Firmware version string (e.g. "0.6v")
-        boxType:
-          type: string
-          description: Hardware variant this firmware targets
-        signalTypes:
-          type: array
-          items:
-            $ref: '#/components/schemas/FirmwareConfigSignalTypeResponse'
-
-    FirmwareConfigSignalTypeResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        communicationDirection:
-          type: string
-          description: INPUT or OUTPUT
-        device:
-          type: string
-          description: SENSOR or ACTUATOR
-        command:
-          type: string
-          description: Command string sent to firmware
-
-    RegisterFirmwareConfigRequest:
-      type: object
-      required: [version, box_type, signal_types]
-      properties:
-        version:
-          type: string
-          description: Firmware version string (must be unique per box_type)
-        box_type:
-          type: string
-          description: Hardware variant identifier
-        signal_types:
-          type: array
-          items:
-            $ref: '#/components/schemas/RegisterFirmwareConfigSignalTypeEntry'
-
-    RegisterFirmwareConfigSignalTypeEntry:
-      type: object
-      required: [direction, device, command, group_name, name, signal_duration_ms]
-      properties:
-        direction:
-          type: string
-          description: CommunicationDirection enum value (e.g. OUTPUT)
-        device:
-          type: string
-          description: DeviceKind enum value (e.g. ACTUATOR)
-        command:
-          type: string
-          description: Firmware command string (e.g. FIRE)
-        group_name:
-          type: string
-          description: Name of the device type group to create or reuse
-        name:
-          type: string
-          description: Name for the device type created from this signal type
-        signal_duration_ms:
-          type: integer
-          minimum: 0
-          description: Signal duration in milliseconds
-        delay_signal_duration_ms:
-          type: integer
-          nullable: true
-          description: Optional delay before the signal in milliseconds
-
-    UpdateDeviceTypeRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          description: User-friendly label for this device type (e.g. "Wurfmaschine Typ A")
-        signalDurationMs:
-          type: integer
-          minimum: 0
-          nullable: true
-          description: How long the signal is held active (ms)
-        delaySignalDurationMs:
-          type: integer
-          nullable: true
-          description: Optional delay before the signal fires (ms)
-
-    # ───── Device ─────────────────────────────────────────────────────────────
-
-    DeviceResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
+          description: Device to fire (solo and raffale steps)
         alias:
           type: string
-        smartBoxId:
-          type: string
-          format: uuid
-          description: ID of the SmartBox this device is connected to
-        groupId:
-          type: string
-          format: uuid
-          description: Device type group
-        groupName:
-          type: string
-          description: Name of the device type group
-        deviceTypeId:
-          type: string
-          format: uuid
-        deviceType:
-          type: string
-        command:
-          type: string
-          description: Firmware command (e.g. FIRE, ON)
-        boxType:
-          type: string
-        blocked:
-          type: boolean
-        healthy:
-          type: boolean
-        signalDurationMs:
-          type: integer
-          description: How long the signal is held active
-        delaySignalDurationMs:
-          type: integer
           nullable: true
-          description: Optional delay before signal fires
-        pinConfig:
-          $ref: '#/components/schemas/PinConfig'
+          description: Human-readable label for the device at capture time
+        letter:
+          type: string
+          nullable: true
+          description: Single-letter shorthand shown in the UI (e.g. A)
+        deviceId1:
+          type: string
+          format: uuid
+          nullable: true
+        deviceId2:
+          type: string
+          format: uuid
+          nullable: true
+        alias1:
+          type: string
+          nullable: true
+        alias2:
+          type: string
+          nullable: true
+        letter1:
+          type: string
+          nullable: true
+        letter2:
+          type: string
+          nullable: true
+
+    # ───── Ablauf ─────────────────────────────────────────────────────────────
+
+    AblaufOwnership:
+      type: string
+      enum: [user, range]
+      description: >
+        user  — private to the owner.
+        range — published for all users at this shooting range.
+
+    AblaufResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        ownership:
+          $ref: '#/components/schemas/AblaufOwnership'
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Range this Ablauf is designed for (used for block routing)
+        rangeName:
+          type: string
+          nullable: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Step'
+        createdAt:
+          type: string
+          format: date-time
+        ownerUsername:
+          type: string
+          description: Username of the user who created this Ablauf
+
+    CreateAblaufRequest:
+      type: object
+      required: [name, steps]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional range assignment
+        steps:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Step'
+        ownership:
+          $ref: '#/components/schemas/AblaufOwnership'
+
+    UpdateAblaufRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
         rangeId:
           type: string
           format: uuid
           nullable: true
 
-    CommandRequest:
+    UpdateAblaufOwnershipRequest:
       type: object
-      required: [command]
+      required: [ownership]
       properties:
-        command:
-          type: string
-          description: Command string sent to the firmware (e.g. ON, OFF)
+        ownership:
+          $ref: '#/components/schemas/AblaufOwnership'
 
-    CommandResponse:
+    # ───── Programme ──────────────────────────────────────────────────────────
+
+    EmbeddedAblauf:
       type: object
-      required: [status]
-      properties:
-        status:
-          type: string
-        detail:
-          type: string
-
-    # ───── Range ──────────────────────────────────────────────────────────────
-
-    RangeSummaryResponse:
-      type: object
+      description: >
+        Snapshot of an Ablauf stored inside a Programme or Training.
+        The source Ablauf may change independently; this snapshot is immutable.
       properties:
         id:
           type: string
           format: uuid
-        name:
+          description: References the source Ablauf (for UI cross-linking only)
+        alias:
           type: string
-        description:
-          type: string
-        locked:
-          type: boolean
-          description: >
-            true when the range is locked. Locked ranges reject device assignment changes.
-            Use PATCH /api/ranges/{id}/locked to change this state.
-        deviceCount:
-          type: integer
-        createdAt:
-          type: string
-          format: date-time
-
-    RangeDetailResponse:
-      type: object
-      properties:
-        id:
+          description: Name at snapshot time
+        rangeId:
           type: string
           format: uuid
-        name:
+          nullable: true
+        rangeName:
           type: string
-        description:
-          type: string
-        locked:
-          type: boolean
-          description: >
-            true when the range is locked. Locked ranges reject device assignment changes.
-            Use PATCH /api/ranges/{id}/locked to change this state.
-        devices:
+          nullable: true
+        steps:
           type: array
           items:
-            $ref: '#/components/schemas/DeviceResponse'
+            $ref: '#/components/schemas/Step'
+
+    ProgrammeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        ablaeufe:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmbeddedAblauf'
         createdAt:
           type: string
           format: date-time
+        ownerUsername:
+          type: string
 
-    CreateRangeRequest:
+    CreateProgrammeRequest:
+      type: object
+      required: [name, ablaufIds]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        ablaufIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+          description: >
+            Ordered list of Ablauf IDs. Steps are snapshotted at creation
+            time so later edits to source Abläufe do not affect this Programme.
+
+    UpdateProgrammeRequest:
       type: object
       required: [name]
       properties:
         name:
           type: string
-        description:
-          type: string
+          minLength: 1
 
-    UpdateRangeRequest:
+    # ───── Training ───────────────────────────────────────────────────────────
+
+    TrainingProgramme:
       type: object
-      required: [name]
+      description: Snapshot of one Programme phase within a Training.
       properties:
-        name:
-          type: string
-        description:
-          type: string
-
-    SetLockedRequest:
-      type: object
-      required: [locked]
-      properties:
-        locked:
-          type: boolean
-
-    # ───── Events (SSE) ────────────────────────────────────────────────────────
-
-    SmartBoxStatusEvent:
-      type: object
-      description: Emitted when a SmartBox transitions between ONLINE, OFFLINE, or BLOCKED
-      required: [type, smartBoxId, status]
-      properties:
-        type:
-          type: string
-          enum: [smartbox.status]
-        smartBoxId:
+        id:
           type: string
           format: uuid
+          description: References the source Programme
+        name:
+          type: string
+          description: Name at snapshot time
+        ablaeufe:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmbeddedAblauf'
+
+    TrainingResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        programmes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrainingProgramme'
+        createdAt:
+          type: string
+          format: date-time
+        ownerUsername:
+          type: string
+
+    CreateTrainingRequest:
+      type: object
+      required: [name, programmeIds]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        programmeIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+          description: >
+            Ordered list of Programme IDs. Each becomes one phase in the
+            Training. Steps are snapshotted at creation time.
+
+    UpdateTrainingRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+
+    # ───── Play Instances ─────────────────────────────────────────────────────
+
+    PlayerRef:
+      type: object
+      required: [id, type, displayName]
+      description: Reference to a participant in a play instance.
+      properties:
+        id:
+          type: string
+          description: >
+            UUID of the user (type=user) or guest record (type=guest).
+            For an anonymous one-off player a client-generated UUID is accepted.
+        type:
+          type: string
+          enum: [user, guest]
+        displayName:
+          type: string
+
+    BlockStatus:
+      type: string
+      enum: [pending, in_progress, done]
+
+    StepStateRecord:
+      type: object
+      description: Result of one step for one player within a completed block.
+      properties:
+        playerId:
+          type: string
+        ablaufIndex:
+          type: integer
+          description: Index of the Ablauf (segment) within the Programme
+        stepIndex:
+          type: integer
+          description: Index of the step within the Ablauf
+        state:
+          $ref: '#/components/schemas/StepState'
+        pointValue:
+          type: integer
+          description: Maximum points for this step (1 for solo/raffale, 2 for pair/a_schuss)
+        noBirds:
+          type: integer
+          description: How many times this step was retried due to a no-bird
+          default: 0
+        pointsEarned:
+          type: integer
+          description: Actual points earned after any deductions
+
+    PlayerResult:
+      type: object
+      description: Aggregated score and step detail for one player in one block.
+      properties:
+        playerId:
+          type: string
+        displayName:
+          type: string
+        totalPoints:
+          type: integer
+        maxPoints:
+          type: integer
+        stepStates:
+          type: array
+          items:
+            $ref: '#/components/schemas/StepStateRecord'
+
+    BlockResult:
+      type: object
+      properties:
+        playerResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerResult'
+
+    PlayBlock:
+      type: object
+      description: One Ablauf execution slot within a play instance.
+      properties:
+        blockId:
+          type: string
+          format: uuid
+        ablaufId:
+          type: string
+          format: uuid
+          description: Source Ablauf ID (for cross-linking to the template)
+        ablaufAlias:
+          type: string
+          description: Name of the Ablauf at the time the instance was created
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Range this block is assigned to (used for live range view routing)
+        rangeName:
+          type: string
+          nullable: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Step'
         status:
-          $ref: '#/components/schemas/SmartBoxStatus'
-
-    SmartBoxSyncedEvent:
-      type: object
-      description: Emitted when a SmartBox ACKs or loses sync with the config push
-      required: [type, smartBoxId, configSynced]
-      properties:
-        type:
+          $ref: '#/components/schemas/BlockStatus'
+        completedAt:
           type: string
-          enum: [smartbox.synced]
-        smartBoxId:
+          format: date-time
+          nullable: true
+        result:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/BlockResult'
+
+    PlayPhase:
+      type: object
+      description: >
+        One Programme execution slot within a Training play instance.
+        Phases run sequentially — the next phase becomes active only after
+        all blocks in the current phase are done.
+      properties:
+        phaseIndex:
+          type: integer
+        programmeId:
           type: string
           format: uuid
-        configSynced:
-          type: boolean
-
-    DeviceHealthEvent:
-      type: object
-      description: Emitted when a device's healthy or blocked flag changes
-      required: [type, deviceId]
-      properties:
-        type:
+        programmeName:
           type: string
-          enum: [device.health]
-        deviceId:
+        status:
+          type: string
+          enum: [pending, active, done]
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayBlock'
+
+    PlayInstanceStatus:
+      type: string
+      enum: [active, completed, cancelled]
+
+    PlayInstanceResponse:
+      type: object
+      properties:
+        instanceId:
           type: string
           format: uuid
-        healthy:
-          type: boolean
-        blocked:
-          type: boolean
+        type:
+          type: string
+          enum: [programm, training]
+        templateId:
+          type: string
+          format: uuid
+          description: ID of the Programme or Training template used
+        templateName:
+          type: string
+        status:
+          $ref: '#/components/schemas/PlayInstanceStatus'
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerRef'
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        blocks:
+          type: array
+          nullable: true
+          description: Populated for type=programm
+          items:
+            $ref: '#/components/schemas/PlayBlock'
+        phases:
+          type: array
+          nullable: true
+          description: Populated for type=training
+          items:
+            $ref: '#/components/schemas/PlayPhase'
+        currentPhaseIndex:
+          type: integer
+          nullable: true
+          description: Index of the currently active phase (training instances only)
+
+    StartProgrammeInstanceRequest:
+      type: object
+      required: [programmeId, players]
+      properties:
+        programmeId:
+          type: string
+          format: uuid
+        players:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PlayerRef'
+
+    StartTrainingInstanceRequest:
+      type: object
+      required: [trainingId, players]
+      properties:
+        trainingId:
+          type: string
+          format: uuid
+        players:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PlayerRef'
+
+    CompleteBlockRequest:
+      type: object
+      required: [playerResults]
+      properties:
+        playerResults:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PlayerResult'
+
+    # ───── Play Results (history) ─────────────────────────────────────────────
+
+    PlayResultSummary:
+      type: object
+      description: Lightweight summary card shown in the results list.
+      properties:
+        resultId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [programm, training]
+        templateId:
+          type: string
+          format: uuid
+        templateName:
+          type: string
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerRef'
+        completedAt:
+          type: string
+          format: date-time
+        topScore:
+          type: integer
+          description: Highest total points earned by any single player in this run
+
+    PlayResultPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayResultSummary'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    PlayResultResponse:
+      type: object
+      description: Full detail for one completed play run, including all block results.
+      properties:
+        resultId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [programm, training]
+        templateId:
+          type: string
+          format: uuid
+        templateName:
+          type: string
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerRef'
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        blocks:
+          type: array
+          nullable: true
+          description: Populated for programm results
+          items:
+            $ref: '#/components/schemas/PlayBlock'
+        phases:
+          type: array
+          nullable: true
+          description: Populated for training results
+          items:
+            $ref: '#/components/schemas/PlayPhase'
 
     # ───── SmartBox Status Enum ────────────────────────────────────────────────
 
@@ -1283,7 +2300,7 @@ components:
           type: integer
           minimum: 0
           maximum: 40
-          description: GPIO pin number on the Raspberry Pi Pico 2W (valid range 0–29 for user GPIOs; 0–40 reserved)
+          description: GPIO pin number on the Raspberry Pi Pico 2W (valid range 0-29 for user GPIOs)
         mode:
           type: string
           enum: [OUTPUT, INPUT, INPUT_PULLUP, INPUT_PULLDOWN, PWM]
@@ -1540,7 +2557,7 @@ components:
       properties:
         name:
           type: string
-          description: Group name (e.g. "Gruppe 1", "Group A")
+          description: Group name (e.g. Gruppe 1, Group A)
         members:
           type: array
           description: Optional list of players to add to the group
@@ -1644,6 +2661,50 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    # ───── SSE Events ─────────────────────────────────────────────────────────
+
+    SmartBoxStatusEvent:
+      type: object
+      description: Emitted when a SmartBox changes status (ONLINE/OFFLINE/BLOCKED)
+      required: [type, smartBoxId]
+      properties:
+        type:
+          type: string
+          enum: [smartbox.status]
+        smartBoxId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/SmartBoxStatus'
+
+    SmartBoxSyncedEvent:
+      type: object
+      description: Emitted when a SmartBox ACKs a config push
+      required: [type, smartBoxId]
+      properties:
+        type:
+          type: string
+          enum: [smartbox.synced]
+        smartBoxId:
+          type: string
+          format: uuid
+
+    DeviceHealthEvent:
+      type: object
+      description: Emitted when a device healthy or blocked flag changes
+      required: [type, deviceId]
+      properties:
+        type:
+          type: string
+          enum: [device.health]
+        deviceId:
+          type: string
+          format: uuid
+        healthy:
+          type: boolean
+        blocked:
+          type: boolean
 
   securitySchemes:
     bearerAuth:
