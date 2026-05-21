@@ -495,9 +495,6 @@ const chipLabel = (position) => {
   white-space: nowrap;
 }
 
-/* ── Header Center (status, mode, group) ─────────── */
-/* Already defined above with .header-center */
-
 .header-status {
   position: relative;
   height: 100%;
@@ -550,106 +547,6 @@ const chipLabel = (position) => {
     display: inline;
   }
 }
-
-/* ── Group dropdown ──────────────────────────────── */
-.group-dropdown-wrapper {
-  position: relative;
-}
-
-.group-dropdown-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 12px;
-  height: 36px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 12px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-
-.group-dropdown-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.group-dropdown-btn:active {
-  transform: scale(0.95);
-}
-
-.group-dropdown-btn svg {
-  transition: transform 0.2s;
-}
-
-.group-dropdown-wrapper.open .group-dropdown-btn svg {
-  transform: rotate(90deg);
-}
-
-.group-dropdown-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
-  background: rgba(18, 18, 28, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  min-width: 160px;
-  z-index: 40;
-  overflow: hidden;
-}
-
-.group-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 12px;
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 12px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: left;
-}
-
-.group-option:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.group-option.active {
-  background: rgba(79, 195, 247, 0.15);
-  color: #4fc3f7;
-  border-left: 2px solid #4fc3f7;
-  padding-left: 10px;
-}
-
-.option-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.option-count {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
-  flex-shrink: 0;
-}
-
-
 
 /* ── Device section ──────────────────────────────── */
 .device-section {
@@ -897,20 +794,6 @@ const chipLabel = (position) => {
 
 /* ── Tablet+ ─────────────────────────────────────── */
 @media (min-width: 600px) {
-  .status-card {
-    max-width: 560px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .group-pills {
-    max-width: 560px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-
   .device-section {
     max-width: 560px;
     margin: 0 auto;
