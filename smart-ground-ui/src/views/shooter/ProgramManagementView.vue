@@ -378,16 +378,16 @@
         <div class="block-header">
           <div class="block-title-row">
             <span class="block-title">Aktive Programme</span>
-            <span class="block-badge">{{ activeProgramStore.activeInstances.length }}</span>
+            <span class="block-badge">{{ programmeActiveInstances.length }}</span>
           </div>
           <p class="block-desc">
             Gestartete Programme. Blöcke erscheinen auf den zugehörigen Plätzen.
           </p>
         </div>
 
-        <div v-if="activeProgramStore.activeInstances.length > 0" class="active-sessions-list">
+        <div v-if="programmeActiveInstances.length > 0" class="active-sessions-list">
           <div
-            v-for="inst in activeProgramStore.activeInstances"
+            v-for="inst in programmeActiveInstances"
             :key="inst.instanceId"
             class="session-card"
           >
@@ -430,7 +430,7 @@
           </div>
         </div>
 
-        <div v-if="activeProgramStore.activeInstances.length === 0" class="empty-block">
+        <div v-if="programmeActiveInstances.length === 0" class="empty-block">
           <Icons icon="program" :size="36" color="rgba(255,255,255,0.07)" />
           <p>Keine aktiven Programme</p>
           <p class="empty-hint">Starte ein Programm über den Programme-Tab.</p>
@@ -446,14 +446,14 @@
           <div class="block-header">
             <div class="block-title-row">
               <span class="block-title">Abgeschlossene Programme</span>
-              <span class="block-badge">{{ activeProgramStore.completedInstances.length }}</span>
+              <span class="block-badge">{{ programmeCompletedInstances.length }}</span>
             </div>
             <p class="block-desc">Fertig gespielte Programme. Basis für zukünftige Statistiken.</p>
           </div>
 
-          <div v-if="activeProgramStore.completedInstances.length > 0" class="active-sessions-list">
+          <div v-if="programmeCompletedInstances.length > 0" class="active-sessions-list">
             <div
-              v-for="inst in activeProgramStore.completedInstances"
+              v-for="inst in programmeCompletedInstances"
               :key="inst.instanceId"
               class="session-card completed-card"
               @click="toggleCompletedCard(inst.instanceId)"
@@ -504,7 +504,7 @@
             </div>
           </div>
 
-          <div v-if="activeProgramStore.completedInstances.length === 0" class="empty-block">
+          <div v-if="programmeCompletedInstances.length === 0" class="empty-block">
             <Icons icon="program" :size="36" color="rgba(255,255,255,0.07)" />
             <p>Noch keine abgeschlossenen Programme</p>
           </div>
@@ -576,6 +576,14 @@ const programStore = useProgramStore();
 const authStore = useAuthStore();
 const playSessionStore = usePlaySessionStore();
 const activeProgramStore = useActiveProgramStore();
+
+// Filter out training instances — this view only shows programme instances
+const programmeActiveInstances = computed(() =>
+  activeProgramStore.activeInstances.filter((i) => i.type !== 'training')
+);
+const programmeCompletedInstances = computed(() =>
+  activeProgramStore.completedInstances.filter((i) => i.type !== 'training')
+);
 
 // Active programs tab
 const activeTab = ref(
