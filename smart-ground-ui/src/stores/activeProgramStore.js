@@ -56,6 +56,38 @@ export const useActiveProgramStore = defineStore('activeProgram', () => {
     return instance
   }
 
+  const startTraining = (template, players) => {
+    const instance = {
+      instanceId: generateUUID(),
+      type: 'training',
+      templateId: template.id,
+      templateName: template.name,
+      players: [...players],
+      startedAt: Date.now(),
+      currentPhaseIndex: 0,
+      phases: template.programmes.map((prog, phaseIndex) => ({
+        phaseIndex,
+        programmeId: prog.id,
+        programmeName: prog.name,
+        status: phaseIndex === 0 ? 'active' : 'pending',
+        blocks: prog.ablaeufe.map((ablauf) => ({
+          blockId: generateUUID(),
+          ablaufId: ablauf.id,
+          ablaufAlias: ablauf.name ?? ablauf.alias ?? ablauf.id,
+          rangeId: ablauf.rangeId ?? null,
+          rangeName: ablauf.rangeName ?? null,
+          steps: ablauf.steps ?? [],
+          status: 'pending',
+          completedAt: null,
+          result: null,
+        })),
+      })),
+    }
+    activeInstances.value.push(instance)
+    _saveActive()
+    return instance
+  }
+
   const getBlocksForRange = (rangeId) => {
     const result = []
     for (const inst of activeInstances.value) {
@@ -110,6 +142,7 @@ export const useActiveProgramStore = defineStore('activeProgram', () => {
     activeInstances,
     completedInstances,
     startProgram,
+    startTraining,
     getBlocksForRange,
     markBlockInProgress,
     markBlockDone,

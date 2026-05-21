@@ -94,3 +94,72 @@ describe('useActiveProgramStore', () => {
     expect(store2.activeInstances).toHaveLength(1)
   })
 })
+
+const trainingTemplate = {
+  id: 'training-1',
+  name: 'Training Woche 1',
+  programmes: [
+    {
+      id: 'prog-1',
+      name: 'Aufwärmen',
+      ablaeufe: [
+        { id: 'abl-1', name: 'A1', alias: 'A1', rangeId: 'r1', rangeName: 'Platz 1', steps: [{ id: 's1', type: 'solo' }] },
+      ],
+    },
+    {
+      id: 'prog-2',
+      name: 'Hauptteil',
+      ablaeufe: [
+        { id: 'abl-2', name: 'A2', alias: 'A2', rangeId: 'r2', rangeName: 'Platz 2', steps: [{ id: 's2', type: 'solo' }] },
+      ],
+    },
+  ],
+}
+
+describe('useActiveProgramStore — Training', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  it('startTraining creates instance with type training', () => {
+    const store = useActiveProgramStore()
+    const inst = store.startTraining(trainingTemplate, players)
+    expect(inst.type).toBe('training')
+    expect(store.activeInstances).toHaveLength(1)
+  })
+
+  it('startTraining creates one phase per programme', () => {
+    const store = useActiveProgramStore()
+    const inst = store.startTraining(trainingTemplate, players)
+    expect(inst.phases).toHaveLength(2)
+    expect(inst.phases[0].programmeName).toBe('Aufwärmen')
+    expect(inst.phases[1].programmeName).toBe('Hauptteil')
+  })
+
+  it('startTraining sets first phase active, rest pending', () => {
+    const store = useActiveProgramStore()
+    const inst = store.startTraining(trainingTemplate, players)
+    expect(inst.phases[0].status).toBe('active')
+    expect(inst.phases[1].status).toBe('pending')
+    expect(inst.currentPhaseIndex).toBe(0)
+  })
+
+  it('startTraining creates blocks for each ablauf within each phase', () => {
+    const store = useActiveProgramStore()
+    const inst = store.startTraining(trainingTemplate, players)
+    expect(inst.phases[0].blocks).toHaveLength(1)
+    expect(inst.phases[0].blocks[0].ablaufId).toBe('abl-1')
+    expect(inst.phases[0].blocks[0].status).toBe('pending')
+    expect(inst.phases[1].blocks).toHaveLength(1)
+    expect(inst.phases[1].blocks[0].ablaufId).toBe('abl-2')
+  })
+
+  it('startTraining persists to localStorage', () => {
+    const store = useActiveProgramStore()
+    store.startTraining(trainingTemplate, players)
+    const saved = JSON.parse(localStorage.getItem('sg_active_program_instances'))
+    expect(saved).toHaveLength(1)
+    expect(saved[0].type).toBe('training')
+  })
+})
