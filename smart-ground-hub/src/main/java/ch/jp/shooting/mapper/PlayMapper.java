@@ -185,6 +185,16 @@ public final class PlayMapper {
         return writeValue(phases);
     }
 
+    // ── Öffentliche Block/Phase-Konvertierung (für PlayResultResponse) ───────
+
+    public static PlayBlock toPlayBlockPublic(PlayBlockRecord r) {
+        return toPlayBlock(r);
+    }
+
+    public static PlayPhase toPlayPhasePublic(PlayPhaseRecord r) {
+        return toPlayPhase(r);
+    }
+
     // ── Private conversion helpers ───────────────────────────────────────────
 
     private static Step toStep(ch.jp.shooting.dto.play.StepRecord r) {
