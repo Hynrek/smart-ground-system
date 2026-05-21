@@ -49,25 +49,6 @@
           </button>
         </div>
 
-        <!-- Group dropdown (only when multiple groups) -->
-        <div v-if="deviceGroups.length > 1" class="group-dropdown-wrapper" :class="{ open: isGroupDropdownOpen }">
-          <button class="group-dropdown-btn" @click="isGroupDropdownOpen = !isGroupDropdownOpen">
-            <span class="group-name">{{ selectedGroupName }}</span>
-            <Icons icon="chevronRight" :size="14" color="rgba(255,255,255,0.5)" />
-          </button>
-          <div v-if="isGroupDropdownOpen" class="group-dropdown-menu" @click.stop>
-            <button
-              v-for="group in deviceGroups"
-              :key="group.groupId"
-              class="group-option"
-              :class="{ active: store.selectedGroupId === group.groupId }"
-              @click="store.setGroupId(group.groupId); isGroupDropdownOpen = false"
-            >
-              <span class="option-name">{{ group.name }}</span>
-              <span class="option-count">{{ group.count }}</span>
-            </button>
-          </div>
-        </div>
       </div>
 
     </div>
@@ -75,37 +56,37 @@
 
     <!-- Device section -->
     <div class="device-section">
-      <p v-if="activeDevices.length > 0" class="section-title">
-        {{ activeDevices.length }} {{ activeDevices.length === 1 ? 'Gerät' : 'Geräte' }}
+      <p v-if="rangePositions.length > 0" class="section-title">
+        {{ rangePositions.length }} {{ rangePositions.length === 1 ? 'Position' : 'Positionen' }}
       </p>
 
-      <div v-if="deviceStore.isLoading" class="state-center">
-        <p class="state-text">Lade Geräte…</p>
+      <div v-if="positionsLoading" class="state-center">
+        <p class="state-text">Lade Positionen…</p>
       </div>
 
-      <div v-else-if="activeDevices.length === 0" class="state-center">
+      <div v-else-if="rangePositions.length === 0" class="state-center">
         <Icons icon="bolt" :size="44" color="rgba(255,255,255,0.1)" />
-        <p class="state-text">Keine Geräte in dieser Gruppe</p>
+        <p class="state-text">Keine Positionen konfiguriert</p>
         <p class="state-hint">Bitte einen Administrator kontaktieren.</p>
       </div>
 
       <div v-else class="device-grid">
         <button
-          v-for="(device, i) in activeDevices"
-          :key="device.id"
+          v-for="position in rangePositions"
+          :key="position.id"
           class="device-btn"
-          :class="deviceBtnClass(device)"
-          :disabled="isDeviceDisabled(device)"
-          @click="handleDeviceTap(device, i)"
+          :class="positionBtnClass(position)"
+          :disabled="isPositionDisabled(position)"
+          @click="handlePositionTap(position)"
         >
           <div class="btn-glow" />
           <div class="btn-icon-wrap">
-            <span class="btn-letter" :style="{ color: iconColor(device) }">
-              {{ String.fromCharCode(65 + i) }}
+            <span class="btn-letter" :style="{ color: iconColor(position) }">
+              {{ position.label }}
             </span>
           </div>
-          <span class="btn-label">{{ device.alias ?? `Gerät ${i + 1}` }}</span>
-          <span class="btn-status-chip" :class="chipClass(device)">{{ chipLabel(device) }}</span>
+          <span class="btn-label">{{ position.device?.alias ?? 'Kein Gerät' }}</span>
+          <span class="btn-status-chip" :class="chipClass(position)">{{ chipLabel(position) }}</span>
         </button>
       </div>
     </div>
@@ -156,11 +137,9 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRangeStore } from '@/stores/rangeStore.js';
-import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
 import { useProgramStore } from '@/stores/programStore.js';
-import { useDeviceLoader } from '@/composables/useDeviceLoader.js';
-import { sendDeviceCommand } from '@/services/deviceApi.js';
+import { sendPositionCommand } from '@/services/rangePositionApi.js';
 import Icons from '@/components/Icons.vue';
 import ShooterFlyoutPanel from '@/components/shooter-remote/ShooterFlyoutPanel.vue';
 
@@ -168,23 +147,26 @@ const props = defineProps({ rangeId: { type: String, required: true } });
 
 const router = useRouter();
 const rangeStore = useRangeStore();
-const deviceStore = useDeviceStore();
 const store = useShooterRemoteStore();
 const programStore = useProgramStore();
 
-const isGroupDropdownOpen = ref(false);
+const positionsLoading = ref(false);
 
-useDeviceLoader();
-
-onMounted(() => {
+onMounted(async () => {
   store.ensureReserved(props.rangeId);
-  initDefaultGroup();
-  // Default to solo mode
   store.setMode('solo');
+  // Only fetch from API if positions are not already cached for this range
+  if (!rangeStore.positions[props.rangeId]) {
+    positionsLoading.value = true;
+    try {
+      await rangeStore.loadPositions(props.rangeId);
+    } finally {
+      positionsLoading.value = false;
+    }
+  }
 });
 
 onUnmounted(() => {
-  // Auto-release when navigating away
   store.releasePlatz();
 });
 
@@ -192,34 +174,12 @@ watch(() => store.sessionMode, () => {
   store.setMode('solo');
 });
 
-// ── Range ──────────────────────────────────────────
+// ── Range & positions ──────────────────────────────
 const range = computed(() => rangeStore.ranges.find((r) => r.id === props.rangeId));
 const isLocked = computed(() => range.value?.locked ?? false);
+const rangePositions = computed(() => rangeStore.positions[props.rangeId] ?? []);
 
-// ── Device groups ──────────────────────────────────
-const selectedGroupName = computed(() => {
-  const group = deviceGroups.value.find((g) => g.groupId === store.selectedGroupId);
-  return group?.name ?? 'Geräte';
-});
-
-// ── Status card ────────────────────────────────────
-const statusKey = computed(() => {
-  if (isLocked.value) return 'blocked';
-  if (store.reservedByMe) return 'reserved';
-  return 'free';
-});
-
-const statusLabel = computed(() => {
-  if (isLocked.value) return 'Gesperrt';
-  if (store.reservedByMe) return 'Reserviert';
-  return 'Frei';
-});
-
-const freigeben = () => {
-  store.releasePlatz();
-  router.push('/remote');
-};
-
+// ── Navigation & lock ──────────────────────────────
 const goBack = () => {
   store.releasePlatz();
   router.push('/remote');
@@ -230,218 +190,159 @@ const toggleBlock = async () => {
   await rangeStore.setLocked(range.value.id, !isLocked.value);
 };
 
-// ── Device groups ──────────────────────────────────
-const rangeDevices = computed(() =>
-  deviceStore.devices.filter((d) => d.rangeId === props.rangeId),
-);
-
-const deviceGroups = computed(() => {
-  const map = new Map();
-  for (const d of rangeDevices.value) {
-    const name = d.groupName ?? 'Sonstige';
-    const groupId = d.groupId ?? encodeURIComponent(name);
-    const entry = map.get(groupId) ?? { name, groupId, count: 0 };
-    entry.count++;
-    map.set(groupId, entry);
-  }
-  return Array.from(map.values());
-});
-
-const initDefaultGroup = () => {
-  if (store.selectedGroupId) return;
-  if (deviceGroups.value.length === 0) return;
-  const wurfmaschine = deviceGroups.value.find((g) =>
-    g.name.toLowerCase().includes('wurfmaschine'),
-  );
-  store.setGroupId((wurfmaschine ?? deviceGroups.value[0]).groupId);
-};
-
-watch(deviceGroups, () => {
-  if (!store.selectedGroupId) initDefaultGroup();
-});
-
-// ── Active devices ─────────────────────────────────
-const activeDevices = computed(() => {
-  if (!store.selectedGroupId) return [];
-  return rangeDevices.value.filter(
-    (d) => (d.groupId ?? encodeURIComponent(d.groupName ?? '')) === store.selectedGroupId,
-  );
-});
-
-// ── Group icon ─────────────────────────────────────
-const ICON_MAP = { wurfmaschine: 'target', led: 'bolt', cpu: 'cpu', sensor: 'wifi' };
-
-const activeGroupIcon = computed(() => {
-  const group = deviceGroups.value.find((g) => g.groupId === store.selectedGroupId);
-  if (!group) return 'bolt';
-  const key = group.name.toLowerCase();
-  for (const [prefix, icon] of Object.entries(ICON_MAP)) {
-    if (key.includes(prefix)) return icon;
-  }
-  return 'bolt';
-});
-
 // ── Fire state ─────────────────────────────────────
 const firingIds = ref(new Set());
 const firedIds = ref(new Set());
 const errorIds = ref(new Set());
 
-const handleDeviceTap = async (device, deviceIndex = 0) => {
-  if (isDeviceDisabled(device)) return;
+const handlePositionTap = async (position) => {
+  if (isPositionDisabled(position)) return;
 
-  // Recording mode: add step to program
   if (store.sessionMode === 'recording' && programStore.programMode) {
-    programStore.addStep(device.id, device, deviceIndex);
+    programStore.addStep(position.id, position, position.label);
     return;
   }
 
-  // Throwing mode with pair/a.schuss: handle pair selection
   if ((store.mode === 'pair' || store.mode === 'a_schuss') && !programStore.programMode) {
     if (!store.throwPairPending) {
-      store.throwPairPending = { id: device.id, alias: device.alias ?? 'Gerät' };
-    } else if (store.throwPairPending.id === device.id) {
+      store.throwPairPending = { id: position.id, alias: position.device?.alias ?? position.label };
+    } else if (store.throwPairPending.id === position.id) {
       store.throwPairPending = null;
     } else {
-      // Fire both devices
       const pendingId = store.throwPairPending.id;
       store.throwPairPending = null;
-
-      await firePairDevices(pendingId, device.id);
+      await firePairPositions(pendingId, position.id);
       return;
     }
     return;
   }
 
-  // Throwing mode with raffale: fire device twice
   if (store.mode === 'raffale' && !programStore.programMode) {
-    await fireRaffaleDevice(device.id);
+    await fireRaffalePosition(position.id);
     return;
   }
 
-  // Solo mode: fire single device
-  await fireSingleDevice(device.id);
+  await fireSinglePosition(position.id);
 };
 
-const fireSingleDevice = async (deviceId) => {
-  if (firingIds.value.has(deviceId)) return;
-  firingIds.value = new Set([...firingIds.value, deviceId]);
-  firedIds.value.delete(deviceId);
-  errorIds.value.delete(deviceId);
-
+const fireSinglePosition = async (positionId) => {
+  if (firingIds.value.has(positionId)) return;
+  firingIds.value = new Set([...firingIds.value, positionId]);
+  firedIds.value.delete(positionId);
+  errorIds.value.delete(positionId);
   try {
-    await sendDeviceCommand(deviceId);
-    firedIds.value = new Set([...firedIds.value, deviceId]);
+    await sendPositionCommand(props.rangeId, positionId);
+    firedIds.value = new Set([...firedIds.value, positionId]);
     setTimeout(() => {
-      firedIds.value = new Set([...firedIds.value].filter((id) => id !== deviceId));
+      firedIds.value = new Set([...firedIds.value].filter((id) => id !== positionId));
     }, 900);
   } catch {
-    errorIds.value = new Set([...errorIds.value, deviceId]);
+    errorIds.value = new Set([...errorIds.value, positionId]);
     setTimeout(() => {
-      errorIds.value = new Set([...errorIds.value].filter((id) => id !== deviceId));
+      errorIds.value = new Set([...errorIds.value].filter((id) => id !== positionId));
     }, 1500);
   } finally {
-    firingIds.value = new Set([...firingIds.value].filter((id) => id !== deviceId));
+    firingIds.value = new Set([...firingIds.value].filter((id) => id !== positionId));
   }
 };
 
-const firePairDevices = async (deviceId1, deviceId2) => {
-  if (firingIds.value.has(deviceId1) || firingIds.value.has(deviceId2)) return;
-  firingIds.value = new Set([...firingIds.value, deviceId1, deviceId2]);
-  firedIds.value.delete(deviceId1);
-  firedIds.value.delete(deviceId2);
-  errorIds.value.delete(deviceId1);
-  errorIds.value.delete(deviceId2);
-
+const firePairPositions = async (posId1, posId2) => {
+  if (firingIds.value.has(posId1) || firingIds.value.has(posId2)) return;
+  firingIds.value = new Set([...firingIds.value, posId1, posId2]);
+  firedIds.value.delete(posId1);
+  firedIds.value.delete(posId2);
+  errorIds.value.delete(posId1);
+  errorIds.value.delete(posId2);
   try {
     await Promise.all([
-      sendDeviceCommand(deviceId1),
-      sendDeviceCommand(deviceId2),
+      sendPositionCommand(props.rangeId, posId1),
+      sendPositionCommand(props.rangeId, posId2),
     ]);
-    firedIds.value = new Set([...firedIds.value, deviceId1, deviceId2]);
+    firedIds.value = new Set([...firedIds.value, posId1, posId2]);
     setTimeout(() => {
-      firedIds.value = new Set([...firedIds.value].filter((id) => id !== deviceId1 && id !== deviceId2));
+      firedIds.value = new Set([...firedIds.value].filter((id) => id !== posId1 && id !== posId2));
     }, 900);
   } catch {
-    errorIds.value = new Set([...errorIds.value, deviceId1, deviceId2]);
+    errorIds.value = new Set([...errorIds.value, posId1, posId2]);
     setTimeout(() => {
-      errorIds.value = new Set([...errorIds.value].filter((id) => id !== deviceId1 && id !== deviceId2));
+      errorIds.value = new Set([...errorIds.value].filter((id) => id !== posId1 && id !== posId2));
     }, 1500);
   } finally {
-    firingIds.value = new Set([...firingIds.value].filter((id) => id !== deviceId1 && id !== deviceId2));
+    firingIds.value = new Set([...firingIds.value].filter((id) => id !== posId1 && id !== posId2));
   }
 };
 
-const fireRaffaleDevice = async (deviceId) => {
-  if (firingIds.value.has(deviceId)) return;
-  firingIds.value = new Set([...firingIds.value, deviceId]);
-  firedIds.value.delete(deviceId);
-  errorIds.value.delete(deviceId);
-
+const fireRaffalePosition = async (positionId) => {
+  if (firingIds.value.has(positionId)) return;
+  firingIds.value = new Set([...firingIds.value, positionId]);
+  firedIds.value.delete(positionId);
+  errorIds.value.delete(positionId);
   try {
-    // Fire once
-    await sendDeviceCommand(deviceId);
-    // Wait 2 seconds
+    await sendPositionCommand(props.rangeId, positionId);
     await new Promise(resolve => setTimeout(resolve, 2000));
-    // Fire again
-    await sendDeviceCommand(deviceId);
-
-    firedIds.value = new Set([...firedIds.value, deviceId]);
+    await sendPositionCommand(props.rangeId, positionId);
+    firedIds.value = new Set([...firedIds.value, positionId]);
     setTimeout(() => {
-      firedIds.value = new Set([...firedIds.value].filter((id) => id !== deviceId));
+      firedIds.value = new Set([...firedIds.value].filter((id) => id !== positionId));
     }, 900);
   } catch {
-    errorIds.value = new Set([...errorIds.value, deviceId]);
+    errorIds.value = new Set([...errorIds.value, positionId]);
     setTimeout(() => {
-      errorIds.value = new Set([...errorIds.value].filter((id) => id !== deviceId));
+      errorIds.value = new Set([...errorIds.value].filter((id) => id !== positionId));
     }, 1500);
   } finally {
-    firingIds.value = new Set([...firingIds.value].filter((id) => id !== deviceId));
+    firingIds.value = new Set([...firingIds.value].filter((id) => id !== positionId));
   }
 };
 
 // ── Button helpers ─────────────────────────────────
-const isDeviceDisabled = (device) => {
-  if (device.blocked || device.healthy === false) return true;
+const isPositionDisabled = (position) => {
+  if (!position.device) return true;
+  if (position.device.blocked || position.device.healthy === false) return true;
   if (isLocked.value) return true;
   if (!store.reservedByMe) return true;
-  if (firingIds.value.has(device.id)) return true;
+  if (firingIds.value.has(position.id)) return true;
   return false;
 };
 
-const deviceBtnClass = (device) => ({
-  'device-btn--firing': firingIds.value.has(device.id),
-  'device-btn--fired': firedIds.value.has(device.id),
-  'device-btn--error': errorIds.value.has(device.id),
-  'device-btn--blocked': device.blocked || isLocked.value,
-  'device-btn--recording': !!programStore.recording[device.id],
-  'device-btn--pair-pending': programStore.programMode && programStore.pairPending?.id === device.id,
+const positionBtnClass = (position) => ({
+  'device-btn--firing': firingIds.value.has(position.id),
+  'device-btn--fired': firedIds.value.has(position.id),
+  'device-btn--error': errorIds.value.has(position.id),
+  'device-btn--blocked': (position.device?.blocked ?? false) || isLocked.value,
+  'device-btn--no-device': !position.device,
+  'device-btn--recording': !!programStore.recording[position.id],
+  'device-btn--pair-pending': programStore.programMode && programStore.pairPending?.id === position.id,
   'device-btn--inactive': !store.reservedByMe && !isLocked.value,
 });
 
-const iconColor = (device) => {
-  if (device.blocked || isLocked.value) return 'rgba(252,129,129,0.5)';
+const iconColor = (position) => {
+  if (!position.device) return 'rgba(255,255,255,0.15)';
+  if (position.device.blocked || isLocked.value) return 'rgba(252,129,129,0.5)';
   if (!store.reservedByMe) return 'rgba(255,255,255,0.25)';
   return 'rgba(255,255,255,0.95)';
 };
 
-const chipClass = (device) => {
-  if (device.blocked || isLocked.value) return 'chip--blocked';
+const chipClass = (position) => {
+  if (!position.device) return 'chip--no-device';
+  if (position.device.blocked || isLocked.value) return 'chip--blocked';
   if (!store.reservedByMe) return 'chip--free';
-  if (errorIds.value.has(device.id)) return 'chip--error';
-  if (firedIds.value.has(device.id)) return 'chip--fired';
-  if (programStore.recording[device.id]) return 'chip--recording';
-  if (programStore.programMode && programStore.pairPending?.id === device.id) return 'chip--pending';
+  if (errorIds.value.has(position.id)) return 'chip--error';
+  if (firedIds.value.has(position.id)) return 'chip--fired';
+  if (programStore.recording[position.id]) return 'chip--recording';
+  if (programStore.programMode && programStore.pairPending?.id === position.id) return 'chip--pending';
   return 'chip--ready';
 };
 
-const chipLabel = (device) => {
-  if (device.blocked) return 'Gesperrt';
+const chipLabel = (position) => {
+  if (!position.device) return 'Kein Gerät';
+  if (position.device.blocked) return 'Gesperrt';
   if (isLocked.value) return 'Notfall';
   if (!store.reservedByMe) return 'Frei';
-  if (errorIds.value.has(device.id)) return 'Fehler';
-  if (firedIds.value.has(device.id)) return 'Ausgelöst';
-  if (programStore.recording[device.id]) return 'Erfasst';
-  if (programStore.programMode && programStore.pairPending?.id === device.id) return 'Gewählt';
+  if (errorIds.value.has(position.id)) return 'Fehler';
+  if (firedIds.value.has(position.id)) return 'Ausgelöst';
+  if (programStore.recording[position.id]) return 'Erfasst';
+  if (programStore.programMode && programStore.pairPending?.id === position.id) return 'Gewählt';
   return 'Bereit';
 };
 </script>
@@ -1021,4 +922,7 @@ const chipLabel = (device) => {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+.chip--no-device { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.2); }
+.device-btn--no-device { opacity: 0.3; }
 </style>
