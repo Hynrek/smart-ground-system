@@ -54,6 +54,7 @@ const routes = [
   { path: '/competition/leaderboard', component: CompetitionLeaderboardView, meta: { layout: 'shooter' } },
   { path: '/career-stats', component: CareerStatsView, meta: { layout: 'shooter' } },
   { path: '/programmes', component: ProgramManagementView, meta: { layout: 'shooter' } },
+  { path: '/training', component: () => import('@/views/shooter/TrainingManagementView.vue'), meta: { layout: 'shooter' } },
 ];
 
 const router = createRouter({
