@@ -131,6 +131,15 @@ public class GlobalExceptionHandler {
         return detail;
     }
 
+    // ── Play/Programme Exceptions ──
+
+    @ExceptionHandler(BlockStateException.class)
+    ProblemDetail handleBlockState(BlockStateException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        detail.setType(URI.create("/errors/block-state-conflict"));
+        return detail;
+    }
+
     // ── Generic Exceptions ──
 
     @ExceptionHandler(NotFoundException.class)
