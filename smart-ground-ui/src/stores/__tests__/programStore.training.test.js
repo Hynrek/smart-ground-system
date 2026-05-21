@@ -65,4 +65,18 @@ describe('programStore — Training CRUD', () => {
     expect(store2.savedTrainings).toHaveLength(1)
     expect(store2.savedTrainings[0].programmes).toHaveLength(2)
   })
+
+  it('createTraining snapshots steps so original mutation does not affect training', () => {
+    const store = useProgramStore()
+    const progWithSteps = {
+      id: 'p1',
+      name: 'Test',
+      ablaeufe: [{ id: 'abl-1', name: 'A1', rangeId: 'r1', rangeName: 'Platz 1', steps: [{ id: 's1', type: 'solo' }] }],
+    }
+    store.createTraining('T1', [progWithSteps])
+    // Mutate the original steps array
+    progWithSteps.ablaeufe[0].steps.push({ id: 's2', type: 'pair' })
+    // Training snapshot must not be affected
+    expect(store.savedTrainings[0].programmes[0].ablaeufe[0].steps).toHaveLength(1)
+  })
 })

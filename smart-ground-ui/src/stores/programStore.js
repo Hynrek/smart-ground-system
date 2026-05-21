@@ -385,7 +385,7 @@ export const useProgramStore = defineStore('program', () => {
     const programmes = selectedProgrammes.map((prog) => ({
       id: prog.id,
       name: prog.name,
-      ablaeufe: prog.ablaeufe.map((abl) => ({ ...abl })),
+      ablaeufe: prog.ablaeufe.map((abl) => ({ ...abl, steps: [...(abl.steps ?? [])] })),
     }));
     localStorage.setItem(key, JSON.stringify({ trainingName: name, programmes }));
     savedTrainings.value = [...savedTrainings.value, { id: key, name, programmes }];
