@@ -36,5 +36,5 @@ export async function removeDevice(rangeId, positionId) {
 }
 
 export async function sendPositionCommand(rangeId, positionId) {
-  return apiFetch(`/ranges/${rangeId}/positions/${positionId}/command`, { method: 'POST' });
+  return apiFetch(`${base(rangeId)}/${positionId}/command`, { method: 'POST' });
 }
