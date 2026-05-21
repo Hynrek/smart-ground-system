@@ -22,6 +22,12 @@ export const useActiveProgramStore = defineStore('activeProgram', () => {
   const _saveCompleted = () =>
     localStorage.setItem(COMPLETED_KEY, JSON.stringify(completedInstances.value))
 
+  const _completeBlock = (block, playerResults) => {
+    block.status = 'done'
+    block.completedAt = Date.now()
+    block.result = { playerResults }
+  }
+
   const loadFromStorage = () => {
     try {
       const a = localStorage.getItem(ACTIVE_KEY)
@@ -125,7 +131,14 @@ export const useActiveProgramStore = defineStore('activeProgram', () => {
 
   const markBlockInProgress = (instanceId, blockId) => {
     const inst = activeInstances.value.find((i) => i.instanceId === instanceId)
-    const block = inst?.blocks.find((b) => b.blockId === blockId)
+    if (!inst) return
+    let block
+    if (inst.type === 'training') {
+      const phase = inst.phases[inst.currentPhaseIndex]
+      block = phase?.blocks.find((b) => b.blockId === blockId)
+    } else {
+      block = inst.blocks.find((b) => b.blockId === blockId)
+    }
     if (block && block.status === 'pending') {
       block.status = 'in_progress'
       _saveActive()
@@ -141,9 +154,7 @@ export const useActiveProgramStore = defineStore('activeProgram', () => {
       if (!phase) return
       const block = phase.blocks.find((b) => b.blockId === blockId)
       if (!block) return
-      block.status = 'done'
-      block.completedAt = Date.now()
-      block.result = { playerResults }
+      _completeBlock(block, playerResults)
 
       if (phase.blocks.every((b) => b.status === 'done')) {
         phase.status = 'done'
@@ -160,9 +171,7 @@ export const useActiveProgramStore = defineStore('activeProgram', () => {
     } else {
       const block = inst.blocks.find((b) => b.blockId === blockId)
       if (!block) return
-      block.status = 'done'
-      block.completedAt = Date.now()
-      block.result = { playerResults }
+      _completeBlock(block, playerResults)
 
       if (inst.blocks.every((b) => b.status === 'done')) {
         completedInstances.value.push({ ...inst, completedAt: Date.now() })
