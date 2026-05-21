@@ -148,37 +148,28 @@
           </template>
 
           <!-- Offene Trainings -->
-          <template v-if="trainingAblaeufe.length > 0">
+          <template v-if="trainingBlocks.length > 0">
             <div class="section">
               <span class="section-label">Offene Trainings</span>
               <div class="ablaeufe-list">
                 <div
-                  v-for="ablauf in trainingAblaeufe"
-                  :key="ablauf.id"
+                  v-for="block in trainingBlocks"
+                  :key="block.blockId"
                   class="ablauf-card"
-                  :class="{ expanded: expandedAblaufId === ablauf.id }"
                 >
-                  <button
-                    class="ablauf-header-btn"
-                    @click="toggleExpandAblauf(ablauf.id)"
-                  >
-                    <Icons
-                      :icon="expandedAblaufId === ablauf.id ? 'chevronDown' : 'chevronRight'"
-                      :size="12"
-                      color="rgba(255,255,255,0.4)"
-                    />
-                    <span class="ablauf-name">{{ ablauf.name }}</span>
-                    <span v-if="isAblaufCompleted(ablauf.id)" class="completion-badge">✓ Done</span>
+                  <button class="ablauf-header-btn" @click="playBlock(block)">
+                    <div class="block-info">
+                      <span class="ablauf-name">{{ block.ablaufAlias }}</span>
+                      <span class="block-template-name">{{ block.templateName }} — {{ block.programmeName }}</span>
+                    </div>
+                    <span class="block-status-badge" :class="`status-${block.status}`">
+                      {{ block.status === 'in_progress' ? '◑' : '●' }}
+                    </span>
                   </button>
-                  <div v-if="expandedAblaufId === ablauf.id" class="ablauf-actions">
-                    <button class="action-btn action-play" @click="playAblaufSolo(ablauf)">
-                      <Icons icon="play" :size="12" color="#fff" />
-                      Als Solo Starten
-                    </button>
-                    <button class="action-btn action-group" @click="playAblaufGroup(ablauf)">
-                      <Icons icon="program" :size="12" color="#fff" />
-                      Als Gruppe Starten
-                    </button>
+                  <div class="ablauf-actions">
+                    <div class="session-meta">
+                      {{ block.players.map(p => p.displayName).join(', ') }}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -269,7 +260,7 @@
 
           <!-- Empty state -->
           <div
-            v-if="programmeBlocks.length === 0 && competitionAblaeufe.length === 0 && trainingAblaeufe.length === 0 && userAblaeufe.length === 0 && globalAblaeufe.length === 0"
+            v-if="programmeBlocks.length === 0 && competitionAblaeufe.length === 0 && trainingBlocks.length === 0 && userAblaeufe.length === 0 && globalAblaeufe.length === 0"
             class="empty-state"
           >
             <Icons icon="program" :size="32" color="rgba(255,255,255,0.1)" />
@@ -376,14 +367,14 @@ const competitionAblaeufe = computed(() => {
   return [];
 });
 
-const trainingAblaeufe = computed(() => {
-  // For now, these would come from active training sessions
-  // This is a placeholder for future API integration
-  return [];
-});
+const trainingBlocks = computed(() =>
+  activeProgramStore.getBlocksForRange(currentRangeId.value)
+    .filter(b => b.instanceType === 'training')
+)
 
 const programmeBlocks = computed(() =>
   activeProgramStore.getBlocksForRange(currentRangeId.value)
+    .filter(b => b.instanceType !== 'training')
 );
 
 const playBlock = (block) => {
