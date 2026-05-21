@@ -311,7 +311,6 @@ import { useRouter } from 'vue-router';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
 import { useProgramStore } from '@/stores/programStore.js';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
-import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useAuthStore } from '@/stores/authStore.js';
 import { useActiveProgramStore } from '@/stores/activeProgramStore.js';
@@ -321,7 +320,6 @@ const router = useRouter();
 const store = useShooterRemoteStore();
 const programStore = useProgramStore();
 const playStore = usePlaySessionStore();
-const deviceStore = useDeviceStore();
 const rangeStore = useRangeStore();
 const authStore = useAuthStore();
 const activeProgramStore = useActiveProgramStore();
@@ -443,12 +441,11 @@ const playAblaufGroup = (ablauf) => {
 };
 
 const editAblauf = (ablaufId) => {
-  // Load ablauf into editing mode
   const ablauf = programStore.savedAblaeufe.find(a => a.id === ablaufId);
   if (!ablauf) return;
-  programStore.editingId.value = ablaufId;
-  programStore.editingAblauf.value = [{ id: ablauf.id, alias: ablauf.name, steps: [...ablauf.steps] }];
-  programStore.programMode.value = true;
+  programStore.editingId = ablaufId;
+  programStore.editingAblauf = [{ id: ablauf.id, alias: ablauf.name, steps: [...ablauf.steps] }];
+  programStore.programMode = true;
   isOpen.value = true;
   expandedAblaufId.value = null;
 };
@@ -480,22 +477,6 @@ const confirmSaveAblauf = () => {
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-const rangeDevices = computed(() =>
-  deviceStore.devices.filter((d) => d.rangeId === store.selectedRangeId),
-);
-
-const activeDevices = computed(() => {
-  if (!store.selectedGroupId) return [];
-  return rangeDevices.value.filter(
-    (d) => (d.groupId ?? encodeURIComponent(d.groupName ?? '')) === store.selectedGroupId,
-  );
-});
-
-const getLetterForDevice = (deviceId) => {
-  const idx = activeDevices.value.findIndex((d) => d.id === deviceId);
-  return idx === -1 ? '?' : String.fromCharCode(65 + idx);
-};
-
 const stepDisplayLabel = (step) => {
   if (step.type === 'solo') return step.alias;
   if (step.type === 'raffale') return `${step.alias} (2×)`;
@@ -508,10 +489,10 @@ const stepTypeLabel = (type) => {
 };
 
 const getStepLabel = (step) => {
-  if (step.type === 'solo') return getLetterForDevice(step.deviceId);
-  if (step.type === 'pair') return `${getLetterForDevice(step.deviceId1)}+${getLetterForDevice(step.deviceId2)}`;
-  if (step.type === 'a_schuss') return `${getLetterForDevice(step.deviceId1)}+${getLetterForDevice(step.deviceId2)}`;
-  if (step.type === 'raffale') return `${getLetterForDevice(step.deviceId)}×2`;
+  if (step.type === 'solo') return step.letter ?? '?';
+  if (step.type === 'pair') return `${step.letter1 ?? '?'}+${step.letter2 ?? '?'}`;
+  if (step.type === 'a_schuss') return `${step.letter1 ?? '?'}+${step.letter2 ?? '?'}`;
+  if (step.type === 'raffale') return `${step.letter ?? '?'}×2`;
   return '?';
 };
 
