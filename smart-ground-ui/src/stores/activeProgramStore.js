@@ -91,14 +91,32 @@ export const useActiveProgramStore = defineStore('activeProgram', () => {
   const getBlocksForRange = (rangeId) => {
     const result = []
     for (const inst of activeInstances.value) {
-      for (const block of inst.blocks) {
-        if (block.rangeId === rangeId && block.status !== 'done') {
-          result.push({
-            ...block,
-            instanceId: inst.instanceId,
-            templateName: inst.templateName,
-            players: inst.players,
-          })
+      if (inst.type === 'training') {
+        const phase = inst.phases[inst.currentPhaseIndex]
+        if (!phase) continue
+        for (const block of phase.blocks) {
+          if (block.rangeId === rangeId && block.status !== 'done') {
+            result.push({
+              ...block,
+              instanceId: inst.instanceId,
+              templateName: inst.templateName,
+              programmeName: phase.programmeName,
+              players: inst.players,
+              instanceType: 'training',
+            })
+          }
+        }
+      } else {
+        for (const block of inst.blocks) {
+          if (block.rangeId === rangeId && block.status !== 'done') {
+            result.push({
+              ...block,
+              instanceId: inst.instanceId,
+              templateName: inst.templateName,
+              players: inst.players,
+              instanceType: 'programm',
+            })
+          }
         }
       }
     }

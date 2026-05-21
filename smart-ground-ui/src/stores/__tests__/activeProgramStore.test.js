@@ -162,4 +162,27 @@ describe('useActiveProgramStore — Training', () => {
     expect(saved).toHaveLength(1)
     expect(saved[0].type).toBe('training')
   })
+
+  it('getBlocksForRange returns only current-phase blocks for training', () => {
+    const store = useActiveProgramStore()
+    store.startTraining(trainingTemplate, players)
+    // Phase 0 is active (r1), phase 1 is pending (r2)
+    expect(store.getBlocksForRange('r1')).toHaveLength(1)
+    expect(store.getBlocksForRange('r2')).toHaveLength(0)
+  })
+
+  it('getBlocksForRange attaches instanceType training to training blocks', () => {
+    const store = useActiveProgramStore()
+    store.startTraining(trainingTemplate, players)
+    const blocks = store.getBlocksForRange('r1')
+    expect(blocks[0].instanceType).toBe('training')
+    expect(blocks[0].programmeName).toBe('Aufwärmen')
+  })
+
+  it('getBlocksForRange attaches instanceType programm to programme blocks', () => {
+    const store = useActiveProgramStore()
+    store.startProgram(template, players)
+    const blocks = store.getBlocksForRange('r1')
+    expect(blocks[0].instanceType).toBe('programm')
+  })
 })
