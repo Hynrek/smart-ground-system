@@ -362,9 +362,9 @@ export const usePasseStore = defineStore('passe', () => {
   };
 
   const updateGlobalPasse = (id, newName, newSerien) => {
-    const exists = savedGlobalPassen.value.some((p) => p.id === id);
-    if (!exists) return;
-    const trimmedName = newName?.trim() || savedGlobalPassen.value.find((p) => p.id === id)?.name;
+    const existing = savedGlobalPassen.value.find((p) => p.id === id);
+    if (!existing) return;
+    const trimmedName = newName?.trim() || existing.name;
     const serien = (newSerien ?? []).map((s) => ({
       id: s.id,
       alias: s.name,
@@ -477,7 +477,13 @@ export const usePasseStore = defineStore('passe', () => {
       .map((key) => {
         try {
           const data = JSON.parse(localStorage.getItem(key));
-          return { id: key, name: data.trainingName, passen: data.passen ?? data.programmes ?? [] };
+          return {
+            id: key,
+            name: data.trainingName,
+            passen: data.passen ?? data.programmes ?? [],
+            type: data.type ?? 'training',
+            rottCountHint: data.rottCountHint ?? null,
+          };
         } catch {
           return null;
         }
@@ -490,8 +496,10 @@ export const usePasseStore = defineStore('passe', () => {
       });
   };
 
-  const createTraining = (trainingName, selectedPassen) => {
+  const createTraining = (trainingName, selectedPassen, options = {}) => {
     if (selectedPassen.length === 0) return;
+    const type = options.type ?? 'training';
+    const rottCountHint = options.rottCountHint ?? null;
     const name = trainingName?.trim() || `Training ${savedTrainings.value.length + 1}`;
     const key = nextTrainingKey();
     const passen = selectedPassen.map((passe) => ({
@@ -499,8 +507,12 @@ export const usePasseStore = defineStore('passe', () => {
       name: passe.name,
       serien: passe.serien.map((s) => ({ ...s, steps: [...(s.steps ?? [])] })),
     }));
-    localStorage.setItem(key, JSON.stringify({ trainingName: name, passen }));
-    savedTrainings.value = [...savedTrainings.value, { id: key, name, passen }];
+    localStorage.setItem(key, JSON.stringify({ trainingName: name, passen, type, rottCountHint }));
+    savedTrainings.value = [...savedTrainings.value, { id: key, name, passen, type, rottCountHint }];
+  };
+
+  const createCompetition = (name, selectedPassen, rottCountHint = null) => {
+    createTraining(name, selectedPassen, { type: 'competition', rottCountHint });
   };
 
   const deleteTraining = (trainingId) => {
@@ -600,6 +612,7 @@ export const usePasseStore = defineStore('passe', () => {
     // Training actions
     loadTrainingsFromStorage,
     createTraining,
+    createCompetition,
     deleteTraining,
     renameTraining,
     // Legacy
