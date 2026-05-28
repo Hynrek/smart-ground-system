@@ -27,12 +27,12 @@
         <span class="tile-desc">Geräte steuern</span>
       </button>
 
-      <button class="app-tile app-tile--available" @click="router.push('/programmes')">
+      <button class="app-tile app-tile--available" @click="router.push('/meine-passen')">
         <div class="tile-icon-wrap tile-icon-wrap--orange">
           <Icons icon="program" :size="36" color="#f6ad55" />
         </div>
-        <span class="tile-label">Programme</span>
-        <span class="tile-desc">Abläufe & Trainings</span>
+        <span class="tile-label">Passen</span>
+        <span class="tile-desc">Serien & Trainings</span>
       </button>
 
       <button class="app-tile app-tile--available" @click="router.push('/training')">
@@ -43,20 +43,21 @@
         <span class="tile-desc">Strukturierte Einheiten</span>
       </button>
 
-      <button class="app-tile app-tile--available" @click="router.push('/competition/live')">
+      <button class="app-tile app-tile--available" @click="router.push('/wettkampf')">
         <div class="tile-icon-wrap tile-icon-wrap--green">
           <Icons icon="target" :size="36" color="#48bb78" />
         </div>
-        <span class="tile-label">Wettkampf</span>
+        <span class="tile-label">Wettkämpfe</span>
         <span class="tile-desc">Teilnehmen & Ergebnisse</span>
       </button>
 
-      <button class="app-tile app-tile--available" @click="router.push('/career-stats')">
-        <div class="tile-icon-wrap tile-icon-wrap--purple">
-          <Icons icon="target" :size="36" color="#a855f7" />
+      <button class="app-tile app-tile--soon" disabled>
+        <div class="tile-icon-wrap tile-icon-wrap--muted">
+          <Icons icon="target" :size="36" color="rgba(255,255,255,0.2)" />
         </div>
         <span class="tile-label">Karriere</span>
         <span class="tile-desc">Meine Statistiken</span>
+        <span class="tile-coming">Bald verfügbar</span>
       </button>
     </div>
   </div>

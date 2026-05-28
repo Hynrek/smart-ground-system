@@ -1,11 +1,15 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { useProgramStore } from '@/stores/programStore.js';
+import { usePasseStore } from '@/stores/passeStore.js';
 
 export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   const selectedRangeId = ref(null);
   const reservedByMe = ref(false);
   const selectedGroupId = ref(null);
+
+  // Optional competition context set when navigating from CompetitionLiveView
+  // { instanceId: string, rotteId: string } | null
+  const competitionContext = ref(null);
 
   const mode = ref('solo');
   const recording = ref({});
@@ -18,19 +22,27 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   const isReserved = computed(() => reservedByMe.value);
 
   const reservePlatz = (rangeId) => {
-    const programStore = useProgramStore();
+    const passeStore = usePasseStore();
     selectedRangeId.value = rangeId;
     reservedByMe.value = true;
     selectedGroupId.value = null;
     sessionMode.value = 'throwing';
     recordingActive.value = false;
     recordingPaused.value = false;
-    programStore.resetCapture();
+    passeStore.resetCapture();
   };
 
   const ensureReserved = (rangeId) => {
     if (selectedRangeId.value !== rangeId || !reservedByMe.value) {
       reservePlatz(rangeId);
+    }
+  };
+
+  const setCompetitionContext = (instanceId, rotteId) => {
+    if (instanceId && rotteId) {
+      competitionContext.value = { instanceId, rotteId };
+    } else {
+      competitionContext.value = null;
     }
   };
 
@@ -49,9 +61,9 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
   };
 
   const setSessionMode = (newMode) => {
-    const programStore = useProgramStore();
+    const passeStore = usePasseStore();
     if (newMode === 'throwing') {
-      if (recordingActive.value && programStore.programMode) {
+      if (recordingActive.value && passeStore.passeMode) {
         recordingPaused.value = true;
         recordingActive.value = false;
       }
@@ -59,10 +71,10 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
       if (recordingPaused.value) {
         recordingActive.value = true;
         recordingPaused.value = false;
-        programStore.programMode = true;
+        passeStore.passeMode = true;
       } else {
         recordingActive.value = true;
-        programStore.startCapture();
+        passeStore.startCapture();
       }
     }
     sessionMode.value = newMode;
@@ -72,6 +84,7 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     selectedRangeId,
     reservedByMe,
     selectedGroupId,
+    competitionContext,
     mode,
     recording,
     sessionMode,
@@ -85,5 +98,6 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     setGroupId,
     setMode,
     setSessionMode,
+    setCompetitionContext,
   };
 });

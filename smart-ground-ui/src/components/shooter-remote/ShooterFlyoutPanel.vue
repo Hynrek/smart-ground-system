@@ -30,7 +30,7 @@
         </button>
         <div v-if="isOpen || !isRecordingActive" class="header-divider" />
         <Icons icon="program" :size="14" color="rgba(255,255,255,0.6)" />
-        <span class="header-title">{{ isRecordingActive && !isOpen ? 'Erfasst' : 'Abläufe' }}</span>
+        <span class="header-title">{{ isRecordingActive && !isOpen ? 'Erfasst' : 'Serien' }}</span>
       </div>
 
       <!-- Scrollable content -->
@@ -48,7 +48,7 @@
               class="captured-item"
               :class="`type-${step.type}`"
               :title="getStepTooltip(step)"
-              @click="programStore.removeStep(0, step.id)"
+              @click="passeStore.removeStep(0, step.id)"
             >
               <span class="item-code">{{ getStepLabel(step) }}</span>
             </button>
@@ -56,11 +56,11 @@
         </div>
 
         <!-- Draft steps (full mode, recording active) -->
-        <template v-if="programStore.programMode && currentSteps.length > 0 && isOpen">
+        <template v-if="passeStore.passeMode && currentSteps.length > 0 && isOpen">
           <div class="section">
             <span class="section-label">Erfasste Schritte</span>
-            <div class="ablauf-list">
-              <div v-for="(step, stepIdx) in currentSteps" :key="step.id" class="ablauf-item">
+            <div class="serie-list">
+              <div v-for="(step, stepIdx) in currentSteps" :key="step.id" class="serie-item">
                 <div class="step-info">
                   <span class="step-index">{{ stepIdx + 1 }}</span>
                   <span class="step-label">
@@ -70,7 +70,7 @@
                     {{ stepTypeLabel(step.type) }}
                   </span>
                 </div>
-                <button class="delete-btn" @click="programStore.removeStep(0, step.id)">
+                <button class="delete-btn" @click="passeStore.removeStep(0, step.id)">
                   <Icons icon="x" :size="12" color="rgba(252,129,129,0.8)" />
                 </button>
               </div>
@@ -78,28 +78,28 @@
           </div>
         </template>
 
-        <!-- Ablauf-centered view (when not recording) -->
+        <!-- Serie-centered view (when not recording) -->
         <template v-if="!isRecordingActive && isOpen">
-          <!-- Programme Blöcke -->
-          <template v-if="programmeBlocks.length > 0">
+          <!-- Passen Blöcke -->
+          <template v-if="passenBlocks.length > 0">
             <div class="section">
-              <span class="section-label">Programme</span>
-              <div class="ablaeufe-list">
+              <span class="section-label">Passen</span>
+              <div class="serien-list">
                 <div
-                  v-for="block in programmeBlocks"
+                  v-for="block in passenBlocks"
                   :key="block.blockId"
-                  class="ablauf-card"
+                  class="serie-card"
                 >
-                  <button class="ablauf-header-btn" @click="playBlock(block)">
+                  <button class="serie-header-btn" @click="playBlock(block)">
                     <div class="block-info">
-                      <span class="ablauf-name">{{ block.ablaufAlias }}</span>
+                      <span class="serie-name">{{ block.serieAlias }}</span>
                       <span class="block-template-name">{{ block.templateName }}</span>
                     </div>
                     <span class="block-status-badge" :class="`status-${block.status}`">
                       {{ block.status === 'in_progress' ? '◑' : '●' }}
                     </span>
                   </button>
-                  <div class="ablauf-actions">
+                  <div class="serie-actions">
                     <div class="session-meta">
                       {{ block.players.map(p => p.displayName).join(', ') }}
                     </div>
@@ -110,34 +110,34 @@
           </template>
 
           <!-- Offene Wettkämpfe -->
-          <template v-if="competitionAblaeufe.length > 0">
+          <template v-if="competitionSerien.length > 0">
             <div class="section">
               <span class="section-label">Offene Wettkämpfe</span>
-              <div class="ablaeufe-list">
+              <div class="serien-list">
                 <div
-                  v-for="ablauf in competitionAblaeufe"
-                  :key="ablauf.id"
-                  class="ablauf-card"
-                  :class="{ expanded: expandedAblaufId === ablauf.id }"
+                  v-for="serie in competitionSerien"
+                  :key="serie.id"
+                  class="serie-card"
+                  :class="{ expanded: expandedSerieId === serie.id }"
                 >
                   <button
-                    class="ablauf-header-btn"
-                    @click="toggleExpandAblauf(ablauf.id)"
+                    class="serie-header-btn"
+                    @click="toggleExpandSerie(serie.id)"
                   >
                     <Icons
-                      :icon="expandedAblaufId === ablauf.id ? 'chevronDown' : 'chevronRight'"
+                      :icon="expandedSerieId === serie.id ? 'chevronDown' : 'chevronRight'"
                       :size="12"
                       color="rgba(255,255,255,0.4)"
                     />
-                    <span class="ablauf-name">{{ ablauf.name }}</span>
-                    <span v-if="isAblaufCompleted(ablauf.id)" class="completion-badge">✓ Done</span>
+                    <span class="serie-name">{{ serie.name }}</span>
+                    <span v-if="isSerieCompleted(serie.id)" class="completion-badge">✓ Done</span>
                   </button>
-                  <div v-if="expandedAblaufId === ablauf.id" class="ablauf-actions">
-                    <button class="action-btn action-play" @click="playAblaufSolo(ablauf)">
+                  <div v-if="expandedSerieId === serie.id" class="serie-actions">
+                    <button class="action-btn action-play" @click="playSerieSolo(serie)">
                       <Icons icon="play" :size="12" color="#fff" />
                       Als Solo Starten
                     </button>
-                    <button class="action-btn action-group" @click="playAblaufGroup(ablauf)">
+                    <button class="action-btn action-group" @click="playSerieGroup(serie)">
                       <Icons icon="program" :size="12" color="#fff" />
                       Als Gruppe Starten
                     </button>
@@ -151,22 +151,22 @@
           <template v-if="trainingBlocks.length > 0">
             <div class="section">
               <span class="section-label">Offene Trainings</span>
-              <div class="ablaeufe-list">
+              <div class="serien-list">
                 <div
                   v-for="block in trainingBlocks"
                   :key="block.blockId"
-                  class="ablauf-card"
+                  class="serie-card"
                 >
-                  <button class="ablauf-header-btn" @click="playBlock(block)">
+                  <button class="serie-header-btn" @click="playBlock(block)">
                     <div class="block-info">
-                      <span class="ablauf-name">{{ block.ablaufAlias }}</span>
-                      <span class="block-template-name">{{ block.templateName }} — {{ block.programmeName }}</span>
+                      <span class="serie-name">{{ block.serieAlias }}</span>
+                      <span class="block-template-name">{{ block.templateName }} — {{ block.passeName }}</span>
                     </div>
                     <span class="block-status-badge" :class="`status-${block.status}`">
                       {{ block.status === 'in_progress' ? '◑' : '●' }}
                     </span>
                   </button>
-                  <div class="ablauf-actions">
+                  <div class="serie-actions">
                     <div class="session-meta">
                       {{ block.players.map(p => p.displayName).join(', ') }}
                     </div>
@@ -176,42 +176,42 @@
             </div>
           </template>
 
-          <!-- Abläufe from the User -->
-          <template v-if="userAblaeufe.length > 0">
+          <!-- Serien from the User -->
+          <template v-if="userSerien.length > 0">
             <div class="section">
-              <span class="section-label">Meine Abläufe</span>
-              <div class="ablaeufe-list">
+              <span class="section-label">Meine Serien</span>
+              <div class="serien-list">
                 <div
-                  v-for="ablauf in userAblaeufe"
-                  :key="ablauf.id"
-                  class="ablauf-card"
-                  :class="{ expanded: expandedAblaufId === ablauf.id }"
+                  v-for="serie in userSerien"
+                  :key="serie.id"
+                  class="serie-card"
+                  :class="{ expanded: expandedSerieId === serie.id }"
                 >
                   <button
-                    class="ablauf-header-btn"
-                    @click="toggleExpandAblauf(ablauf.id)"
+                    class="serie-header-btn"
+                    @click="toggleExpandSerie(serie.id)"
                   >
                     <Icons
-                      :icon="expandedAblaufId === ablauf.id ? 'chevronDown' : 'chevronRight'"
+                      :icon="expandedSerieId === serie.id ? 'chevronDown' : 'chevronRight'"
                       :size="12"
                       color="rgba(255,255,255,0.4)"
                     />
-                    <span class="ablauf-name">{{ ablauf.name }}</span>
+                    <span class="serie-name">{{ serie.name }}</span>
                   </button>
-                  <div v-if="expandedAblaufId === ablauf.id" class="ablauf-actions">
-                    <button class="action-btn action-play" @click="playAblaufSolo(ablauf)">
+                  <div v-if="expandedSerieId === serie.id" class="serie-actions">
+                    <button class="action-btn action-play" @click="playSerieSolo(serie)">
                       <Icons icon="play" :size="12" color="#fff" />
                       Als Solo Starten
                     </button>
-                    <button class="action-btn action-group" @click="playAblaufGroup(ablauf)">
+                    <button class="action-btn action-group" @click="playSerieGroup(serie)">
                       <Icons icon="program" :size="12" color="#fff" />
                       Als Gruppe Starten
                     </button>
-                    <button class="action-btn action-edit" @click="editAblauf(ablauf.id)">
+                    <button class="action-btn action-edit" @click="editSerie(serie.id)">
                       <Icons icon="edit" :size="12" color="#fbb" />
                       Bearbeiten
                     </button>
-                    <button class="action-btn action-remove" @click="deleteAblauf(ablauf.id)">
+                    <button class="action-btn action-remove" @click="deleteSerie(serie.id)">
                       <Icons icon="trash" :size="12" color="#fc8181" />
                       Löschen
                     </button>
@@ -221,34 +221,34 @@
             </div>
           </template>
 
-          <!-- Global Abläufe -->
-          <template v-if="globalAblaeufe.length > 0">
+          <!-- Globale Serien -->
+          <template v-if="globalSerien.length > 0">
             <div class="section">
-              <span class="section-label">Globale Abläufe</span>
-              <div class="ablaeufe-list">
+              <span class="section-label">Globale Serien</span>
+              <div class="serien-list">
                 <div
-                  v-for="ablauf in globalAblaeufe"
-                  :key="ablauf.id"
-                  class="ablauf-card"
-                  :class="{ expanded: expandedAblaufId === ablauf.id }"
+                  v-for="serie in globalSerien"
+                  :key="serie.id"
+                  class="serie-card"
+                  :class="{ expanded: expandedSerieId === serie.id }"
                 >
                   <button
-                    class="ablauf-header-btn"
-                    @click="toggleExpandAblauf(ablauf.id)"
+                    class="serie-header-btn"
+                    @click="toggleExpandSerie(serie.id)"
                   >
                     <Icons
-                      :icon="expandedAblaufId === ablauf.id ? 'chevronDown' : 'chevronRight'"
+                      :icon="expandedSerieId === serie.id ? 'chevronDown' : 'chevronRight'"
                       :size="12"
                       color="rgba(255,255,255,0.4)"
                     />
-                    <span class="ablauf-name">{{ ablauf.name }}</span>
+                    <span class="serie-name">{{ serie.name }}</span>
                   </button>
-                  <div v-if="expandedAblaufId === ablauf.id" class="ablauf-actions">
-                    <button class="action-btn action-play" @click="playAblaufSolo(ablauf)">
+                  <div v-if="expandedSerieId === serie.id" class="serie-actions">
+                    <button class="action-btn action-play" @click="playSerieSolo(serie)">
                       <Icons icon="play" :size="12" color="#fff" />
                       Als Solo Starten
                     </button>
-                    <button class="action-btn action-group" @click="playAblaufGroup(ablauf)">
+                    <button class="action-btn action-group" @click="playSerieGroup(serie)">
                       <Icons icon="program" :size="12" color="#fff" />
                       Als Gruppe Starten
                     </button>
@@ -260,31 +260,31 @@
 
           <!-- Empty state -->
           <div
-            v-if="programmeBlocks.length === 0 && competitionAblaeufe.length === 0 && trainingBlocks.length === 0 && userAblaeufe.length === 0 && globalAblaeufe.length === 0"
+            v-if="passenBlocks.length === 0 && competitionSerien.length === 0 && trainingBlocks.length === 0 && userSerien.length === 0 && globalSerien.length === 0"
             class="empty-state"
           >
             <Icons icon="program" :size="32" color="rgba(255,255,255,0.1)" />
-            <p>Keine Abläufe</p>
-            <p class="empty-hint">Erstelle Abläufe in der Erfassungs-Ansicht</p>
+            <p>Keine Serien</p>
+            <p class="empty-hint">Erstelle Serien in der Erfassungs-Ansicht</p>
           </div>
         </template>
       </div>
 
       <!-- Footer: Naming prompt OR cancel when capturing -->
-      <div v-if="programStore.programMode && currentSteps.length > 0" class="flyout-footer">
+      <div v-if="passeStore.passeMode && currentSteps.length > 0" class="flyout-footer">
         <template v-if="namingMode">
           <div class="naming-row">
             <input
               ref="nameInputRef"
-              v-model="ablaufNameInput"
-              class="ablauf-name-input"
+              v-model="serieNameInput"
+              class="serie-name-input"
               type="text"
-              placeholder="Ablauf benennen…"
+              placeholder="Serie benennen…"
               maxlength="40"
-              @keyup.enter="confirmSaveAblauf"
+              @keyup.enter="confirmSaveSerie"
               @keyup.escape="namingMode = false"
             />
-            <button class="btn-save" @click="confirmSaveAblauf">
+            <button class="btn-save" @click="confirmSaveSerie">
               <Icons icon="check" :size="13" color="#48bb78" />
             </button>
             <button class="btn-clear btn-clear--icon" @click="namingMode = false">
@@ -297,7 +297,7 @@
           </label>
         </template>
         <template v-else>
-          <button class="btn-clear" @click="programStore.cancelCapture">Abbrechen</button>
+          <button class="btn-clear" @click="passeStore.cancelCapture">Abbrechen</button>
           <button class="btn-save" @click="openNamingMode">Speichern</button>
         </template>
       </div>
@@ -309,78 +309,79 @@
 import { ref, computed, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
-import { useProgramStore } from '@/stores/programStore.js';
+import { usePasseStore } from '@/stores/passeStore.js';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useAuthStore } from '@/stores/authStore.js';
-import { useActiveProgramStore } from '@/stores/activeProgramStore.js';
+import { useActivePasseStore } from '@/stores/activePasseStore.js';
 import Icons from '@/components/Icons.vue';
 
 const router = useRouter();
 const store = useShooterRemoteStore();
-const programStore = useProgramStore();
+const passeStore = usePasseStore();
 const playStore = usePlaySessionStore();
 const rangeStore = useRangeStore();
 const authStore = useAuthStore();
-const activeProgramStore = useActiveProgramStore();
+const activePasseStore = useActivePasseStore();
 
 const isOpen = ref(false);
 const namingMode = ref(false);
-const ablaufNameInput = ref('');
+const serieNameInput = ref('');
 const saveAsRange = ref(false);
 const nameInputRef = ref(null);
-const expandedAblaufId = ref(null);
+const expandedSerieId = ref(null);
 
 const isRecordingActive = computed(
-  () => store.sessionMode === 'recording' && store.recordingActive && programStore.programMode,
+  () => store.sessionMode === 'recording' && store.recordingActive && passeStore.passeMode,
 );
 
-const currentSteps = computed(() => programStore.editingAblauf[0]?.steps ?? []);
+const currentSteps = computed(() => passeStore.editingSerie[0]?.steps ?? []);
 
 const currentRangeId = computed(() => store.selectedRangeId);
 
-// ── Load completed ablaeufe on mount ────────────────────────────────────────
-playStore.loadCompletedAblaeufe();
+// ── Load completed serien on mount ───────────────────────────────────────────
+playStore.loadCompletedSerien();
 
-// ── Ablauf categories ──────────────────────────────────────────────────────────
-const userAblaeufe = computed(() => {
-  return programStore.getUserAblaeufeForRange(currentRangeId.value).map(ablauf => ({
-    ...ablauf,
+// ── Serie categories ───────────────────────────────────────────────────────────
+const userSerien = computed(() => {
+  return passeStore.getUserSerienForRange(currentRangeId.value).map(serie => ({
+    ...serie,
     type: 'user'
   }));
 });
 
-const globalAblaeufe = computed(() => {
-  return programStore.getGlobalAblaeufe()
-    .filter(ablauf => ablauf.rangeId === currentRangeId.value)
-    .map(ablauf => ({
-      ...ablauf,
+const globalSerien = computed(() => {
+  return passeStore.getGlobalSerien()
+    .filter(serie => serie.rangeId === currentRangeId.value)
+    .map(serie => ({
+      ...serie,
       type: 'global'
     }));
 });
 
-const competitionAblaeufe = computed(() => {
-  // For now, these would come from active competition sessions
-  // This is a placeholder for future API integration
+const competitionSerien = computed(() => {
+  // Placeholder for future API integration
   return [];
 });
 
 const trainingBlocks = computed(() =>
-  activeProgramStore.getBlocksForRange(currentRangeId.value)
+  activePasseStore.getBlocksForRange(currentRangeId.value)
     .filter(b => b.instanceType === 'training')
-)
+);
 
-const programmeBlocks = computed(() =>
-  activeProgramStore.getBlocksForRange(currentRangeId.value)
+const passenBlocks = computed(() =>
+  activePasseStore.getBlocksForRange(currentRangeId.value)
     .filter(b => b.instanceType !== 'training')
 );
 
 const playBlock = (block) => {
-  playStore.pendingProgramInfo = {
-    ablauf: {
-      id: block.ablaufId,
-      name: block.ablaufAlias,
-      alias: block.ablaufAlias,
+  // Include rotteId from competition context when the block belongs to a competition rotte
+  const rotteId = block.rotteId ?? store.competitionContext?.rotteId ?? null;
+  playStore.pendingPasseInfo = {
+    serie: {
+      id: block.serieId,
+      name: block.serieAlias,
+      alias: block.serieAlias,
       steps: block.steps,
       rangeId: block.rangeId,
       rangeName: block.rangeName,
@@ -389,6 +390,7 @@ const playBlock = (block) => {
     instanceId: block.instanceId,
     blockId: block.blockId,
     players: block.players,
+    rotteId,
   };
   isOpen.value = false;
   router.push(`/remote/${currentRangeId.value}/play`);
@@ -401,79 +403,79 @@ const togglePanel = () => {
     isOpen.value = !isOpen.value;
   }
   if (isOpen.value) {
-    expandedAblaufId.value = null;
+    expandedSerieId.value = null;
   }
 };
 
-const toggleExpandAblauf = (ablaufId) => {
-  expandedAblaufId.value = expandedAblaufId.value === ablaufId ? null : ablaufId;
+const toggleExpandSerie = (serieId) => {
+  expandedSerieId.value = expandedSerieId.value === serieId ? null : serieId;
 };
 
-const isAblaufCompleted = (ablaufId) => {
-  return playStore.isAblaufCompleted(ablaufId);
+const isSerieCompleted = (serieId) => {
+  return playStore.isSerieCompleted(serieId);
 };
 
-const buildAblaufSegment = (ablauf) => ({
-  id: ablauf.id,
-  alias: ablauf.name,
-  rangeId: ablauf.rangeId,
-  rangeName: ablauf.rangeName,
-  steps: ablauf.steps,
+const buildSerieSegment = (serie) => ({
+  id: serie.id,
+  alias: serie.name,
+  rangeId: serie.rangeId,
+  rangeName: serie.rangeName,
+  steps: serie.steps,
 });
 
-const playAblaufSolo = (ablauf) => {
-  const tempProgram = {
-    id: `temp_${ablauf.id}`,
-    name: ablauf.name,
-    ablaeufe: [buildAblaufSegment(ablauf)],
+const playSerieSolo = (serie) => {
+  const tempPasse = {
+    id: `temp_${serie.id}`,
+    name: serie.name,
+    serien: [buildSerieSegment(serie)],
   };
-  programStore.savedPrograms.push(tempProgram);
-  playStore.playProgramWithScore(tempProgram.id);
-  programStore.savedPrograms = programStore.savedPrograms.filter((p) => p.id !== tempProgram.id);
+  passeStore.savedPassen.push(tempPasse);
+  playStore.playPasseWithScore(tempPasse.id, [], currentRangeId.value);
+  passeStore.savedPassen = passeStore.savedPassen.filter((p) => p.id !== tempPasse.id);
   isOpen.value = false;
   router.push(`/remote/${currentRangeId.value}/play`);
 };
 
-const playAblaufGroup = (ablauf) => {
-  playStore.setPendingGroupAblaeufe([buildAblaufSegment(ablauf)]);
+const playSerieGroup = (serie) => {
+  playStore.setPendingGroupSerien([buildSerieSegment(serie)]);
   isOpen.value = false;
   router.push(`/remote/${currentRangeId.value}/play`);
 };
 
-const editAblauf = (ablaufId) => {
-  const ablauf = programStore.savedAblaeufe.find(a => a.id === ablaufId);
-  if (!ablauf) return;
-  programStore.editingId = ablaufId;
-  programStore.editingAblauf = [{ id: ablauf.id, alias: ablauf.name, steps: [...ablauf.steps] }];
-  programStore.programMode = true;
+const editSerie = (serieId) => {
+  const serie = passeStore.savedSerien.find(a => a.id === serieId);
+  if (!serie) return;
+  passeStore.editingId = serieId;
+  passeStore.editingSerie = [{ id: serie.id, alias: serie.name, steps: [...serie.steps] }];
+  passeStore.passeMode = true;
   isOpen.value = true;
-  expandedAblaufId.value = null;
+  expandedSerieId.value = null;
 };
 
-const deleteAblauf = (ablaufId) => {
-  if (confirm('Diesen Ablauf wirklich löschen?')) {
-    programStore.deleteAblauf(ablaufId);
-    expandedAblaufId.value = null;
+const deleteSerie = (serieId) => {
+  if (confirm('Diese Serie wirklich löschen?')) {
+    passeStore.deleteSerie(serieId);
+    expandedSerieId.value = null;
   }
 };
 
 // ── Naming mode ────────────────────────────────────────────────────────────
 const openNamingMode = () => {
-  ablaufNameInput.value = '';
+  serieNameInput.value = '';
   saveAsRange.value = false;
   namingMode.value = true;
   nextTick(() => nameInputRef.value?.focus());
 };
 
-const confirmSaveAblauf = () => {
+const confirmSaveSerie = () => {
   const rangeId = store.selectedRangeId;
   const range = rangeStore.ranges.find((r) => r.id === rangeId);
   const ownership = saveAsRange.value ? 'range' : 'user';
-  programStore.saveAblauf(ablaufNameInput.value, rangeId, range?.name ?? null, ownership);
+  passeStore.saveSerie(serieNameInput.value, rangeId, range?.name ?? null, ownership);
   namingMode.value = false;
-  ablaufNameInput.value = '';
+  serieNameInput.value = '';
   saveAsRange.value = false;
-  expandedAblaufId.value = null;
+  expandedSerieId.value = null;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -750,14 +752,14 @@ const getStepTooltip = (step) => {
   display: none;
 }
 
-/* ── Abläufe list ────────────────────────────────── */
-.ablaeufe-list {
+/* ── Serien list ─────────────────────────────────── */
+.serien-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.ablauf-card {
+.serie-card {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
@@ -765,12 +767,12 @@ const getStepTooltip = (step) => {
   transition: all 0.2s;
 }
 
-.ablauf-card.expanded {
+.serie-card.expanded {
   background: rgba(79, 195, 247, 0.08);
   border-color: rgba(79, 195, 247, 0.25);
 }
 
-.ablauf-header-btn {
+.serie-header-btn {
   width: 100%;
   display: flex;
   align-items: center;
@@ -783,11 +785,11 @@ const getStepTooltip = (step) => {
   transition: background 0.15s;
 }
 
-.ablauf-header-btn:hover {
+.serie-header-btn:hover {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.ablauf-name {
+.serie-name {
   font-size: 12px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.8);
@@ -808,7 +810,7 @@ const getStepTooltip = (step) => {
   flex-shrink: 0;
 }
 
-.ablauf-actions {
+.serie-actions {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -879,13 +881,13 @@ const getStepTooltip = (step) => {
 }
 
 /* ── Draft steps ─────────────────────────────────── */
-.ablauf-list {
+.serie-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.ablauf-item {
+.serie-item {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
@@ -1029,7 +1031,7 @@ const getStepTooltip = (step) => {
 .btn-save:hover { background: rgba(72, 187, 120, 0.28); }
 
 /* Name input in footer */
-.ablauf-name-input {
+.serie-name-input {
   flex: 1;
   height: 36px;
   background: rgba(255, 255, 255, 0.07);
@@ -1043,11 +1045,11 @@ const getStepTooltip = (step) => {
   transition: border-color 0.15s;
 }
 
-.ablauf-name-input:focus {
+.serie-name-input:focus {
   border-color: rgba(79, 195, 247, 0.5);
 }
 
-.ablauf-name-input::placeholder {
+.serie-name-input::placeholder {
   color: rgba(255, 255, 255, 0.3);
 }
 

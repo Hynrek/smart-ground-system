@@ -9,6 +9,7 @@
         <div class="header-text">
           <h1 class="page-title">{{ range?.name ?? '…' }}</h1>
           <p v-if="range?.description" class="page-sub">{{ range.description }}</p>
+          <span v-if="rotteName" class="rotte-badge">{{ rotteName }}</span>
         </div>
       </div>
 
@@ -135,10 +136,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
-import { useProgramStore } from '@/stores/programStore.js';
+import { useActivePasseStore } from '@/stores/activePasseStore.js';
+import { usePasseStore } from '@/stores/passeStore.js';
 import { sendPositionCommand } from '@/services/rangePositionApi.js';
 import Icons from '@/components/Icons.vue';
 import ShooterFlyoutPanel from '@/components/shooter-remote/ShooterFlyoutPanel.vue';
@@ -146,15 +148,30 @@ import ShooterFlyoutPanel from '@/components/shooter-remote/ShooterFlyoutPanel.v
 const props = defineProps({ rangeId: { type: String, required: true } });
 
 const router = useRouter();
+const route = useRoute();
 const rangeStore = useRangeStore();
 const store = useShooterRemoteStore();
-const programStore = useProgramStore();
+const passeStore = usePasseStore();
+const activePasseStore = useActivePasseStore();
+
+// Optional competition context query params
+const rotteId = computed(() => route.query.rotteId ?? null);
+const instanceId = computed(() => route.query.instanceId ?? null);
+
+// Derive the rotte's display name from the active instance when context is present
+const rotteName = computed(() => {
+  if (!rotteId.value || !instanceId.value) return null;
+  const inst = activePasseStore.activeInstances.find((i) => i.instanceId === instanceId.value);
+  return inst?.rotten?.find((r) => r.rotteId === rotteId.value)?.name ?? null;
+});
 
 const positionsLoading = ref(false);
 
 onMounted(async () => {
   store.ensureReserved(props.rangeId);
   store.setMode('solo');
+  // Store competition context so ShooterFlyoutPanel can access it
+  store.setCompetitionContext(instanceId.value, rotteId.value);
   // Only fetch from API if positions are not already cached for this range
   if (!rangeStore.positions[props.rangeId]) {
     positionsLoading.value = true;
@@ -168,6 +185,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   store.releasePlatz();
+  store.setCompetitionContext(null, null);
 });
 
 watch(() => store.sessionMode, () => {
@@ -198,12 +216,12 @@ const errorIds = ref(new Set());
 const handlePositionTap = async (position) => {
   if (isPositionDisabled(position)) return;
 
-  if (store.sessionMode === 'recording' && programStore.programMode) {
-    programStore.addStep(position.id, position, position.label);
+  if (store.sessionMode === 'recording' && passeStore.passeMode) {
+    passeStore.addStep(position.id, position, position.label);
     return;
   }
 
-  if ((store.mode === 'pair' || store.mode === 'a_schuss') && !programStore.programMode) {
+  if ((store.mode === 'pair' || store.mode === 'a_schuss') && !passeStore.passeMode) {
     if (!store.throwPairPending) {
       store.throwPairPending = { id: position.id, alias: position.device?.alias ?? position.label };
     } else if (store.throwPairPending.id === position.id) {
@@ -217,7 +235,7 @@ const handlePositionTap = async (position) => {
     return;
   }
 
-  if (store.mode === 'raffale' && !programStore.programMode) {
+  if (store.mode === 'raffale' && !passeStore.passeMode) {
     await fireRaffalePosition(position.id);
     return;
   }
@@ -311,8 +329,8 @@ const positionBtnClass = (position) => ({
   'device-btn--error': errorIds.value.has(position.id),
   'device-btn--blocked': (position.device?.blocked ?? false) || isLocked.value,
   'device-btn--no-device': !position.device,
-  'device-btn--recording': !!programStore.recording[position.id],
-  'device-btn--pair-pending': programStore.programMode && programStore.pairPending?.id === position.id,
+  'device-btn--recording': !!passeStore.recording[position.id],
+  'device-btn--pair-pending': passeStore.passeMode && passeStore.pairPending?.id === position.id,
   'device-btn--inactive': !store.reservedByMe && !isLocked.value,
 });
 
@@ -329,8 +347,8 @@ const chipClass = (position) => {
   if (!store.reservedByMe) return 'chip--free';
   if (errorIds.value.has(position.id)) return 'chip--error';
   if (firedIds.value.has(position.id)) return 'chip--fired';
-  if (programStore.recording[position.id]) return 'chip--recording';
-  if (programStore.programMode && programStore.pairPending?.id === position.id) return 'chip--pending';
+  if (passeStore.recording[position.id]) return 'chip--recording';
+  if (passeStore.passeMode && passeStore.pairPending?.id === position.id) return 'chip--pending';
   return 'chip--ready';
 };
 
@@ -341,8 +359,8 @@ const chipLabel = (position) => {
   if (!store.reservedByMe) return 'Frei';
   if (errorIds.value.has(position.id)) return 'Fehler';
   if (firedIds.value.has(position.id)) return 'Ausgelöst';
-  if (programStore.recording[position.id]) return 'Erfasst';
-  if (programStore.programMode && programStore.pairPending?.id === position.id) return 'Gewählt';
+  if (passeStore.recording[position.id]) return 'Erfasst';
+  if (passeStore.passeMode && passeStore.pairPending?.id === position.id) return 'Gewählt';
   return 'Bereit';
 };
 </script>
@@ -492,6 +510,17 @@ const chipLabel = (position) => {
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rotte-badge {
+  display: inline-block;
+  background: rgba(79, 195, 247, 0.15);
+  color: #4fc3f7;
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
   white-space: nowrap;
 }
 

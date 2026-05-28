@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { useProgramStore } from '@/stores/programStore.js';
-import { sendDeviceCommand } from '@/services/deviceApi.js';
+import { usePasseStore } from '@/stores/passeStore.js';
+import { sendPositionCommand } from '@/services/rangePositionApi.js';
 import { StepState, StepType, PartialStep, FailType } from '@/constants/playEnums.js';
 
 // Helper to generate UUID
@@ -19,19 +19,19 @@ const generateUUID = () => {
 export { StepState, StepType, PartialStep, FailType };
 
 export const usePlaySessionStore = defineStore('playSession', () => {
-  const programStore = useProgramStore();
+  const passeStore = usePasseStore();
 
   // ── Playback state ──────────────────────────────────────────────────────────
   const playProg = ref(null);           // Segment[] | null
-  const currentAblaufIndex = ref(0);
+  const currentSerieIndex = ref(0);
   const currentStepIndex = ref(0);
   const playPartialStep = ref(null);    // PartialStep value | null  (a.schuss two-tap)
   const playRaffaleStarted = ref(false);
   const playScoreMode = ref(false);
   const playScore = ref({ totalPoints: 0, stepStates: [] });
-  const playLastDeviceStep = ref(null); // { ablaufIdx, stepIdx } of last fired step
+  const playLastDeviceStep = ref(null); // { serieIdx, stepIdx } of last fired step
   const playComplete = ref(false);      // true once the user confirms program end
-  const activeBlockContext = ref(null); // { instanceId, blockId } | null
+  const activeBlockContext = ref(null); // { instanceId, blockId, rotteId? } | null
 
   // ── Multi-player state ──────────────────────────────────────────────────────
   const sessionPlayers = ref([]);
@@ -41,35 +41,36 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   const completedPlayerCount = ref(0);
 
   // ── Group setup state ────────────────────────────────────────────────────────
-  const pendingGroupAblaeufe = ref(null);
+  const pendingGroupSerien = ref(null);
   const showGroupSetup = ref(false);
 
-  // ── Pending program (from Programme Management View) ──────────────────────────
-  const pendingProgramInfo = ref(null); // { programId, rangeId }
-  const _pendingProgramId = ref(null);  // Internal only — persists programId through session init
+  // ── Pending passe (from Passe Management View) ──────────────────────────
+  const pendingPasseInfo = ref(null); // { passeId, rangeId }
+  const _pendingPasseId = ref(null);  // Internal only — persists passeId through session init
 
   // ── Active sessions (persistent across page reloads) ────────────────────────
   const activeSessions = ref([]);
   const currentSessionId = ref(null);
+  const currentRangeId = ref(null);
   const SESSIONS_KEY = 'sg_active_sessions';
 
   // ── Completion tracking ──────────────────────────────────────────────────────
-  // Persistent storage of completed Ablauf IDs (for Training/Wettkampf sessions)
-  const completedAblaeufe = ref(new Set());
-  const COMPLETED_ABLAUF_KEY = 'sg_completed_ablaeufe';
+  // Persistent storage of completed Serie IDs (for Training/Wettkampf sessions)
+  const completedSerien = ref(new Set());
+  const COMPLETED_SERIE_KEY = 'sg_completed_serien';
 
   // ── Core computed ───────────────────────────────────────────────────────────
-  const currentAblauf = computed(() => playProg.value?.[currentAblaufIndex.value] ?? null);
+  const currentSerie = computed(() => playProg.value?.[currentSerieIndex.value] ?? null);
 
-  const currentStep = computed(() => currentAblauf.value?.steps[currentStepIndex.value] ?? null);
+  const currentStep = computed(() => currentSerie.value?.steps[currentStepIndex.value] ?? null);
 
   // True once the last step's index has advanced past the end of the last segment.
   // At this point currentStep is null and the Fertig card should appear.
   const isAtProgramEnd = computed(() =>
     !!(playProg.value &&
-       currentAblauf.value &&
-       currentAblaufIndex.value === playProg.value.length - 1 &&
-       currentStepIndex.value >= currentAblauf.value.steps.length)
+       currentSerie.value &&
+       currentSerieIndex.value === playProg.value.length - 1 &&
+       currentStepIndex.value >= currentSerie.value.steps.length)
   );
 
   // ── Multi-player computed ───────────────────────────────────────────────────
@@ -99,12 +100,12 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     return Math.round((done / total) * 100);
   });
 
-  const ablaufCompletionPct = computed(() => {
-    if (!currentAblauf.value) return 0;
-    const segTotal = currentAblauf.value.steps.length;
+  const serieCompletionPct = computed(() => {
+    if (!currentSerie.value) return 0;
+    const segTotal = currentSerie.value.steps.length;
     if (segTotal === 0) return 0;
     const segDone = playScore.value.stepStates.filter(
-      (s) => s.ablaufIndex === currentAblaufIndex.value && s.state !== StepState.PENDING
+      (s) => s.serieIndex === currentSerieIndex.value && s.state !== StepState.PENDING
     ).length;
     return Math.round((segDone / segTotal) * 100);
   });
@@ -113,7 +114,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     if (!playProg.value) return 0;
     const totalSteps = playProg.value.reduce((sum, seg) => sum + seg.steps.length, 0);
     const flatIndex =
-      playProg.value.slice(0, currentAblaufIndex.value).reduce((sum, seg) => sum + seg.steps.length, 0) +
+      playProg.value.slice(0, currentSerieIndex.value).reduce((sum, seg) => sum + seg.steps.length, 0) +
       currentStepIndex.value;
     return ((flatIndex + 1) / totalSteps) * 100;
   });
@@ -121,8 +122,8 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   // No Bird is only valid when the last fired step is still in DONE state (not yet failed/retried).
   const canRetry = computed(() => {
     if (!playLastDeviceStep.value || playComplete.value) return false;
-    const { ablaufIdx, stepIdx } = playLastDeviceStep.value;
-    const state = findStepState(ablaufIdx, stepIdx);
+    const { serieIdx, stepIdx } = playLastDeviceStep.value;
+    const state = findStepState(serieIdx, stepIdx);
     return state?.state === StepState.DONE;
   });
 
@@ -153,7 +154,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     const playerId = currentPlayer.value?.id;
     return (
       playScore.value.stepStates.find(
-        (s) => s.playerId === playerId && s.ablaufIndex === segIdx && s.stepIndex === stepIdx
+        (s) => s.playerId === playerId && s.serieIndex === segIdx && s.stepIndex === stepIdx
       ) ?? null
     );
   };
@@ -193,23 +194,23 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     roundOrder.value = Array.from({ length: count }, (_, i) => (roundStartIndex.value + i) % count);
   };
 
-  // Load pending program and prepare for group setup
-  const loadPendingProgram = () => {
-    if (!pendingProgramInfo.value) return null;
-    const { programId } = pendingProgramInfo.value;
-    _pendingProgramId.value = programId;  // Persist for startGroupPlay
-    const prog = programStore.savedPrograms.find((p) => p.id === programId);
+  // Load pending passe and prepare for group setup
+  const loadPendingPasse = () => {
+    if (!pendingPasseInfo.value) return null;
+    const { passeId } = pendingPasseInfo.value;
+    _pendingPasseId.value = passeId;  // Persist for startGroupPlay
+    const prog = passeStore.savedPassen.find((p) => p.id === passeId);
     if (!prog) return null;
 
-    // Stage the ablaeufe for group setup
-    pendingGroupAblaeufe.value = prog.ablaeufe;
+    // Stage the serien for group setup
+    pendingGroupSerien.value = prog.serien;
     showGroupSetup.value = true;
 
     return prog;
   };
 
-  const clearPendingProgram = () => {
-    pendingProgramInfo.value = null;
+  const clearPendingPasse = () => {
+    pendingPasseInfo.value = null;
   };
 
   // ── Session persistence ──────────────────────────────────────────────────────
@@ -241,14 +242,15 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     const session = activeSessions.value.find((s) => s.sessionId === sessionId);
     if (!session) return false;
 
-    const prog = programStore.savedPrograms.find((p) => p.id === session.programId);
+    const prog = passeStore.savedPassen.find((p) => p.id === session.passeId);
     if (!prog) return false;
 
     currentSessionId.value = sessionId;
-    playProg.value = prog.ablaeufe;
+    currentRangeId.value = session.rangeId ?? null;
+    playProg.value = prog.serien;
     sessionPlayers.value = session.players;
     currentPlayerIndex.value = 0;
-    currentAblaufIndex.value = 0;
+    currentSerieIndex.value = 0;
     currentStepIndex.value = 0;
     playScoreMode.value = true;
     playPartialStep.value = null;
@@ -258,12 +260,12 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
     // Initialize playScore with stepStates for all players
     const stepStates = [];
-    prog.ablaeufe.forEach((seg, segIdx) => {
+    prog.serien.forEach((seg, segIdx) => {
       seg.steps.forEach((step, stepIdx) => {
         session.players.forEach((player) => {
           stepStates.push({
             playerId: player.id,
-            ablaufIndex: segIdx,
+            serieIndex: segIdx,
             stepIndex: stepIdx,
             state: StepState.PENDING,
             pointValue: getPointValueForStep(step),
@@ -280,18 +282,19 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   };
 
   // ── Playback actions ─────────────────────────────────────────────────────────
-  const playProgramWithScore = (programId, players = []) => {
-    const prog = programStore.savedPrograms.find((p) => p.id === programId);
+  const playPasseWithScore = (passeId, players = [], rangeId = null) => {
+    const prog = passeStore.savedPassen.find((p) => p.id === passeId);
     if (!prog) return;
 
+    currentRangeId.value = rangeId;
     setupPlayers(
       players.length > 0
         ? players
-        : [{ id: 'solo', type: 'user', userId: null, displayName: 'Spieler' }]
+        : [{ id: 'solo', type: 'user', userId: null, displayName: 'Schütze' }]
     );
 
-    playProg.value = prog.ablaeufe;
-    currentAblaufIndex.value = 0;
+    playProg.value = prog.serien;
+    currentSerieIndex.value = 0;
     currentStepIndex.value = 0;
     playScoreMode.value = true;
     playPartialStep.value = null;
@@ -301,11 +304,11 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
     const stepStates = [];
     sessionPlayers.value.forEach((player) => {
-      prog.ablaeufe.forEach((seg, segIdx) => {
+      prog.serien.forEach((seg, segIdx) => {
         seg.steps.forEach((step, stepIdx) => {
           stepStates.push({
             playerId: player.id,
-            ablaufIndex: segIdx,
+            serieIndex: segIdx,
             stepIndex: stepIdx,
             state: StepState.PENDING,
             pointValue: getPointValueForStep(step),
@@ -322,34 +325,35 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     if (!playProg.value) return;
     const step = currentStep.value;
     if (!step) return;
+    const rangeId = currentRangeId.value;
 
     try {
       if (step.type === StepType.SOLO) {
-        await sendDeviceCommand(step.deviceId);
+        await sendPositionCommand(rangeId, step.positionId);
         markStepDone();
       } else if (step.type === StepType.PAIR) {
         await Promise.all([
-          sendDeviceCommand(step.deviceId1),
-          sendDeviceCommand(step.deviceId2),
+          sendPositionCommand(rangeId, step.positionId1),
+          sendPositionCommand(rangeId, step.positionId2),
         ]);
         markStepDone();
       } else if (step.type === StepType.A_SCHUSS) {
         if (playPartialStep.value === null) {
-          await sendDeviceCommand(step.deviceId1);
+          await sendPositionCommand(rangeId, step.positionId1);
           playPartialStep.value = PartialStep.FIRST;
         } else if (playPartialStep.value === PartialStep.FIRST) {
-          await sendDeviceCommand(step.deviceId2);
+          await sendPositionCommand(rangeId, step.positionId2);
           playPartialStep.value = null;
           markStepDone();
         }
       } else if (step.type === StepType.RAFFALE) {
         if (!playRaffaleStarted.value) {
-          await sendDeviceCommand(step.deviceId);
+          await sendPositionCommand(rangeId, step.positionId);
           playRaffaleStarted.value = true;
         }
       }
     } catch (err) {
-      console.error('Failed to send device command during playback:', err);
+      console.error('Failed to send position command during playback:', err);
     }
   };
 
@@ -357,7 +361,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     const step = currentStep.value;
     if (step?.type !== StepType.RAFFALE) return;
     try {
-      await sendDeviceCommand(step.deviceId);
+      await sendPositionCommand(currentRangeId.value, step.positionId);
     } catch (err) {
       console.error('Failed to send second raffale command:', err);
     }
@@ -366,13 +370,13 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   };
 
   const markStepDone = () => {
-    const state = findStepState(currentAblaufIndex.value, currentStepIndex.value);
+    const state = findStepState(currentSerieIndex.value, currentStepIndex.value);
     if (state?.state === StepState.PENDING) {
       state.state = StepState.DONE;
       state.pointsEarned = state.pointValue;
       playScore.value.totalPoints += state.pointValue;
       playLastDeviceStep.value = {
-        ablaufIdx: currentAblaufIndex.value,
+        serieIdx: currentSerieIndex.value,
         stepIdx: currentStepIndex.value,
       };
     }
@@ -380,17 +384,17 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   };
 
   const moveToNextStep = () => {
-    const seg = playProg.value[currentAblaufIndex.value];
+    const seg = playProg.value[currentSerieIndex.value];
 
     if (currentStepIndex.value < seg.steps.length - 1) {
       // More steps in this segment
       currentStepIndex.value += 1;
       playPartialStep.value = null;
-    } else if (currentAblaufIndex.value < playProg.value.length - 1) {
+    } else if (currentSerieIndex.value < playProg.value.length - 1) {
       // Advance to the first step of the next segment.
       // playLastDeviceStep is intentionally kept so fail buttons remain usable
       // for the last step of the completed segment.
-      currentAblaufIndex.value += 1;
+      currentSerieIndex.value += 1;
       currentStepIndex.value = 0;
       playPartialStep.value = null;
     } else {
@@ -422,23 +426,23 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
   const failStep = (failType) => {
     if (!playLastDeviceStep.value) return;
-    const { ablaufIdx, stepIdx } = playLastDeviceStep.value;
-    const stepState = findStepState(ablaufIdx, stepIdx);
-    const step = playProg.value[ablaufIdx]?.steps[stepIdx];
+    const { serieIdx, stepIdx } = playLastDeviceStep.value;
+    const stepState = findStepState(serieIdx, stepIdx);
+    const step = playProg.value[serieIdx]?.steps[stepIdx];
     if (!stepState || !step) return;
     updateFailState(stepState, failType, step.type);
   };
 
   const retryStep = () => {
     if (!playLastDeviceStep.value) return;
-    const { ablaufIdx, stepIdx } = playLastDeviceStep.value;
-    const state = findStepState(ablaufIdx, stepIdx);
+    const { serieIdx, stepIdx } = playLastDeviceStep.value;
+    const state = findStepState(serieIdx, stepIdx);
     if (state?.state !== StepState.DONE) return;
     state.noBirds += 1;
     state.state = StepState.PENDING;
     playScore.value.totalPoints -= state.pointValue;
     state.pointsEarned = 0;
-    currentAblaufIndex.value = ablaufIdx;
+    currentSerieIndex.value = serieIdx;
     currentStepIndex.value = stepIdx;
     playPartialStep.value = null;
     playLastDeviceStep.value = null;
@@ -448,13 +452,14 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   // (clicking Fertig or using a fail button at program end).
   const confirmComplete = async () => {
     playComplete.value = true;
-    // Notify active program store if playing a block instance
+    // Notify active passe store if playing a block instance
     if (activeBlockContext.value) {
-      const { useActiveProgramStore } = await import('@/stores/activeProgramStore.js');
-      useActiveProgramStore().markBlockDone(
+      const { useActivePasseStore } = await import('@/stores/activePasseStore.js');
+      useActivePasseStore().markBlockDone(
         activeBlockContext.value.instanceId,
         activeBlockContext.value.blockId,
         buildPlayerResults(),
+        activeBlockContext.value.rotteId ?? undefined,
       );
       activeBlockContext.value = null;
     }
@@ -468,7 +473,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
   const closePlayback = () => {
     playProg.value = null;
-    currentAblaufIndex.value = 0;
+    currentSerieIndex.value = 0;
     currentStepIndex.value = 0;
     playPartialStep.value = null;
     playRaffaleStarted.value = false;
@@ -480,28 +485,30 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     currentPlayerIndex.value = 0;
     completedPlayerCount.value = 0;
     showGroupSetup.value = false;
-    pendingGroupAblaeufe.value = null;
+    pendingGroupSerien.value = null;
+    currentRangeId.value = null;
   };
 
-  const setPendingGroupAblaeufe = (ablaeufe) => {
-    pendingGroupAblaeufe.value = ablaeufe;
+  const setPendingGroupSerien = (serien) => {
+    pendingGroupSerien.value = serien;
     showGroupSetup.value = true;
   };
 
   const cancelGroupSetup = () => {
     showGroupSetup.value = false;
-    pendingGroupAblaeufe.value = null;
+    pendingGroupSerien.value = null;
   };
 
-  const startGroupPlay = async (players, rangeId = null, rangeName = null, instanceId = null, blockId = null) => {
-    if (!pendingGroupAblaeufe.value) return;
-    const ablaeufe = pendingGroupAblaeufe.value;
+  const startGroupPlay = async (players, rangeId = null, rangeName = null, instanceId = null, blockId = null, rotteId = null) => {
+    if (!pendingGroupSerien.value) return;
+    const serien = pendingGroupSerien.value;
 
+    currentRangeId.value = rangeId;
     setupPlayers(players);
     completedPlayerCount.value = 0;
 
-    playProg.value = ablaeufe;
-    currentAblaufIndex.value = 0;
+    playProg.value = serien;
+    currentSerieIndex.value = 0;
     currentStepIndex.value = 0;
     playScoreMode.value = true;
     playPartialStep.value = null;
@@ -511,11 +518,11 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
     const stepStates = [];
     players.forEach((player) => {
-      ablaeufe.forEach((seg, segIdx) => {
+      serien.forEach((seg, segIdx) => {
         seg.steps.forEach((step, stepIdx) => {
           stepStates.push({
             playerId: player.id,
-            ablaufIndex: segIdx,
+            serieIndex: segIdx,
             stepIndex: stepIdx,
             state: StepState.PENDING,
             pointValue: getPointValueForStep(step),
@@ -531,13 +538,13 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     if (rangeId && !instanceId) {
       const sessionId = generateUUID();
       currentSessionId.value = sessionId;
-      const programId = _pendingProgramId.value;
-      const programName = programStore.savedPrograms.find((p) => p.id === programId)?.name || 'Programm';
+      const passeId = _pendingPasseId.value;
+      const passeName = passeStore.savedPassen.find((p) => p.id === passeId)?.name || 'Passe';
 
       const session = {
         sessionId,
-        programId,
-        programName,
+        passeId,
+        passeName,
         rangeId,
         rangeName: rangeName || `Platz ${rangeId}`,
         players: [...players],
@@ -548,20 +555,20 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
       activeSessions.value.push(session);
       saveSessions();
-      _pendingProgramId.value = null;  // Clear after session is created
+      _pendingPasseId.value = null;  // Clear after session is created
     }
 
-    // Set block context when playing from an active program instance
+    // Set block context when playing from an active passe instance
     if (instanceId && blockId) {
-      activeBlockContext.value = { instanceId, blockId };
-      const { useActiveProgramStore } = await import('@/stores/activeProgramStore.js');
-      useActiveProgramStore().markBlockInProgress(instanceId, blockId);
+      activeBlockContext.value = { instanceId, blockId, rotteId: rotteId ?? null };
+      const { useActivePasseStore } = await import('@/stores/activePasseStore.js');
+      useActivePasseStore().markBlockInProgress(instanceId, blockId, rotteId ?? undefined);
     } else {
       activeBlockContext.value = null;
     }
 
     showGroupSetup.value = false;
-    pendingGroupAblaeufe.value = null;
+    pendingGroupSerien.value = null;
   };
 
   const advanceToNextPlayer = async () => {
@@ -570,7 +577,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
       await confirmComplete();
     } else {
       currentPlayerIndex.value += 1;
-      currentAblaufIndex.value = 0;
+      currentSerieIndex.value = 0;
       currentStepIndex.value = 0;
       playPartialStep.value = null;
       playRaffaleStarted.value = false;
@@ -598,44 +605,44 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   };
 
   // ── Completion tracking actions ──────────────────────────────────────────────
-  const loadCompletedAblaeufe = () => {
+  const loadCompletedSerien = () => {
     try {
-      const stored = localStorage.getItem(COMPLETED_ABLAUF_KEY);
+      const stored = localStorage.getItem(COMPLETED_SERIE_KEY);
       if (stored) {
-        completedAblaeufe.value = new Set(JSON.parse(stored));
+        completedSerien.value = new Set(JSON.parse(stored));
       }
     } catch (e) {
-      console.error('Failed to load completed ablaeufe:', e);
+      console.error('Failed to load completed serien:', e);
     }
   };
 
-  const saveCompletedAblaeufe = () => {
+  const saveCompletedSerien = () => {
     try {
-      localStorage.setItem(COMPLETED_ABLAUF_KEY, JSON.stringify([...completedAblaeufe.value]));
+      localStorage.setItem(COMPLETED_SERIE_KEY, JSON.stringify([...completedSerien.value]));
     } catch (e) {
-      console.error('Failed to save completed ablaeufe:', e);
+      console.error('Failed to save completed serien:', e);
     }
   };
 
-  const markAblaufComplete = (ablaufId) => {
-    if (ablaufId) {
-      completedAblaeufe.value.add(ablaufId);
-      saveCompletedAblaeufe();
+  const markSerieComplete = (serieId) => {
+    if (serieId) {
+      completedSerien.value.add(serieId);
+      saveCompletedSerien();
     }
   };
 
-  const isAblaufCompleted = (ablaufId) => {
-    return ablaufId ? completedAblaeufe.value.has(ablaufId) : false;
+  const isSerieCompleted = (serieId) => {
+    return serieId ? completedSerien.value.has(serieId) : false;
   };
 
-  // Initialize: load persisted sessions and completed ablaeufe
+  // Initialize: load persisted sessions and completed serien
   loadActiveSessions();
-  loadCompletedAblaeufe();
+  loadCompletedSerien();
 
   return {
     // State
     playProg,
-    currentAblaufIndex,
+    currentSerieIndex,
     currentStepIndex,
     playPartialStep,
     playRaffaleStarted,
@@ -648,15 +655,16 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     currentPlayerIndex,
     roundOrder,
     roundStartIndex,
-    completedAblaeufe,
+    completedSerien,
     completedPlayerCount,
-    pendingGroupAblaeufe,
+    pendingGroupSerien,
     showGroupSetup,
-    pendingProgramInfo,
+    pendingPasseInfo,
     activeSessions,
     currentSessionId,
+    currentRangeId,
     // Computed
-    currentAblauf,
+    currentSerie,
     currentStep,
     isAtProgramEnd,
     currentPlayer,
@@ -664,13 +672,13 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     isLastPlayerInRound,
     nextPlayer,
     completionPct,
-    ablaufCompletionPct,
+    serieCompletionPct,
     playProgress,
     canRetry,
     playerScores,
     playerScoresSorted,
     // Actions
-    playProgramWithScore,
+    playPasseWithScore,
     advancePlayStep,
     completeRaffaleStep,
     markStepDone,
@@ -684,16 +692,16 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     buildRoundOrder,
     endPlayerTurn,
     setRoundStartOverride,
-    setPendingGroupAblaeufe,
+    setPendingGroupSerien,
     cancelGroupSetup,
     startGroupPlay,
     advanceToNextPlayer,
-    loadCompletedAblaeufe,
-    saveCompletedAblaeufe,
-    markAblaufComplete,
-    isAblaufCompleted,
-    loadPendingProgram,
-    clearPendingProgram,
+    loadCompletedSerien,
+    saveCompletedSerien,
+    markSerieComplete,
+    isSerieCompleted,
+    loadPendingPasse,
+    clearPendingPasse,
     loadActiveSessions,
     saveSessions,
     stopSession,

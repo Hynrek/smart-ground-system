@@ -48,7 +48,7 @@
       </div>
       <div class="topbar-right">
         <div v-if="store.isMultiPlayer" class="score-display">
-          <span class="score-label">Spieler</span>
+          <span class="score-label">Schütze</span>
           <span class="score-value player-count-val">
             {{ store.currentPlayerIndex + 1 }}/{{ store.sessionPlayers.length }}
           </span>
@@ -147,7 +147,7 @@
       <!-- Final score screen: solo -->
       <div v-if="showFinalScore && !store.isMultiPlayer" class="final-score-screen">
         <div class="score-card solo-score-card">
-          <div class="final-title">Programm Fertig!</div>
+          <div class="final-title">Passe Fertig!</div>
           <div class="final-score-value">{{ store.playScore.totalPoints }} Punkte</div>
           <ScoreTable
             v-if="store.sessionPlayers.length > 0"
@@ -269,7 +269,7 @@ const store = usePlaySessionStore();
 const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
 
-if (!store.playProg && !store.showGroupSetup && !store.pendingProgramInfo) {
+if (!store.playProg && !store.showGroupSetup && !store.pendingPasseInfo) {
   router.push(`/remote/${props.rangeId}`);
 }
 
@@ -277,13 +277,13 @@ if (!store.playProg && !store.showGroupSetup && !store.pendingProgramInfo) {
 let _nextPlayerId = 1;
 const groupPlayers = ref([{ id: `gp-${_nextPlayerId++}`, displayName: 'Schütze 1' }]);
 
-// Capture block context and stage the ablauf before clearing pendingProgramInfo
+// Capture block context and stage the serie before clearing pendingPasseInfo
 const _blockContext = ref(null);
-if (store.pendingProgramInfo) {
-  const info = store.pendingProgramInfo;
-  store.setPendingGroupAblaeufe([info.ablauf]);
+if (store.pendingPasseInfo) {
+  const info = store.pendingPasseInfo;
+  store.setPendingGroupSerien([info.serie]);
   if (info.instanceId && info.blockId) {
-    _blockContext.value = { instanceId: info.instanceId, blockId: info.blockId };
+    _blockContext.value = { instanceId: info.instanceId, blockId: info.blockId, rotteId: info.rotteId ?? null };
   }
   if (info.players?.length) {
     groupPlayers.value = info.players.map((p, i) => ({
@@ -291,7 +291,7 @@ if (store.pendingProgramInfo) {
       displayName: p.displayName,
     }));
   }
-  store.clearPendingProgram();
+  store.clearPendingPasse();
 }
 
 const addPlayer = () => {
@@ -310,6 +310,7 @@ const beginGroupPlay = () => {
     'Platz',
     _blockContext.value?.instanceId ?? null,
     _blockContext.value?.blockId ?? null,
+    _blockContext.value?.rotteId ?? null,
   );
 };
 
@@ -324,13 +325,13 @@ const fertigStep = { type: 'fertig', alias: 'Fertig' };
 const currentStep = computed(() => store.currentStep);
 
 const nextStep = computed(() => {
-  const seg = store.currentAblauf;
+  const seg = store.currentSerie;
   if (!seg || !store.playProg) return fertigStep;
   if (store.currentStepIndex < seg.steps.length - 1) {
     return seg.steps[store.currentStepIndex + 1];
   }
-  if (store.currentAblaufIndex < store.playProg.length - 1) {
-    return store.playProg[store.currentAblaufIndex + 1].steps[0];
+  if (store.currentSerieIndex < store.playProg.length - 1) {
+    return store.playProg[store.currentSerieIndex + 1].steps[0];
   }
   return fertigStep;
 });
@@ -338,13 +339,13 @@ const nextStep = computed(() => {
 const completedSteps = computed(() => {
   const completed = [];
   if (!store.playProg) return completed;
-  for (let segIdx = 0; segIdx < store.currentAblaufIndex; segIdx++) {
+  for (let segIdx = 0; segIdx < store.currentSerieIndex; segIdx++) {
     for (let stepIdx = 0; stepIdx < store.playProg[segIdx].steps.length; stepIdx++) {
       completed.push({ segIdx, stepIdx });
     }
   }
   for (let stepIdx = 0; stepIdx < store.currentStepIndex; stepIdx++) {
-    completed.push({ segIdx: store.currentAblaufIndex, stepIdx });
+    completed.push({ segIdx: store.currentSerieIndex, stepIdx });
   }
   return completed;
 });
@@ -360,7 +361,7 @@ const totalSteps = computed(() => {
 const currentFlatStepIndex = computed(() => {
   if (!store.playProg) return 0;
   return (
-    store.playProg.slice(0, store.currentAblaufIndex).reduce((sum, seg) => sum + seg.steps.length, 0) +
+    store.playProg.slice(0, store.currentSerieIndex).reduce((sum, seg) => sum + seg.steps.length, 0) +
     store.currentStepIndex
   );
 });
@@ -419,16 +420,16 @@ const canFail = computed(() =>
 const doubleTypes = [StepType.PAIR, StepType.A_SCHUSS, StepType.RAFFALE];
 const lastStepWasADouble = computed(() => {
   if (!store.playLastDeviceStep) return false;
-  const { ablaufIdx, stepIdx } = store.playLastDeviceStep;
-  const step = store.playProg?.[ablaufIdx]?.steps[stepIdx];
+  const { serieIdx, stepIdx } = store.playLastDeviceStep;
+  const step = store.playProg?.[serieIdx]?.steps[stepIdx];
   return step ? doubleTypes.includes(step.type) : false;
 });
 
 // The actual step object that was last fired (for dynamic fail button labels)
 const lastFiredStep = computed(() => {
   if (!store.playLastDeviceStep) return null;
-  const { ablaufIdx, stepIdx } = store.playLastDeviceStep;
-  return store.playProg?.[ablaufIdx]?.steps[stepIdx] ?? null;
+  const { serieIdx, stepIdx } = store.playLastDeviceStep;
+  return store.playProg?.[serieIdx]?.steps[stepIdx] ?? null;
 });
 
 const failLabelA = computed(() => {
@@ -479,7 +480,7 @@ const getStepAliasDisplay = (step) => {
 
 // Letter-based display for the next-step preview card
 const getStepDisplay = (step) => {
-  if (step.type === 'fertig') return 'Programm abgeschlossen';
+  if (step.type === 'fertig') return 'Passe abgeschlossen';
   if (step.type === StepType.SOLO) return step.letter ?? step.alias;
   if (step.type === StepType.RAFFALE) return `${step.letter ?? step.alias} (2×)`;
   const l1 = step.letter1 ?? step.alias1;
@@ -510,7 +511,7 @@ const getCompletedCardClass = (segIdx, stepIdx) => {
   const step = store.playProg?.[segIdx]?.steps[stepIdx];
   const classes = step?.type ? [`type-${step.type}`] : [];
   const state = store.playScore.stepStates.find(
-    (s) => s.playerId === store.currentPlayer?.id && s.ablaufIndex === segIdx && s.stepIndex === stepIdx
+    (s) => s.playerId === store.currentPlayer?.id && s.serieIndex === segIdx && s.stepIndex === stepIdx
   );
   if (state?.state === StepState.FAILED_A) classes.push('is-failed-a');
   else if (state?.state === StepState.FAILED_B) classes.push('is-failed-b');
