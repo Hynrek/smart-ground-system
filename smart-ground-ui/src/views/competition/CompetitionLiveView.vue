@@ -42,8 +42,7 @@
       <div class="col col--right">
         <div class="section-label">RANGLISTE (live)</div>
 
-        <!-- TODO: LocalScoreboard — replace placeholder once component is created -->
-        <div class="scoreboard-placeholder">Rangliste wird geladen…</div>
+        <LocalScoreboard :instance-id="instanceId" />
       </div>
     </div>
   </div>
@@ -54,6 +53,7 @@ import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Icons from '@/components/Icons.vue'
 import RangePanelCard from '@/components/competition/RangePanelCard.vue'
+import LocalScoreboard from '@/components/competition/LocalScoreboard.vue'
 import { useActivePasseStore } from '@/stores/activePasseStore.js'
 import { useRangeStore } from '@/stores/rangeStore.js'
 
@@ -223,12 +223,6 @@ function onGoToRange({ rangeId, rotteId }) {
 .col-empty {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.3);
-  padding: 4px 0;
-}
-
-.scoreboard-placeholder {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.25);
   padding: 4px 0;
 }
 
