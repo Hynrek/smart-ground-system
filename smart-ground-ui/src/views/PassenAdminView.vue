@@ -224,6 +224,8 @@ const stepCount = (steps) => {
   }
   return count;
 };
+
+defineExpose({ drawerOpen, drawerMode, drawerSerie });
 </script>
 
 <style scoped>

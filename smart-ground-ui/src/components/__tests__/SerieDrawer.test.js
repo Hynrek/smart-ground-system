@@ -107,6 +107,46 @@ describe('SerieDrawer — create mode', () => {
     expect(wrapper.emitted('close')).toBeTruthy()
   })
 
+  it('resets stepMode to solo after pair is completed', async () => {
+    const wrapper = mount(SerieDrawer, {
+      props: { open: true, mode: 'create', serie: null },
+      global: { stubs: { Icons: true } },
+      attachTo: document.body,
+    })
+    await wrapper.vm.$nextTick()
+    // Select range first to get position buttons
+    const select = getDrawerSelect()
+    expect(select).toBeTruthy()
+    if (select) {
+      select.value = 'r1'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    }
+    await wrapper.vm.$nextTick()
+
+    // Switch to pair mode
+    const typeBtns = getDrawerElement()?.querySelectorAll('.type-btn')
+    const pairBtn = Array.from(typeBtns ?? []).find(b => b.textContent === 'Pair')
+    expect(pairBtn).toBeTruthy()
+    pairBtn?.click()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.stepMode).toBe('pair')
+
+    // Click first position (sets pairPending)
+    const posBtns = getDrawerElement()?.querySelectorAll('[data-testid="pos-btn"]')
+    expect(posBtns?.length).toBeGreaterThanOrEqual(2)
+    posBtns?.[0]?.click()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.pairPending).not.toBeNull()
+
+    // Click second position (completes pair, resets to solo)
+    posBtns?.[1]?.click()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.stepMode).toBe('solo')
+    expect(wrapper.vm.pairPending).toBeNull()
+    const stepRows = getDrawerElement()?.querySelectorAll('.step-row')
+    expect(stepRows?.length).toBe(1)
+  })
+
   it('calls loadPositions and shows position buttons after range is selected', async () => {
     const wrapper = mount(SerieDrawer, {
       props: { open: true, mode: 'create', serie: null },

@@ -298,6 +298,8 @@ const deleteAndClose = () => {
     emit('close');
   }
 };
+
+defineExpose({ stepMode, pairPending });
 </script>
 
 <style scoped>

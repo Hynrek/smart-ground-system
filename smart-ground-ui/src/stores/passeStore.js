@@ -295,15 +295,16 @@ export const usePasseStore = defineStore('passe', () => {
   };
 
   const updateSerie = (serieId, newName, newSteps) => {
-    const serie = savedSerien.value.find((s) => s.id === serieId);
-    if (!serie) return;
-    serie.name = newName;
-    serie.steps = [...newSteps];
+    const exists = savedSerien.value.some((s) => s.id === serieId);
+    if (!exists) return;
+    savedSerien.value = savedSerien.value.map((s) =>
+      s.id === serieId ? { ...s, name: newName, steps: [...(newSteps ?? [])] } : s
+    );
     try {
       const stored = JSON.parse(localStorage.getItem(serieId));
       if (stored) {
         stored.serieName = newName;
-        stored.steps = newSteps;
+        stored.steps = newSteps ?? [];
         localStorage.setItem(serieId, JSON.stringify(stored));
       }
     } catch { /* ignorieren */ }

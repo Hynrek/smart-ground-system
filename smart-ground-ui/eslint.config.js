@@ -49,7 +49,11 @@ export default [
         withDefaults: 'readonly',
         fetch: 'readonly',
         localStorage: 'readonly',
-        setTimeout: 'readonly'
+        setTimeout: 'readonly',
+        document: 'readonly',
+        window: 'readonly',
+        Event: 'readonly',
+        URL: 'readonly'
       }
     },
     rules: {
