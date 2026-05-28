@@ -28,10 +28,12 @@ export const usePasseStore = defineStore('passe', () => {
   const savedSerien = ref([]);
   const savedPassen = ref([]);
   const pendingPasseId = ref(null);
+  const savedGlobalPassen = ref([]);
 
   // ── Storage key helpers ───────────────────────────────────────────────────
   // Platzweite Serien — global, nicht benutzerspezifisch
   const RANGE_SERIE_PREFIX = '_sg_range_serie_';
+  const GLOBAL_PASSE_PREFIX = '_sg_global_passe_';
 
   const getPassePrefix = () => {
     const authStore = useAuthStore();
@@ -67,6 +69,14 @@ export const usePasseStore = defineStore('passe', () => {
       .map((k) => parseInt(k.slice(RANGE_SERIE_PREFIX.length), 10))
       .filter((n) => !isNaN(n));
     return `${RANGE_SERIE_PREFIX}${existing.length > 0 ? Math.max(...existing) + 1 : 1}`;
+  };
+
+  const nextGlobalPasseKey = () => {
+    const existing = Object.keys(localStorage)
+      .filter((k) => k.startsWith(GLOBAL_PASSE_PREFIX))
+      .map((k) => parseInt(k.slice(GLOBAL_PASSE_PREFIX.length), 10))
+      .filter((n) => !isNaN(n));
+    return `${GLOBAL_PASSE_PREFIX}${existing.length > 0 ? Math.max(...existing) + 1 : 1}`;
   };
 
   // ── Load from localStorage ────────────────────────────────────────────────
@@ -142,8 +152,30 @@ export const usePasseStore = defineStore('passe', () => {
       .sort((a, b) => a.createdAt - b.createdAt);
   };
 
+  const loadGlobalPassenFromStorage = () => {
+    savedGlobalPassen.value = Object.keys(localStorage)
+      .filter((k) => k.startsWith(GLOBAL_PASSE_PREFIX))
+      .map((key) => {
+        try {
+          const data = JSON.parse(localStorage.getItem(key));
+          return {
+            id: key,
+            name: data.passeName,
+            serien: data.serien ?? [],
+            createdAt: data.createdAt ?? 0,
+            ownership: 'global',
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.createdAt - b.createdAt);
+  };
+
   loadPassenFromStorage();
   loadSerienFromStorage();
+  loadGlobalPassenFromStorage();
 
   // ── Capture lifecycle ─────────────────────────────────────────────────────
   const resetCapture = () => {
@@ -308,6 +340,53 @@ export const usePasseStore = defineStore('passe', () => {
         localStorage.setItem(serieId, JSON.stringify(stored));
       }
     } catch { /* ignorieren */ }
+  };
+
+  const createGlobalPasse = (name, selectedSerien) => {
+    if (!selectedSerien || selectedSerien.length === 0) return;
+    const trimmedName = name?.trim() || `Passe ${savedGlobalPassen.value.length + 1}`;
+    const key = nextGlobalPasseKey();
+    const createdAt = Date.now();
+    const serien = selectedSerien.map((s) => ({
+      id: s.id,
+      alias: s.name,
+      rangeId: s.rangeId,
+      rangeName: s.rangeName,
+      steps: [...(s.steps ?? [])],
+    }));
+    localStorage.setItem(key, JSON.stringify({ passeName: trimmedName, serien, createdAt, ownership: 'global' }));
+    savedGlobalPassen.value = [
+      ...savedGlobalPassen.value,
+      { id: key, name: trimmedName, serien, createdAt, ownership: 'global' },
+    ];
+  };
+
+  const updateGlobalPasse = (id, newName, newSerien) => {
+    const exists = savedGlobalPassen.value.some((p) => p.id === id);
+    if (!exists) return;
+    const serien = (newSerien ?? []).map((s) => ({
+      id: s.id,
+      alias: s.name,
+      rangeId: s.rangeId,
+      rangeName: s.rangeName,
+      steps: [...(s.steps ?? [])],
+    }));
+    savedGlobalPassen.value = savedGlobalPassen.value.map((p) =>
+      p.id === id ? { ...p, name: newName, serien } : p
+    );
+    try {
+      const stored = JSON.parse(localStorage.getItem(id));
+      if (stored) {
+        stored.passeName = newName;
+        stored.serien = serien;
+        localStorage.setItem(id, JSON.stringify(stored));
+      }
+    } catch { /* ignorieren */ }
+  };
+
+  const deleteGlobalPasse = (id) => {
+    localStorage.removeItem(id);
+    savedGlobalPassen.value = savedGlobalPassen.value.filter((p) => p.id !== id);
   };
 
   // ── Passe persistence ───────────────────────────────────────────────────────
@@ -485,6 +564,7 @@ export const usePasseStore = defineStore('passe', () => {
     savedPassen,
     pendingPasseId,
     savedTrainings,
+    savedGlobalPassen,
     // Capture lifecycle
     resetCapture,
     startCapture,
@@ -511,6 +591,11 @@ export const usePasseStore = defineStore('passe', () => {
     setPendingPasse,
     clearPendingPasse,
     loadPassenFromStorage,
+    // Global Passe actions
+    createGlobalPasse,
+    updateGlobalPasse,
+    deleteGlobalPasse,
+    loadGlobalPassenFromStorage,
     // Training actions
     loadTrainingsFromStorage,
     createTraining,

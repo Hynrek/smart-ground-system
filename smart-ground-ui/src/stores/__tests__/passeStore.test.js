@@ -170,3 +170,99 @@ describe('passeStore.updateSerie', () => {
     expect(() => store.updateSerie('nonexistent-id', 'Name', [])).not.toThrow()
   })
 })
+
+describe('passeStore.createGlobalPasse', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  it('adds a global passe to savedGlobalPassen', () => {
+    const store = usePasseStore()
+    const serien = [{ id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }]
+    store.createGlobalPasse('Test Passe', serien)
+    expect(store.savedGlobalPassen).toHaveLength(1)
+    const passe = store.savedGlobalPassen[0]
+    expect(passe.name).toBe('Test Passe')
+    expect(passe.ownership).toBe('global')
+    expect(passe.serien).toHaveLength(1)
+  })
+
+  it('persists to localStorage with _sg_global_passe_ prefix', () => {
+    const store = usePasseStore()
+    const serien = [{ id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }]
+    store.createGlobalPasse('My Passe', serien)
+    const key = Object.keys(localStorage).find((k) => k.startsWith('_sg_global_passe_'))
+    expect(key).toBeDefined()
+    const stored = JSON.parse(localStorage.getItem(key))
+    expect(stored.passeName).toBe('My Passe')
+    expect(stored.ownership).toBe('global')
+  })
+
+  it('does nothing when serien array is empty', () => {
+    const store = usePasseStore()
+    store.createGlobalPasse('Empty', [])
+    expect(store.savedGlobalPassen).toHaveLength(0)
+    expect(Object.keys(localStorage)).toHaveLength(0)
+  })
+
+  it('falls back to generated name when name is blank', () => {
+    const store = usePasseStore()
+    const serien = [{ id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }]
+    store.createGlobalPasse('  ', serien)
+    expect(store.savedGlobalPassen[0].name).toBe('Passe 1')
+  })
+})
+
+describe('passeStore.updateGlobalPasse', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  it('updates name and serien in memory', () => {
+    const store = usePasseStore()
+    const serien = [{ id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }]
+    store.createGlobalPasse('Old Name', serien)
+    const passeId = store.savedGlobalPassen[0].id
+    const newSerien = [
+      { id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] },
+      { id: '_sg_range_serie_2', name: 'Skeet', rangeId: 'r2', rangeName: 'Platz 2', steps: [] },
+    ]
+    store.updateGlobalPasse(passeId, 'New Name', newSerien)
+    expect(store.savedGlobalPassen[0].name).toBe('New Name')
+    expect(store.savedGlobalPassen[0].serien).toHaveLength(2)
+  })
+
+  it('persists changes to localStorage', () => {
+    const store = usePasseStore()
+    const serien = [{ id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }]
+    store.createGlobalPasse('Old Name', serien)
+    const passeId = store.savedGlobalPassen[0].id
+    store.updateGlobalPasse(passeId, 'New Name', serien)
+    const stored = JSON.parse(localStorage.getItem(passeId))
+    expect(stored.passeName).toBe('New Name')
+  })
+
+  it('does not throw when passe id is not found', () => {
+    const store = usePasseStore()
+    expect(() => store.updateGlobalPasse('nonexistent', 'Name', [])).not.toThrow()
+  })
+})
+
+describe('passeStore.deleteGlobalPasse', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  it('removes passe from savedGlobalPassen and localStorage', () => {
+    const store = usePasseStore()
+    const serien = [{ id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }]
+    store.createGlobalPasse('Test', serien)
+    const passeId = store.savedGlobalPassen[0].id
+    store.deleteGlobalPasse(passeId)
+    expect(store.savedGlobalPassen).toHaveLength(0)
+    expect(localStorage.getItem(passeId)).toBeNull()
+  })
+})
