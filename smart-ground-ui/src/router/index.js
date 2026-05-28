@@ -51,6 +51,7 @@ const routes = [
   { path: '/remote/:rangeId', component: ShooterRemoteView, props: true, meta: { layout: 'shooter' } },
   { path: '/remote/:rangeId/play', component: ShooterPlayPage, props: true, meta: { layout: 'shooter' } },
   { path: '/competition/live', component: CompetitionLiveView, meta: { layout: 'shooter' } },
+  { path: '/wettkampf/live/:instanceId', component: () => import('@/views/competition/CompetitionLiveView.vue'), props: true, meta: { layout: 'shooter' } },
   { path: '/competition/leaderboard', component: CompetitionLeaderboardView, meta: { layout: 'shooter' } },
   { path: '/career-stats', component: CareerStatsView, meta: { layout: 'shooter' } },
   { path: '/meine-passen', component: PasseManagementView, meta: { layout: 'shooter' } },

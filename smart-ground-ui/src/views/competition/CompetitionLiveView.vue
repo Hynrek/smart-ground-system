@@ -1,288 +1,241 @@
 <template>
-  <div class="competition-live">
-    <div class="live-header">
-      <h1>Wettkampf läuft</h1>
-      <div class="session-info">
-        <span>Status: {{ competitionStore.currentSession?.status }}</span>
-        <div class="session-controls">
-          <button class="btn btn-secondary" @click="pauseSession">Unterbrechen</button>
-          <button class="btn btn-danger" @click="endSession">Beenden</button>
-        </div>
-      </div>
+  <div class="live-view">
+    <!-- Top bar -->
+    <div class="top-bar">
+      <button class="back-btn" @click="goBack">
+        <Icons icon="chevronLeft" :size="18" color="rgba(255,255,255,0.7)" />
+      </button>
+      <h1 class="page-title">
+        Wettkampf läuft
+        <span v-if="instance" class="page-title-name">— {{ instance.templateName }}</span>
+      </h1>
+      <button class="stop-btn" @click="handleStop">
+        <Icons icon="stop" :size="14" color="rgba(252,129,129,0.9)" />
+        Beenden
+      </button>
     </div>
 
-    <div class="live-content">
-      <!-- Range Selector -->
-      <div class="range-section">
-        <h2>Bereiche</h2>
-        <div class="range-selector">
-          <button
-            v-for="range in availableRanges"
-            :key="range.id"
-            class="btn range-btn"
-            :class="{ active: competitionStore.selectedRange === range.id }"
-            @click="selectRange(range.id)"
-          >
-            {{ range.name }}
-          </button>
+    <!-- Body -->
+    <div class="body">
+      <!-- LEFT: ranges -->
+      <div class="col col--left">
+        <div class="section-label">BEREICHE</div>
+
+        <div v-if="rangeStore.isLoading" class="col-empty">Lade Bereiche…</div>
+
+        <div v-else-if="rangeStore.ranges.length === 0" class="col-empty">
+          Keine Bereiche konfiguriert. Bitte einen Administrator kontaktieren.
         </div>
 
-        <!-- Range Details -->
-        <div v-if="competitionStore.selectedRange" class="range-details">
-          <h3>Warteschlange</h3>
-          <div class="queue-container">
-            <div class="active-group">
-              <h4>Aktiv</h4>
-              <div v-if="competitionStore.groupsAtRange.length > 0" class="group-card">
-                <p>{{ competitionStore.groupsAtRange[0].name }}</p>
-                <p class="players">{{ competitionStore.groupsAtRange[0].members?.length || 0 }} Spieler</p>
-              </div>
-              <p v-else class="empty">Keine Gruppe aktiv</p>
-            </div>
-
-            <div class="queue">
-              <h4>Warteschlange</h4>
-              <div v-if="competitionStore.rangeQueue.length > 0" class="queue-list">
-                <div v-for="group in competitionStore.rangeQueue" :key="group.id" class="queue-item">
-                  <span>{{ group.name }}</span>
-                  <button class="btn btn-small" @click="registerGroupAtRange(group.id)">Aktivieren</button>
-                </div>
-              </div>
-              <p v-else class="empty">Keine wartenden Gruppen</p>
-            </div>
-          </div>
+        <div v-else class="range-list">
+          <RangePanelCard
+            v-for="range in rangeStore.ranges"
+            :key="range.id"
+            :range="range"
+            :instance-id="instanceId"
+            @go-to-range="onGoToRange"
+          />
         </div>
       </div>
 
-      <!-- Live Scoreboard -->
-      <div class="scoreboard-section">
-        <h2>Live-Ergebnisse</h2>
-        <live-scoreboard v-if="competitionStore.currentSession" :session-id="competitionStore.currentSession.id" />
+      <!-- RIGHT: scoreboard -->
+      <div class="col col--right">
+        <div class="section-label">RANGLISTE (live)</div>
+
+        <!-- TODO: LocalScoreboard — replace placeholder once component is created -->
+        <div class="scoreboard-placeholder">Rangliste wird geladen…</div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { useCompetitionStore } from '@/stores/competitionStore.js';
-import LiveScoreboard from '@/components/shooter-remote/LiveScoreboard.vue';
+import { computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import Icons from '@/components/Icons.vue'
+import RangePanelCard from '@/components/competition/RangePanelCard.vue'
+import { useActivePasseStore } from '@/stores/activePasseStore.js'
+import { useRangeStore } from '@/stores/rangeStore.js'
 
-const router = useRouter();
-const route = useRoute();
-const competitionStore = useCompetitionStore();
+const props = defineProps({
+  instanceId: {
+    type: String,
+    default: null,
+  },
+})
 
-const availableRanges = ref([
-  { id: '1', name: 'Bereich 1' },
-  { id: '2', name: 'Bereich 2' },
-  { id: '3', name: 'Bereich 3' },
-]);
+const router = useRouter()
+const activePasseStore = useActivePasseStore()
+const rangeStore = useRangeStore()
 
+// ── Computed: current competition instance ────────────────────────────────
+const instance = computed(() =>
+  activePasseStore.activeInstances.find((i) => i.instanceId === props.instanceId) ?? null,
+)
+
+// ── Redirect if instance disappears ──────────────────────────────────────
+watch(
+  instance,
+  (val) => {
+    if (val === null) {
+      router.push('/wettkampf')
+    }
+  },
+  { immediate: true },
+)
+
+// ── Load ranges on mount ──────────────────────────────────────────────────
 onMounted(async () => {
-  const sessionId = route.params.sessionId;
-  // Load current session if not already loaded
-  if (!competitionStore.currentSession || competitionStore.currentSession.id !== sessionId) {
-    // Fetch session from backend
-    try {
-      // TODO: Implement session loading
-    } catch (err) {
-      console.error('Failed to load session:', err);
-      router.push('/competition');
-    }
+  if (rangeStore.ranges.length === 0) {
+    await rangeStore.loadApiData()
   }
-});
+})
 
-const selectRange = async (rangeId) => {
-  competitionStore.selectRange(rangeId);
-  if (competitionStore.currentSession) {
-    await competitionStore.loadGroupsAtRange(competitionStore.currentSession.id, rangeId);
-  }
-};
+// ── Actions ───────────────────────────────────────────────────────────────
+function goBack() {
+  router.push('/wettkampf')
+}
 
-const registerGroupAtRange = async (groupId) => {
-  if (competitionStore.currentSession && competitionStore.selectedRange) {
-    await competitionStore.registerGroupAtRange(
-      competitionStore.currentSession.id,
-      groupId,
-      competitionStore.selectedRange
-    );
-  }
-};
-
-const pauseSession = async () => {
-  if (competitionStore.currentSession) {
-    await competitionStore.updateSessionStatus(competitionStore.currentSession.id, 'PAUSED');
-  }
-};
-
-const endSession = async () => {
+function handleStop() {
   if (confirm('Wettkampf wirklich beenden?')) {
-    if (competitionStore.currentSession) {
-      await competitionStore.updateSessionStatus(competitionStore.currentSession.id, 'COMPLETED');
-      router.push(`/competition/leaderboard/${competitionStore.currentSession.id}`);
-    }
+    activePasseStore.stopCompetition(props.instanceId)
+    router.push('/wettkampf')
   }
-};
+}
+
+function onGoToRange({ rangeId, rotteId }) {
+  router.push(
+    '/remote/' + rangeId + '?rotteId=' + rotteId + '&instanceId=' + props.instanceId,
+  )
+}
 </script>
 
 <style scoped>
-.competition-live {
-  padding: 2rem;
-}
-
-.live-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #333;
-}
-
-.session-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.session-controls {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.live-content {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 2rem;
-}
-
-.range-section {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 1.5rem;
-}
-
-.range-section h2 {
-  margin-top: 0;
-}
-
-.range-selector {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.range-btn {
-  padding: 0.5rem 1rem;
-  border: 1px solid #2196F3;
-  background: white;
-  color: #2196F3;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.range-btn.active {
-  background: #2196F3;
-  color: white;
-}
-
-.range-details {
-  margin-top: 1rem;
-}
-
-.queue-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.active-group,
-.queue {
-  padding: 1rem;
-  background: #f9f9f9;
-  border-radius: 4px;
-}
-
-.active-group h4,
-.queue h4 {
-  margin-top: 0;
-}
-
-.group-card {
-  padding: 0.5rem;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.group-card p {
-  margin: 0.25rem 0;
-}
-
-.players {
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.queue-list {
+.live-view {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  min-height: 0;
+  background: #1a1a2e;
+  color: #fff;
 }
 
-.queue-item {
+/* ── Top bar ── */
+.top-bar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0.5rem;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
 }
 
-.empty {
-  color: #999;
-  font-style: italic;
-}
-
-.scoreboard-section {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 1.5rem;
-}
-
-.scoreboard-section h2 {
-  margin-top: 0;
-}
-
-.btn {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
+.back-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  font-size: 0.9rem;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.btn-primary {
-  background: #2196F3;
-  color: white;
+.page-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.3px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.btn-secondary {
-  background: #9E9E9E;
-  color: white;
+.page-title-name {
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.55);
 }
 
-.btn-danger {
-  background: #f44336;
-  color: white;
+.stop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(252, 129, 129, 0.08);
+  border: 1px solid rgba(252, 129, 129, 0.22);
+  border-radius: 10px;
+  color: rgba(252, 129, 129, 0.9);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.stop-btn:hover {
+  background: rgba(252, 129, 129, 0.15);
 }
 
-.btn-small {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.8rem;
+/* ── Body: two-column grid ── */
+.body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 55fr 45fr;
+  gap: 16px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── Section label ── */
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* ── Range list ── */
+.range-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Empty / placeholder states ── */
+.col-empty {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 4px 0;
+}
+
+.scoreboard-placeholder {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.25);
+  padding: 4px 0;
+}
+
+/* ── Mobile: single column ── */
+@media (max-width: 767px) {
+  .body {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
