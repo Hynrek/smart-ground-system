@@ -233,15 +233,14 @@ export const useBracketStore = defineStore('bracket', () => {
    * Callback für Phase-Änderungen.
    */
   const onPhaseChange = (data) => {
-    const { oldPhase, newPhase } = data;
+    const { newPhase } = data;
     bracketPhase.value = newPhase;
   };
 
   /**
    * Callback für Runden-Abschluss.
    */
-  const onRoundCompletion = (data) => {
-    const { roundNumber } = data;
+  const onRoundCompletion = (_data) => {
     // UI-Hinweis: Runde abgeschlossen, nächste Runde verfügbar
     // Automatisch zum nächsten Match springen
     setTimeout(() => {
