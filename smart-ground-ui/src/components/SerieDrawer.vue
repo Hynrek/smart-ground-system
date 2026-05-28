@@ -194,7 +194,7 @@ watch(() => props.open, (open) => {
       rangeStore.loadPositions(props.serie.rangeId);
     }
   }
-});
+}, { immediate: true });
 
 // ── Positions ───────────────────────────────────────────────────────────────
 const activeRangeId = computed(() =>

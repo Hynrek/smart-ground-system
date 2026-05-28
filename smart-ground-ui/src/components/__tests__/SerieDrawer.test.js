@@ -127,3 +127,129 @@ describe('SerieDrawer — create mode', () => {
     expect(posButtons?.length).toBeGreaterThan(0)
   })
 })
+
+describe('SerieDrawer — edit mode', () => {
+  const mockSerie = {
+    id: '_sg_range_serie_1',
+    name: 'Test Serie',
+    rangeId: 'r1',
+    rangeName: 'Platz 1',
+    steps: [
+      { id: 1, type: 'solo', alias: 'Werfer 1', positionId: 'pos-a', letter: 'A' },
+    ],
+    ownership: 'range',
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+    document.body.innerHTML = ''
+  })
+
+  it('pre-fills name input in edit mode', async () => {
+    const wrapper = mount(SerieDrawer, {
+      props: { open: true, mode: 'edit', serie: mockSerie },
+      global: { stubs: { Icons: true } },
+      attachTo: document.body,
+    })
+    await wrapper.vm.$nextTick()
+    expect(getDrawerInput()?.value).toBe('Test Serie')
+  })
+
+  it('shows range as read-only label instead of picker in edit mode', async () => {
+    const wrapper = mount(SerieDrawer, {
+      props: { open: true, mode: 'edit', serie: mockSerie },
+      global: { stubs: { Icons: true } },
+      attachTo: document.body,
+    })
+    await wrapper.vm.$nextTick()
+    expect(getDrawerSelect()).toBeFalsy()
+    const readOnlyField = getDrawerElement()?.querySelector('.field-readonly')
+    expect(readOnlyField?.textContent).toBe('Platz 1')
+  })
+
+  it('pre-populates step sequence with existing steps', async () => {
+    const wrapper = mount(SerieDrawer, {
+      props: { open: true, mode: 'edit', serie: mockSerie },
+      global: { stubs: { Icons: true } },
+      attachTo: document.body,
+    })
+    await wrapper.vm.$nextTick()
+    const stepRows = getDrawerElement()?.querySelectorAll('.step-row')
+    expect(stepRows?.length).toBe(1)
+  })
+
+  it('shows delete button in edit mode', async () => {
+    const wrapper = mount(SerieDrawer, {
+      props: { open: true, mode: 'edit', serie: mockSerie },
+      global: { stubs: { Icons: true } },
+      attachTo: document.body,
+    })
+    await wrapper.vm.$nextTick()
+    const deleteBtn = getDrawerElement()?.querySelector('[data-testid="delete-btn"]')
+    expect(deleteBtn).toBeTruthy()
+  })
+
+  it('does not show delete button in create mode', async () => {
+    const wrapper = mount(SerieDrawer, {
+      props: { open: true, mode: 'create', serie: null },
+      global: { stubs: { Icons: true } },
+      attachTo: document.body,
+    })
+    await wrapper.vm.$nextTick()
+    const deleteBtn = getDrawerElement()?.querySelector('[data-testid="delete-btn"]')
+    expect(deleteBtn).toBeFalsy()
+  })
+
+  it('calls updateSerie and emits saved+close when save is clicked in edit mode', async () => {
+    const wrapper = mount(SerieDrawer, {
+      props: { open: true, mode: 'edit', serie: mockSerie },
+      global: { stubs: { Icons: true } },
+      attachTo: document.body,
+    })
+    await wrapper.vm.$nextTick()
+    const saveBtn = getSaveBtn()
+    expect(saveBtn?.disabled).toBeFalsy()
+    saveBtn?.click()
+    await wrapper.vm.$nextTick()
+    expect(mockPasseStore.updateSerie).toHaveBeenCalledWith(
+      '_sg_range_serie_1',
+      'Test Serie',
+      expect.arrayContaining([expect.objectContaining({ type: 'solo' })]),
+    )
+    expect(wrapper.emitted('saved')).toBeTruthy()
+    expect(wrapper.emitted('close')).toBeTruthy()
+  })
+
+  it('shows confirm UI after delete button clicked', async () => {
+    const wrapper = mount(SerieDrawer, {
+      props: { open: true, mode: 'edit', serie: mockSerie },
+      global: { stubs: { Icons: true } },
+      attachTo: document.body,
+    })
+    await wrapper.vm.$nextTick()
+    const deleteBtn = getDrawerElement()?.querySelector('[data-testid="delete-btn"]')
+    deleteBtn?.click()
+    await wrapper.vm.$nextTick()
+    const confirmText = getDrawerElement()?.querySelector('.delete-confirm-text')
+    expect(confirmText).toBeTruthy()
+  })
+
+  it('calls deleteSerie and emits deleted+close when confirmed', async () => {
+    const wrapper = mount(SerieDrawer, {
+      props: { open: true, mode: 'edit', serie: mockSerie },
+      global: { stubs: { Icons: true } },
+      attachTo: document.body,
+    })
+    await wrapper.vm.$nextTick()
+    const deleteBtn = getDrawerElement()?.querySelector('[data-testid="delete-btn"]')
+    deleteBtn?.click()
+    await wrapper.vm.$nextTick()
+    const dangerBtn = getDrawerElement()?.querySelector('.btn--danger')
+    dangerBtn?.click()
+    await wrapper.vm.$nextTick()
+    expect(mockPasseStore.deleteSerie).toHaveBeenCalledWith('_sg_range_serie_1')
+    expect(wrapper.emitted('deleted')).toBeTruthy()
+    expect(wrapper.emitted('close')).toBeTruthy()
+  })
+})
