@@ -364,6 +364,7 @@ export const usePasseStore = defineStore('passe', () => {
   const updateGlobalPasse = (id, newName, newSerien) => {
     const exists = savedGlobalPassen.value.some((p) => p.id === id);
     if (!exists) return;
+    const trimmedName = newName?.trim() || savedGlobalPassen.value.find((p) => p.id === id)?.name;
     const serien = (newSerien ?? []).map((s) => ({
       id: s.id,
       alias: s.name,
@@ -372,12 +373,12 @@ export const usePasseStore = defineStore('passe', () => {
       steps: [...(s.steps ?? [])],
     }));
     savedGlobalPassen.value = savedGlobalPassen.value.map((p) =>
-      p.id === id ? { ...p, name: newName, serien } : p
+      p.id === id ? { ...p, name: trimmedName, serien } : p
     );
     try {
       const stored = JSON.parse(localStorage.getItem(id));
       if (stored) {
-        stored.passeName = newName;
+        stored.passeName = trimmedName;
         stored.serien = serien;
         localStorage.setItem(id, JSON.stringify(stored));
       }
