@@ -23,9 +23,26 @@ const mockPasseStore = {
     },
   ],
   savedPassen: [],
+  savedGlobalPassen: [
+    {
+      id: '_sg_global_passe_1',
+      name: 'Olympisch Vorlage',
+      serien: [{ id: '_sg_range_serie_1', alias: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }],
+      ownership: 'global',
+    },
+    {
+      id: '_sg_global_passe_2',
+      name: 'Skeet Vorlage',
+      serien: [{ id: '_sg_range_serie_2', alias: 'Skeet', rangeId: 'r2', rangeName: 'Platz 2', steps: [] }],
+      ownership: 'global',
+    },
+  ],
   createRangeSerie: vi.fn(),
   updateSerie: vi.fn(),
   deleteSerie: vi.fn(),
+  createGlobalPasse: vi.fn(),
+  updateGlobalPasse: vi.fn(),
+  deleteGlobalPasse: vi.fn(),
 }
 
 const mockRangeStore = {
@@ -40,8 +57,11 @@ vi.mock('@/stores/rangeStore.js', () => ({ useRangeStore: () => mockRangeStore }
 vi.mock('@/components/SerieDrawer.vue', () => ({
   default: { template: '<div data-testid="serie-drawer" />', props: ['open', 'mode', 'serie'], emits: ['saved', 'deleted', 'close'] },
 }))
+vi.mock('@/components/GlobalPasseDrawer.vue', () => ({
+  default: { template: '<div data-testid="global-passe-drawer" />', props: ['open', 'mode', 'passe'], emits: ['saved', 'deleted', 'close'] },
+}))
 
-describe('PassenAdminView', () => {
+describe('PassenAdminView — Serien tab', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
@@ -58,7 +78,7 @@ describe('PassenAdminView', () => {
   it('shows Platz-Serien header with count badge on Serien tab', () => {
     const wrapper = mount(PassenAdminView)
     expect(wrapper.text()).toContain('Platz-Serien')
-    expect(wrapper.text()).toContain('2') // total count
+    expect(wrapper.text()).toContain('2')
   })
 
   it('groups Serien by range', () => {
@@ -73,19 +93,12 @@ describe('PassenAdminView', () => {
     expect(wrapper.text()).toContain('Skeet')
   })
 
-  it('opens drawer in create mode when Neue Serie button is clicked', async () => {
+  it('opens SerieDrawer in create mode when Neue Serie button is clicked', async () => {
     const wrapper = mount(PassenAdminView)
     await wrapper.find('[data-testid="new-serie-btn"]').trigger('click')
     expect(wrapper.find('[data-testid="serie-drawer"]').exists()).toBe(true)
     expect(wrapper.vm.drawerOpen).toBe(true)
     expect(wrapper.vm.drawerMode).toBe('create')
-  })
-
-  it('shows Passen stub when Passen tab is clicked', async () => {
-    const wrapper = mount(PassenAdminView)
-    const passenTab = wrapper.findAll('.tab-btn')[1]
-    await passenTab.trigger('click')
-    expect(wrapper.text()).toContain('Passen-Verwaltung')
   })
 
   it('shows empty state when no Platz-Serien exist', () => {
@@ -99,12 +112,74 @@ describe('PassenAdminView', () => {
     }
   })
 
-  it('opens drawer in edit mode when a serie row is clicked', async () => {
+  it('opens SerieDrawer in edit mode when a serie row is clicked', async () => {
     const wrapper = mount(PassenAdminView)
     await wrapper.vm.$nextTick()
     await wrapper.find('.serie-row').trigger('click')
     expect(wrapper.vm.drawerOpen).toBe(true)
     expect(wrapper.vm.drawerMode).toBe('edit')
     expect(wrapper.vm.drawerSerie).toEqual(mockPasseStore.savedSerien[0])
+  })
+})
+
+describe('PassenAdminView — Passen tab', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+  })
+
+  const switchToPassen = async (wrapper) => {
+    await wrapper.findAll('.tab-btn')[1].trigger('click')
+  }
+
+  it('shows Passen-Vorlagen header with count badge', async () => {
+    const wrapper = mount(PassenAdminView)
+    await switchToPassen(wrapper)
+    expect(wrapper.text()).toContain('Passen-Vorlagen')
+    expect(wrapper.text()).toContain('2')
+  })
+
+  it('groups Passen by range', async () => {
+    const wrapper = mount(PassenAdminView)
+    await switchToPassen(wrapper)
+    expect(wrapper.text()).toContain('Platz 1')
+    expect(wrapper.text()).toContain('Platz 2')
+  })
+
+  it('shows Passen names in list', async () => {
+    const wrapper = mount(PassenAdminView)
+    await switchToPassen(wrapper)
+    expect(wrapper.text()).toContain('Olympisch Vorlage')
+    expect(wrapper.text()).toContain('Skeet Vorlage')
+  })
+
+  it('opens GlobalPasseDrawer in create mode when Neue Passe button is clicked', async () => {
+    const wrapper = mount(PassenAdminView)
+    await switchToPassen(wrapper)
+    await wrapper.find('[data-testid="new-passe-btn"]').trigger('click')
+    expect(wrapper.vm.passeDrawerOpen).toBe(true)
+    expect(wrapper.vm.passeDrawerMode).toBe('create')
+  })
+
+  it('opens GlobalPasseDrawer in edit mode when a passe row is clicked', async () => {
+    const wrapper = mount(PassenAdminView)
+    await switchToPassen(wrapper)
+    await wrapper.vm.$nextTick()
+    await wrapper.find('.passe-row').trigger('click')
+    expect(wrapper.vm.passeDrawerOpen).toBe(true)
+    expect(wrapper.vm.passeDrawerMode).toBe('edit')
+    expect(wrapper.vm.passeDrawerPasse).toEqual(mockPasseStore.savedGlobalPassen[0])
+  })
+
+  it('shows empty state when no Passen-Vorlagen exist', async () => {
+    const original = mockPasseStore.savedGlobalPassen
+    mockPasseStore.savedGlobalPassen = []
+    try {
+      const wrapper = mount(PassenAdminView)
+      await switchToPassen(wrapper)
+      expect(wrapper.text()).toContain('Noch keine Passen-Vorlagen')
+    } finally {
+      mockPasseStore.savedGlobalPassen = original
+    }
   })
 })
