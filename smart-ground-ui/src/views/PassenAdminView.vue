@@ -181,7 +181,7 @@
             >
               <div class="serie-info">
                 <span class="serie-name">{{ p.name }}</span>
-                <span class="serie-meta">{{ p.serien.length }} Serien</span>
+                <span class="serie-meta">{{ p.serien?.length ?? 0 }} Serien</span>
               </div>
               <div class="serie-actions" @click.stop>
                 <button
@@ -265,6 +265,8 @@ const rangeGroups = computed(() => {
 // ── Passen data ───────────────────────────────────────────────────────────────
 const savedGlobalPassen = computed(() => passeStore.savedGlobalPassen ?? []);
 
+// Passen werden nach dem Platz der ersten Serie gruppiert (Best-effort-Anzeige).
+// Passen mit Serien von mehreren Plätzen erscheinen unter dem Platz der ersten Serie.
 const passeGroups = computed(() => {
   const map = new Map();
   for (const p of savedGlobalPassen.value) {
