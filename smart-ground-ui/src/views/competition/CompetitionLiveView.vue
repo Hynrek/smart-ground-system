@@ -77,7 +77,7 @@ const instance = computed(() =>
 watch(
   instance,
   (val) => {
-    if (val === null) {
+    if (props.instanceId && val === null) {
       router.push('/wettkampf')
     }
   },
@@ -97,6 +97,7 @@ function goBack() {
 }
 
 function handleStop() {
+  if (!props.instanceId) return
   if (confirm('Wettkampf wirklich beenden?')) {
     activePasseStore.stopCompetition(props.instanceId)
     router.push('/wettkampf')
