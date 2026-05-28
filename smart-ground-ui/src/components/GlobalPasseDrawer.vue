@@ -17,8 +17,9 @@
         <div class="drawer-body">
           <!-- Name -->
           <div class="field">
-            <label class="field-label">Name</label>
+            <label class="field-label" for="gp-name">Name</label>
             <input
+              id="gp-name"
               v-model="editingName"
               class="field-input"
               type="text"
@@ -29,7 +30,7 @@
 
           <!-- Serie picker -->
           <div class="field">
-            <label class="field-label">Serien hinzufügen</label>
+            <label class="field-label" for="gp-serie-picker">Serien hinzufügen</label>
             <div v-if="pickerGroups.length > 0" class="serie-picker">
               <div
                 v-for="group in pickerGroups"
