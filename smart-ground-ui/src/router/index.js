@@ -16,8 +16,8 @@ import CompetitionSetupView from '@/views/competition/CompetitionSetupView.vue';
 import CompetitionLiveView from '@/views/competition/CompetitionLiveView.vue';
 import CompetitionLeaderboardView from '@/views/competition/CompetitionLeaderboardView.vue';
 import CareerStatsView from '@/views/competition/CareerStatsView.vue';
-import ProgramManagementView from '@/views/shooter/ProgramManagementView.vue';
-import ProgrammeAdminView from '@/views/ProgrammeAdminView.vue';
+import PasseManagementView from '@/views/shooter/PasseManagementView.vue';
+import PassenAdminView from '@/views/PassenAdminView.vue';
 import CompetitionBracketView from '@/views/CompetitionBracketView.vue';
 import PlayerSetupView from '@/views/PlayerSetupView.vue';
 import CompetitionManagementView from '@/views/CompetitionManagementView.vue';
@@ -43,7 +43,7 @@ const routes = [
   { path: '/competition/templates', component: CompetitionTemplateListView, meta: { layout: 'admin' } },
   { path: '/competition/setup', component: CompetitionSetupView, meta: { layout: 'admin' } },
   { path: '/competition/bracket', component: CompetitionBracketView, meta: { layout: 'admin' } },
-  { path: '/programme', component: ProgrammeAdminView, meta: { layout: 'admin' } },
+  { path: '/passen', component: PassenAdminView, meta: { layout: 'admin' } },
 
   // ── Shooter routes ────────────────────────────────────────────────────
   { path: '/home', component: ShooterHomeView, meta: { layout: 'shooter' } },
@@ -53,8 +53,9 @@ const routes = [
   { path: '/competition/live', component: CompetitionLiveView, meta: { layout: 'shooter' } },
   { path: '/competition/leaderboard', component: CompetitionLeaderboardView, meta: { layout: 'shooter' } },
   { path: '/career-stats', component: CareerStatsView, meta: { layout: 'shooter' } },
-  { path: '/programmes', component: ProgramManagementView, meta: { layout: 'shooter' } },
+  { path: '/meine-passen', component: PasseManagementView, meta: { layout: 'shooter' } },
   { path: '/training', component: () => import('@/views/shooter/TrainingManagementView.vue'), meta: { layout: 'shooter' } },
+  { path: '/wettkampf', component: () => import('@/views/shooter/CompetitionManagementView.vue'), meta: { layout: 'shooter' } },
 ];
 
 const router = createRouter({
