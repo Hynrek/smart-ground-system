@@ -89,18 +89,22 @@ describe('PassenAdminView', () => {
   })
 
   it('shows empty state when no Platz-Serien exist', () => {
+    const original = mockPasseStore.savedSerien
     mockPasseStore.savedSerien = []
+    try {
+      const wrapper = mount(PassenAdminView)
+      expect(wrapper.text()).toContain('Noch keine Platz-Serien')
+    } finally {
+      mockPasseStore.savedSerien = original
+    }
+  })
+
+  it('opens drawer in edit mode when a serie row is clicked', async () => {
     const wrapper = mount(PassenAdminView)
-    expect(wrapper.text()).toContain('Noch keine Platz-Serien')
-    mockPasseStore.savedSerien = [
-      {
-        id: '_sg_range_serie_1',
-        name: 'Olympisch',
-        rangeId: 'r1',
-        rangeName: 'Platz 1',
-        steps: [{ id: 1, type: 'solo', alias: 'W1', positionId: 'pos-a', letter: 'A' }],
-        ownership: 'range',
-      },
-    ]
+    await wrapper.vm.$nextTick()
+    await wrapper.find('.serie-row').trigger('click')
+    expect(wrapper.vm.drawerOpen).toBe(true)
+    expect(wrapper.vm.drawerMode).toBe('edit')
+    expect(wrapper.vm.drawerSerie).toEqual(mockPasseStore.savedSerien[0])
   })
 })
