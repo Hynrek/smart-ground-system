@@ -6,7 +6,14 @@ export function useCompetitionScoreboard(instanceId) {
   const activePasseStore = useActivePasseStore()
 
   const rankedPlayers = computed(() => {
-    const id = typeof instanceId === 'string' ? instanceId : instanceId.value
+    const id = instanceId == null
+      ? null
+      : typeof instanceId === 'string'
+        ? instanceId
+        : (instanceId.value ?? null)
+
+    if (!id) return []
+
     const inst =
       activePasseStore.activeInstances.find((i) => i.instanceId === id) ??
       activePasseStore.completedInstances.find((i) => i.instanceId === id)
@@ -19,7 +26,7 @@ export function useCompetitionScoreboard(instanceId) {
     for (const rotte of inst.rotten) {
       for (const phase of rotte.phases) {
         for (const block of phase.blocks) {
-          if (block.status !== 'done' || !block.result?.playerResults) continue
+          if (block.status !== 'done' || !block.result?.playerResults?.length) continue
           for (const pr of block.result.playerResults) {
             const existing = playerMap.get(pr.playerId)
             if (existing) {
