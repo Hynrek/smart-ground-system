@@ -72,7 +72,7 @@ import Icons from '@/components/Icons.vue';
 const router = useRouter();
 const authStore = useAuthStore();
 
-const displayName = computed(() => authStore.userName ?? 'Schütze');
+const displayName = computed(() => authStore.displayName ?? 'Schütze');
 const firstName = computed(() => displayName.value.split(/[\s._@]/)[0]);
 const userInitial = computed(() => firstName.value.charAt(0).toUpperCase());
 

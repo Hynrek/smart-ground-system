@@ -37,12 +37,12 @@ export const usePasseStore = defineStore('passe', () => {
 
   const getPassePrefix = () => {
     const authStore = useAuthStore();
-    return `${authStore.userName ?? 'anonymous'}_passe_`;
+    return `${authStore.profile?.email ?? 'anonymous'}_passe_`;
   };
 
   const getSeriePrefix = () => {
     const authStore = useAuthStore();
-    return `${authStore.userName ?? 'anonymous'}_serie_`;
+    return `${authStore.profile?.email ?? 'anonymous'}_serie_`;
   };
 
   const nextPasseKey = () => {
@@ -458,7 +458,7 @@ export const usePasseStore = defineStore('passe', () => {
 
   const getTrainingPrefix = () => {
     const authStore = useAuthStore();
-    return `${authStore.userName ?? 'anonymous'}_training_`;
+    return `${authStore.profile?.email ?? 'anonymous'}_training_`;
   };
 
   const nextTrainingKey = () => {
