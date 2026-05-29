@@ -96,15 +96,12 @@ public class AblaufService {
                         .map(step -> new StepRecord(
                                 step.getId(),
                                 step.getType().getValue(),
-                                uuidOrNull(step.getDeviceId()),
+                                stringOrNull(step.getPosId()),
                                 stringOrNull(step.getAlias()),
-                                stringOrNull(step.getLetter()),
-                                uuidOrNull(step.getDeviceId1()),
-                                uuidOrNull(step.getDeviceId2()),
+                                stringOrNull(step.getPosId1()),
+                                stringOrNull(step.getPosId2()),
                                 stringOrNull(step.getAlias1()),
-                                stringOrNull(step.getAlias2()),
-                                stringOrNull(step.getLetter1()),
-                                stringOrNull(step.getLetter2())
+                                stringOrNull(step.getAlias2())
                         ))
                         .toList()
         ));

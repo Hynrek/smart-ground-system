@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
-import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -26,6 +25,11 @@ public class Device {
     @JoinColumn(name = "range_id")
     @Nullable
     private Range range;
+
+    /** Positionszuordnung innerhalb einer Range (z.B. Slot "A"). */
+    @OneToOne(fetch = FetchType.LAZY, mappedBy = "device")
+    @Nullable
+    private RangePosition rangePosition;
 
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "group_id", nullable = false)
@@ -64,6 +68,8 @@ public class Device {
     public void setSmartBox(SmartBox smartBox) { this.smartBox = smartBox; }
     public @Nullable Range getRange() { return range; }
     public void setRange(@Nullable Range range) { this.range = range; }
+    public @Nullable RangePosition getRangePosition() { return rangePosition; }
+    public void setRangePosition(@Nullable RangePosition rangePosition) { this.rangePosition = rangePosition; }
     public DeviceTypeGroup getDeviceTypeGroup() { return deviceTypeGroup; }
     public void setDeviceTypeGroup(DeviceTypeGroup deviceTypeGroup) { this.deviceTypeGroup = deviceTypeGroup; }
     public DeviceType getDeviceType() { return deviceType; }

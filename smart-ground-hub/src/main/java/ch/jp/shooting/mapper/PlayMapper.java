@@ -201,15 +201,12 @@ public final class PlayMapper {
         return new Step()
             .id(r.id())
             .type(StepType.fromValue(r.type()))
-            .deviceId(r.deviceId())
+            .posId(r.posId())
             .alias(r.alias())
-            .letter(r.letter())
-            .deviceId1(r.deviceId1())
-            .deviceId2(r.deviceId2())
+            .posId1(r.posId1())
+            .posId2(r.posId2())
             .alias1(r.alias1())
-            .alias2(r.alias2())
-            .letter1(r.letter1())
-            .letter2(r.letter2());
+            .alias2(r.alias2());
     }
 
     private static EmbeddedAblauf toEmbeddedAblauf(EmbeddedAblaufRecord r) {

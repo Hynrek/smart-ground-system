@@ -78,7 +78,18 @@
       "Bash(Range)",
       "Bash(Command)",
       "Bash(Firmware)",
-      "Bash(DeviceType\")"
+      "Bash(DeviceType\")",
+      "Bash(./mvnw -q compile)",
+      "Bash(cmd.exe /c \"mvnw.cmd clean compile\")",
+      "Bash(cmd.exe /c \"mvnw.cmd compile\")",
+      "Bash(timeout 30 mvn spring-boot:run -Dspring-boot.run.profiles=h2)",
+      "Bash(cd \"/c/Users/hynre/IdeaProjects/Smart Ground/smart-ground-backend\" && grep -rn \"u.roles\" src/)",
+      "Bash(cd \"/c/Users/hynre/IdeaProjects/Smart Ground/smart-ground-backend\" && grep -rn \"roles\" src/main/java/ch/jp/shooting/model/auth/)",
+      "Bash(timeout 35 mvn spring-boot:run -Dspring-boot.run.profiles=h2)",
+      "Bash(xargs cat)",
+      "Bash(docker exec *)",
+      "Bash(git worktree *)",
+      "Bash(git rm *)"
     ]
   }
 }

@@ -2,19 +2,17 @@ package ch.jp.shooting.dto.play;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.jspecify.annotations.Nullable;
-import java.util.UUID;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record StepRecord(
     String id,
     String type,
-    @Nullable UUID deviceId,
+    /** Positions-Label der primären Position (z.B. "A"). */
+    @Nullable String posId,
     @Nullable String alias,
-    @Nullable String letter,
-    @Nullable UUID deviceId1,
-    @Nullable UUID deviceId2,
+    /** Positions-Labels für Doppelwurf-Schritte. */
+    @Nullable String posId1,
+    @Nullable String posId2,
     @Nullable String alias1,
-    @Nullable String alias2,
-    @Nullable String letter1,
-    @Nullable String letter2
+    @Nullable String alias2
 ) {}

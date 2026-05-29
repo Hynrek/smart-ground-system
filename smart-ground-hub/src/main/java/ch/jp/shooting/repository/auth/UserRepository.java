@@ -16,6 +16,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByMitgliedsnummer(String mitgliedsnummer);
 
-    @Query("SELECT u.roles FROM User u WHERE u.id = ?1")
+    @Query("SELECT ur.role FROM UserRoleEntity ur WHERE ur.user.id = ?1")
     Set<Role> findRolesByUserId(UUID userId);
 }

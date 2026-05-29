@@ -613,6 +613,229 @@ paths:
         '404':
           description: Range not found
 
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Range Positions
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/ranges/{id}/positions:
+    get:
+      summary: List all positions for a range
+      operationId: listRangePositions
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ordered list of positions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RangePositionResponse'
+        '404':
+          description: Range not found
+    post:
+      summary: Create a new position on a range
+      description: >
+        Creates a new RangePosition. If label is omitted the backend assigns the
+        next available uppercase letter (A, B, C…).
+      operationId: createRangePosition
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRangePositionRequest'
+      responses:
+        '201':
+          description: Position created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangePositionResponse'
+        '404':
+          description: Range not found
+        '409':
+          description: Label already exists on this range
+        '423':
+          description: Range is locked
+
+  /api/ranges/{id}/positions/{positionId}:
+    put:
+      summary: Rename a position
+      operationId: updateRangePosition
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: positionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRangePositionLabelRequest'
+      responses:
+        '200':
+          description: Position renamed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangePositionResponse'
+        '404':
+          description: Range or position not found
+        '409':
+          description: Label already exists on this range
+        '423':
+          description: Range is locked
+    delete:
+      summary: Delete an empty position
+      operationId: deleteRangePosition
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: positionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Position deleted
+        '400':
+          description: Position still has a device assigned
+        '404':
+          description: Range or position not found
+        '423':
+          description: Range is locked
+
+  /api/ranges/{id}/positions/{positionId}/device:
+    put:
+      summary: Assign a device to a position
+      operationId: assignDeviceToPosition
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: positionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignDeviceToPositionRequest'
+      responses:
+        '200':
+          description: Device assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangePositionResponse'
+        '404':
+          description: Range, position or device not found
+        '409':
+          description: Device already assigned to another position
+        '423':
+          description: Range is locked
+    delete:
+      summary: Remove device from a position
+      operationId: removeDeviceFromPosition
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: positionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device removed, position now empty
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangePositionResponse'
+        '404':
+          description: Range or position not found
+        '423':
+          description: Range is locked
+
+  /api/ranges/{id}/positions/{positionId}/command:
+    post:
+      summary: Fire the device assigned to a position
+      operationId: sendPositionCommand
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: positionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Command accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          description: Device is blocked or position has no device assigned
+        '404':
+          description: Range or position not found
+        '409':
+          description: Range is reserved by another user
+
   # ─────────────────────────────────────────────────────────────────────────────
   # Events (SSE)
   # ─────────────────────────────────────────────────────────────────────────────
@@ -1749,37 +1972,26 @@ components:
             Used for ordering and stable referencing in results.
         type:
           $ref: '#/components/schemas/StepType'
-        deviceId:
+        posId:
           type: string
-          format: uuid
           nullable: true
-          description: Device to fire (solo and raffale steps)
+          description: Label of the RangePosition to fire (e.g. "A"). Resolved to a Device at execution time.
         alias:
           type: string
           nullable: true
-          description: Human-readable label for the device at capture time
-        letter:
+          description: Human-readable label for the position at capture time
+        posId1:
           type: string
           nullable: true
-          description: Single-letter shorthand shown in the UI (e.g. A)
-        deviceId1:
+          description: Primary position label for pair/double-throw steps
+        posId2:
           type: string
-          format: uuid
           nullable: true
-        deviceId2:
-          type: string
-          format: uuid
-          nullable: true
+          description: Secondary position label for pair/double-throw steps
         alias1:
           type: string
           nullable: true
         alias2:
-          type: string
-          nullable: true
-        letter1:
-          type: string
-          nullable: true
-        letter2:
           type: string
           nullable: true
 
@@ -2529,9 +2741,51 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DeviceResponse'
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RangePositionResponse'
         createdAt:
           type: string
           format: date-time
+
+    RangePositionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          description: Position label (e.g. "A", "B", "Mitte")
+        sortOrder:
+          type: integer
+        device:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/DeviceResponse'
+
+    CreateRangePositionRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Optional label; auto-generated (A, B, C…) if omitted
+
+    UpdateRangePositionLabelRequest:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+
+    AssignDeviceToPositionRequest:
+      type: object
+      required: [deviceId]
+      properties:
+        deviceId:
+          type: string
+          format: uuid
 
     CreateRangeRequest:
       type: object

@@ -6,17 +6,26 @@ import ch.jp.shooting.exception.RangeNotFoundException;
 import ch.jp.shooting.mapper.EntityMappers;
 import ch.jp.shooting.model.Range;
 import ch.jp.shooting.repository.RangeRepository;
+import ch.jp.shooting.service.RangePositionService;
 import ch.jp.smartground.api.RangeApi;
+import ch.jp.smartground.model.AssignDeviceToPositionRequest;
+import ch.jp.smartground.model.CommandResponse;
+import ch.jp.smartground.model.CreateRangePositionRequest;
 import ch.jp.smartground.model.CreateRangeRequest;
 import ch.jp.smartground.model.DeviceResponse;
 import ch.jp.smartground.model.RangeDetailResponse;
 import ch.jp.smartground.model.RangePageResponse;
+import ch.jp.smartground.model.RangePositionResponse;
 import ch.jp.smartground.model.RangeSummaryResponse;
 import ch.jp.smartground.model.SetLockedRequest;
+import ch.jp.smartground.model.UpdateRangePositionLabelRequest;
 import ch.jp.smartground.model.UpdateRangeRequest;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,10 +41,15 @@ import java.util.UUID;
 public class RangeController implements RangeApi {
 
     private final RangeRepository rangeRepository;
+    private final RangePositionService positionService;
 
-    public RangeController(RangeRepository rangeRepository) {
+    public RangeController(RangeRepository rangeRepository,
+                           RangePositionService positionService) {
         this.rangeRepository = rangeRepository;
+        this.positionService = positionService;
     }
+
+    // ── Range CRUD ────────────────────────────────────────────────────────────
 
     @Override
     public ResponseEntity<RangePageResponse> listRanges(
@@ -61,7 +75,7 @@ public class RangeController implements RangeApi {
     public ResponseEntity<RangeDetailResponse> getRange(UUID id) {
         Range range = rangeRepository.findById(id)
                 .orElseThrow(() -> new RangeNotFoundException(id));
-        return ResponseEntity.ok(toDetailResponse(range));
+        return ResponseEntity.ok(EntityMappers.toRangeDetailResponse(range));
     }
 
     @Override
@@ -73,8 +87,7 @@ public class RangeController implements RangeApi {
         range.setName(request.getName());
         range.setDescription(request.getDescription());
         Range saved = rangeRepository.save(range);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(toSummaryResponse(saved));
+        return ResponseEntity.status(HttpStatus.CREATED).body(toSummaryResponse(saved));
     }
 
     @Override
@@ -110,6 +123,60 @@ public class RangeController implements RangeApi {
         return ResponseEntity.ok(toSummaryResponse(saved));
     }
 
+    // ── Range Positions ───────────────────────────────────────────────────────
+
+    @Override
+    public ResponseEntity<List<RangePositionResponse>> listRangePositions(UUID id) {
+        return ResponseEntity.ok(positionService.listPositions(id));
+    }
+
+    @Override
+    public ResponseEntity<RangePositionResponse> createRangePosition(
+            UUID id, @Valid @RequestBody CreateRangePositionRequest request) {
+        var label = request.getLabel();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(positionService.createPosition(id, label));
+    }
+
+    @Override
+    public ResponseEntity<RangePositionResponse> updateRangePosition(
+            UUID id, UUID positionId, @Valid @RequestBody UpdateRangePositionLabelRequest request) {
+        return ResponseEntity.ok(positionService.renamePosition(id, positionId, request.getLabel()));
+    }
+
+    @Override
+    public ResponseEntity<Void> deleteRangePosition(UUID id, UUID positionId) {
+        positionService.deletePosition(id, positionId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<RangePositionResponse> assignDeviceToPosition(
+            UUID id, UUID positionId, @Valid @RequestBody AssignDeviceToPositionRequest request) {
+        return ResponseEntity.ok(positionService.assignDevice(id, positionId, request.getDeviceId()));
+    }
+
+    @Override
+    public ResponseEntity<RangePositionResponse> removeDeviceFromPosition(UUID id, UUID positionId) {
+        return ResponseEntity.ok(positionService.removeDevice(id, positionId));
+    }
+
+    // TODO: Sobald mvnw generate-sources gelaufen ist und RangeApi.sendPositionCommand generiert wurde,
+    //       @Override wiederherstellen und @PostMapping / @PathVariable entfernen.
+    @PostMapping(value = "/api/ranges/{id}/positions/{positionId}/command", produces = "application/json")
+    public ResponseEntity<CommandResponse> sendPositionCommand(
+            @PathVariable("id") UUID id,
+            @PathVariable("positionId") UUID positionId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication != null ? authentication.getName() : "";
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(auth -> auth.equals("ROLE_ADMIN"));
+        return ResponseEntity.ok(positionService.sendPositionCommand(id, positionId, username, isAdmin));
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
     private RangeSummaryResponse toSummaryResponse(Range range) {
         return new RangeSummaryResponse()
                 .id(range.getId())
@@ -117,21 +184,6 @@ public class RangeController implements RangeApi {
                 .description(range.getDescription())
                 .locked(range.isLocked())
                 .deviceCount(range.getDevices().size())
-                .createdAt(range.getCreatedAt() != null
-                        ? range.getCreatedAt().atOffset(java.time.ZoneOffset.UTC)
-                        : null);
-    }
-
-    private RangeDetailResponse toDetailResponse(Range range) {
-        List<DeviceResponse> deviceResponses = range.getDevices().stream()
-                .map(EntityMappers::toDeviceResponse)
-                .toList();
-        return new RangeDetailResponse()
-                .id(range.getId())
-                .name(range.getName())
-                .description(range.getDescription())
-                .locked(range.isLocked())
-                .devices(deviceResponses)
                 .createdAt(range.getCreatedAt() != null
                         ? range.getCreatedAt().atOffset(java.time.ZoneOffset.UTC)
                         : null);

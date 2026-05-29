@@ -35,6 +35,10 @@ public class Range {
     @OneToMany(mappedBy = "range", fetch = FetchType.LAZY)
     private List<Device> devices = new ArrayList<>();
 
+    @OneToMany(mappedBy = "range", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder ASC")
+    private List<RangePosition> positions = new ArrayList<>();
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public String getName() { return name; }
@@ -47,4 +51,6 @@ public class Range {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public List<Device> getDevices() { return devices; }
     public void setDevices(List<Device> devices) { this.devices = devices; }
+    public List<RangePosition> getPositions() { return positions; }
+    public void setPositions(List<RangePosition> positions) { this.positions = positions; }
 }

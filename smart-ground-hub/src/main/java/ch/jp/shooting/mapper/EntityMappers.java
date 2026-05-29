@@ -3,11 +3,13 @@ package ch.jp.shooting.mapper;
 import ch.jp.shooting.model.Device;
 import ch.jp.shooting.model.DeviceType;
 import ch.jp.shooting.model.Range;
+import ch.jp.shooting.model.RangePosition;
 import ch.jp.shooting.model.SmartBox;
 import ch.jp.smartground.model.DeviceResponse;
 import ch.jp.smartground.model.DeviceTypeResponse;
 import ch.jp.smartground.model.PinConfig;
 import ch.jp.smartground.model.RangeDetailResponse;
+import ch.jp.smartground.model.RangePositionResponse;
 import ch.jp.smartground.model.SmartBoxResponse;
 import ch.jp.smartground.model.SmartBoxStatus;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -60,18 +62,32 @@ public final class EntityMappers {
             .configSynced(smartBox.isConfigSynced());
     }
 
+    public static RangePositionResponse toRangePositionResponse(RangePosition position) {
+        var device = position.getDevice();
+        return new RangePositionResponse()
+            .id(position.getId())
+            .label(position.getLabel())
+            .sortOrder(position.getSortOrder())
+            .device(device != null ? toDeviceResponse(device) : null);
+    }
+
     public static RangeDetailResponse toRangeDetailResponse(Range range) {
         var devices = range.getDevices();
         List<DeviceResponse> deviceResponses = devices != null
             ? devices.stream().map(EntityMappers::toDeviceResponse).toList()
             : List.of();
             
+        List<RangePositionResponse> positionResponses = range.getPositions() != null
+            ? range.getPositions().stream().map(EntityMappers::toRangePositionResponse).toList()
+            : List.of();
+
         return new RangeDetailResponse()
             .id(range.getId())
             .name(range.getName())
             .description(range.getDescription())
             .locked(range.isLocked())
             .devices(deviceResponses)
+            .positions(positionResponses)
             .createdAt(range.getCreatedAt() != null
                 ? java.time.OffsetDateTime.ofInstant(range.getCreatedAt(), java.time.ZoneOffset.UTC)
                 : null);
