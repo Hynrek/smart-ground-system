@@ -149,6 +149,29 @@ export const useActivePasseStore = defineStore('activePasse', () => {
     return result
   }
 
+  const getActiveCompetitionRotten = () => {
+    const result = []
+    for (const inst of activeInstances.value) {
+      if (inst.type !== 'competition') continue
+      for (const rotte of inst.rotten) {
+        if (rotte.status === 'done') continue
+        const phase = rotte.phases[rotte.currentPhaseIndex]
+        if (!phase) continue
+        result.push({
+          instanceId: inst.instanceId,
+          instanceName: inst.templateName,
+          rotteId: rotte.rotteId,
+          rotteName: rotte.name,
+          passeName: phase.passeName,
+          phaseIndex: rotte.currentPhaseIndex,
+          players: rotte.players,
+          blocks: phase.blocks,
+        })
+      }
+    }
+    return result
+  }
+
   const markBlockInProgress = (instanceId, blockId, rotteId) => {
     const inst = activeInstances.value.find((i) => i.instanceId === instanceId)
     if (!inst) return
@@ -310,6 +333,7 @@ export const useActivePasseStore = defineStore('activePasse', () => {
     startTraining,
     startCompetition,
     getBlocksForRange,
+    getActiveCompetitionRotten,
     markBlockInProgress,
     markBlockDone,
     stopInstance,
