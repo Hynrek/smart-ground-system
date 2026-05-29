@@ -25,7 +25,7 @@ import { useAuthStore } from '@/stores/authStore';
 const routes = [
   { path: '/login', component: LoginView, meta: { requiresAuth: false } },
   { path: '/no-access', component: () => import('@/views/NoAccessView.vue'), meta: { requiresAuth: true } },
-  { path: '/', redirect: '/ranges' },
+  { path: '/', component: { template: '<div />' }, meta: { requiresAuth: true } },
 
   // ── Admin routes ──────────────────────────────────────────────────────
   { path: '/ranges',               component: RangesView,                   meta: { layout: 'admin', permission: 'MANAGE_RANGES' } },
@@ -78,6 +78,12 @@ router.beforeEach((to, from, next) => {
   }
 
   if (to.path === '/login' && authenticated) {
+    next(defaultHome(auth));
+    return;
+  }
+
+  // Handle root — redirect to permission-appropriate home
+  if (to.path === '/' && authenticated) {
     next(defaultHome(auth));
     return;
   }
