@@ -11,14 +11,14 @@
       <button
         class="tab-btn"
         :class="{ active: activeTab === 'serien' }"
-        @click="activeTab = 'serien'"
+        @click="setTab('serien')"
       >
         Serien
       </button>
       <button
         class="tab-btn"
         :class="{ active: activeTab === 'passen' }"
-        @click="activeTab = 'passen'"
+        @click="setTab('passen')"
       >
         Passen
       </button>
@@ -229,6 +229,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watchEffect } from 'vue';
+import { useUrlTab } from '@/composables/useUrlTab.js';
 import { usePasseStore } from '@/stores/passeStore.js';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import Icons from '@/components/Icons.vue';
@@ -243,7 +244,8 @@ onMounted(async () => {
 });
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
-const activeTab = ref('serien');
+// Active tab — synced to URL query param ?tab=xxx
+const { activeTab, setTab } = useUrlTab('serien', ['serien', 'passen']);
 
 // ── Serien data ───────────────────────────────────────────────────────────────
 const rangeSerien = computed(() =>

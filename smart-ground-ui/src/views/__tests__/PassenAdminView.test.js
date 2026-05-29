@@ -1,7 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import PassenAdminView from '../PassenAdminView.vue'
+
+const routes = [{ path: '/', component: { template: '<div />' } }]
+
+function makeRouter() {
+  return createRouter({ history: createMemoryHistory(), routes })
+}
 
 const mockPasseStore = {
   savedSerien: [
@@ -62,13 +69,16 @@ vi.mock('@/components/GlobalPasseDrawer.vue', () => ({
 }))
 
 describe('PassenAdminView — Serien tab', () => {
+  let router
+
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    router = makeRouter()
   })
 
   it('renders Serien and Passen tab buttons', () => {
-    const wrapper = mount(PassenAdminView)
+    const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
     const tabs = wrapper.findAll('.tab-btn')
     expect(tabs).toHaveLength(2)
     expect(tabs[0].text()).toContain('Serien')
@@ -76,25 +86,25 @@ describe('PassenAdminView — Serien tab', () => {
   })
 
   it('shows Platz-Serien header with count badge on Serien tab', () => {
-    const wrapper = mount(PassenAdminView)
+    const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
     expect(wrapper.text()).toContain('Platz-Serien')
     expect(wrapper.text()).toContain('2')
   })
 
   it('groups Serien by range', () => {
-    const wrapper = mount(PassenAdminView)
+    const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
     expect(wrapper.text()).toContain('Platz 1')
     expect(wrapper.text()).toContain('Platz 2')
   })
 
   it('shows Serien names within their groups', () => {
-    const wrapper = mount(PassenAdminView)
+    const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
     expect(wrapper.text()).toContain('Olympisch')
     expect(wrapper.text()).toContain('Skeet')
   })
 
   it('opens SerieDrawer in create mode when Neue Serie button is clicked', async () => {
-    const wrapper = mount(PassenAdminView)
+    const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
     await wrapper.find('[data-testid="new-serie-btn"]').trigger('click')
     expect(wrapper.find('[data-testid="serie-drawer"]').exists()).toBe(true)
     expect(wrapper.vm.drawerOpen).toBe(true)
@@ -105,7 +115,7 @@ describe('PassenAdminView — Serien tab', () => {
     const original = mockPasseStore.savedSerien
     mockPasseStore.savedSerien = []
     try {
-      const wrapper = mount(PassenAdminView)
+      const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
       expect(wrapper.text()).toContain('Noch keine Platz-Serien')
     } finally {
       mockPasseStore.savedSerien = original
@@ -113,7 +123,7 @@ describe('PassenAdminView — Serien tab', () => {
   })
 
   it('opens SerieDrawer in edit mode when a serie row is clicked', async () => {
-    const wrapper = mount(PassenAdminView)
+    const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
     await wrapper.vm.$nextTick()
     await wrapper.find('.serie-row').trigger('click')
     expect(wrapper.vm.drawerOpen).toBe(true)
@@ -123,38 +133,43 @@ describe('PassenAdminView — Serien tab', () => {
 })
 
 describe('PassenAdminView — Passen tab', () => {
+  let router
+
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    router = makeRouter()
   })
 
   const switchToPassen = async (wrapper) => {
     await wrapper.findAll('.tab-btn')[1].trigger('click')
+    await flushPromises()
+    await wrapper.vm.$nextTick()
   }
 
   it('shows Passen-Vorlagen header with count badge', async () => {
-    const wrapper = mount(PassenAdminView)
+    const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
     await switchToPassen(wrapper)
     expect(wrapper.text()).toContain('Passen-Vorlagen')
     expect(wrapper.text()).toContain('2')
   })
 
   it('groups Passen by range', async () => {
-    const wrapper = mount(PassenAdminView)
+    const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
     await switchToPassen(wrapper)
     expect(wrapper.text()).toContain('Platz 1')
     expect(wrapper.text()).toContain('Platz 2')
   })
 
   it('shows Passen names in list', async () => {
-    const wrapper = mount(PassenAdminView)
+    const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
     await switchToPassen(wrapper)
     expect(wrapper.text()).toContain('Olympisch Vorlage')
     expect(wrapper.text()).toContain('Skeet Vorlage')
   })
 
   it('opens GlobalPasseDrawer in create mode when Neue Passe button is clicked', async () => {
-    const wrapper = mount(PassenAdminView)
+    const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
     await switchToPassen(wrapper)
     await wrapper.find('[data-testid="new-passe-btn"]').trigger('click')
     expect(wrapper.vm.passeDrawerOpen).toBe(true)
@@ -162,9 +177,8 @@ describe('PassenAdminView — Passen tab', () => {
   })
 
   it('opens GlobalPasseDrawer in edit mode when a passe row is clicked', async () => {
-    const wrapper = mount(PassenAdminView)
+    const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
     await switchToPassen(wrapper)
-    await wrapper.vm.$nextTick()
     await wrapper.find('.passe-row').trigger('click')
     expect(wrapper.vm.passeDrawerOpen).toBe(true)
     expect(wrapper.vm.passeDrawerMode).toBe('edit')
@@ -175,7 +189,7 @@ describe('PassenAdminView — Passen tab', () => {
     const original = mockPasseStore.savedGlobalPassen
     mockPasseStore.savedGlobalPassen = []
     try {
-      const wrapper = mount(PassenAdminView)
+      const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
       await switchToPassen(wrapper)
       expect(wrapper.text()).toContain('Noch keine Passen-Vorlagen')
     } finally {
