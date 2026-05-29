@@ -41,8 +41,8 @@ const routes = [
   { path: '/competition/templates', component: CompetitionTemplateListView, meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/competition/setup',    component: CompetitionSetupView,         meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/competition/bracket',  component: CompetitionBracketView,       meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
-  { path: '/admin/wettkampf',       component: WettkampfListView,            meta: { layout: 'admin' } },
-  { path: '/admin/wettkampf/:id',   component: WettkampfDetailView, props: true, meta: { layout: 'admin' } },
+  { path: '/admin/wettkampf',       component: WettkampfListView,            meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
+  { path: '/admin/wettkampf/:id',   component: WettkampfDetailView, props: true, meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/passen',               component: PassenAdminView,              meta: { layout: 'admin', permission: 'MANAGE_PASSE_TEMPLATES' } },
 
   // ── Shooter routes ────────────────────────────────────────────────────
