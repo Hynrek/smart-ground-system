@@ -6,14 +6,14 @@
         <button
           class="tab-btn"
           :class="{ active: activeTab === 'score' }"
-          @click="activeTab = 'score'"
+          @click="setTab('score')"
         >
           Nach Punkten
         </button>
         <button
           class="tab-btn"
           :class="{ active: activeTab === 'wins' }"
-          @click="activeTab = 'wins'"
+          @click="setTab('wins')"
         >
           Nach Siegen
         </button>
@@ -24,12 +24,12 @@
     <div v-else class="stats-content">
       <!-- Score Leaderboard -->
       <div v-if="activeTab === 'score'" class="leaderboard-section">
-        <h2>Top-Spieler nach Gesamtpunkten</h2>
+        <h2>Top-Schützen nach Gesamtpunkten</h2>
         <table class="stats-table">
           <thead>
             <tr>
               <th>Rang</th>
-              <th>Spieler</th>
+              <th>Schütze</th>
               <th>Siege</th>
               <th>Teilnahmen</th>
               <th>Gesamtpunkte</th>
@@ -53,12 +53,12 @@
 
       <!-- Wins Leaderboard -->
       <div v-if="activeTab === 'wins'" class="leaderboard-section">
-        <h2>Top-Spieler nach Siegen</h2>
+        <h2>Top-Schützen nach Siegen</h2>
         <table class="stats-table">
           <thead>
             <tr>
               <th>Rang</th>
-              <th>Spieler</th>
+              <th>Schütze</th>
               <th>Siege</th>
               <th>Teilnahmen</th>
               <th>Gesamtpunkte</th>
@@ -86,9 +86,11 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useCompetitionStore } from '@/stores/competitionStore.js';
+import { useUrlTab } from '@/composables/useUrlTab.js';
 
 const competitionStore = useCompetitionStore();
-const activeTab = ref('score');
+// Active tab — synced to URL query param ?tab=xxx
+const { activeTab, setTab } = useUrlTab('score', ['score', 'wins']);
 const isLoading = ref(false);
 
 onMounted(async () => {
@@ -100,7 +102,7 @@ onMounted(async () => {
 
 const getUserDisplayName = (userId) => {
   // TODO: Fetch user display name from backend
-  return `Spieler ${userId.substring(0, 8)}`;
+  return `Schütze ${userId.substring(0, 8)}`;
 };
 
 const formatDate = (date) => {
