@@ -11,13 +11,13 @@
 
     <!-- Tab toggle -->
     <div class="tab-toggle">
-      <button class="tab-btn" :class="{ active: activeTab === 'trainings' }" @click="activeTab = 'trainings'">
+      <button class="tab-btn" :class="{ active: activeTab === 'trainings' }" @click="setTab('trainings')">
         Trainings
       </button>
-      <button class="tab-btn" :class="{ active: activeTab === 'active' }" @click="activeTab = 'active'">
+      <button class="tab-btn" :class="{ active: activeTab === 'active' }" @click="setTab('active')">
         Aktive
       </button>
-      <button class="tab-btn" :class="{ active: activeTab === 'completed' }" @click="activeTab = 'completed'">
+      <button class="tab-btn" :class="{ active: activeTab === 'completed' }" @click="setTab('completed')">
         Abgeschlossen
       </button>
     </div>
@@ -31,14 +31,14 @@
           <div class="block-header">
             <div class="block-title-row">
               <span class="block-title">Trainings</span>
-              <span class="block-badge">{{ programStore.savedTrainings.length }}</span>
+              <span class="block-badge">{{ passeStore.savedTrainings.length }}</span>
             </div>
-            <p class="block-desc">Geordnete Abfolge von 1–n Programmen. Programme werden nacheinander gespielt.</p>
+            <p class="block-desc">Geordnete Abfolge von 1–n Passen. Passen werden nacheinander gespielt.</p>
           </div>
 
-          <div v-if="programStore.savedTrainings.length > 0" class="training-list">
+          <div v-if="passeStore.savedTrainings.length > 0" class="training-list">
             <div
-              v-for="training in programStore.savedTrainings"
+              v-for="training in passeStore.savedTrainings"
               :key="training.id"
               class="training-card"
               :class="{ expanded: expandedTrainingId === training.id }"
@@ -60,7 +60,7 @@
                   <template v-else>
                     <span class="card-name">{{ training.name }}</span>
                     <div class="card-meta-row">
-                      <span class="card-meta">{{ training.programmes.length }} Programme</span>
+                      <span class="card-meta">{{ training.passen.length }} Passen</span>
                       <span class="meta-dot">·</span>
                       <span class="card-meta">{{ totalThrows(training) }} Würfe</span>
                     </div>
@@ -91,7 +91,7 @@
 
               <div v-if="expandedTrainingId === training.id" class="card-detail">
                 <div class="phase-list">
-                  <div v-for="(prog, i) in training.programmes" :key="prog.id" class="phase-row">
+                  <div v-for="(prog, i) in training.passen" :key="prog.id" class="phase-row">
                     <span class="phase-num">{{ i + 1 }}</span>
                     <span class="phase-name">{{ prog.name }}</span>
                     <span class="phase-meta">{{ progThrows(prog) }} W</span>
@@ -102,7 +102,7 @@
                     <Icons icon="play" :size="14" color="#4fc3f7" />
                     Starten
                   </button>
-                  <button class="action-btn action-btn--danger" @click.stop="programStore.deleteTraining(training.id)">
+                  <button class="action-btn action-btn--danger" @click.stop="passeStore.deleteTraining(training.id)">
                     <Icons icon="trash" :size="13" color="rgba(252,129,129,0.7)" />
                     Löschen
                   </button>
@@ -111,10 +111,10 @@
             </div>
           </div>
 
-          <div v-if="programStore.savedTrainings.length === 0 && !creatingTraining" class="empty-block">
+          <div v-if="passeStore.savedTrainings.length === 0 && !creatingTraining" class="empty-block">
             <Icons icon="program" :size="36" color="rgba(255,255,255,0.07)" />
             <p>Noch keine Trainings</p>
-            <p class="empty-hint">Kombiniere Programme zu einem Training</p>
+            <p class="empty-hint">Kombiniere Passen zu einem Training</p>
           </div>
 
           <!-- Create training panel -->
@@ -128,25 +128,25 @@
             </div>
             <div class="create-field">
               <label class="create-label">
-                Programme auswählen
-                <span class="create-label-count">{{ selectedProgrammes.length }} gewählt</span>
+                Passen auswählen
+                <span class="create-label-count">{{ selectedPassen.length }} gewählt</span>
               </label>
-              <p v-if="programStore.savedPrograms.length === 0" class="create-hint">
-                Noch keine Programme vorhanden.
+              <p v-if="passeStore.savedPassen.length === 0" class="create-hint">
+                Noch keine Passen vorhanden.
               </p>
-              <p v-else class="create-hint">Tippe auf Programme um sie auszuwählen. Die Reihenfolge entspricht der Spielreihenfolge.</p>
+              <p v-else class="create-hint">Tippe auf Passen um sie auszuwählen. Die Reihenfolge entspricht der Spielreihenfolge.</p>
             </div>
 
-            <div v-if="programStore.savedPrograms.length > 0" class="programme-picker">
+            <div v-if="passeStore.savedPassen.length > 0" class="programme-picker">
               <div
-                v-for="prog in programStore.savedPrograms"
+                v-for="prog in passeStore.savedPassen"
                 :key="prog.id"
                 class="picker-item"
                 :class="{ selected: isSelected(prog.id) }"
-                @click="toggleProgramme(prog)"
+                @click="togglePasse(prog)"
               >
                 <div class="picker-check">
-                  <span v-if="isSelected(prog.id)" class="picker-order">{{ selectedOrder(prog.id) }}</span>
+                  <span v-if="isSelected(prog.id)" class="picker-order">{{ selectedPasseOrder(prog.id) }}</span>
                   <Icons v-else icon="plus" :size="11" color="rgba(255,255,255,0.3)" />
                 </div>
                 <span class="picker-name">{{ prog.name }}</span>
@@ -158,7 +158,7 @@
               <button class="action-btn action-btn--cancel" @click="cancelCreate">Abbrechen</button>
               <button
                 class="action-btn action-btn--create"
-                :disabled="selectedProgrammes.length === 0"
+                :disabled="selectedPassen.length === 0"
                 @click="confirmCreate"
               >
                 <Icons icon="check" :size="13" color="#fff" />
@@ -167,7 +167,7 @@
             </div>
           </div>
 
-          <button v-if="!creatingTraining" class="new-training-btn" :disabled="programStore.savedPrograms.length === 0" @click="startCreate">
+          <button v-if="!creatingTraining" class="new-training-btn" :disabled="passeStore.savedPassen.length === 0" @click="startCreate">
             <Icons icon="plus" :size="16" color="rgba(79,195,247,0.8)" />
             Neues Training
           </button>
@@ -202,7 +202,7 @@
               <div class="phase-progress">
                 <span class="phase-progress-label">
                   Phase {{ inst.currentPhaseIndex + 1 }} von {{ inst.phases.length }} —
-                  {{ inst.phases[inst.currentPhaseIndex]?.programmeName }}
+                  {{ inst.phases[inst.currentPhaseIndex]?.passeName }}
                 </span>
                 <div class="progress-bar-wrap">
                   <div class="progress-bar">
@@ -225,7 +225,7 @@
                 >
                   <span class="block-status-dot" :class="`dot-${block.status}`" />
                   <span class="block-status-range">{{ block.rangeName ?? 'Kein Platz' }}</span>
-                  <span class="block-status-name">{{ block.ablaufAlias }}</span>
+                  <span class="block-status-name">{{ block.serieAlias }}</span>
                 </div>
               </div>
             </div>
@@ -277,7 +277,7 @@
                     <span class="pd-total">{{ ps.totalPts }}/{{ ps.maxPts }}</span>
                   </div>
                   <div v-for="phase in inst.phases" :key="phase.phaseIndex" class="phase-detail-group">
-                    <span class="phase-detail-label">{{ phase.programmeName }}</span>
+                    <span class="phase-detail-label">{{ phase.passeName }}</span>
                     <div
                       v-for="block in phase.blocks"
                       :key="block.blockId"
@@ -285,7 +285,7 @@
                     >
                       <span class="completed-score-block">
                         <span class="completed-score-range">{{ block.rangeName }}</span>
-                        {{ block.ablaufAlias }}
+                        {{ block.serieAlias }}
                       </span>
                       <span class="completed-score-pts">
                         {{
@@ -349,22 +349,24 @@
 <script setup>
 import { ref, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { useProgramStore } from '@/stores/programStore.js'
-import { useActiveProgramStore } from '@/stores/activeProgramStore.js'
+import { usePasseStore } from '@/stores/passeStore.js'
+import { useActivePasseStore } from '@/stores/activePasseStore.js'
 import Icons from '@/components/Icons.vue'
+import { useUrlTab } from '@/composables/useUrlTab.js'
 
 const router = useRouter()
-const programStore = useProgramStore()
-const activeProgramStore = useActiveProgramStore()
+const passeStore = usePasseStore()
+const activePasseStore = useActivePasseStore()
 
-const activeTab = ref('trainings')
+// Active tab — synced to URL query param ?tab=xxx
+const { activeTab, setTab } = useUrlTab('trainings', ['trainings', 'active', 'completed'])
 
 // ── Active / Completed filtered by type ───────────────────────────────────
 const activeTrainings = computed(() =>
-  activeProgramStore.activeInstances.filter(i => i.type === 'training')
+  activePasseStore.activeInstances.filter(i => i.type === 'training')
 )
 const completedTrainings = computed(() =>
-  activeProgramStore.completedInstances.filter(i => i.type === 'training')
+  activePasseStore.completedInstances.filter(i => i.type === 'training')
 )
 
 // ── Expand / rename training cards ────────────────────────────────────────
@@ -384,44 +386,44 @@ const startRename = (training) => {
 }
 
 const confirmRename = (id) => {
-  if (renameValue.value.trim()) programStore.renameTraining(id, renameValue.value.trim())
+  if (renameValue.value.trim()) passeStore.renameTraining(id, renameValue.value.trim())
   renamingId.value = null
 }
 
 // ── Create training flow ──────────────────────────────────────────────────
 const creatingTraining = ref(false)
 const newTrainingName = ref('')
-const selectedProgrammes = ref([]) // ordered array of { id, name, ablaeufe }
+const selectedPassen = ref([]) // ordered array of { id, name, serien }
 
 const startCreate = () => {
   creatingTraining.value = true
   newTrainingName.value = ''
-  selectedProgrammes.value = []
+  selectedPassen.value = []
 }
 
 const cancelCreate = () => {
   creatingTraining.value = false
-  selectedProgrammes.value = []
+  selectedPassen.value = []
 }
 
-const isSelected = (progId) => selectedProgrammes.value.some(p => p.id === progId)
+const isSelected = (progId) => selectedPassen.value.some(p => p.id === progId)
 
-const selectedOrder = (progId) => selectedProgrammes.value.findIndex(p => p.id === progId) + 1
+const selectedPasseOrder = (progId) => selectedPassen.value.findIndex(p => p.id === progId) + 1
 
-const toggleProgramme = (prog) => {
-  const idx = selectedProgrammes.value.findIndex(p => p.id === prog.id)
+const togglePasse = (prog) => {
+  const idx = selectedPassen.value.findIndex(p => p.id === prog.id)
   if (idx >= 0) {
-    selectedProgrammes.value = selectedProgrammes.value.filter(p => p.id !== prog.id)
+    selectedPassen.value = selectedPassen.value.filter(p => p.id !== prog.id)
   } else {
-    selectedProgrammes.value = [...selectedProgrammes.value, prog]
+    selectedPassen.value = [...selectedPassen.value, prog]
   }
 }
 
 const confirmCreate = () => {
-  if (selectedProgrammes.value.length === 0) return
-  programStore.createTraining(newTrainingName.value, selectedProgrammes.value)
+  if (selectedPassen.value.length === 0) return
+  passeStore.createTraining(newTrainingName.value, selectedPassen.value)
   creatingTraining.value = false
-  selectedProgrammes.value = []
+  selectedPassen.value = []
   newTrainingName.value = ''
 }
 
@@ -447,16 +449,16 @@ const cancelStartModal = () => { startingTraining.value = null; modalPlayers.val
 
 const confirmStart = () => {
   if (!startingTraining.value || modalPlayers.value.length === 0) return
-  activeProgramStore.startTraining(startingTraining.value, modalPlayers.value)
+  activePasseStore.startTraining(startingTraining.value, modalPlayers.value)
   startingTraining.value = null
   modalPlayers.value = []
-  activeTab.value = 'active'
+  setTab('active', { replace: true })
 }
 
 // ── Stop training ─────────────────────────────────────────────────────────
 const stopTraining = (inst) => {
   if (confirm(`Möchtest du „${inst.templateName}" wirklich abbrechen?`)) {
-    activeProgramStore.stopInstance(inst.instanceId)
+    activePasseStore.stopInstance(inst.instanceId)
   }
 }
 
@@ -494,10 +496,10 @@ const stepCount = (steps) => {
 }
 
 const progThrows = (prog) =>
-  (prog.ablaeufe ?? []).reduce((sum, abl) => sum + stepCount(abl.steps ?? []), 0)
+  (prog.serien ?? []).reduce((sum, serie) => sum + stepCount(serie.steps ?? []), 0)
 
 const totalThrows = (training) =>
-  (training.programmes ?? []).reduce((sum, prog) => sum + progThrows(prog), 0)
+  (training.passen ?? []).reduce((sum, prog) => sum + progThrows(prog), 0)
 </script>
 
 <style scoped>
