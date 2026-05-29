@@ -6,8 +6,9 @@ import { useUrlTab } from '@/composables/useUrlTab.js'
 
 const routes = [{ path: '/', component: { template: '<div />' } }]
 
-function setup(defaultTab, validTabs, initialPath = '/') {
+async function setup(defaultTab, validTabs, initialPath = '/') {
   const router = createRouter({ history: createMemoryHistory(), routes })
+  if (initialPath !== '/') await router.push(initialPath)
   let result
   mount(defineComponent({
     setup() { result = useUrlTab(defaultTab, validTabs) },
@@ -18,34 +19,22 @@ function setup(defaultTab, validTabs, initialPath = '/') {
 
 describe('useUrlTab', () => {
   it('returns defaultTab when no query param is present', async () => {
-    const { result } = setup('score', ['score', 'wins'])
+    const { result } = await setup('score', ['score', 'wins'])
     expect(result.activeTab.value).toBe('score')
   })
 
   it('reads a valid tab from the URL query on mount', async () => {
-    const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/?tab=wins')
-    let result
-    mount(defineComponent({
-      setup() { result = useUrlTab('score', ['score', 'wins']) },
-      template: '<div />',
-    }), { global: { plugins: [router] } })
+    const { result } = await setup('score', ['score', 'wins'], '/?tab=wins')
     expect(result.activeTab.value).toBe('wins')
   })
 
   it('falls back to defaultTab when query tab is not in validTabs', async () => {
-    const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/?tab=garbage')
-    let result
-    mount(defineComponent({
-      setup() { result = useUrlTab('score', ['score', 'wins']) },
-      template: '<div />',
-    }), { global: { plugins: [router] } })
+    const { result } = await setup('score', ['score', 'wins'], '/?tab=garbage')
     expect(result.activeTab.value).toBe('score')
   })
 
   it('setTab() calls router.push and updates activeTab', async () => {
-    const { router, result } = setup('score', ['score', 'wins'])
+    const { router, result } = await setup('score', ['score', 'wins'])
     const pushSpy = vi.spyOn(router, 'push')
     await result.setTab('wins')
     expect(pushSpy).toHaveBeenCalledWith({ query: { tab: 'wins' } })
@@ -53,7 +42,7 @@ describe('useUrlTab', () => {
   })
 
   it('setTab({ replace: true }) calls router.replace instead of push', async () => {
-    const { router, result } = setup('score', ['score', 'wins'])
+    const { router, result } = await setup('score', ['score', 'wins'])
     const replaceSpy = vi.spyOn(router, 'replace')
     const pushSpy = vi.spyOn(router, 'push')
     await result.setTab('wins', { replace: true })
@@ -62,13 +51,7 @@ describe('useUrlTab', () => {
   })
 
   it('preserves existing query params when setting tab', async () => {
-    const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/?filter=active')
-    let result
-    mount(defineComponent({
-      setup() { result = useUrlTab('score', ['score', 'wins']) },
-      template: '<div />',
-    }), { global: { plugins: [router] } })
+    const { router, result } = await setup('score', ['score', 'wins'], '/?filter=active')
     const pushSpy = vi.spyOn(router, 'push')
     await result.setTab('wins')
     expect(pushSpy).toHaveBeenCalledWith({ query: { filter: 'active', tab: 'wins' } })
