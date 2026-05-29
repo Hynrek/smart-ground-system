@@ -5,6 +5,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.*;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "users")
@@ -114,13 +115,8 @@ public class User {
     private Instant geloeschtAm; // soft delete timestamp
 
     // ==================== RELATIONSHIPS ====================
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-        name = "user_roles",
-        joinColumns = @JoinColumn(name = "user_id"),
-        inverseJoinColumns = @JoinColumn(name = "role_id")
-    )
-    private Set<Role> roles = new HashSet<>();
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<UserRoleEntity> userRoles = new HashSet<>();
 
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     private Set<ScopedAccess> scopedAccess = new HashSet<>();
@@ -260,8 +256,14 @@ public class User {
     public Instant getGeloeschtAm() { return geloeschtAm; }
     public void setGeloeschtAm(@Nullable Instant geloeschtAm) { this.geloeschtAm = geloeschtAm; }
 
-    public Set<Role> getRoles() { return roles; }
-    public void setRoles(Set<Role> roles) { this.roles = roles; }
+    public Set<UserRoleEntity> getUserRoles() { return userRoles; }
+
+    /** Abgeleitete Rollenmenge – nur lesend verwenden. */
+    public Set<Role> getRoles() {
+        return userRoles.stream()
+            .map(UserRoleEntity::getRole)
+            .collect(Collectors.toSet());
+    }
 
     public Set<ScopedAccess> getScopedAccess() { return scopedAccess; }
 

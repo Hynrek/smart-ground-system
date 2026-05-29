@@ -195,7 +195,7 @@ public class UserService {
     // ==================== ROLE MANAGEMENT ====================
 
     /**
-     * Assign a role to a user (unscoped)
+     * Weist einem Benutzer eine Rolle zu (ohne Bereichsbeschränkung)
      */
     public UserRoleDto assignRole(UUID userId, String roleName) {
         User user = userRepository.findById(userId)
@@ -204,20 +204,21 @@ public class UserService {
         Role role = roleRepository.findByName(roleName)
             .orElseThrow(() -> new IllegalArgumentException("Role not found: " + roleName));
 
-        // Check if role already assigned
-        if (user.getRoles().stream().anyMatch(r -> r.getName().equals(roleName))) {
+        // Prüfen ob Rolle bereits zugewiesen
+        boolean alreadyAssigned = user.getUserRoles().stream()
+            .anyMatch(ur -> ur.getRole().getName().equals(roleName));
+        if (alreadyAssigned) {
             throw new IllegalArgumentException("User already has role: " + roleName);
         }
 
-        user.getRoles().add(role);
+        user.getUserRoles().add(new ch.jp.shooting.model.auth.UserRoleEntity(user, role, null));
         userRepository.save(user);
 
-        UserRoleDto dto = new UserRoleDto(role.getId(), role.getName(), role.getDescription(), java.time.Instant.now());
-        return dto;
+        return new UserRoleDto(role.getId(), role.getName(), role.getDescription(), java.time.Instant.now());
     }
 
     /**
-     * Assign a scoped role to a user (e.g., OWNER for a specific range)
+     * Weist einem Benutzer eine bereichsbeschränkte Rolle zu (z.B. OWNER für eine bestimmte Range)
      */
     public UserRoleDto assignScopedRole(UUID userId, String roleName, String scopeType, UUID scopeId, @Nullable java.time.Instant expiresAt) {
         User user = userRepository.findById(userId)
@@ -226,13 +227,15 @@ public class UserService {
         Role role = roleRepository.findByName(roleName)
             .orElseThrow(() -> new IllegalArgumentException("Role not found: " + roleName));
 
-        // Assign unscoped role if not already assigned
-        if (user.getRoles().stream().noneMatch(r -> r.getName().equals(roleName))) {
-            user.getRoles().add(role);
+        // Globale Rolle zuweisen falls noch nicht vorhanden
+        boolean alreadyAssigned = user.getUserRoles().stream()
+            .anyMatch(ur -> ur.getRole().getName().equals(roleName));
+        if (!alreadyAssigned) {
+            user.getUserRoles().add(new ch.jp.shooting.model.auth.UserRoleEntity(user, role, null));
             userRepository.save(user);
         }
 
-        // Create scoped access
+        // Bereichszugriff anlegen
         ScopedAccess access = new ScopedAccess(user, role, scopeType, scopeId);
         if (expiresAt != null) {
             access.setExpiresAt(expiresAt);
@@ -248,18 +251,18 @@ public class UserService {
     }
 
     /**
-     * Revoke a role from a user (unscoped)
+     * Entzieht einem Benutzer eine globale Rolle
      */
     public void revokeRole(UUID userId, String roleName) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        Role roleToRemove = user.getRoles().stream()
-            .filter(r -> r.getName().equals(roleName))
+        ch.jp.shooting.model.auth.UserRoleEntity toRemove = user.getUserRoles().stream()
+            .filter(ur -> ur.getRole().getName().equals(roleName))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("User does not have role: " + roleName));
 
-        user.getRoles().remove(roleToRemove);
+        user.getUserRoles().remove(toRemove);
         userRepository.save(user);
     }
 
@@ -282,9 +285,10 @@ public class UserService {
 
         List<UserRoleDto> roles = new ArrayList<>();
 
-        // Add unscoped roles
-        user.getRoles().forEach(role -> {
-            UserRoleDto dto = new UserRoleDto(role.getId(), role.getName(), role.getDescription(), java.time.Instant.now());
+        // Globale Rollen hinzufügen
+        user.getUserRoles().forEach(ur -> {
+            Role role = ur.getRole();
+            UserRoleDto dto = new UserRoleDto(role.getId(), role.getName(), role.getDescription(), ur.getGrantedAt());
             roles.add(dto);
         });
 

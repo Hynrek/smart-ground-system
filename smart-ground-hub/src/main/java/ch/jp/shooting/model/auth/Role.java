@@ -30,7 +30,7 @@ public class Role {
         joinColumns = @JoinColumn(name = "role_id"),
         inverseJoinColumns = @JoinColumn(name = "permission_id")
     )
-    private Set<Permission> permissions = new HashSet<>();
+    private Set<PermissionEntity> permissions = new HashSet<>();
 
     // ==================== CONSTRUCTORS ====================
     public Role() {}
@@ -51,8 +51,8 @@ public class Role {
     public String getDescription() { return description; }
     public void setDescription(@Nullable String description) { this.description = description; }
 
-    public Set<Permission> getPermissions() { return permissions; }
-    public void setPermissions(Set<Permission> permissions) { this.permissions = permissions; }
+    public Set<PermissionEntity> getPermissions() { return permissions; }
+    public void setPermissions(Set<PermissionEntity> permissions) { this.permissions = permissions; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

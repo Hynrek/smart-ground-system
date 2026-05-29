@@ -22,6 +22,20 @@ public class GlobalExceptionHandler {
 
     // ── Device/Range Exceptions ──
 
+    @ExceptionHandler(RangePositionNotFoundException.class)
+    ProblemDetail handleRangePositionNotFound(RangePositionNotFoundException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        detail.setType(URI.create("/errors/range-position-not-found"));
+        return detail;
+    }
+
+    @ExceptionHandler(RangePositionOccupiedException.class)
+    ProblemDetail handleRangePositionOccupied(RangePositionOccupiedException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        detail.setType(URI.create("/errors/range-position-occupied"));
+        return detail;
+    }
+
     @ExceptionHandler(DeviceNotFoundException.class)
     ProblemDetail handleDeviceNotFound(DeviceNotFoundException ex) {
         var detail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
@@ -141,6 +155,13 @@ public class GlobalExceptionHandler {
     }
 
     // ── Generic Exceptions ──
+
+    @ExceptionHandler(ForbiddenException.class)
+    ProblemDetail handleForbidden(ForbiddenException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        detail.setType(URI.create("/errors/forbidden"));
+        return detail;
+    }
 
     @ExceptionHandler(NotFoundException.class)
     ProblemDetail handleNotFound(NotFoundException ex) {
