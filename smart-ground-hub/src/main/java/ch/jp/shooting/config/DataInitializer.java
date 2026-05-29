@@ -1,11 +1,16 @@
 package ch.jp.shooting.config;
 
 import ch.jp.shooting.model.*;
-import ch.jp.shooting.model.auth.User;
+import ch.jp.shooting.model.auth.Permission;
+import ch.jp.shooting.model.auth.PermissionEntity;
 import ch.jp.shooting.model.auth.Role;
+import ch.jp.shooting.model.auth.User;
+import ch.jp.shooting.model.auth.UserRoleEntity;
 import ch.jp.shooting.repository.*;
+import ch.jp.shooting.repository.auth.PermissionEntityRepository;
 import ch.jp.shooting.repository.auth.RoleRepository;
 import ch.jp.shooting.repository.auth.UserRepository;
+import ch.jp.shooting.repository.auth.UserRoleRepository;
 import org.jspecify.annotations.NullMarked;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +19,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Set;
 
 @Component
 @NullMarked
@@ -27,6 +34,8 @@ public class DataInitializer {
     private final DeviceTypeRepository deviceTypeRepository;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final PermissionEntityRepository permissionRepository;
+    private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DataInitializer(
@@ -36,6 +45,8 @@ public class DataInitializer {
             DeviceTypeRepository deviceTypeRepository,
             UserRepository userRepository,
             RoleRepository roleRepository,
+            PermissionEntityRepository permissionRepository,
+            UserRoleRepository userRoleRepository,
             PasswordEncoder passwordEncoder) {
         this.firmwareConfigRepository = firmwareConfigRepository;
         this.signalTypeRepository = signalTypeRepository;
@@ -43,6 +54,8 @@ public class DataInitializer {
         this.deviceTypeRepository = deviceTypeRepository;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.permissionRepository = permissionRepository;
+        this.userRoleRepository = userRoleRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -110,61 +123,70 @@ public class DataInitializer {
     }
 
     private void seedUsers() {
-        // Check if admin user already exists
         if (userRepository.findByEmail("admin@smartground.local").isPresent()) {
             log.debug("Seed: Admin user bereits vorhanden – übersprungen.");
             return;
         }
 
-        // Create admin user
+        // Alle Berechtigungen als PermissionEntity anlegen (falls noch nicht vorhanden)
+        for (Permission p : Permission.values()) {
+            permissionRepository.findByAction(p.action())
+                .orElseGet(() -> permissionRepository.save(new PermissionEntity(p.action(), p.name())));
+        }
+
+        // ADMIN-Rolle mit allen Berechtigungen
+        Role adminRole = roleRepository.findByName("ADMIN").orElseGet(() -> {
+            Role r = new Role("ADMIN", "System administrator with full access");
+            roleRepository.save(r);
+            for (Permission p : Permission.values()) {
+                PermissionEntity pe = permissionRepository.findByAction(p.action())
+                    .orElseThrow(() -> new IllegalStateException("PermissionEntity fehlt: " + p.action()));
+                r.getPermissions().add(pe);
+            }
+            return roleRepository.save(r);
+        });
+
+        // SHOOTER-Rolle mit eingeschränkten Berechtigungen
+        Set<Permission> shooterPermissions = Set.of(
+            Permission.VIEW_REMOTE,
+            Permission.PLAY_SERIES,
+            Permission.PLAY_COMPETITION,
+            Permission.START_TRAINING,
+            Permission.RESERVE_REMOTE
+        );
+        Role shooterRole = roleRepository.findByName("SHOOTER").orElseGet(() -> {
+            Role r = new Role("SHOOTER", "Regular shooter participant");
+            roleRepository.save(r);
+            for (Permission p : shooterPermissions) {
+                PermissionEntity pe = permissionRepository.findByAction(p.action())
+                    .orElseThrow(() -> new IllegalStateException("PermissionEntity fehlt: " + p.action()));
+                r.getPermissions().add(pe);
+            }
+            return roleRepository.save(r);
+        });
+
+        // Admin-Benutzer anlegen und Rolle per UserRoleEntity zuweisen
         User admin = new User("admin@smartground.local", "Admin", "User");
         admin.setPasswordHash(passwordEncoder.encode("admin123"));
         admin.setStatus(User.UserStatus.ACTIVE);
         admin.setEmailBestaetigt(true);
         admin.setSprache("DE");
-
         User savedAdmin = userRepository.save(admin);
-        log.info("Seed: Admin user mit Email 'admin@smartground.local' erstellt.");
+        userRoleRepository.save(new UserRoleEntity(savedAdmin, adminRole, null));
+        log.info("Seed: Admin user 'admin@smartground.local' mit ADMIN-Rolle erstellt.");
 
-        // Assign ADMIN role (create if not exists)
-        Role adminRole = roleRepository.findByName("ADMIN")
-            .orElseGet(() -> {
-                Role newRole = new Role("ADMIN", "System administrator with full access");
-                return roleRepository.save(newRole);
-            });
-
-        if (!savedAdmin.getRoles().contains(adminRole)) {
-            savedAdmin.getRoles().add(adminRole);
-            userRepository.save(savedAdmin);
-            log.info("Seed: ADMIN role dem Admin user zugewiesen.");
-        }
-
-        // Create regular shooter user
+        // Shooter-Benutzer anlegen
         if (userRepository.findByEmail("user@smartground.local").isPresent()) {
             log.debug("Seed: Shooter user bereits vorhanden – übersprungen.");
             return;
         }
-
         User shooter = new User("user@smartground.local", "Test", "Schütze");
         shooter.setPasswordHash(passwordEncoder.encode("user"));
         shooter.setStatus(User.UserStatus.ACTIVE);
         shooter.setEmailBestaetigt(true);
         shooter.setSprache("DE");
-
         User savedShooter = userRepository.save(shooter);
-        log.info("Seed: Shooter user mit Email 'user@smartground.local' erstellt.");
-
-        // Assign SHOOTER role (create if not exists)
-        Role shooterRole = roleRepository.findByName("SHOOTER")
-            .orElseGet(() -> {
-                Role newRole = new Role("SHOOTER", "Regular shooter participant");
-                return roleRepository.save(newRole);
-            });
-
-        if (!savedShooter.getRoles().contains(shooterRole)) {
-            savedShooter.getRoles().add(shooterRole);
-            userRepository.save(savedShooter);
-            log.info("Seed: SHOOTER role dem Shooter user zugewiesen.");
-        }
+        userRoleRepository.save(new UserRoleEntity(savedShooter, shooterRole, null));
+        log.info("Seed: Shooter user 'user@smartground.local' mit SHOOTER-Rolle erstellt.");
     }
 }
