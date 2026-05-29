@@ -58,6 +58,23 @@ paths:
         '401':
           description: Invalid credentials
 
+  /api/auth/me:
+    get:
+      summary: Get current user profile and permissions
+      operationId: getMe
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user profile with flat permission list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          description: Not authenticated
+
   /api/users:
     post:
       summary: Create a new user
@@ -2945,6 +2962,89 @@ components:
         token:
           type: string
           description: JWT token containing username and role as claims
+
+    MeResponse:
+      type: object
+      required: [id, email, vorname, nachname, status, erstelltAm, permissions]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        vorname:
+          type: string
+        nachname:
+          type: string
+        geburtsdatum:
+          type: string
+          format: date
+          nullable: true
+        geschlecht:
+          type: string
+          nullable: true
+          enum: [MAENNLICH, WEIBLICH, DIVERS, UNBEKANNT]
+        telefonnummer:
+          type: string
+          nullable: true
+        telefonBestaetigt:
+          type: boolean
+          nullable: true
+        strasse:
+          type: string
+          nullable: true
+        hausnummer:
+          type: string
+          nullable: true
+        plz:
+          type: string
+          nullable: true
+        stadt:
+          type: string
+          nullable: true
+        land:
+          type: string
+          nullable: true
+        profilbildUrl:
+          type: string
+          nullable: true
+        biographie:
+          type: string
+          nullable: true
+        sprache:
+          type: string
+          nullable: true
+          enum: [DE, EN, FR, IT]
+        mitgliedsnummer:
+          type: string
+          nullable: true
+        schiessLizenz:
+          type: string
+          nullable: true
+        schiessLizenzVerfallsdatum:
+          type: string
+          format: date
+          nullable: true
+        schiessLizenzGueltig:
+          type: boolean
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, SUSPENDED, PENDING_APPROVAL]
+        emailBestaetigt:
+          type: boolean
+          nullable: true
+        letzterLogin:
+          type: string
+          format: date-time
+          nullable: true
+        erstelltAm:
+          type: string
+          format: date-time
+        permissions:
+          type: array
+          items:
+            type: string
+          description: Flat union of all permissions from all assigned roles
 
     CreateUserRequest:
       type: object
