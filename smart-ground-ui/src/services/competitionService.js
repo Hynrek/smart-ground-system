@@ -169,7 +169,7 @@ export const competitionService = {
   },
 
   /**
-   * Lädt die Top-Spieler nach Gesamtpunkten.
+   * Lädt die Top-Schützen nach Gesamtpunkten.
    * @param {Object} params - { page?: number, size?: number }
    * @returns {Promise<Page<CareerStatsResponse>>}
    */
@@ -184,7 +184,7 @@ export const competitionService = {
   },
 
   /**
-   * Lädt die Top-Spieler nach Siegen.
+   * Lädt die Top-Schützen nach Siegen.
    * @param {Object} params - { page?: number, size?: number }
    * @returns {Promise<Page<CareerStatsResponse>>}
    */
@@ -199,7 +199,7 @@ export const competitionService = {
   },
 
   /**
-   * Lädt die Karriere-Statistiken für einen Spieler.
+   * Lädt die Karriere-Statistiken für einen Schützen.
    * @param {UUID} userId
    * @returns {Promise<CareerStatsResponse>}
    */

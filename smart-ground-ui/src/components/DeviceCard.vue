@@ -3,7 +3,7 @@
     <div class="card-header">
       <div class="device-name">
         <div class="name">{{ device.alias }}</div>
-        <div class="box-id">{{ device.smartBoxId || device.boxId || '–' }}</div>
+        <div class="box-id">{{ boxName }}</div>
       </div>
       <StatusDot :status="getStatus(device)" />
     </div>
@@ -18,9 +18,11 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import StatusDot from './StatusDot.vue';
 import TypeChip from './TypeChip.vue';
 import Icons from './Icons.vue';
+import { useSmartBoxStore } from '../stores/smartBoxStore.js';
 
 const props = defineProps({
   device: {
@@ -32,6 +34,12 @@ const props = defineProps({
 });
 
 defineEmits(['fire']);
+
+const smartBoxStore = useSmartBoxStore();
+const boxName = computed(() => {
+  const id = props.device.smartBoxId ?? props.device.boxId;
+  return smartBoxStore.smartboxes.find(b => b.id === id)?.alias ?? id ?? '–';
+});
 
 function getStatus(device) {
   if (device.blocked) return 'offline';

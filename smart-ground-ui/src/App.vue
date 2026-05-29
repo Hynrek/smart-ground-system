@@ -16,7 +16,7 @@ const navMap = {
   '/smartboxes': 'smartboxes',
   '/device-type-groups': 'device-type-groups',
   '/competition': 'competition',
-  '/programme': 'programme',
+  '/passen': 'passen',
   '/users': 'users',
   '/profile': 'profile',
 };

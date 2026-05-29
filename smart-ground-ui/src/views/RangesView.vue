@@ -3,7 +3,7 @@
     <div class="view-header">
       <div>
         <h1 class="view-title">Schiessplätze</h1>
-        <p class="view-subtitle">{{ ranges.length }} Plätze · {{ assignedDeviceCount }} Geräte zugeordnet</p>
+        <p class="view-subtitle">{{ ranges.length }} Plätze · {{ totalDeviceCount }} Total Geräte</p>
       </div>
       <Button variant="primary" @click="openCreateForm">
         <Icons icon="plus" :size="14" />
@@ -14,29 +14,29 @@
     <div class="stats-strip">
       <div class="stat-card">
         <div class="stat-icon stat-icon--blue">
-          <Icons icon="ranges" :size="16" color="#4fc3f7" />
+          <Icons icon="target" :size="16" color="#4fc3f7" />
         </div>
         <div>
-          <div class="stat-value">{{ ranges.length }}</div>
-          <div class="stat-label">Plätze</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon stat-icon--green">
-          <Icons icon="bolt" :size="16" color="#48bb78" />
-        </div>
-        <div>
-          <div class="stat-value">{{ assignedDeviceCount }}</div>
-          <div class="stat-label">Geräte zugeordnet</div>
+          <div class="stat-value">0/{{ ranges.length }}</div>
+          <div class="stat-label">Reservierte Plätze</div>
         </div>
       </div>
       <div class="stat-card">
         <div class="stat-icon stat-icon--amber">
-          <Icons icon="lock" :size="16" color="#ed8936" />
+          <Icons icon="bolt" :size="16" color="#ed8936" />
         </div>
         <div>
-          <div class="stat-value">{{ lockedCount }}</div>
-          <div class="stat-label">Gesperrt</div>
+          <div class="stat-value">{{ unassignedDeviceCount }}</div>
+          <div class="stat-label">Nicht zugeordnete Geräte</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon--red">
+          <Icons icon="alert" :size="16" color="#e53e3e" />
+        </div>
+        <div>
+          <div class="stat-value">0</div>
+          <div class="stat-label">Geräte mit Störungen</div>
         </div>
       </div>
     </div>
@@ -141,7 +141,12 @@
               </div>
               <p v-if="range.description" class="range-description">{{ range.description }}</p>
               <div class="range-meta">
-                <span class="device-chip">
+                <span class="meta-chip">
+                  <Icons icon="target" :size="11" />
+                  {{ getPositionCount(range.id) !== null ? getPositionCount(range.id) : '…' }}
+                  {{ getPositionCount(range.id) === 1 ? 'Position' : 'Positionen' }}
+                </span>
+                <span class="meta-chip">
                   <Icons icon="bolt" :size="11" />
                   {{ getDeviceCount(range.id) }}
                   {{ getDeviceCount(range.id) === 1 ? 'Gerät' : 'Geräte' }}
@@ -186,7 +191,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRangeStore } from '../stores/rangeStore.js';
 import { useDeviceStore } from '../stores/deviceStore.js';
@@ -199,8 +204,18 @@ const deviceStore = useDeviceStore();
 
 const ranges = computed(() => rangeStore.ranges);
 const loading = computed(() => rangeStore.isLoading);
-const assignedDeviceCount = computed(() => deviceStore.devices.filter((d) => d.rangeId !== null).length);
-const lockedCount = computed(() => ranges.value.filter((r) => r.locked).length);
+const totalDeviceCount = computed(() => deviceStore.devices.length);
+const unassignedDeviceCount = computed(() => deviceStore.devices.filter((d) => d.rangeId === null).length);
+
+watch(ranges, (newRanges) => {
+  for (const range of newRanges) {
+    if (!rangeStore.positions[range.id]) {
+      rangeStore.loadPositions(range.id);
+    }
+  }
+}, { immediate: true });
+
+const getPositionCount = (rangeId) => rangeStore.positions[rangeId]?.length ?? null;
 
 const showCreateForm = ref(false);
 const newName = ref('');
@@ -358,6 +373,7 @@ async function confirmDelete(range) {
 .stat-icon--blue { background: #ebf8ff; }
 .stat-icon--green { background: #f0fff4; }
 .stat-icon--amber { background: #fffbeb; }
+.stat-icon--red { background: #fff5f5; }
 
 .stat-value {
   font-size: 22px;
@@ -579,7 +595,7 @@ async function confirmDelete(range) {
   flex-wrap: wrap;
 }
 
-.device-chip {
+.meta-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;

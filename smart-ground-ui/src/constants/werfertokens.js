@@ -4,7 +4,7 @@ export const WERFER_COLORS = {
   pineGreen: '#1c3420',        // Background dark, button active
   parchmentLight: '#e8dfd0',   // Page background
   parchmentMedium: '#f0e8d8',  // Flyout panel background
-  cream: '#fff8f2',            // Werfer button bg, ablauf item bg
+  cream: '#fff8f2',            // Werfer button bg, serie item bg
 
   // Accents
   orangeAccent: '#c85a0e',     // Active borders, active state top stripe
@@ -88,7 +88,7 @@ export const WERFER_RADIUS = {
   statusPill: '99px',
   rangeTab: '11px',
   flyoutPanel: '9px 0 0 9px',
-  ablaufItem: '9px',
+  serieItem: '9px',
 };
 
 export const WERFER_BORDERS = {

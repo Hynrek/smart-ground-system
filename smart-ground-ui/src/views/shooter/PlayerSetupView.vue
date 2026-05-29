@@ -1,8 +1,8 @@
 <template>
   <div class="player-setup">
     <div class="setup-header">
-      <h1>Spieler hinzufügen</h1>
-      <p>Bestelle die Spieler für diese Runde</p>
+      <h1>Schützen hinzufügen</h1>
+      <p>Bestelle die Schützen für diese Runde</p>
     </div>
 
     <div class="player-list-container">

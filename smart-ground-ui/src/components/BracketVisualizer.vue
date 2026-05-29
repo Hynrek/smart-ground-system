@@ -54,7 +54,7 @@
               ⭐
             </text>
 
-            <!-- Spieler 1 -->
+            <!-- Schütze 1 -->
             <text
               :x="roundX[roundIdx] - matchWidth / 2 + 8"
               :y="matchY(roundIdx, matchIdx) + 20"
@@ -74,7 +74,7 @@
               {{ match.score1 }}
             </text>
 
-            <!-- Spieler 2 -->
+            <!-- Schütze 2 -->
             <text
               :x="roundX[roundIdx] - matchWidth / 2 + 8"
               :y="matchY(roundIdx, matchIdx) + 35"
@@ -323,7 +323,7 @@ const selectMatch = (match) => {
   pointer-events: none;
 }
 
-/* Spieler-Namen */
+/* Schützen-Namen */
 .player-name {
   font-size: 11px;
   fill: #333;

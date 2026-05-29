@@ -20,14 +20,14 @@
       Leaderboard konnte nicht geladen werden.
     </div>
     <div v-else class="leaderboard-content">
-      <!-- Player Rankings -->
+      <!-- Schützen-Rankings -->
       <div class="leaderboard-section">
-        <h2>Spieler-Rankings</h2>
+        <h2>Schützen-Rankings</h2>
         <table class="leaderboard-table">
           <thead>
             <tr>
               <th>Rang</th>
-              <th>Spieler</th>
+              <th>Schütze</th>
               <th>Punkte</th>
               <th>Maximal</th>
               <th>Prozent</th>

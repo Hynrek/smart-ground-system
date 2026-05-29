@@ -2,7 +2,7 @@
   <div v-if="visible" class="handover-overlay">
     <div class="handover-card">
       <div class="handover-header">
-        <h2>Spielerwechsel</h2>
+        <h2>Schützenwechsel</h2>
       </div>
 
       <div class="player-info">
@@ -49,18 +49,18 @@ const emit = defineEmits(['confirm']);
 const playStore = usePlaySessionStore();
 
 const previousPlayerName = computed(() => {
-  if (!playStore.sessionPlayers.length) return 'Spieler';
+  if (!playStore.sessionPlayers.length) return 'Schütze';
   const prevIdx = playStore.currentPlayerIndex - 1;
   if (prevIdx < 0) {
     const lastIdx = playStore.roundOrder.value[playStore.roundOrder.value.length - 1];
-    return playStore.sessionPlayers[lastIdx]?.displayName || 'Spieler';
+    return playStore.sessionPlayers[lastIdx]?.displayName || 'Schütze';
   }
   const prevPlayerIdx = playStore.roundOrder.value[prevIdx];
-  return playStore.sessionPlayers[prevPlayerIdx]?.displayName || 'Spieler';
+  return playStore.sessionPlayers[prevPlayerIdx]?.displayName || 'Schütze';
 });
 
 const currentPlayerName = computed(
-  () => playStore.currentPlayer?.displayName || 'Spieler'
+  () => playStore.currentPlayer?.displayName || 'Schütze'
 );
 
 const previousPlayerPoints = computed(() => {

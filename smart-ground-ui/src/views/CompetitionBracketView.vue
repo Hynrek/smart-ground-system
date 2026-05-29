@@ -165,7 +165,7 @@
           <div v-if="selectedMatch.isPlayed" class="match-completed">
             <p>✓ This match has been completed</p>
             <div class="completed-info">
-              <div>Winner: {{ getPlayerName(selectedMatch.winnerId) }}</div>
+              <div>Gewinner: {{ getPlayerName(selectedMatch.winnerId) }}</div>
               <div v-if="selectedMatch.score1 !== null && selectedMatch.score2 !== null">
                 Score: {{ selectedMatch.score1 }} - {{ selectedMatch.score2 }}
               </div>
@@ -211,7 +211,7 @@
           <thead>
             <tr>
               <th>Rank</th>
-              <th>Player</th>
+              <th>Schütze</th>
               <th>Wins</th>
               <th>Score</th>
             </tr>

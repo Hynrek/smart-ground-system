@@ -17,9 +17,27 @@
       <h2>Neuer Benutzer</h2>
       <div class="form-group">
         <input
-          v-model="newUser.username"
+          v-model="newUser.vorname"
           type="text"
-          placeholder="Benutzername"
+          placeholder="Vorname"
+          class="form-input"
+          :disabled="userStore.isLoading"
+        />
+      </div>
+      <div class="form-group">
+        <input
+          v-model="newUser.nachname"
+          type="text"
+          placeholder="Nachname"
+          class="form-input"
+          :disabled="userStore.isLoading"
+        />
+      </div>
+      <div class="form-group">
+        <input
+          v-model="newUser.email"
+          type="email"
+          placeholder="E-Mail"
           class="form-input"
           :disabled="userStore.isLoading"
         />
@@ -33,16 +51,10 @@
           :disabled="userStore.isLoading"
         />
       </div>
-      <div class="form-group">
-        <select v-model="newUser.role" class="form-input" :disabled="userStore.isLoading">
-          <option value="SHOOTER">Schütze</option>
-          <option value="ADMIN">Administrator</option>
-        </select>
-      </div>
       <div class="form-actions">
         <button
           class="btn btn-primary"
-          :disabled="!newUser.username || !newUser.password || userStore.isLoading"
+          :disabled="!newUser.email || !newUser.password || !newUser.vorname || !newUser.nachname || userStore.isLoading"
           @click="handleCreateUser"
         >
           {{ userStore.isLoading ? 'Wird erstellt...' : 'Erstellen' }}
@@ -58,56 +70,24 @@
 
       <div v-for="user in userStore.users" :key="user.id" class="user-card">
         <div class="user-info">
-          <h3>{{ user.username }}</h3>
+          <h3>{{ user.fullName }}</h3>
           <div class="meta">
-            <span class="role-badge" :class="user.role.toLowerCase()">
-              {{ user.role === 'ADMIN' ? 'Administrator' : 'Schütze' }}
+            <span class="status-badge" :class="user.status?.toLowerCase()">
+              {{ user.email }}
             </span>
             <span class="created-date">
-              {{ formatDate(user.createdAt) }}
+              {{ formatDate(user.erstelltAm) }}
             </span>
           </div>
         </div>
 
         <div class="user-actions">
           <button
-            v-if="user.role !== 'ADMIN'"
-            class="btn btn-secondary btn-sm"
-            :disabled="userStore.isLoading"
-            @click="openRoleModal(user)"
-          >
-            Rolle ändern
-          </button>
-          <button
-            v-if="user.role !== 'ADMIN'"
             class="btn btn-danger btn-sm"
             :disabled="userStore.isLoading"
             @click="openDeleteConfirm(user)"
           >
             Löschen
-          </button>
-          <span v-else class="admin-note">Admin-Benutzer</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Role Change Modal -->
-    <div v-if="editingUser" class="modal-overlay" @click="closeRoleModal">
-      <div class="modal" @click.stop>
-        <h2>Rolle ändern</h2>
-        <p>{{ editingUser.username }}</p>
-        <div class="form-group">
-          <select v-model="editingUser.role" class="form-input">
-            <option value="SHOOTER">Schütze</option>
-            <option value="ADMIN">Administrator</option>
-          </select>
-        </div>
-        <div class="modal-actions">
-          <button class="btn btn-primary" :disabled="userStore.isLoading" @click="handleRoleChange">
-            Speichern
-          </button>
-          <button class="btn btn-secondary" :disabled="userStore.isLoading" @click="closeRoleModal">
-            Abbrechen
           </button>
         </div>
       </div>
@@ -136,8 +116,7 @@ import { onMounted, ref } from 'vue'
 import { useUserStore } from '../stores/userStore.js'
 
 const userStore = useUserStore()
-const newUser = ref({ username: '', password: '', role: 'SHOOTER' })
-const editingUser = ref(null)
+const newUser = ref({ vorname: '', nachname: '', email: '', password: '' })
 const deletingUser = ref(null)
 const successMessage = ref(null)
 
@@ -149,8 +128,8 @@ onMounted(async () => {
   }
 })
 
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString('de-DE', {
+const formatDate = (epochSeconds) => {
+  return new Date(epochSeconds * 1000).toLocaleDateString('de-DE', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -158,37 +137,15 @@ const formatDate = (date) => {
 }
 
 const handleCreateUser = async () => {
-  if (!newUser.value.username || !newUser.value.password) {
-    userStore.error = 'Benutzername und Passwort erforderlich'
+  if (!newUser.value.email || !newUser.value.password || !newUser.value.vorname || !newUser.value.nachname) {
+    userStore.error = 'Alle Felder sind erforderlich'
     return
   }
 
   try {
-    await userStore.createUser(newUser.value.username, newUser.value.password, newUser.value.role)
-    newUser.value = { username: '', password: '', role: 'SHOOTER' }
+    await userStore.createUser(newUser.value)
+    newUser.value = { vorname: '', nachname: '', email: '', password: '' }
     successMessage.value = 'Benutzer erfolgreich erstellt'
-    setTimeout(() => {
-      successMessage.value = null
-    }, 3000)
-  } catch (err) {
-    // Error is already in userStore.error
-  }
-}
-
-const openRoleModal = (user) => {
-  editingUser.value = { ...user }
-}
-
-const closeRoleModal = () => {
-  editingUser.value = null
-}
-
-const handleRoleChange = async () => {
-  if (!editingUser.value) return
-  try {
-    await userStore.updateUserRole(editingUser.value.id, editingUser.value.role)
-    successMessage.value = 'Rolle erfolgreich aktualisiert'
-    closeRoleModal()
     setTimeout(() => {
       successMessage.value = null
     }, 3000)
@@ -323,7 +280,7 @@ h1 {
   color: #666;
 }
 
-.role-badge {
+.status-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
   font-size: 0.85rem;
@@ -332,12 +289,7 @@ h1 {
   color: #333;
 }
 
-.role-badge.admin {
-  background-color: #ffd700;
-  color: #333;
-}
-
-.role-badge.shooter {
+.status-badge.active {
   background-color: #87ceeb;
   color: white;
 }

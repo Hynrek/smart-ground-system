@@ -38,7 +38,7 @@
         </div>
         <div>
           <div class="stat-value">{{ totalPlayerCount }}</div>
-          <div class="stat-label">Spieler registriert</div>
+          <div class="stat-label">Schützen registriert</div>
         </div>
       </div>
       <div class="stat-card">
@@ -105,7 +105,7 @@
           <span class="badge badge-purple">{{ bracketTournamentCount }} insgesamt</span>
         </div>
         <p class="card-description">
-          Verwalten Sie Single- und Double-Elimination-Turniere. Seed-Spieler und zeichnen Sie Match-Ergebnisse auf.
+          Verwalten Sie Single- und Double-Elimination-Turniere. Schützen setzen und Match-Ergebnisse aufzeichnen.
         </p>
         <div class="card-actions">
           <Button
@@ -127,17 +127,17 @@
         </div>
       </div>
 
-      <!-- Player Management Section -->
+      <!-- Schützenverwaltung Section -->
       <div class="management-card">
         <div class="card-header">
           <h2 class="card-title">
             <Icons icon="users" :size="18" />
-            Spielerverwaltung
+            Schützenverwaltung
           </h2>
-          <span class="badge badge-green">{{ totalPlayerCount }} Spieler</span>
+          <span class="badge badge-green">{{ totalPlayerCount }} Schützen</span>
         </div>
         <p class="card-description">
-          Verwalten Sie Spielerregister, Gruppen und Registrierungen für Sitzungen.
+          Verwalten Sie Schützenregister, Gruppen und Registrierungen für Sitzungen.
         </p>
         <div class="card-actions">
           <Button
@@ -146,7 +146,7 @@
             @click="navigateTo('/player-setup')"
           >
             <Icons icon="users" :size="13" />
-            Spieler verwalten
+            Schützen verwalten
           </Button>
           <Button
             variant="secondary"
@@ -238,16 +238,16 @@
           <ol>
             <li>Erstellen Sie eine Turniersitzung</li>
             <li>Konfigurieren Sie den Bracket-Typ</li>
-            <li>Seed-Spieler (automatisch oder manuell)</li>
+            <li>Schützen setzen (automatisch oder manuell)</li>
             <li>Starten Sie das Turnier</li>
             <li>Zeichnen Sie Match-Ergebnisse auf</li>
           </ol>
         </div>
         <div class="reference-card">
-          <h3>Spieler hinzufügen</h3>
+          <h3>Schützen hinzufügen</h3>
           <ol>
-            <li>Gehen Sie zu "Spielerverwaltung"</li>
-            <li>Erstellen Sie einen neuen Spieler</li>
+            <li>Gehen Sie zu "Schützenverwaltung"</li>
+            <li>Erstellen Sie einen neuen Schützen</li>
             <li>Ordnen Sie ihn einer Gruppe zu</li>
             <li>Registrieren Sie ihn für Sitzungen</li>
           </ol>

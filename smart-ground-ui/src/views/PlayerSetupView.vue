@@ -1,19 +1,19 @@
 <template>
   <div class="player-setup-container">
     <div class="setup-header">
-      <h1>Player Setup</h1>
-      <p class="subtitle">Register players and assign them to groups</p>
+      <h1>Schützen-Setup</h1>
+      <p class="subtitle">Schützen registrieren und Gruppen zuweisen</p>
     </div>
 
     <div class="setup-content">
       <!-- Left Panel: Player Registration -->
       <div class="left-panel">
         <div class="section">
-          <h2>Players</h2>
+          <h2>Schützen</h2>
 
           <!-- New Player Form -->
           <div class="new-player-form">
-            <h3>Add New Player</h3>
+            <h3>Neuen Schützen hinzufügen</h3>
             <div class="form-group">
               <label for="firstName">First Name</label>
               <input
@@ -37,7 +37,7 @@
               :disabled="!newPlayer.firstName || !newPlayer.lastName"
               @click="registerNewPlayer"
             >
-              Register Player
+              Schützen registrieren
             </button>
             <div v-if="message" :class="['message', message.type]">
               {{ message.text }}
@@ -46,7 +46,7 @@
 
           <!-- Existing Players List -->
           <div class="existing-players">
-            <h3>Available Players</h3>
+            <h3>Verfügbare Schützen</h3>
             <div class="players-list">
               <div
                 v-for="player in availablePlayers"
@@ -69,7 +69,7 @@
               </div>
             </div>
             <p v-if="availablePlayers.length === 0" class="empty-state">
-              No players available. Register a new player to get started.
+              Keine Schützen verfügbar. Registrieren Sie einen neuen Schützen.
             </p>
           </div>
         </div>
@@ -133,7 +133,7 @@
                   </button>
                 </div>
                 <div v-if="group.players.length === 0" class="no-players">
-                  No players assigned
+                  Keine Schützen zugewiesen
                 </div>
               </div>
 
@@ -143,7 +143,7 @@
                   class="btn btn-sm btn-assign"
                   @click="assignPlayersToGroup(group.id)"
                 >
-                  Assign {{ selectedPlayers.length }} Player(s)
+                  {{ selectedPlayers.length }} Schützen zuweisen
                 </button>
               </div>
             </div>
@@ -238,7 +238,7 @@ const registerNewPlayer = () => {
 
   // Reset form
   newPlayer.value = { firstName: '', lastName: '' }
-  showMessage('Player registered successfully', 'success')
+  showMessage('Schütze erfolgreich registriert', 'success')
 }
 
 const selectPlayer = (player) => {
@@ -302,7 +302,7 @@ const assignPlayersToGroup = (groupId) => {
   })
 
   selectedPlayers.value = []
-  showMessage('Players assigned to group', 'success')
+  showMessage('Schützen der Gruppe zugewiesen', 'success')
 }
 
 const removePlayerFromGroup = (groupId, playerId) => {

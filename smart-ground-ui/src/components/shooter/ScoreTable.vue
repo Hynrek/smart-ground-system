@@ -9,11 +9,11 @@
 
       <!-- Steps table -->
       <div class="steps-list">
-        <div v-for="step in getPlayerSteps(player.id)" :key="`${step.ablaufIndex}-${step.stepIndex}`"
+        <div v-for="step in getPlayerSteps(player.id)" :key="`${step.serieIndex}-${step.stepIndex}`"
           class="step-row" :class="getStepRowClass(step)">
           <span class="step-letters">{{ getLetters(step) }}</span>
           <span class="step-type">{{ getTypeLabel(getActualStep(step)) }}</span>
-          <span class="step-status">{{ getStateLabel(step.state) }}</span>
+          <span class="step-status">{{ getStateLabel(step.state, getActualStep(step)) }}</span>
           <span class="step-points">{{ getPointsDisplay(step) }}</span>
         </div>
       </div>
@@ -41,15 +41,15 @@ const props = defineProps({
 });
 
 // Get step state for a specific player and step location
-const findStepState = (playerId, ablaufIdx, stepIdx) => {
+const findStepState = (playerId, serieIdx, stepIdx) => {
   return props.stepStates.find(
-    (s) => s.playerId === playerId && s.ablaufIndex === ablaufIdx && s.stepIndex === stepIdx
+    (s) => s.playerId === playerId && s.serieIndex === serieIdx && s.stepIndex === stepIdx
   ) ?? null;
 };
 
 // Get actual step object from program
 const getActualStep = (stepState) => {
-  return props.program?.[stepState.ablaufIndex]?.steps[stepState.stepIndex] ?? null;
+  return props.program?.[stepState.serieIndex]?.steps[stepState.stepIndex] ?? null;
 };
 
 // Get all step states for a player
@@ -93,16 +93,20 @@ const getTypeLabel = (step) => {
   return map[step.type] ?? step.type;
 };
 
-// Get display label for step state
-const getStateLabel = (state) => {
-  const map = {
-    [StepState.PENDING]: '⏳',
-    [StepState.DONE]: '✓',
-    [StepState.FAILED_A]: '✗ A',
-    [StepState.FAILED_B]: '✗ B',
-    [StepState.FAILED_BOTH]: '✗ 1/2',
-  };
-  return map[state] ?? state;
+// Get display label for step state — uses the actual step to resolve position letters
+const getStateLabel = (state, step = null) => {
+  if (state === StepState.PENDING) return '⏳';
+  if (state === StepState.DONE) return '✓';
+  if (state === StepState.FAILED_BOTH) return '✗';
+  if (state === StepState.FAILED_A) {
+    if (step?.type === StepType.RAFFALE) return `✗ ${step.letter ?? '?'} 1.`;
+    return `✗ ${step?.letter1 ?? 'A'}`;
+  }
+  if (state === StepState.FAILED_B) {
+    if (step?.type === StepType.RAFFALE) return `✗ ${step.letter ?? '?'} 2.`;
+    return `✗ ${step?.letter2 ?? 'B'}`;
+  }
+  return state;
 };
 
 // Get letter(s) display for a step

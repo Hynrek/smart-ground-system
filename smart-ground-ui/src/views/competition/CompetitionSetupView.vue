@@ -21,7 +21,7 @@
       <div class="groups-list">
         <div v-for="group in groups" :key="group.id" class="group-item">
           <h4>{{ group.name }}</h4>
-          <p>{{ group.members ? group.members.length : 0 }} Spieler</p>
+          <p>{{ group.members ? group.members.length : 0 }} Schützen</p>
           <button class="btn btn-small" @click="editGroup(group.id)">Bearbeiten</button>
           <button class="btn btn-small btn-danger" @click="deleteGroup(group.id)">Löschen</button>
         </div>

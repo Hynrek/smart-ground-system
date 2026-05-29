@@ -9,7 +9,7 @@
 
     <!-- Top bar -->
     <div class="play-topbar">
-      <button class="end-btn" @click="playStore.closePlayback">Programm beenden</button>
+      <button class="end-btn" @click="playStore.closePlayback">Passe beenden</button>
       <div class="score-display">
         <span class="score-label">Punkte</span>
         <span class="score-value">{{ playStore.playScore.totalPoints }}</span>
@@ -37,7 +37,7 @@
           v-for="(completed, i) in completedSteps"
           :key="`${completed.segIdx}-${completed.stepIdx}`"
           class="completed-card"
-          :class="{ 'is-failed': playStore.playScore.stepStates.find(s => s.segmentIndex === completed.segIdx && s.stepIndex === completed.stepIdx)?.state?.includes('failed') }"
+          :class="{ 'is-failed': playStore.playScore.stepStates.find(s => s.serieIndex === completed.segIdx && s.stepIndex === completed.stepIdx)?.state?.includes('failed') }"
         >
           <span class="step-number">{{ i + 1 }}</span>
           <span class="step-type">{{ getTypeLabel(playStore.playProg[completed.segIdx].steps[completed.stepIdx].type) }}</span>
@@ -88,7 +88,7 @@
       <!-- Final score screen -->
       <div v-if="showFinalScore" class="final-score-screen">
         <div class="score-card">
-          <div class="final-title">Programm Fertig!</div>
+          <div class="final-title">Passe Fertig!</div>
           <div class="final-score-value">{{ playStore.playScore.totalPoints }} Punkte</div>
           <button class="btn btn-primary" @click="playStore.closePlayback">
             Schließen
@@ -144,13 +144,13 @@ const fertigStep = { type: 'fertig', alias: 'Fertig' };
 const currentStep = computed(() => playStore.currentStep);
 
 const nextStep = computed(() => {
-  const seg = playStore.currentAblauf;
+  const seg = playStore.currentSerie;
   if (!seg || !playStore.playProg) return fertigStep;
   if (playStore.currentStepIndex < seg.steps.length - 1) {
     return seg.steps[playStore.currentStepIndex + 1];
   }
-  if (playStore.currentAblaufIndex < playStore.playProg.length - 1) {
-    return playStore.playProg[playStore.currentAblaufIndex + 1].steps[0];
+  if (playStore.currentSerieIndex < playStore.playProg.length - 1) {
+    return playStore.playProg[playStore.currentSerieIndex + 1].steps[0];
   }
   return fertigStep;
 });
@@ -162,8 +162,8 @@ const completedSteps = computed(() => {
     const seg = playStore.playProg[segIdx];
     for (let stepIdx = 0; stepIdx < seg.steps.length; stepIdx++) {
       if (
-        segIdx < playStore.currentAblaufIndex ||
-        (segIdx === playStore.currentAblaufIndex && stepIdx < playStore.currentStepIndex)
+        segIdx < playStore.currentSerieIndex ||
+        (segIdx === playStore.currentSerieIndex && stepIdx < playStore.currentStepIndex)
       ) {
         completed.push({ segIdx, stepIdx });
       }
@@ -183,7 +183,7 @@ const actionButtons = computed(() => {
   if (!canFail) return [];
 
   const lastStep = playStore.playLastDeviceStep
-    ? playStore.playProg?.[playStore.playLastDeviceStep.segmentIdx]?.steps[playStore.playLastDeviceStep.stepIdx]
+    ? playStore.playProg?.[playStore.playLastDeviceStep.serieIdx]?.steps[playStore.playLastDeviceStep.stepIdx]
     : null;
   const isDouble = lastStep ? doubleTypes.includes(lastStep.type) : false;
   const atEnd = playStore.isAtProgramEnd;
@@ -220,7 +220,7 @@ const getTypeLabel = (type) => ({
 })[type] ?? type;
 
 const getStepDisplay = (step) => {
-  if (step.type === 'fertig') return 'Programm abgeschlossen';
+  if (step.type === 'fertig') return 'Passe abgeschlossen';
   if (step.type === StepType.SOLO) return step.alias;
   if (step.type === StepType.RAFFALE) return `${step.alias} (2×)`;
   return `${step.alias1} + ${step.alias2}`;
@@ -237,8 +237,8 @@ const getHint = (step) => {
 };
 
 const getDotClass = (segIdx) => {
-  if (segIdx < playStore.currentAblaufIndex) return 'dot--completed';
-  if (segIdx === playStore.currentAblaufIndex) return 'dot--current';
+  if (segIdx < playStore.currentSerieIndex) return 'dot--completed';
+  if (segIdx === playStore.currentSerieIndex) return 'dot--current';
   return 'dot--pending';
 };
 

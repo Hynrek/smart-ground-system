@@ -4,10 +4,10 @@ export async function fetchUsers() {
   return apiFetch('/users')
 }
 
-export async function createUser(username, password, role) {
+export async function createUser(userData) {
   return apiFetch('/users', {
     method: 'POST',
-    body: JSON.stringify({ username, password, role })
+    body: JSON.stringify(userData)
   })
 }
 

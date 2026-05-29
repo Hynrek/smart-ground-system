@@ -1,46 +1,46 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { useProgramStore } from '../programStore'
+import { usePasseStore } from '../passeStore'
 
-const prog1 = {
+const passe1 = {
   id: 'p1',
   name: 'Aufwärmen',
-  ablaeufe: [{ id: 'abl-1', name: 'A1', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }],
+  serien: [{ id: 'serie-1', name: 'S1', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }],
 }
-const prog2 = {
+const passe2 = {
   id: 'p2',
   name: 'Hauptteil',
-  ablaeufe: [{ id: 'abl-2', name: 'A2', rangeId: 'r2', rangeName: 'Platz 2', steps: [] }],
+  serien: [{ id: 'serie-2', name: 'S2', rangeId: 'r2', rangeName: 'Platz 2', steps: [] }],
 }
 
-describe('programStore — Training CRUD', () => {
+describe('passeStore — Training CRUD', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.clear()
   })
 
-  it('createTraining adds a training with snapshotted programmes', () => {
-    const store = useProgramStore()
-    store.createTraining('Training 1', [prog1, prog2])
+  it('createTraining adds a training with snapshotted passen', () => {
+    const store = usePasseStore()
+    store.createTraining('Training 1', [passe1, passe2])
     expect(store.savedTrainings).toHaveLength(1)
     expect(store.savedTrainings[0].name).toBe('Training 1')
-    expect(store.savedTrainings[0].programmes).toHaveLength(2)
-    expect(store.savedTrainings[0].programmes[0].name).toBe('Aufwärmen')
+    expect(store.savedTrainings[0].passen).toHaveLength(2)
+    expect(store.savedTrainings[0].passen[0].name).toBe('Aufwärmen')
   })
 
   it('createTraining persists to localStorage', () => {
-    const store = useProgramStore()
-    store.createTraining('Training 1', [prog1])
+    const store = usePasseStore()
+    store.createTraining('Training 1', [passe1])
     const keys = Object.keys(localStorage).filter(k => k.includes('_training_'))
     expect(keys).toHaveLength(1)
     const data = JSON.parse(localStorage.getItem(keys[0]))
     expect(data.trainingName).toBe('Training 1')
-    expect(data.programmes).toHaveLength(1)
+    expect(data.passen).toHaveLength(1)
   })
 
   it('deleteTraining removes from memory and localStorage', () => {
-    const store = useProgramStore()
-    store.createTraining('Training 1', [prog1])
+    const store = usePasseStore()
+    store.createTraining('Training 1', [passe1])
     const id = store.savedTrainings[0].id
     store.deleteTraining(id)
     expect(store.savedTrainings).toHaveLength(0)
@@ -48,8 +48,8 @@ describe('programStore — Training CRUD', () => {
   })
 
   it('renameTraining updates name in memory and localStorage', () => {
-    const store = useProgramStore()
-    store.createTraining('Alter Name', [prog1])
+    const store = usePasseStore()
+    store.createTraining('Alter Name', [passe1])
     const id = store.savedTrainings[0].id
     store.renameTraining(id, 'Neuer Name')
     expect(store.savedTrainings[0].name).toBe('Neuer Name')
@@ -58,25 +58,25 @@ describe('programStore — Training CRUD', () => {
   })
 
   it('loadTrainingsFromStorage reloads after re-init', () => {
-    const store = useProgramStore()
-    store.createTraining('Training 1', [prog1, prog2])
+    const store = usePasseStore()
+    store.createTraining('Training 1', [passe1, passe2])
     setActivePinia(createPinia())
-    const store2 = useProgramStore()
+    const store2 = usePasseStore()
     expect(store2.savedTrainings).toHaveLength(1)
-    expect(store2.savedTrainings[0].programmes).toHaveLength(2)
+    expect(store2.savedTrainings[0].passen).toHaveLength(2)
   })
 
   it('createTraining snapshots steps so original mutation does not affect training', () => {
-    const store = useProgramStore()
-    const progWithSteps = {
+    const store = usePasseStore()
+    const passeWithSteps = {
       id: 'p1',
       name: 'Test',
-      ablaeufe: [{ id: 'abl-1', name: 'A1', rangeId: 'r1', rangeName: 'Platz 1', steps: [{ id: 's1', type: 'solo' }] }],
+      serien: [{ id: 'serie-1', name: 'S1', rangeId: 'r1', rangeName: 'Platz 1', steps: [{ id: 's1', type: 'solo' }] }],
     }
-    store.createTraining('T1', [progWithSteps])
+    store.createTraining('T1', [passeWithSteps])
     // Mutate the original steps array
-    progWithSteps.ablaeufe[0].steps.push({ id: 's2', type: 'pair' })
+    passeWithSteps.serien[0].steps.push({ id: 's2', type: 'pair' })
     // Training snapshot must not be affected
-    expect(store.savedTrainings[0].programmes[0].ablaeufe[0].steps).toHaveLength(1)
+    expect(store.savedTrainings[0].passen[0].serien[0].steps).toHaveLength(1)
   })
 })

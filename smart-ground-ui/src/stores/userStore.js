@@ -13,7 +13,7 @@ export const useUserStore = defineStore('user', () => {
     error.value = null
     try {
       const data = await userApi.fetchUsers()
-      users.value = data
+      users.value = data.content ?? data
     } catch (err) {
       error.value = err.message || 'Failed to load users'
       throw err
@@ -22,11 +22,11 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function createUser(username, password, role) {
+  async function createUser(userData) {
     isLoading.value = true
     error.value = null
     try {
-      await userApi.createUser(username, password, role)
+      await userApi.createUser(userData)
       await loadUsers()
     } catch (err) {
       error.value = err.message || 'Failed to create user'
