@@ -9,7 +9,7 @@
         @blur="emit('rename', localName)"
       />
       <span class="payment-summary">{{ paidCount }}/{{ rotte.players.length }} bezahlt</span>
-      <button class="icon-btn" @click="emit('remove')" title="Rotte löschen">
+      <button class="icon-btn" title="Rotte löschen" @click="emit('remove')">
         <Icons icon="trash" :size="13" color="rgba(252,129,129,0.7)" />
       </button>
     </div>
