@@ -33,6 +33,11 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('sg_token', data.token);
       await _loadProfile();
     } catch (err) {
+      // Authentifizierungsstatus bei Fehler vollständig zurücksetzen
+      token.value = null;
+      profile.value = null;
+      permissions.value = [];
+      localStorage.removeItem('sg_token');
       error.value = err.message;
       throw err;
     } finally {

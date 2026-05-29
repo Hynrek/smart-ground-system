@@ -24,6 +24,7 @@ import { useAuthStore } from '@/stores/authStore';
 
 const routes = [
   { path: '/login', component: LoginView, meta: { requiresAuth: false } },
+  { path: '/no-access', component: () => import('@/views/NoAccessView.vue'), meta: { requiresAuth: true } },
   { path: '/', redirect: '/ranges' },
 
   // ── Admin routes ──────────────────────────────────────────────────────
@@ -60,8 +61,11 @@ const router = createRouter({
 });
 
 // Gibt die Standardstartseite basierend auf den Berechtigungen des Benutzers zurück
-const defaultHome = (auth) =>
-  auth.hasPermission('VIEW_REMOTE') ? '/home' : '/ranges';
+const defaultHome = (auth) => {
+  if (auth.hasPermission('VIEW_REMOTE')) return '/home';
+  if (auth.hasPermission('MANAGE_RANGES')) return '/ranges';
+  return '/no-access';
+};
 
 router.beforeEach((to, from, next) => {
   const auth = useAuthStore();
@@ -78,14 +82,15 @@ router.beforeEach((to, from, next) => {
     return;
   }
 
-  if (to.path === '/' && authenticated) {
-    next(defaultHome(auth));
-    return;
-  }
-
   const requiredPermission = to.meta.permission;
   if (requiredPermission && !auth.hasPermission(requiredPermission)) {
-    next(defaultHome(auth));
+    const home = defaultHome(auth);
+    // Avoid infinite redirect if defaultHome itself requires a permission the user lacks
+    if (to.path !== home) {
+      next(home);
+    } else {
+      next('/no-access');
+    }
     return;
   }
 

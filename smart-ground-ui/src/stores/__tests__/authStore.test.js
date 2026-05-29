@@ -89,6 +89,19 @@ describe('useAuthStore', () => {
     expect(localStorage.getItem('sg_token')).toBeNull()
   })
 
+  it('login clears token when getMe fails after receiving JWT', async () => {
+    vi.mocked(authApi.login).mockResolvedValue({ token: 'test.jwt.token' })
+    vi.mocked(authApi.getMe).mockRejectedValue(new Error('HTTP 500'))
+
+    const store = useAuthStore()
+    await expect(store.login('admin@smartground.local', 'admin123')).rejects.toThrow('HTTP 500')
+
+    // Token must not be left dangling after a failed profile fetch
+    expect(store.isAuthenticated()).toBe(false)
+    expect(localStorage.getItem('sg_token')).toBeNull()
+    expect(store.permissions).toEqual([])
+  })
+
   it('displayName returns full name from profile', async () => {
     vi.mocked(authApi.login).mockResolvedValue({ token: 'test.jwt.token' })
     vi.mocked(authApi.getMe).mockResolvedValue(mockProfile)
