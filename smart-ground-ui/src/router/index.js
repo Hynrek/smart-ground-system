@@ -20,6 +20,8 @@ import PassenAdminView from '@/views/PassenAdminView.vue';
 import CompetitionBracketView from '@/views/CompetitionBracketView.vue';
 import PlayerSetupView from '@/views/PlayerSetupView.vue';
 import CompetitionManagementView from '@/views/CompetitionManagementView.vue';
+import WettkampfListView from '@/views/admin/WettkampfListView.vue';
+import WettkampfDetailView from '@/views/admin/WettkampfDetailView.vue';
 import { useAuthStore } from '@/stores/authStore';
 
 const routes = [
@@ -39,6 +41,8 @@ const routes = [
   { path: '/competition/templates', component: CompetitionTemplateListView, meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/competition/setup',    component: CompetitionSetupView,         meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/competition/bracket',  component: CompetitionBracketView,       meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
+  { path: '/admin/wettkampf',       component: WettkampfListView,            meta: { layout: 'admin' } },
+  { path: '/admin/wettkampf/:id',   component: WettkampfDetailView, props: true, meta: { layout: 'admin' } },
   { path: '/passen',               component: PassenAdminView,              meta: { layout: 'admin', permission: 'MANAGE_PASSE_TEMPLATES' } },
 
   // ── Shooter routes ────────────────────────────────────────────────────

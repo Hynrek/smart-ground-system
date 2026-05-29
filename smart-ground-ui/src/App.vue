@@ -15,7 +15,7 @@ const navMap = {
   '/ranges': 'ranges',
   '/smartboxes': 'smartboxes',
   '/device-type-groups': 'device-type-groups',
-  '/competition': 'competition',
+  '/admin/wettkampf': 'competition',
   '/passen': 'passen',
   '/users': 'users',
   '/profile': 'profile',
@@ -29,6 +29,7 @@ const handleNav = (navId) => {
     ranges: '/ranges',
     smartboxes: '/smartboxes',
     'device-type-groups': '/device-type-groups',
+    competition: '/admin/wettkampf',
     templates: '/deviceTypes',
     users: '/users',
   };
