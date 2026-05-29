@@ -329,7 +329,7 @@
                       <Icons icon="edit" :size="13" color="rgba(255,255,255,0.4)" />
                     </button>
                     <button
-                      v-if="seg.ownership !== 'range' || authStore.isAdminOrOwner()"
+                      v-if="seg.ownership !== 'range' || authStore.hasPermission('MANAGE_RANGES')"
                       class="icon-btn icon-btn--danger"
                       title="Löschen"
                       @click.stop="passeStore.deleteSerie(seg.id)"

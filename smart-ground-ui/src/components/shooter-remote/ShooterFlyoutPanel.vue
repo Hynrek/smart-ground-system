@@ -281,7 +281,7 @@
               <Icons icon="x" :size="13" color="#fc8181" />
             </button>
           </div>
-          <label v-if="authStore.isAdminOrOwner()" class="range-ownership-toggle">
+          <label v-if="authStore.hasPermission('OPERATE_RANGE')" class="range-ownership-toggle">
             <input v-model="saveAsRange" type="checkbox" />
             <span>Für alle auf diesem Platz</span>
           </label>

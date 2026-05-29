@@ -48,17 +48,17 @@ const router = useRouter();
 const authStore = useAuthStore();
 
 const allNavItems = [
-  { id: 'ranges', label: 'Plätze', icon: 'target' },
-  { id: 'smartboxes', label: 'SmartBoxen', icon: 'wifi' },
-  { id: 'competition', label: 'Wettkampf', icon: 'award' },
-  { id: 'passen', label: 'Passen', icon: 'program' },
-  { id: 'users', label: 'Benutzer', icon: 'user', adminOnly: true },
+  { id: 'ranges', label: 'Plätze', icon: 'target', requiredPermission: 'MANAGE_RANGES' },
+  { id: 'smartboxes', label: 'SmartBoxen', icon: 'wifi', requiredPermission: 'MANAGE_RANGES' },
+  { id: 'competition', label: 'Wettkampf', icon: 'award', requiredPermission: 'MANAGE_COMPETITIONS' },
+  { id: 'passen', label: 'Passen', icon: 'program', requiredPermission: 'MANAGE_PASSE_TEMPLATES' },
+  { id: 'users', label: 'Benutzer', icon: 'user', requiredPermission: 'MANAGE_USERS' },
   { id: 'profile', label: 'Profil', icon: 'user' },
 ];
 
 const navItems = computed(() => {
   return allNavItems.filter(item => {
-    if (item.adminOnly && !authStore.isAdminOrOwner()) {
+    if (item.requiredPermission && !authStore.hasPermission(item.requiredPermission)) {
       return false;
     }
     return true;
@@ -66,7 +66,7 @@ const navItems = computed(() => {
 });
 
 const username = computed(() => {
-  return authStore.username || 'Benutzer';
+  return authStore.displayName || 'Benutzer';
 });
 
 const userAvatarLetter = computed(() => {

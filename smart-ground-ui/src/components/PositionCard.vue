@@ -134,7 +134,7 @@ const emit = defineEmits([
 ]);
 
 const authStore = useAuthStore();
-const isAdmin = computed(() => authStore.isAdminOrOwner());
+const isAdmin = computed(() => authStore.hasPermission('MANAGE_RANGES'));
 
 // ── Drag & drop ───────────────────────────────────────────────────────────────
 const dragOver = ref(false);
