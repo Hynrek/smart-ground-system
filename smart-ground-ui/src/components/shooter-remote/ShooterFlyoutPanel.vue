@@ -115,32 +115,22 @@
               <span class="section-label">Offene Wettkämpfe</span>
               <div class="serien-list">
                 <div
-                  v-for="serie in competitionSerien"
-                  :key="serie.id"
+                  v-for="item in competitionSerien"
+                  :key="`${item.instanceId}-${item.rotteId}`"
                   class="serie-card"
-                  :class="{ expanded: expandedSerieId === serie.id }"
+                  data-testid="competition-rotte-card"
                 >
-                  <button
-                    class="serie-header-btn"
-                    @click="toggleExpandSerie(serie.id)"
-                  >
-                    <Icons
-                      :icon="expandedSerieId === serie.id ? 'chevronDown' : 'chevronRight'"
-                      :size="12"
-                      color="rgba(255,255,255,0.4)"
-                    />
-                    <span class="serie-name">{{ serie.name }}</span>
-                    <span v-if="isSerieCompleted(serie.id)" class="completion-badge">✓ Done</span>
+                  <button class="serie-header-btn" @click="playCompetitionRotte(item)">
+                    <div class="block-info">
+                      <span class="rotte-instance-name">{{ item.instanceName }}</span>
+                      <span class="serie-name">{{ item.rotteName }} · {{ item.passeName }}</span>
+                    </div>
+                    <Icons icon="play" :size="12" color="rgba(79,195,247,0.6)" />
                   </button>
-                  <div v-if="expandedSerieId === serie.id" class="serie-actions">
-                    <button class="action-btn action-play" @click="playSerieSolo(serie)">
-                      <Icons icon="play" :size="12" color="#fff" />
-                      Als Solo Starten
-                    </button>
-                    <button class="action-btn action-group" @click="playSerieGroup(serie)">
-                      <Icons icon="program" :size="12" color="#fff" />
-                      Als Gruppe Starten
-                    </button>
+                  <div class="serie-actions">
+                    <div class="session-meta">
+                      {{ item.players.map(p => p.displayName).join(', ') }}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -359,10 +349,7 @@ const globalSerien = computed(() => {
     }));
 });
 
-const competitionSerien = computed(() => {
-  // Placeholder for future API integration
-  return [];
-});
+const competitionSerien = computed(() => activePasseStore.getActiveCompetitionRotten());
 
 const trainingBlocks = computed(() =>
   activePasseStore.getBlocksForRange(currentRangeId.value)
@@ -371,7 +358,7 @@ const trainingBlocks = computed(() =>
 
 const passenBlocks = computed(() =>
   activePasseStore.getBlocksForRange(currentRangeId.value)
-    .filter(b => b.instanceType !== 'training')
+    .filter(b => b.instanceType !== 'training' && b.instanceType !== 'competition')
 );
 
 const playBlock = (block) => {
@@ -391,6 +378,29 @@ const playBlock = (block) => {
     blockId: block.blockId,
     players: block.players,
     rotteId,
+  };
+  isOpen.value = false;
+  router.push(`/remote/${currentRangeId.value}/play`);
+};
+
+const playCompetitionRotte = (item) => {
+  activePasseStore.assignRotteToRange(item.instanceId, item.rotteId, currentRangeId.value);
+  const firstBlock = item.blocks.find(b => b.status !== 'done');
+  if (!firstBlock) return;
+  playStore.pendingPasseInfo = {
+    serie: {
+      id: firstBlock.serieId,
+      name: firstBlock.serieAlias,
+      alias: firstBlock.serieAlias,
+      steps: firstBlock.steps,
+      rangeId: firstBlock.rangeId,
+      rangeName: firstBlock.rangeName,
+    },
+    rangeId: currentRangeId.value,
+    instanceId: item.instanceId,
+    blockId: firstBlock.blockId,
+    players: item.players,
+    rotteId: item.rotteId,
   };
   isOpen.value = false;
   router.push(`/remote/${currentRangeId.value}/play`);
@@ -1091,6 +1101,17 @@ const getStepTooltip = (step) => {
 .block-template-name {
   font-size: 10px;
   color: rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rotte-instance-name {
+  font-size: 10px;
+  color: rgba(79, 195, 247, 0.5);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
