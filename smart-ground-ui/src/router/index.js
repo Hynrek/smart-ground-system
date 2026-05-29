@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router';
 import RangesView from '@/views/RangesView.vue';
 import RangeDetailView from '@/views/RangeDetailView.vue';
 import SmartBoxesView from '@/views/SmartBoxesView.vue';
-import DeviceTypeGroupsView from '@/views/DeviceTypeGroupsView.vue';
 import FirmwareConfigsView from '@/views/FirmwareConfigsView.vue';
 import UsersView from '@/views/UsersView.vue';
 import ProfileView from '@/views/ProfileView.vue';
@@ -33,8 +32,6 @@ const routes = [
   { path: '/ranges', component: RangesView, meta: { layout: 'admin' } },
   { path: '/ranges/:id', component: RangeDetailView, props: route => ({ id: route.params.id }), meta: { layout: 'admin' } },
   { path: '/smartboxes', component: SmartBoxesView, meta: { layout: 'admin' } },
-  { path: '/device-type-groups', component: DeviceTypeGroupsView, meta: { layout: 'admin' } },
-  { path: '/deviceTypes', redirect: '/device-type-groups' },
   { path: '/admin/firmware-configs', component: FirmwareConfigsView, meta: { layout: 'admin', requiresAdmin: true } },
   { path: '/users', component: UsersView, meta: { layout: 'admin' } },
   { path: '/profile', component: ProfileView, meta: { layout: 'admin' } },

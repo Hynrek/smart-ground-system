@@ -4,12 +4,17 @@
       <div class="view-header">
         <div>
           <h1>SmartBoxen</h1>
-          <p class="subtitle">
+          <p v-if="activeTab === 'smartboxen'" class="subtitle">
             {{ smartBoxStore.smartboxes.length }} Boxen · {{ deviceStore.devices.length }}
             Geräte total · automatisch erkannt
           </p>
+          <p v-else class="subtitle">
+            {{ deviceTypeStore.deviceTypes.length }} Typ{{ deviceTypeStore.deviceTypes.length !== 1 ? 'en' : '' }} ·
+            {{ deviceTypeStore.deviceTypeGroups.length }} Gruppe{{ deviceTypeStore.deviceTypeGroups.length !== 1 ? 'n' : '' }}
+          </p>
         </div>
         <Button
+          v-if="activeTab === 'smartboxen'"
           :variant="actionMode ? 'primary' : 'ghost'"
           @click="actionMode = !actionMode"
         >
@@ -20,45 +25,69 @@
         </Button>
       </div>
 
-      <!-- Type filter -->
-      <div class="filter-group">
+      <!-- Tab bar -->
+      <div class="tab-bar">
         <button
-          v-for="type in filterOptions"
-          :key="type"
-          :class="{ active: typeFilter === type }"
-          class="filter-chip"
-          @click="typeFilter = type"
+          :class="{ 'tab--active': activeTab === 'smartboxen' }"
+          class="tab"
+          @click="setTab('smartboxen')"
         >
-          {{ type }}
-          <span class="filter-count">{{ getFilterCount(type) }}</span>
+          SmartBoxen
+        </button>
+        <button
+          :class="{ 'tab--active': activeTab === 'geraetetypen' }"
+          class="tab"
+          @click="setTab('geraetetypen')"
+        >
+          Gerätetypen
         </button>
       </div>
 
-      <!-- SmartBox cards -->
-      <div class="boxes-list">
-        <SmartBoxCard
-          v-for="box in visibleBoxes"
-          :key="box.id"
-          :box="box"
-          :devices="getFilteredDevices(box.id)"
-          :all-devices-count="
-            deviceStore.devices.filter((d) => (d.smartBoxId ?? d.boxId) === box.id).length
-          "
-          :action-mode="actionMode"
-          :fired-devices="firedDevices"
-          @fire="fireDevice"
-          @add-device="addDevice"
-          @remove-device="removeDevice"
-          @update-device="updateDevice"
-          @rename-box="renameBox"
-        />
-      </div>
-
-      <div v-if="visibleBoxes.length === 0" class="empty-state">
-        <div class="empty-text">
-          Keine Boxen mit «{{ typeFilter }}»-Geräten gefunden.
+      <!-- SmartBoxen tab -->
+      <template v-if="activeTab === 'smartboxen'">
+        <!-- Type filter -->
+        <div class="filter-group">
+          <button
+            v-for="type in filterOptions"
+            :key="type"
+            :class="{ active: typeFilter === type }"
+            class="filter-chip"
+            @click="typeFilter = type"
+          >
+            {{ type }}
+            <span class="filter-count">{{ getFilterCount(type) }}</span>
+          </button>
         </div>
-      </div>
+
+        <!-- SmartBox cards -->
+        <div class="boxes-list">
+          <SmartBoxCard
+            v-for="box in visibleBoxes"
+            :key="box.id"
+            :box="box"
+            :devices="getFilteredDevices(box.id)"
+            :all-devices-count="
+              deviceStore.devices.filter((d) => (d.smartBoxId ?? d.boxId) === box.id).length
+            "
+            :action-mode="actionMode"
+            :fired-devices="firedDevices"
+            @fire="fireDevice"
+            @add-device="addDevice"
+            @remove-device="removeDevice"
+            @update-device="updateDevice"
+            @rename-box="renameBox"
+          />
+        </div>
+
+        <div v-if="visibleBoxes.length === 0" class="empty-state">
+          <div class="empty-text">
+            Keine Boxen mit «{{ typeFilter }}»-Geräten gefunden.
+          </div>
+        </div>
+      </template>
+
+      <!-- Gerätetypen tab -->
+      <DeviceTypeGroupsPanel v-else-if="activeTab === 'geraetetypen'" />
     </div>
   </div>
 </template>
@@ -67,13 +96,19 @@
 import { ref, computed, watch } from 'vue';
 import { useSmartBoxStore } from '../stores/smartBoxStore.js';
 import { useDeviceStore } from '../stores/deviceStore.js';
+import { useDeviceTypeStore } from '../stores/deviceTypeStore.js';
 import * as deviceApi from '../services/deviceApi.js';
 import Button from '../components/Button.vue';
 import Icons from '../components/Icons.vue';
 import SmartBoxCard from '../components/SmartBoxCard.vue';
+import DeviceTypeGroupsPanel from '../components/DeviceTypeGroupsPanel.vue';
+import { useUrlTab } from '../composables/useUrlTab.js';
 
 const smartBoxStore = useSmartBoxStore();
 const deviceStore = useDeviceStore();
+const deviceTypeStore = useDeviceTypeStore();
+
+const { activeTab, setTab } = useUrlTab('smartboxen', ['smartboxen', 'geraetetypen']);
 
 watch(
   () => smartBoxStore.smartboxes,
@@ -126,7 +161,6 @@ const fireDevice = async (deviceId) => {
   setTimeout(() => {
     delete firedDevices.value[deviceId];
   }, 1500);
-
   try {
     await deviceApi.sendDeviceCommand(deviceId);
   } catch (e) {
@@ -135,10 +169,7 @@ const fireDevice = async (deviceId) => {
 };
 
 const addDevice = async ({ boxId, device }) => {
-  await deviceStore.addDevice({
-    ...device,
-    boxId,
-  });
+  await deviceStore.addDevice({ ...device, boxId });
 };
 
 const removeDevice = (deviceId) => {
@@ -199,6 +230,39 @@ h1 {
   margin-top: 4px;
 }
 
+/* ── Tab bar ──────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  border-bottom: 2px solid #e2e8f0;
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #718096;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab:hover {
+  color: #1a1a2e;
+}
+
+.tab--active {
+  color: #1a1a2e;
+  font-weight: 700;
+  border-bottom-color: #1a1a2e;
+}
+
+/* ── Filter chips ─────────────────────────────────── */
 .filter-group {
   display: flex;
   gap: 6px;
@@ -259,7 +323,7 @@ h1 {
   font-size: 13px;
 }
 
-/* ── Responsive ───────────────────────────────── */
+/* ── Responsive ───────────────────────────────────── */
 @media (min-width: 1280px) {
   .view-content {
     max-width: 1200px;

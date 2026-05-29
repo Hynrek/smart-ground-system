@@ -50,9 +50,8 @@ const authStore = useAuthStore();
 const allNavItems = [
   { id: 'ranges', label: 'Plätze', icon: 'target' },
   { id: 'smartboxes', label: 'SmartBoxen', icon: 'wifi' },
-  { id: 'device-type-groups', label: 'Gerätetypen', icon: 'cpu' },
   { id: 'competition', label: 'Wettkampf', icon: 'award' },
-  { id: 'programme', label: 'Programme', icon: 'program' },
+  { id: 'passen', label: 'Passen', icon: 'program' },
   { id: 'users', label: 'Benutzer', icon: 'user', adminOnly: true },
   { id: 'profile', label: 'Profil', icon: 'user' },
 ];
