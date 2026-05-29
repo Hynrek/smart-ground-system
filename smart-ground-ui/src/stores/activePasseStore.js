@@ -163,7 +163,6 @@ export const useActivePasseStore = defineStore('activePasse', () => {
           rotteId: rotte.rotteId,
           rotteName: rotte.name,
           passeName: phase.passeName,
-          phaseIndex: rotte.currentPhaseIndex,
           players: rotte.players,
           blocks: phase.blocks,
         })

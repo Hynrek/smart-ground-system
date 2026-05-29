@@ -129,7 +129,7 @@
                   </button>
                   <div class="serie-actions">
                     <div class="session-meta">
-                      {{ item.players.map(p => p.displayName).join(', ') }}
+                      {{ (item.players ?? []).map(p => p.displayName).join(', ') }}
                     </div>
                   </div>
                 </div>
