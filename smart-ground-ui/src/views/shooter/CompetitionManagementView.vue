@@ -11,13 +11,13 @@
 
     <!-- Tab toggle -->
     <div class="tab-toggle">
-      <button class="tab-btn" :class="{ active: activeTab === 'competitions' }" @click="activeTab = 'competitions'">
+      <button class="tab-btn" :class="{ active: activeTab === 'competitions' }" @click="setTab('competitions')">
         Wettkämpfe
       </button>
-      <button class="tab-btn" :class="{ active: activeTab === 'active' }" @click="activeTab = 'active'">
+      <button class="tab-btn" :class="{ active: activeTab === 'active' }" @click="setTab('active')">
         Aktiv
       </button>
-      <button class="tab-btn" :class="{ active: activeTab === 'completed' }" @click="activeTab = 'completed'">
+      <button class="tab-btn" :class="{ active: activeTab === 'completed' }" @click="setTab('completed')">
         Abgeschlossen
       </button>
     </div>
@@ -373,13 +373,15 @@ import { useActivePasseStore } from '@/stores/activePasseStore.js'
 import { useRangeStore } from '@/stores/rangeStore.js'
 import Icons from '@/components/Icons.vue'
 import RotteSetupModal from '@/components/competition/RotteSetupModal.vue'
+import { useUrlTab } from '@/composables/useUrlTab.js'
 
 const router = useRouter()
 const passeStore = usePasseStore()
 const activePasseStore = useActivePasseStore()
 const rangeStore = useRangeStore()
 
-const activeTab = ref('competitions')
+// Active tab — synced to URL query param ?tab=xxx
+const { activeTab, setTab } = useUrlTab('competitions', ['competitions', 'active', 'completed'])
 
 // ── Computed: filter savedTrainings by type ───────────────────────────────
 const savedCompetitions = computed(() =>
@@ -461,7 +463,7 @@ const onRotteModalConfirm = (rotten) => {
   activePasseStore.startCompetition(startingTemplate.value, rotten)
   showRotteModal.value = false
   startingTemplate.value = null
-  activeTab.value = 'active'
+  setTab('active', { replace: true })
 }
 
 // ── Stop competition ───────────────────────────────────────────────────────
