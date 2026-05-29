@@ -24,36 +24,34 @@ import { useAuthStore } from '@/stores/authStore';
 
 const routes = [
   { path: '/login', component: LoginView, meta: { requiresAuth: false } },
-
-  // Smart redirect — handled in guard
   { path: '/', redirect: '/ranges' },
 
-  // ── Admin / Ground Owner routes ───────────────────────────────────────
-  { path: '/ranges', component: RangesView, meta: { layout: 'admin' } },
-  { path: '/ranges/:id', component: RangeDetailView, props: route => ({ id: route.params.id }), meta: { layout: 'admin' } },
-  { path: '/smartboxes', component: SmartBoxesView, meta: { layout: 'admin' } },
-  { path: '/admin/firmware-configs', component: FirmwareConfigsView, meta: { layout: 'admin', requiresAdmin: true } },
-  { path: '/users', component: UsersView, meta: { layout: 'admin' } },
-  { path: '/profile', component: ProfileView, meta: { layout: 'admin' } },
-  { path: '/player-setup', component: PlayerSetupView, meta: { layout: 'admin' } },
-  { path: '/competition', component: CompetitionManagementView, meta: { layout: 'admin' } },
-  { path: '/competition/templates', component: CompetitionTemplateListView, meta: { layout: 'admin' } },
-  { path: '/competition/setup', component: CompetitionSetupView, meta: { layout: 'admin' } },
-  { path: '/competition/bracket', component: CompetitionBracketView, meta: { layout: 'admin' } },
-  { path: '/passen', component: PassenAdminView, meta: { layout: 'admin' } },
+  // ── Admin routes ──────────────────────────────────────────────────────
+  { path: '/ranges',               component: RangesView,                   meta: { layout: 'admin', permission: 'MANAGE_RANGES' } },
+  { path: '/ranges/:id',           component: RangeDetailView, props: route => ({ id: route.params.id }), meta: { layout: 'admin', permission: 'MANAGE_RANGES' } },
+  { path: '/smartboxes',           component: SmartBoxesView,               meta: { layout: 'admin', permission: 'MANAGE_RANGES' } },
+  { path: '/admin/firmware-configs', component: FirmwareConfigsView,        meta: { layout: 'admin', permission: 'MANAGE_RANGES' } },
+  { path: '/users',                component: UsersView,                    meta: { layout: 'admin', permission: 'MANAGE_USERS' } },
+  { path: '/profile',              component: ProfileView,                  meta: { layout: 'admin' } },
+  { path: '/player-setup',         component: PlayerSetupView,              meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
+  { path: '/competition',          component: CompetitionManagementView,    meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
+  { path: '/competition/templates', component: CompetitionTemplateListView, meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
+  { path: '/competition/setup',    component: CompetitionSetupView,         meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
+  { path: '/competition/bracket',  component: CompetitionBracketView,       meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
+  { path: '/passen',               component: PassenAdminView,              meta: { layout: 'admin', permission: 'MANAGE_PASSE_TEMPLATES' } },
 
   // ── Shooter routes ────────────────────────────────────────────────────
-  { path: '/home', component: ShooterHomeView, meta: { layout: 'shooter' } },
-  { path: '/remote', component: ShooterRangeSelectView, meta: { layout: 'shooter' } },
-  { path: '/remote/:rangeId', component: ShooterRemoteView, props: true, meta: { layout: 'shooter' } },
-  { path: '/remote/:rangeId/play', component: ShooterPlayPage, props: true, meta: { layout: 'shooter' } },
-  { path: '/competition/live', component: CompetitionLiveView, meta: { layout: 'shooter' } },
-  { path: '/wettkampf/live/:instanceId', component: () => import('@/views/competition/CompetitionLiveView.vue'), props: true, meta: { layout: 'shooter' } },
-  { path: '/competition/leaderboard', component: CompetitionLeaderboardView, meta: { layout: 'shooter' } },
-  { path: '/career-stats', component: CareerStatsView, meta: { layout: 'shooter' } },
-  { path: '/meine-passen', component: PasseManagementView, meta: { layout: 'shooter' } },
-  { path: '/training', component: () => import('@/views/shooter/TrainingManagementView.vue'), meta: { layout: 'shooter' } },
-  { path: '/wettkampf', component: () => import('@/views/shooter/CompetitionManagementView.vue'), meta: { layout: 'shooter' } },
+  { path: '/home',                 component: ShooterHomeView,              meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },
+  { path: '/remote',               component: ShooterRangeSelectView,       meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },
+  { path: '/remote/:rangeId',      component: ShooterRemoteView, props: true, meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },
+  { path: '/remote/:rangeId/play', component: ShooterPlayPage,  props: true, meta: { layout: 'shooter', permission: 'PLAY_SERIES' } },
+  { path: '/competition/live',     component: CompetitionLiveView,          meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
+  { path: '/wettkampf/live/:instanceId', component: () => import('@/views/competition/CompetitionLiveView.vue'), props: true, meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
+  { path: '/competition/leaderboard', component: CompetitionLeaderboardView, meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },
+  { path: '/career-stats',         component: CareerStatsView,              meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },
+  { path: '/meine-passen',         component: PasseManagementView,          meta: { layout: 'shooter', permission: 'PLAY_SERIES' } },
+  { path: '/training',             component: () => import('@/views/shooter/TrainingManagementView.vue'), meta: { layout: 'shooter', permission: 'START_TRAINING' } },
+  { path: '/wettkampf',            component: () => import('@/views/shooter/CompetitionManagementView.vue'), meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
 ];
 
 const router = createRouter({
@@ -61,38 +59,33 @@ const router = createRouter({
   routes,
 });
 
+// Gibt die Standardstartseite basierend auf den Berechtigungen des Benutzers zurück
+const defaultHome = (auth) =>
+  auth.hasPermission('VIEW_REMOTE') ? '/home' : '/ranges';
+
 router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore();
-  const authenticated = authStore.isAuthenticated();
+  const auth = useAuthStore();
+  const authenticated = auth.isAuthenticated();
   const requiresAuth = to.meta.requiresAuth !== false;
 
-  // Not authenticated → login
   if (requiresAuth && !authenticated) {
     next('/login');
     return;
   }
 
-  // Already authenticated on login page → role-based home
   if (to.path === '/login' && authenticated) {
-    next(authStore.isShooter() ? '/home' : '/ranges');
+    next(defaultHome(auth));
     return;
   }
 
-  // Root redirect → role-based home
   if (to.path === '/' && authenticated) {
-    next(authStore.isShooter() ? '/home' : '/ranges');
+    next(defaultHome(auth));
     return;
   }
 
-  // Shooter trying to access admin route (except /profile) → bounce to /home
-  if (to.meta.layout === 'admin' && to.path !== '/profile' && authenticated && authStore.isShooter()) {
-    next('/home');
-    return;
-  }
-
-  // Admin/Owner trying to access shooter route → bounce to /ranges
-  if (to.meta.layout === 'shooter' && authenticated && authStore.isAdminOrOwner()) {
-    next('/ranges');
+  const requiredPermission = to.meta.permission;
+  if (requiredPermission && !auth.hasPermission(requiredPermission)) {
+    next(defaultHome(auth));
     return;
   }
 

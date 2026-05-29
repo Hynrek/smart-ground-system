@@ -1,25 +1,28 @@
-/* global atob */
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { login as loginApi, createUser as createUserApi } from '../services/authApi.js';
-
-const decodeJwtPayload = (token) => {
-  try {
-    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(atob(base64));
-  } catch {
-    return null;
-  }
-};
+import { login as loginApi, createUser as createUserApi, getMe } from '../services/authApi.js';
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('sg_token') || null);
+  const profile = ref(null);
+  const permissions = ref([]);
   const isLoading = ref(false);
   const error = ref(null);
 
-  const jwtPayload = computed(() => (token.value ? decodeJwtPayload(token.value) : null));
-  const role = computed(() => jwtPayload.value?.role ?? null);
-  const userName = computed(() => jwtPayload.value?.sub ?? jwtPayload.value?.username ?? null);
+  const displayName = computed(() => {
+    if (!profile.value) return null;
+    return `${profile.value.vorname} ${profile.value.nachname}`;
+  });
+
+  const isAuthenticated = () => !!token.value;
+
+  const hasPermission = (permission) => permissions.value.includes(permission);
+
+  const _loadProfile = async () => {
+    const data = await getMe();
+    profile.value = data;
+    permissions.value = data.permissions ?? [];
+  };
 
   const login = async (username, password) => {
     isLoading.value = true;
@@ -28,11 +31,24 @@ export const useAuthStore = defineStore('auth', () => {
       const data = await loginApi(username, password);
       token.value = data.token;
       localStorage.setItem('sg_token', data.token);
+      await _loadProfile();
     } catch (err) {
       error.value = err.message;
       throw err;
     } finally {
       isLoading.value = false;
+    }
+  };
+
+  const init = async () => {
+    if (!token.value) return;
+    try {
+      await _loadProfile();
+    } catch {
+      token.value = null;
+      profile.value = null;
+      permissions.value = [];
+      localStorage.removeItem('sg_token');
     }
   };
 
@@ -51,24 +67,23 @@ export const useAuthStore = defineStore('auth', () => {
 
   const logout = () => {
     token.value = null;
+    profile.value = null;
+    permissions.value = [];
     localStorage.removeItem('sg_token');
   };
 
-  const isAuthenticated = () => !!token.value;
-  const isShooter = () => role.value === 'SHOOTER';
-  const isAdminOrOwner = () => role.value === 'ADMIN' || role.value === 'GROUND_OWNER';
-
   return {
     token,
-    role,
-    userName,
+    profile,
+    permissions,
+    displayName,
     isLoading,
     error,
+    isAuthenticated,
+    hasPermission,
     login,
+    init,
     logout,
     createUser,
-    isAuthenticated,
-    isShooter,
-    isAdminOrOwner,
   };
 });

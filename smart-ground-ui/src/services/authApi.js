@@ -13,3 +13,7 @@ export async function createUser(username, password, role) {
     body: JSON.stringify({ username, password, role }),
   });
 }
+
+export async function getMe() {
+  return apiFetch('/auth/me');
+}
