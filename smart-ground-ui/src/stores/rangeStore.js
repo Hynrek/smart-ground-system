@@ -75,6 +75,14 @@ export const useRangeStore = defineStore('range', () => {
     } catch (e) { console.error('Failed to toggle range lock:', e); throw e; }
   };
 
+  const assignUser = async (rangeId, userId) => {
+    try {
+      await rangeApi.assignRangeUser(rangeId, userId);
+      const range = ranges.value.find((r) => r.id === rangeId);
+      if (range) range.assignedUserId = userId;
+    } catch (e) { console.error('Failed to assign user to range:', e); throw e; }
+  };
+
   // ── Position actions ──────────────────────────────────────────────────────
 
   const loadPositions = async (rangeId) => {
@@ -139,7 +147,7 @@ export const useRangeStore = defineStore('range', () => {
     ranges, selectedRange, isLoading, error, positions,
     selectRange, deselectRange,
     assignDeviceToRange, unassignDeviceFromRange,
-    createRange, updateRange, deleteRange, setLocked,
+    createRange, updateRange, deleteRange, setLocked, assignUser,
     initialize, loadApiData,
     loadPositions, createPosition, renamePosition, deletePosition,
     assignDeviceToPosition, removeDeviceFromPosition,
