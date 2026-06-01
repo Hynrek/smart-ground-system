@@ -86,27 +86,25 @@ describe('useCompetitionEventStore', () => {
     expect(store.getEvent(id).rotten).toHaveLength(0)
   })
 
-  it('adds a player with paid: false by default', () => {
+  it('addPlayer stores userId and displayName from user object', () => {
     const store = useCompetitionEventStore()
     const id = store.createEvent('Test', mockPassen)
     store.addRotte(id)
-    const rotteId = store.getEvent(id).rotten[0].rotteId
-    store.addPlayer(id, rotteId)
-    const players = store.getEvent(id).rotten[0].players
-    expect(players).toHaveLength(1)
-    expect(players[0].paid).toBe(false)
-    expect(players[0].displayName).toBe('')
+    const rotte = store.getEvent(id).rotten[0]
+    const user = { id: 'user-uuid-1', displayName: 'Anna Müller' }
+
+    store.addPlayer(id, rotte.rotteId, user)
+
+    const player = store.getEvent(id).rotten[0].players[0]
+    expect(player.userId).toBe('user-uuid-1')
+    expect(player.displayName).toBe('Anna Müller')
+    expect(player.paid).toBe(false)
+    expect(player.id).toBeDefined()
   })
 
-  it('updates player display name', () => {
+  it('does not expose updatePlayerName', () => {
     const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.addRotte(id)
-    const rotteId = store.getEvent(id).rotten[0].rotteId
-    store.addPlayer(id, rotteId)
-    const playerId = store.getEvent(id).rotten[0].players[0].id
-    store.updatePlayerName(id, rotteId, playerId, 'Hans Muster')
-    expect(store.getEvent(id).rotten[0].players[0].displayName).toBe('Hans Muster')
+    expect(store.updatePlayerName).toBeUndefined()
   })
 
   it('toggles player paid status', () => {
@@ -114,7 +112,7 @@ describe('useCompetitionEventStore', () => {
     const id = store.createEvent('Test', mockPassen)
     store.addRotte(id)
     const rotteId = store.getEvent(id).rotten[0].rotteId
-    store.addPlayer(id, rotteId)
+    store.addPlayer(id, rotteId, { id: 'u1', displayName: 'Test User' })
     const playerId = store.getEvent(id).rotten[0].players[0].id
     expect(store.getEvent(id).rotten[0].players[0].paid).toBe(false)
     store.togglePlayerPaid(id, rotteId, playerId)
@@ -128,8 +126,8 @@ describe('useCompetitionEventStore', () => {
     const id = store.createEvent('Test', mockPassen)
     store.addRotte(id)
     const rotteId = store.getEvent(id).rotten[0].rotteId
-    store.addPlayer(id, rotteId)
-    store.addPlayer(id, rotteId)
+    store.addPlayer(id, rotteId, { id: 'u1', displayName: 'Player One' })
+    store.addPlayer(id, rotteId, { id: 'u2', displayName: 'Player Two' })
     const playerId = store.getEvent(id).rotten[0].players[0].id
     store.removePlayer(id, rotteId, playerId)
     expect(store.getEvent(id).rotten[0].players).toHaveLength(1)

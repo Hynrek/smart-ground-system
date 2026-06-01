@@ -78,12 +78,12 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     if (rotte) { rotte.name = name; _save() }
   }
 
-  const addPlayer = (id, rotteId) => {
+  const addPlayer = (id, rotteId, user) => {
     const ev = getEvent(id)
     if (!ev || ev.status !== 'PLANNING') return
     const rotte = ev.rotten.find(r => r.rotteId === rotteId)
     if (!rotte) return
-    rotte.players.push({ id: uuid(), displayName: '', paid: false })
+    rotte.players.push({ id: uuid(), userId: user.id, displayName: user.displayName, paid: false })
     _save()
   }
 
@@ -94,14 +94,6 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     if (!rotte) return
     rotte.players = rotte.players.filter(p => p.id !== playerId)
     _save()
-  }
-
-  const updatePlayerName = (id, rotteId, playerId, displayName) => {
-    const ev = getEvent(id)
-    if (!ev || ev.status !== 'PLANNING') return
-    const rotte = ev.rotten.find(r => r.rotteId === rotteId)
-    const player = rotte?.players.find(p => p.id === playerId)
-    if (player) { player.displayName = displayName; _save() }
   }
 
   const togglePlayerPaid = (id, rotteId, playerId) => {
@@ -170,7 +162,6 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     renameRotte,
     addPlayer,
     removePlayer,
-    updatePlayerName,
     togglePlayerPaid,
     startEvent,
     stopEvent,
