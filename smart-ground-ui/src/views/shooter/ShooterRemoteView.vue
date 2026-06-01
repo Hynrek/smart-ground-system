@@ -3,7 +3,7 @@
     <!-- Header with integrated controls -->
     <div class="page-header">
       <div class="header-left">
-        <button class="back-btn" @click="goBack">
+        <button v-if="!auth.profile?.assignedRangeId" class="back-btn" @click="goBack">
           <Icons icon="chevronLeft" :size="20" color="rgba(255,255,255,0.8)" />
         </button>
         <div class="header-text">
@@ -142,6 +142,8 @@ import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
 import { useActivePasseStore } from '@/stores/activePasseStore.js';
 import { usePasseStore } from '@/stores/passeStore.js';
 import { sendPositionCommand } from '@/services/rangePositionApi.js';
+import { useAuthStore } from '@/stores/authStore.js';
+import { fetchRange } from '@/services/rangeApi.js';
 import Icons from '@/components/Icons.vue';
 import ShooterFlyoutPanel from '@/components/shooter-remote/ShooterFlyoutPanel.vue';
 
@@ -151,6 +153,7 @@ const router = useRouter();
 const route = useRoute();
 const rangeStore = useRangeStore();
 const store = useShooterRemoteStore();
+const auth = useAuthStore();
 const passeStore = usePasseStore();
 const activePasseStore = useActivePasseStore();
 
@@ -168,6 +171,13 @@ const rotteName = computed(() => {
 const positionsLoading = ref(false);
 
 onMounted(async () => {
+  // Redirect if this range is assigned to a different user
+  const rangeData = await fetchRange(props.rangeId);
+  if (rangeData.assignedUserId && rangeData.assignedUserId !== auth.profile?.id) {
+    router.replace('/remote');
+    return;
+  }
+
   store.ensureReserved(props.rangeId);
   store.setMode('solo');
   // Store competition context so ShooterFlyoutPanel can access it
