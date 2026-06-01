@@ -29,11 +29,23 @@
         v-for="range in ranges"
         :key="range.id"
         class="range-card"
-        :class="{ 'range-card--locked': range.locked }"
-        :disabled="range.locked"
+        :class="{
+          'range-card--locked': range.locked,
+          'range-card--reserved': isReservedByOther(range),
+        }"
+        :disabled="range.locked || isReservedByOther(range)"
         @click="selectRange(range)"
       >
-        <div class="card-accent" :class="range.locked ? 'card-accent--red' : 'card-accent--green'" />
+        <div
+          class="card-accent"
+          :class="
+            range.locked
+              ? 'card-accent--red'
+              : isReservedByOther(range)
+                ? 'card-accent--blue'
+                : 'card-accent--green'
+          "
+        />
 
         <div class="card-body">
           <div class="card-main">
@@ -42,6 +54,9 @@
               <span v-if="range.locked" class="locked-chip">
                 <Icons icon="lock" :size="10" color="#fc8181" />
                 Gesperrt
+              </span>
+              <span v-else-if="isReservedByOther(range)" class="reserved-chip">
+                Reserviert
               </span>
             </div>
             <p v-if="range.description" class="card-desc">{{ range.description }}</p>
@@ -63,6 +78,7 @@ import { useRouter } from 'vue-router';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
+import { useAuthStore } from '@/stores/authStore.js';
 import { useDeviceLoader } from '@/composables/useDeviceLoader.js';
 import Icons from '@/components/Icons.vue';
 
@@ -70,12 +86,16 @@ const router = useRouter();
 const rangeStore = useRangeStore();
 const deviceStore = useDeviceStore();
 const shooterStore = useShooterRemoteStore();
+const auth = useAuthStore();
 
 useDeviceLoader();
 
 const ranges = computed(() => rangeStore.ranges);
 const getDeviceCount = (rangeId) =>
   deviceStore.devices.filter((d) => d.rangeId === rangeId).length;
+
+const isReservedByOther = (range) =>
+  !!range.assignedUserId && range.assignedUserId !== auth.profile?.id;
 
 const selectRange = (range) => {
   if (range.locked) return;
@@ -200,6 +220,12 @@ const selectRange = (range) => {
   pointer-events: none;
 }
 
+.range-card--reserved {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .card-accent {
   width: 4px;
   flex-shrink: 0;
@@ -211,6 +237,10 @@ const selectRange = (range) => {
 
 .card-accent--red {
   background: #fc8181;
+}
+
+.card-accent--blue {
+  background: #63b3ed;
 }
 
 .card-body {
@@ -249,6 +279,18 @@ const selectRange = (range) => {
   gap: 4px;
   background: rgba(252, 129, 129, 0.15);
   color: #fc8181;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.reserved-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(99, 179, 237, 0.15);
+  color: #63b3ed;
   font-size: 11px;
   font-weight: 500;
   padding: 2px 8px;
