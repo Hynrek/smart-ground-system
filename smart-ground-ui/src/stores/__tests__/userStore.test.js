@@ -116,3 +116,45 @@ describe('useUserStore', () => {
     expect(store.selectedUser).toBeNull()
   })
 })
+
+describe('useUserStore — toggleRole', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+  })
+
+  it('assigns role when user does not have it', async () => {
+    const store = useUserStore()
+    store.userRolesMap = { 'u1': [{ roleName: 'SHOOTER' }] }
+    userApi.assignRole.mockResolvedValue({ roleName: 'ADMIN' })
+    userApi.fetchUserRoles.mockResolvedValue([{ roleName: 'SHOOTER' }, { roleName: 'ADMIN' }])
+
+    await store.toggleRole('u1', 'ADMIN')
+
+    expect(userApi.assignRole).toHaveBeenCalledWith('u1', 'ADMIN')
+    expect(userApi.revokeRole).not.toHaveBeenCalled()
+    expect(store.userRolesMap['u1']).toEqual([{ roleName: 'SHOOTER' }, { roleName: 'ADMIN' }])
+  })
+
+  it('revokes role when user already has it', async () => {
+    const store = useUserStore()
+    store.userRolesMap = { 'u1': [{ roleName: 'SHOOTER' }, { roleName: 'ADMIN' }] }
+    userApi.revokeRole.mockResolvedValue(undefined)
+    userApi.fetchUserRoles.mockResolvedValue([{ roleName: 'SHOOTER' }])
+
+    await store.toggleRole('u1', 'ADMIN')
+
+    expect(userApi.revokeRole).toHaveBeenCalledWith('u1', 'ADMIN')
+    expect(userApi.assignRole).not.toHaveBeenCalled()
+    expect(store.userRolesMap['u1']).toEqual([{ roleName: 'SHOOTER' }])
+  })
+
+  it('sets error and rethrows on API failure', async () => {
+    const store = useUserStore()
+    store.userRolesMap = { 'u1': [] }
+    userApi.assignRole.mockRejectedValue(new Error('Network error'))
+
+    await expect(store.toggleRole('u1', 'ADMIN')).rejects.toThrow('Network error')
+    expect(store.error).toBe('Network error')
+  })
+})

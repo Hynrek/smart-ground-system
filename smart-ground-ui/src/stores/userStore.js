@@ -98,6 +98,26 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  async function toggleRole(userId, roleName) {
+    isLoading.value = true
+    error.value = null
+    try {
+      const current = userRolesMap.value[userId] ?? []
+      const hasRole = current.some((r) => r.roleName === roleName)
+      if (hasRole) {
+        await userApi.revokeRole(userId, roleName)
+      } else {
+        await userApi.assignRole(userId, roleName)
+      }
+      userRolesMap.value[userId] = await userApi.fetchUserRoles(userId)
+    } catch (err) {
+      error.value = err.message || 'Failed to update role'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   async function changePassword(oldPassword, newPassword) {
     isLoading.value = true
     error.value = null
@@ -123,6 +143,7 @@ export const useUserStore = defineStore('user', () => {
     createUser,
     updateUser,
     deleteUser,
+    toggleRole,
     getCurrentUser,
     changePassword,
   }
