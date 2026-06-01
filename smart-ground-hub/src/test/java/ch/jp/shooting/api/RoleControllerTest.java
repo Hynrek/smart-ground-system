@@ -34,6 +34,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebAppConfiguration
 class RoleControllerTest {
 
+    // Custom WebApplicationContext needed: @PreAuthorize on the controller
+    // requires a live Spring Security proxy — MockitoExtension cannot exercise it.
     @Configuration
     @EnableWebSecurity
     @EnableMethodSecurity
