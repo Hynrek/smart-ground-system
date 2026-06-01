@@ -9,6 +9,7 @@ export const useUserStore = defineStore('user', () => {
   const currentUser = ref(null)
   const isLoading = ref(false)
   const error = ref(null)
+  const availableRoles = ref([])
 
   async function loadUsers() {
     isLoading.value = true
@@ -131,6 +132,18 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  async function loadAvailableRoles() {
+    isLoading.value = true
+    error.value = null
+    try {
+      availableRoles.value = await userApi.fetchAvailableRoles()
+    } catch (err) {
+      error.value = err.message || 'Failed to load roles'
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   return {
     users,
     selectedUser,
@@ -138,6 +151,7 @@ export const useUserStore = defineStore('user', () => {
     currentUser,
     isLoading,
     error,
+    availableRoles,
     loadUsers,
     selectUser,
     createUser,
@@ -146,5 +160,6 @@ export const useUserStore = defineStore('user', () => {
     toggleRole,
     getCurrentUser,
     changePassword,
+    loadAvailableRoles,
   }
 })

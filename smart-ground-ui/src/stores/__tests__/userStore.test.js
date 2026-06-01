@@ -158,3 +158,36 @@ describe('useUserStore — toggleRole', () => {
     expect(store.error).toBe('Network error')
   })
 })
+
+describe('useUserStore — loadAvailableRoles', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+  })
+
+  it('fetches roles and stores them', async () => {
+    const mockRoles = [
+      { id: 'r1', name: 'ADMIN', description: 'System administrator.' },
+      { id: 'r2', name: 'SHOOTER', description: 'Full operational access.' },
+    ]
+    userApi.fetchAvailableRoles.mockResolvedValue(mockRoles)
+
+    const store = useUserStore()
+    await store.loadAvailableRoles()
+
+    expect(userApi.fetchAvailableRoles).toHaveBeenCalledOnce()
+    expect(store.availableRoles).toEqual(mockRoles)
+    expect(store.isLoading).toBe(false)
+  })
+
+  it('sets error on failure', async () => {
+    userApi.fetchAvailableRoles.mockRejectedValue(new Error('Network error'))
+
+    const store = useUserStore()
+    await store.loadAvailableRoles()
+
+    expect(store.error).toBe('Network error')
+    expect(store.availableRoles).toEqual([])
+    expect(store.isLoading).toBe(false)
+  })
+})
