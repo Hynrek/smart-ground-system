@@ -12,9 +12,12 @@ vi.mock('@/stores/userStore.js', () => ({
     userRolesMap: { u1: [{ roleName: 'SHOOTER' }], u2: [{ roleName: 'ADMIN' }] },
     isLoading: false,
     error: null,
+    availableRoles: [{ name: 'SHOOTER' }, { name: 'ADMIN' }],
     loadUsers: vi.fn().mockResolvedValue(undefined),
+    loadAvailableRoles: vi.fn().mockResolvedValue(undefined),
     selectUser: vi.fn(),
     deleteUser: vi.fn(),
+    toggleRole: vi.fn(),
   }),
 }))
 

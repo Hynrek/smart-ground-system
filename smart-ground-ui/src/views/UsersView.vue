@@ -74,10 +74,10 @@
                 :class="['role-chip', { 'role-chip--active': hasRole(selectedUser.id, role.name) }]"
                 :disabled="userStore.isLoading"
                 :aria-pressed="hasRole(selectedUser.id, role.name)"
-                :aria-label="`Rolle ${role.description || role.name} ${hasRole(selectedUser.id, role.name) ? 'entfernen' : 'zuweisen'}`"
+                :aria-label="`Rolle ${ROLE_LABELS[role.name] || role.name} ${hasRole(selectedUser.id, role.name) ? 'entfernen' : 'zuweisen'}`"
                 @click="handleToggleRole(selectedUser.id, role.name)"
               >
-                {{ role.description || role.name }}
+                {{ ROLE_LABELS[role.name] || role.name }}
               </button>
             </div>
           </section>

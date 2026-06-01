@@ -11,6 +11,8 @@ vi.mock('@/stores/userStore.js', () => ({
     updateUser: mockUpdate,
     isLoading: false,
     error: null,
+    availableRoles: [{ name: 'SHOOTER' }, { name: 'ADMIN' }],
+    loadAvailableRoles: vi.fn().mockResolvedValue(undefined),
   }),
 }))
 

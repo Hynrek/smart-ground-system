@@ -86,8 +86,11 @@
             data-testid="input-role"
             :disabled="userStore.isLoading"
           >
-            <option value="SHOOTER">Schütze</option>
-            <option value="ADMIN">Admin</option>
+            <option
+              v-for="role in userStore.availableRoles"
+              :key="role.name"
+              :value="role.name"
+            >{{ ROLE_LABELS[role.name] || role.name }}</option>
           </select>
           <span class="field-hint">Standard: Schütze</span>
         </div>
@@ -242,7 +245,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue'
+import { reactive, ref, watch, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore.js'
 
 const props = defineProps({
@@ -252,7 +255,14 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved'])
 
 const userStore = useUserStore()
+const ROLE_LABELS = { ADMIN: 'Admin', SHOOTER: 'Schütze', OWNER: 'Bereichsleiter' }
 const activeTab = ref('base')
+
+onMounted(() => {
+  if (userStore.availableRoles.length === 0) {
+    userStore.loadAvailableRoles()
+  }
+})
 
 const form = reactive({
   vorname: '',
