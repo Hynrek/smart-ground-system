@@ -231,7 +231,11 @@ function hasRole(userId, roleName) {
 }
 
 async function handleToggleRole(userId, roleName) {
-  await userStore.toggleRole(userId, roleName)
+  try {
+    await userStore.toggleRole(userId, roleName)
+  } catch {
+    // userStore.error is already set; the error banner surfaces it
+  }
 }
 
 const STATUS_LABELS = { ACTIVE: 'Aktiv', INACTIVE: 'Inaktiv' }
