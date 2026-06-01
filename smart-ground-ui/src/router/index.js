@@ -19,7 +19,6 @@ import PasseManagementView from '@/views/shooter/PasseManagementView.vue';
 import PassenAdminView from '@/views/PassenAdminView.vue';
 import CompetitionBracketView from '@/views/CompetitionBracketView.vue';
 import PlayerSetupView from '@/views/PlayerSetupView.vue';
-import CompetitionManagementView from '@/views/CompetitionManagementView.vue';
 import WettkampfListView from '@/views/admin/WettkampfListView.vue';
 import WettkampfDetailView from '@/views/admin/WettkampfDetailView.vue';
 import { useAuthStore } from '@/stores/authStore';
@@ -37,8 +36,7 @@ const routes = [
   { path: '/users',                component: UsersView,                    meta: { layout: 'admin', permission: 'MANAGE_USERS' } },
   { path: '/profile',              component: ProfileView,                  meta: { layout: 'admin' } },
   { path: '/player-setup',         component: PlayerSetupView,              meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
-  { path: '/competition',          component: CompetitionManagementView,    meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
-  { path: '/competition/templates', component: CompetitionTemplateListView, meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
+{ path: '/competition/templates', component: CompetitionTemplateListView, meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/competition/setup',    component: CompetitionSetupView,         meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/competition/bracket',  component: CompetitionBracketView,       meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/admin/wettkampf',       component: WettkampfListView,            meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },

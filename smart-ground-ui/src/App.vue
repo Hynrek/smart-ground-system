@@ -21,7 +21,10 @@ const navMap = {
   '/profile': 'profile',
 };
 
-const activeNav = computed(() => navMap[route.path] || 'ranges');
+const activeNav = computed(() => {
+  if (route.path.startsWith('/admin/wettkampf')) return 'competition'
+  return navMap[route.path] || 'ranges'
+});
 const layout = computed(() => route.meta.layout ?? 'admin');
 
 const handleNav = (navId) => {
