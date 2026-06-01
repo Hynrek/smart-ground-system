@@ -4,6 +4,8 @@ import * as userApi from '../services/userApi.js'
 
 export const useUserStore = defineStore('user', () => {
   const users = ref([])
+  const selectedUser = ref(null)
+  const userRolesMap = ref({})
   const currentUser = ref(null)
   const isLoading = ref(false)
   const error = ref(null)
@@ -13,7 +15,16 @@ export const useUserStore = defineStore('user', () => {
     error.value = null
     try {
       const data = await userApi.fetchUsers()
-      users.value = data.content ?? data
+      const list = data.content ?? data
+      users.value = list
+
+      const entries = await Promise.all(
+        list.map(async (u) => {
+          const roles = await userApi.fetchUserRoles(u.id).catch(() => [])
+          return [u.id, roles]
+        })
+      )
+      userRolesMap.value = Object.fromEntries(entries)
     } catch (err) {
       error.value = err.message || 'Failed to load users'
       throw err
@@ -22,11 +33,16 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function createUser(userData) {
+  function selectUser(user) {
+    selectedUser.value = user
+  }
+
+  async function createUser(userData, role = 'SHOOTER') {
     isLoading.value = true
     error.value = null
     try {
-      await userApi.createUser(userData)
+      const created = await userApi.createUser(userData)
+      await userApi.assignRole(created.id, role)
       await loadUsers()
     } catch (err) {
       error.value = err.message || 'Failed to create user'
@@ -36,14 +52,14 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function updateUserRole(userId, role) {
+  async function updateUser(userId, data) {
     isLoading.value = true
     error.value = null
     try {
-      await userApi.updateUserRole(userId, role)
+      await userApi.updateUser(userId, data)
       await loadUsers()
     } catch (err) {
-      error.value = err.message || 'Failed to update user role'
+      error.value = err.message || 'Failed to update user'
       throw err
     } finally {
       isLoading.value = false
@@ -55,6 +71,9 @@ export const useUserStore = defineStore('user', () => {
     error.value = null
     try {
       await userApi.deleteUser(userId)
+      if (selectedUser.value?.id === userId) {
+        selectedUser.value = null
+      }
       await loadUsers()
     } catch (err) {
       error.value = err.message || 'Failed to delete user'
@@ -94,14 +113,17 @@ export const useUserStore = defineStore('user', () => {
 
   return {
     users,
+    selectedUser,
+    userRolesMap,
     currentUser,
     isLoading,
     error,
     loadUsers,
+    selectUser,
     createUser,
-    updateUserRole,
+    updateUser,
     deleteUser,
     getCurrentUser,
-    changePassword
+    changePassword,
   }
 })
