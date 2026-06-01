@@ -52,3 +52,9 @@ export async function assignRole(userId, roleName) {
 export async function fetchUserRoles(userId) {
   return apiFetch(`/users/${userId}/roles`)
 }
+
+export async function revokeRole(userId, roleName) {
+  return apiFetch(`/users/${userId}/roles/${roleName}`, {
+    method: 'DELETE',
+  })
+}
