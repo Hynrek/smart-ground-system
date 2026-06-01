@@ -1,109 +1,152 @@
 <template>
   <div class="users-view">
-    <h1>Benutzerverwaltung</h1>
-
-    <!-- Error Banner -->
-    <div v-if="userStore.error" class="error-banner">
-      {{ userStore.error }}
-    </div>
-
-    <!-- Success Banner -->
-    <div v-if="successMessage" class="success-banner">
-      {{ successMessage }}
-    </div>
-
-    <!-- Create User Card -->
-    <div class="create-card">
-      <h2>Neuer Benutzer</h2>
-      <div class="form-group">
+    <!-- Left: User List Panel -->
+    <aside class="list-panel">
+      <div class="list-header">
         <input
-          v-model="newUser.vorname"
+          v-model="search"
+          data-testid="search-input"
           type="text"
-          placeholder="Vorname"
-          class="form-input"
-          :disabled="userStore.isLoading"
+          placeholder="Suchen..."
+          class="search-input"
+          aria-label="Benutzer suchen"
         />
-      </div>
-      <div class="form-group">
-        <input
-          v-model="newUser.nachname"
-          type="text"
-          placeholder="Nachname"
-          class="form-input"
-          :disabled="userStore.isLoading"
-        />
-      </div>
-      <div class="form-group">
-        <input
-          v-model="newUser.email"
-          type="email"
-          placeholder="E-Mail"
-          class="form-input"
-          :disabled="userStore.isLoading"
-        />
-      </div>
-      <div class="form-group">
-        <input
-          v-model="newUser.password"
-          type="password"
-          placeholder="Passwort"
-          class="form-input"
-          :disabled="userStore.isLoading"
-        />
-      </div>
-      <div class="form-actions">
         <button
-          class="btn btn-primary"
-          :disabled="!newUser.email || !newUser.password || !newUser.vorname || !newUser.nachname || userStore.isLoading"
-          @click="handleCreateUser"
+          data-testid="btn-create"
+          class="btn btn-primary btn-sm"
+          @click="openCreate"
+        >+ Neu</button>
+      </div>
+
+      <div v-if="userStore.error" class="error-banner">{{ userStore.error }}</div>
+
+      <div class="list-body">
+        <p v-if="filteredUsers.length === 0" class="list-empty">Keine Benutzer gefunden</p>
+        <button
+          v-for="user in filteredUsers"
+          :key="user.id"
+          :class="['user-item', { selected: selectedUser?.id === user.id }]"
+          @click="userStore.selectUser(user)"
         >
-          {{ userStore.isLoading ? 'Wird erstellt...' : 'Erstellen' }}
+          <span class="user-item-name">{{ user.fullName }}</span>
+          <span class="user-item-badges">
+            <span :class="['badge', statusBadgeClass(user.status)]">{{ statusLabel(user.status) }}</span>
+            <span
+              v-for="role in (userStore.userRolesMap[user.id] ?? [])"
+              :key="role.roleName"
+              :class="['badge', roleBadgeClass(role.roleName)]"
+            >{{ roleLabel(role.roleName) }}</span>
+          </span>
         </button>
       </div>
-    </div>
+    </aside>
 
-    <!-- Users List -->
-    <div class="users-grid">
-      <div v-if="userStore.users.length === 0" class="empty-state">
-        <p>Keine Benutzer gefunden</p>
+    <!-- Right: Detail Panel -->
+    <main class="detail-panel">
+      <div v-if="!selectedUser" data-testid="empty-state" class="empty-state">
+        <p>Benutzer aus der Liste auswählen</p>
       </div>
 
-      <div v-for="user in userStore.users" :key="user.id" class="user-card">
-        <div class="user-info">
-          <h3>{{ user.fullName }}</h3>
-          <div class="meta">
-            <span class="status-badge" :class="user.status?.toLowerCase()">
-              {{ user.email }}
-            </span>
-            <span class="created-date">
-              {{ formatDate(user.erstelltAm) }}
-            </span>
+      <template v-else>
+        <div class="detail-header">
+          <div class="detail-title">
+            <span class="detail-name">{{ selectedUser.fullName }}</span>
+            <span :class="['badge', statusBadgeClass(selectedUser.status)]">{{ statusLabel(selectedUser.status) }}</span>
+            <span
+              v-for="role in (userStore.userRolesMap[selectedUser.id] ?? [])"
+              :key="role.roleName"
+              :class="['badge', roleBadgeClass(role.roleName)]"
+            >{{ roleLabel(role.roleName) }}</span>
+          </div>
+          <div class="detail-actions">
+            <button class="btn btn-secondary btn-sm" @click="openEdit">Bearbeiten</button>
+            <button class="btn btn-danger btn-sm" :disabled="userStore.isLoading" @click="deletingUser = selectedUser">Löschen</button>
           </div>
         </div>
 
-        <div class="user-actions">
-          <button
-            class="btn btn-danger btn-sm"
-            :disabled="userStore.isLoading"
-            @click="openDeleteConfirm(user)"
-          >
-            Löschen
-          </button>
-        </div>
-      </div>
-    </div>
+        <div class="detail-sections">
+          <section class="detail-section">
+            <h4 class="section-label">Kontakt</h4>
+            <div class="detail-grid">
+              <div class="detail-field">
+                <span class="field-label">E-Mail</span>
+                <span>{{ selectedUser.email }}</span>
+              </div>
+              <div class="detail-field">
+                <span class="field-label">Telefon</span>
+                <span>{{ selectedUser.telefonnummer ?? '—' }}</span>
+              </div>
+              <div class="detail-field">
+                <span class="field-label">Geburtsdatum</span>
+                <span>{{ formatDate(selectedUser.geburtsdatum) ?? '—' }}</span>
+              </div>
+            </div>
+          </section>
 
-    <!-- Delete Confirmation Modal -->
-    <div v-if="deletingUser" class="modal-overlay" @click="closeDeleteConfirm">
-      <div class="modal" @click.stop>
-        <h2>Benutzer löschen?</h2>
-        <p>Möchten Sie den Benutzer "{{ deletingUser.username }}" wirklich löschen?</p>
-        <div class="modal-actions">
-          <button class="btn btn-danger" :disabled="userStore.isLoading" @click="handleDeleteUser">
-            Löschen
-          </button>
-          <button class="btn btn-secondary" :disabled="userStore.isLoading" @click="closeDeleteConfirm">
-            Abbrechen
+          <section class="detail-section">
+            <h4 class="section-label">Adresse</h4>
+            <div class="detail-field">
+              <span>{{ formatAddress(selectedUser) }}</span>
+            </div>
+          </section>
+
+          <section class="detail-section">
+            <h4 class="section-label">Mitgliedschaft</h4>
+            <div class="detail-grid">
+              <div class="detail-field">
+                <span class="field-label">Mitgliedsnummer</span>
+                <span>{{ selectedUser.mitgliedsnummer ?? '—' }}</span>
+              </div>
+              <div class="detail-field">
+                <span class="field-label">Schiesslizenz</span>
+                <span>{{ selectedUser.schiessLizenz ?? '—' }}</span>
+              </div>
+              <div class="detail-field">
+                <span class="field-label">Lizenz Ablauf</span>
+                <span :class="licenseExpiryClass(selectedUser.schiessLizenzVerfallsdatum)">
+                  {{ formatDate(selectedUser.schiessLizenzVerfallsdatum) ?? '—' }}
+                  <span v-if="isLicenseExpiringSoon(selectedUser.schiessLizenzVerfallsdatum)"> ⚠</span>
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section class="detail-section">
+            <h4 class="section-label">System</h4>
+            <div class="detail-grid">
+              <div class="detail-field">
+                <span class="field-label">Erstellt am</span>
+                <span>{{ formatInstant(selectedUser.erstelltAm) }}</span>
+              </div>
+              <div class="detail-field">
+                <span class="field-label">Zuletzt aktualisiert</span>
+                <span>{{ formatInstant(selectedUser.aktualisiertAm) }}</span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </template>
+    </main>
+
+    <!-- Create / Edit Modal -->
+    <UserFormModal
+      v-if="showModal"
+      data-testid="user-form-modal"
+      :mode="modalMode"
+      :initial-user="modalUser"
+      @close="showModal = false"
+      @saved="onSaved"
+    />
+
+    <!-- Delete Confirmation -->
+    <div v-if="deletingUser" class="modal-overlay" @click.self="deletingUser = null">
+      <div class="confirm-modal">
+        <h3>Benutzer löschen?</h3>
+        <p>Möchten Sie „{{ deletingUser.fullName }}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</p>
+        <div class="confirm-actions">
+          <button class="btn btn-secondary" @click="deletingUser = null">Abbrechen</button>
+          <button class="btn btn-danger" :disabled="userStore.isLoading" @click="handleDelete">
+            {{ userStore.isLoading ? 'Wird gelöscht...' : 'Löschen' }}
           </button>
         </div>
       </div>
@@ -112,306 +155,321 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { useUserStore } from '../stores/userStore.js'
+import { ref, computed, onMounted } from 'vue'
+import { useUserStore } from '@/stores/userStore.js'
+import UserFormModal from '@/components/UserFormModal.vue'
 
 const userStore = useUserStore()
-const newUser = ref({ vorname: '', nachname: '', email: '', password: '' })
+const search = ref('')
+const showModal = ref(false)
+const modalMode = ref('create')
+const modalUser = ref(null)
 const deletingUser = ref(null)
-const successMessage = ref(null)
 
-onMounted(async () => {
-  try {
-    await userStore.loadUsers()
-  } catch (err) {
-    // Error is already in userStore.error
-  }
+const selectedUser = computed(() => userStore.selectedUser)
+
+const filteredUsers = computed(() => {
+  const q = search.value.toLowerCase()
+  if (!q) return userStore.users
+  return userStore.users.filter(
+    (u) =>
+      u.fullName?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q)
+  )
 })
 
-const formatDate = (epochSeconds) => {
-  return new Date(epochSeconds * 1000).toLocaleDateString('de-DE', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  })
+onMounted(() => userStore.loadUsers())
+
+function openCreate() {
+  modalMode.value = 'create'
+  modalUser.value = null
+  showModal.value = true
 }
 
-const handleCreateUser = async () => {
-  if (!newUser.value.email || !newUser.value.password || !newUser.value.vorname || !newUser.value.nachname) {
-    userStore.error = 'Alle Felder sind erforderlich'
-    return
-  }
-
-  try {
-    await userStore.createUser(newUser.value)
-    newUser.value = { vorname: '', nachname: '', email: '', password: '' }
-    successMessage.value = 'Benutzer erfolgreich erstellt'
-    setTimeout(() => {
-      successMessage.value = null
-    }, 3000)
-  } catch (err) {
-    // Error is already in userStore.error
-  }
+function openEdit() {
+  modalMode.value = 'edit'
+  modalUser.value = selectedUser.value
+  showModal.value = true
 }
 
-const openDeleteConfirm = (user) => {
-  deletingUser.value = user
+async function onSaved() {
+  showModal.value = false
+  await userStore.loadUsers()
 }
 
-const closeDeleteConfirm = () => {
+async function handleDelete() {
+  if (!deletingUser.value) return
+  await userStore.deleteUser(deletingUser.value.id)
   deletingUser.value = null
 }
 
-const handleDeleteUser = async () => {
-  if (!deletingUser.value) return
-  try {
-    await userStore.deleteUser(deletingUser.value.id)
-    successMessage.value = 'Benutzer erfolgreich gelöscht'
-    closeDeleteConfirm()
-    setTimeout(() => {
-      successMessage.value = null
-    }, 3000)
-  } catch (err) {
-    // Error is already in userStore.error
-  }
+const STATUS_LABELS = { ACTIVE: 'Aktiv', INACTIVE: 'Inaktiv' }
+const STATUS_BADGE_CLASSES = { ACTIVE: 'badge-green', INACTIVE: 'badge-gray' }
+const ROLE_LABELS = { ADMIN: 'Admin', SHOOTER: 'Schütze', OWNER: 'Bereichsleiter' }
+const ROLE_BADGE_CLASSES = { ADMIN: 'badge-purple', SHOOTER: 'badge-blue', OWNER: 'badge-yellow' }
+
+const statusLabel = (s) => STATUS_LABELS[s] ?? s
+const statusBadgeClass = (s) => STATUS_BADGE_CLASSES[s] ?? 'badge-gray'
+const roleLabel = (r) => ROLE_LABELS[r] ?? r
+const roleBadgeClass = (r) => ROLE_BADGE_CLASSES[r] ?? 'badge-gray'
+
+const formatDate = (val) => {
+  if (!val) return null
+  const d = new Date(val)
+  return isNaN(d.getTime()) ? null : d.toLocaleDateString('de-DE')
 }
+
+const formatInstant = (val) => {
+  if (!val) return '—'
+  return new Date(val).toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit', day: '2-digit' })
+}
+
+const formatAddress = (u) => {
+  const parts = [
+    u.strasse && u.hausnummer ? `${u.strasse} ${u.hausnummer}` : (u.strasse || null),
+    u.plz && u.stadt ? `${u.plz} ${u.stadt}` : (u.plz || u.stadt || null),
+    u.land || null,
+  ].filter(Boolean)
+  return parts.length ? parts.join(', ') : '—'
+}
+
+const isLicenseExpiringSoon = (dateStr) => {
+  if (!dateStr) return false
+  return (new Date(dateStr) - new Date()) < 90 * 24 * 60 * 60 * 1000
+}
+
+const licenseExpiryClass = (dateStr) =>
+  isLicenseExpiringSoon(dateStr) ? 'text-warning' : ''
 </script>
 
 <style scoped>
 .users-view {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
+  display: flex;
+  height: 100%;
+  overflow: hidden;
 }
 
-h1 {
-  margin-bottom: 2rem;
-  color: #333;
+/* ── Left panel ── */
+.list-panel {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
 }
 
-.error-banner {
-  background-color: #fee;
-  color: #c33;
-  padding: 1rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-}
-
-.success-banner {
-  background-color: #efe;
-  color: #3c3;
-  padding: 1rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-}
-
-.create-card {
-  background: white;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.create-card h2 {
-  margin: 0 0 1rem 0;
-  font-size: 1.1rem;
-  color: #333;
-}
-
-.form-group {
-  margin-bottom: 1rem;
-}
-
-.form-input {
-  width: 100%;
+.list-header {
   padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-
-.form-input:disabled {
-  background-color: #f5f5f5;
-  color: #999;
-}
-
-.form-actions {
+  border-bottom: 1px solid #e5e7eb;
   display: flex;
   gap: 0.5rem;
-  margin-top: 1.5rem;
+  align-items: center;
 }
 
-.users-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
+.search-input {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.list-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.list-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.user-item {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  padding: 0.65rem 0.75rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.user-item:hover {
+  background: #f9fafb;
+}
+
+.user-item.selected {
+  background: #eff6ff;
+  border-left-color: #2563eb;
+}
+
+.user-item-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.user-item-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+/* ── Right panel ── */
+.detail-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .empty-state {
-  grid-column: 1 / -1;
-  text-align: center;
-  padding: 3rem;
-  color: #999;
-}
-
-.user-card {
-  background: white;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.user-info h3 {
-  margin: 0 0 0.5rem 0;
-  color: #333;
-}
-
-.meta {
-  display: flex;
-  gap: 1rem;
   align-items: center;
-  font-size: 0.9rem;
-  color: #666;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 0.95rem;
 }
 
-.status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  background-color: #ddd;
-  color: #333;
+.detail-header {
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f9fafb;
+  flex-shrink: 0;
 }
 
-.status-badge.active {
-  background-color: #87ceeb;
-  color: white;
+.detail-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
-.created-date {
-  color: #999;
-  font-size: 0.85rem;
+.detail-name {
+  font-weight: 600;
+  font-size: 1rem;
 }
 
-.user-actions {
+.detail-actions {
   display: flex;
   gap: 0.5rem;
-  margin-top: 1rem;
-  flex-wrap: wrap;
 }
 
-.admin-note {
-  color: #999;
-  font-size: 0.9rem;
-  align-self: center;
+.detail-sections {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
+.detail-section .section-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  margin: 0 0 0.6rem;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.field-label {
+  font-size: 0.72rem;
+  color: #9ca3af;
+}
+
+/* ── Badges ── */
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-green  { background: #d1fae5; color: #065f46; }
+.badge-gray   { background: #f3f4f6; color: #6b7280; }
+.badge-blue   { background: #dbeafe; color: #1d4ed8; }
+.badge-purple { background: #f3e8ff; color: #7e22ce; }
+.badge-yellow { background: #fef3c7; color: #92400e; }
+
+/* ── Warnings ── */
+.text-warning { color: #d97706; font-weight: 500; }
+
+.error-banner {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* ── Buttons ── */
 .btn {
-  padding: 0.5rem 1rem;
+  padding: 0.45rem 1rem;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s;
+  font-size: 0.875rem;
 }
 
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-sm { padding: 0.3rem 0.75rem; font-size: 0.82rem; }
+.btn-primary  { background: #2563eb; color: white; }
+.btn-secondary { background: #f3f4f6; color: #374151; }
+.btn-danger   { background: #dc2626; color: white; }
 
-.btn-primary {
-  background-color: #007bff;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: #0056b3;
-}
-
-.btn-secondary {
-  background-color: #6c757d;
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: #545b62;
-}
-
-.btn-danger {
-  background-color: #dc3545;
-  color: white;
-}
-
-.btn-danger:hover:not(:disabled) {
-  background-color: #c82333;
-}
-
-.btn-sm {
-  padding: 0.25rem 0.75rem;
-  font-size: 0.85rem;
-}
-
+/* ── Delete confirm modal ── */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
 }
 
-.modal {
+.confirm-modal {
   background: white;
   border-radius: 8px;
-  padding: 2rem;
-  max-width: 400px;
+  padding: 1.75rem;
+  max-width: 420px;
   width: 90%;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
-.modal h2 {
-  margin: 0 0 0.5rem 0;
-  color: #333;
-}
+.confirm-modal h3 { margin: 0 0 0.5rem; }
+.confirm-modal p  { color: #6b7280; margin: 0 0 1.5rem; font-size: 0.9rem; }
 
-.modal p {
-  margin: 0.5rem 0 1.5rem 0;
-  color: #666;
-}
-
-.modal-actions {
+.confirm-actions {
   display: flex;
-  gap: 0.5rem;
   justify-content: flex-end;
-  margin-top: 2rem;
+  gap: 0.5rem;
 }
 
 @media (max-width: 768px) {
-  .users-view {
-    padding: 1rem;
-  }
-
-  .users-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .user-actions {
-    flex-direction: column;
-  }
-
-  .btn {
-    width: 100%;
-  }
+  .users-view { flex-direction: column; }
+  .list-panel { width: 100%; border-right: none; border-bottom: 1px solid #e5e7eb; max-height: 240px; }
+  .detail-grid { grid-template-columns: 1fr 1fr; }
 }
 </style>
