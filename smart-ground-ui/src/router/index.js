@@ -53,7 +53,6 @@ const routes = [
   { path: '/competition/leaderboard', component: CompetitionLeaderboardView, meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },
   { path: '/career-stats',         component: CareerStatsView,              meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },
   { path: '/meine-passen',         component: PasseManagementView,          meta: { layout: 'shooter', permission: 'PLAY_SERIES' } },
-  { path: '/training',             component: () => import('@/views/shooter/TrainingManagementView.vue'), meta: { layout: 'shooter', permission: 'START_TRAINING' } },
   { path: '/wettkampf',            component: () => import('@/views/shooter/CompetitionManagementView.vue'), meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
 ];
 
@@ -63,14 +62,16 @@ const router = createRouter({
 });
 
 // Gibt die Standardstartseite basierend auf den Berechtigungen des Benutzers zurück
-const defaultHome = (auth) => {
+export const defaultHome = (auth) => {
+  if (auth.profile?.assignedRangeId) return `/remote/${auth.profile.assignedRangeId}`;
   if (auth.hasPermission('VIEW_REMOTE')) return '/home';
   if (auth.hasPermission('MANAGE_RANGES')) return '/ranges';
   return '/no-access';
 };
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const auth = useAuthStore();
+  await auth.readyPromise;
   const authenticated = auth.isAuthenticated();
   const requiresAuth = to.meta.requiresAuth !== false;
 
@@ -90,16 +91,13 @@ router.beforeEach((to, from, next) => {
     return;
   }
 
-  const requiredPermission = to.meta.permission;
-  if (requiredPermission && !auth.hasPermission(requiredPermission)) {
-    const home = defaultHome(auth);
-    // Avoid infinite redirect if defaultHome itself requires a permission the user lacks
-    if (to.path !== home) {
-      next(home);
-    } else {
-      next('/no-access');
+  // Hard-lock: assigned users may only visit their range path
+  if (authenticated && auth.profile?.assignedRangeId) {
+    const allowedPath = `/remote/${auth.profile.assignedRangeId}`;
+    if (!to.path.startsWith(allowedPath)) {
+      next(allowedPath);
+      return;
     }
-    return;
   }
 
   next();
