@@ -35,3 +35,10 @@ export async function setRangeLocked(id, locked) {
     body: JSON.stringify({ locked }),
   });
 }
+
+export async function assignRangeUser(rangeId, userId) {
+  return apiFetch(`/ranges/${rangeId}/assigned-user`, {
+    method: 'PATCH',
+    body: JSON.stringify({ userId }),
+  });
+}
