@@ -115,4 +115,22 @@ describe('UserFormModal', () => {
     expect(mockUpdate).toHaveBeenCalledWith('u1', expect.objectContaining({ vorname: 'Anna', nachname: 'Schmidt' }))
     expect(wrapper.emitted('saved')).toBeTruthy()
   })
+
+  it('strips empty optional fields from payload before calling createUser', async () => {
+    const UserFormModal = await importModal()
+    const wrapper = mount(UserFormModal, { props: { mode: 'create' } })
+    await wrapper.find('[data-testid="input-vorname"]').setValue('Hans')
+    await wrapper.find('[data-testid="input-nachname"]').setValue('Müller')
+    await wrapper.find('[data-testid="input-email"]').setValue('hans@test.ch')
+    await wrapper.find('[data-testid="input-password"]').setValue('secret')
+    // All optional fields intentionally left empty
+    await wrapper.find('[data-testid="submit-btn"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const [payloadArg] = mockCreate.mock.calls[0]
+    expect(payloadArg).not.toHaveProperty('telefonnummer')
+    expect(payloadArg).not.toHaveProperty('strasse')
+    expect(payloadArg).not.toHaveProperty('geburtsdatum')
+    expect(payloadArg).toMatchObject({ vorname: 'Hans', nachname: 'Müller', email: 'hans@test.ch' })
+  })
 })

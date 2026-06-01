@@ -30,8 +30,8 @@
             <label for="input-vorname">Vorname *</label>
             <input
               id="input-vorname"
-              data-testid="input-vorname"
               v-model="form.vorname"
+              data-testid="input-vorname"
               type="text"
               :class="{ 'input-error': errors.vorname }"
               :disabled="userStore.isLoading"
@@ -42,8 +42,8 @@
             <label for="input-nachname">Nachname *</label>
             <input
               id="input-nachname"
-              data-testid="input-nachname"
               v-model="form.nachname"
+              data-testid="input-nachname"
               type="text"
               :class="{ 'input-error': errors.nachname }"
               :disabled="userStore.isLoading"
@@ -56,8 +56,8 @@
           <label for="input-email">E-Mail *</label>
           <input
             id="input-email"
-            data-testid="input-email"
             v-model="form.email"
+            data-testid="input-email"
             type="email"
             :class="{ 'input-error': errors.email }"
             :disabled="mode === 'edit' || userStore.isLoading"
@@ -69,8 +69,8 @@
           <label for="input-password">Passwort *</label>
           <input
             id="input-password"
-            data-testid="input-password"
             v-model="form.password"
+            data-testid="input-password"
             type="password"
             :class="{ 'input-error': errors.password }"
             :disabled="userStore.isLoading"
@@ -82,8 +82,8 @@
           <label for="input-role">Rolle *</label>
           <select
             id="input-role"
-            data-testid="input-role"
             v-model="form.role"
+            data-testid="input-role"
             :disabled="userStore.isLoading"
           >
             <option value="SHOOTER">Schütze</option>
@@ -100,8 +100,8 @@
             <label for="input-geburtsdatum">Geburtsdatum</label>
             <input
               id="input-geburtsdatum"
-              data-testid="input-geburtsdatum"
               v-model="form.geburtsdatum"
+              data-testid="input-geburtsdatum"
               type="date"
               :disabled="userStore.isLoading"
             />
@@ -110,8 +110,8 @@
             <label for="input-geschlecht">Geschlecht</label>
             <select
               id="input-geschlecht"
-              data-testid="input-geschlecht"
               v-model="form.geschlecht"
+              data-testid="input-geschlecht"
               :disabled="userStore.isLoading"
             >
               <option value="">—</option>
@@ -126,8 +126,8 @@
           <label for="input-telefonnummer">Telefonnummer</label>
           <input
             id="input-telefonnummer"
-            data-testid="input-telefonnummer"
             v-model="form.telefonnummer"
+            data-testid="input-telefonnummer"
             type="tel"
             placeholder="+41 79 ..."
             :disabled="userStore.isLoading"
@@ -139,8 +139,8 @@
             <label for="input-strasse">Strasse</label>
             <input
               id="input-strasse"
-              data-testid="input-strasse"
               v-model="form.strasse"
+              data-testid="input-strasse"
               type="text"
               :disabled="userStore.isLoading"
             />
@@ -149,8 +149,8 @@
             <label for="input-hausnummer">Nr.</label>
             <input
               id="input-hausnummer"
-              data-testid="input-hausnummer"
               v-model="form.hausnummer"
+              data-testid="input-hausnummer"
               type="text"
               :disabled="userStore.isLoading"
             />
@@ -162,8 +162,8 @@
             <label for="input-plz">PLZ</label>
             <input
               id="input-plz"
-              data-testid="input-plz"
               v-model="form.plz"
+              data-testid="input-plz"
               type="text"
               :disabled="userStore.isLoading"
             />
@@ -172,8 +172,8 @@
             <label for="input-stadt">Stadt</label>
             <input
               id="input-stadt"
-              data-testid="input-stadt"
               v-model="form.stadt"
+              data-testid="input-stadt"
               type="text"
               :disabled="userStore.isLoading"
             />
@@ -182,8 +182,8 @@
             <label for="input-land">Land</label>
             <input
               id="input-land"
-              data-testid="input-land"
               v-model="form.land"
+              data-testid="input-land"
               type="text"
               placeholder="CH"
               :disabled="userStore.isLoading"
@@ -196,8 +196,8 @@
             <label for="input-mitgliedsnummer">Mitgliedsnummer</label>
             <input
               id="input-mitgliedsnummer"
-              data-testid="input-mitgliedsnummer"
               v-model="form.mitgliedsnummer"
+              data-testid="input-mitgliedsnummer"
               type="text"
               placeholder="SG-0001"
               :disabled="userStore.isLoading"
@@ -207,8 +207,8 @@
             <label for="input-sprache">Sprache</label>
             <select
               id="input-sprache"
-              data-testid="input-sprache"
               v-model="form.sprache"
+              data-testid="input-sprache"
               :disabled="userStore.isLoading"
             >
               <option value="de">Deutsch</option>
