@@ -34,3 +34,21 @@ export async function changePassword(oldPassword, newPassword) {
     body: JSON.stringify({ oldPassword, newPassword })
   })
 }
+
+export async function updateUser(userId, data) {
+  return apiFetch(`/users/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function assignRole(userId, roleName) {
+  return apiFetch(`/users/${userId}/roles`, {
+    method: 'POST',
+    body: JSON.stringify({ roleName }),
+  })
+}
+
+export async function fetchUserRoles(userId) {
+  return apiFetch(`/users/${userId}/roles`)
+}
