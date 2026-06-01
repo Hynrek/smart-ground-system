@@ -83,6 +83,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     if (!ev || ev.status !== 'PLANNING') return
     const rotte = ev.rotten.find(r => r.rotteId === rotteId)
     if (!rotte) return
+    if (!user?.id || !user?.displayName) return
     rotte.players.push({ id: uuid(), userId: user.id, displayName: user.displayName, paid: false })
     _save()
   }

@@ -107,6 +107,20 @@ describe('useCompetitionEventStore', () => {
     expect(store.updatePlayerName).toBeUndefined()
   })
 
+  it('does not add a player when user is missing or malformed', () => {
+    const store = useCompetitionEventStore()
+    const eventId = store.createEvent('Test', [])
+    store.addRotte(eventId)
+    const rotte = store.getEvent(eventId).rotten[0]
+
+    store.addPlayer(eventId, rotte.rotteId, null)
+    store.addPlayer(eventId, rotte.rotteId, undefined)
+    store.addPlayer(eventId, rotte.rotteId, {})
+    store.addPlayer(eventId, rotte.rotteId, { id: 'x' })
+
+    expect(store.getEvent(eventId).rotten[0].players).toHaveLength(0)
+  })
+
   it('toggles player paid status', () => {
     const store = useCompetitionEventStore()
     const id = store.createEvent('Test', mockPassen)
