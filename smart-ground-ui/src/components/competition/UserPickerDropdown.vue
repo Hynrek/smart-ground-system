@@ -24,6 +24,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
+defineOptions({ name: 'UserPickerDropdown' })
+
 const props = defineProps({
   users: { type: Array, required: true },
 })
