@@ -66,6 +66,23 @@
 
         <div class="detail-sections">
           <section class="detail-section">
+            <h4 class="section-label">Rollen</h4>
+            <div class="role-chips">
+              <button
+                v-for="role in ROLES"
+                :key="role.name"
+                :class="['role-chip', { 'role-chip--active': hasRole(selectedUser.id, role.name) }]"
+                :disabled="userStore.isLoading"
+                :aria-pressed="hasRole(selectedUser.id, role.name)"
+                :aria-label="`Rolle ${role.label} ${hasRole(selectedUser.id, role.name) ? 'entfernen' : 'zuweisen'}`"
+                @click="handleToggleRole(selectedUser.id, role.name)"
+              >
+                {{ role.label }}
+              </button>
+            </div>
+          </section>
+
+          <section class="detail-section">
             <h4 class="section-label">Kontakt</h4>
             <div class="detail-grid">
               <div class="detail-field">
@@ -201,6 +218,20 @@ async function handleDelete() {
   if (!deletingUser.value) return
   await userStore.deleteUser(deletingUser.value.id)
   deletingUser.value = null
+}
+
+const ROLES = [
+  { name: 'ADMIN', label: 'Admin' },
+  { name: 'SHOOTER', label: 'Schütze' },
+  { name: 'OWNER', label: 'Bereichsleiter' },
+]
+
+function hasRole(userId, roleName) {
+  return (userStore.userRolesMap[userId] ?? []).some((r) => r.roleName === roleName)
+}
+
+async function handleToggleRole(userId, roleName) {
+  await userStore.toggleRole(userId, roleName)
 }
 
 const STATUS_LABELS = { ACTIVE: 'Aktiv', INACTIVE: 'Inaktiv' }
@@ -465,6 +496,48 @@ const licenseExpiryClass = (dateStr) =>
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+/* ── Role chips ── */
+.role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.role-chip {
+  padding: 0.3rem 0.9rem;
+  border-radius: 20px;
+  border: 1.5px solid #d1d5db;
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.role-chip:hover:not(:disabled) {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.role-chip--active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+
+.role-chip--active:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: white;
+}
+
+.role-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {
