@@ -69,15 +69,15 @@
             <h4 class="section-label">Rollen</h4>
             <div class="role-chips">
               <button
-                v-for="role in ROLES"
+                v-for="role in userStore.availableRoles"
                 :key="role.name"
                 :class="['role-chip', { 'role-chip--active': hasRole(selectedUser.id, role.name) }]"
                 :disabled="userStore.isLoading"
                 :aria-pressed="hasRole(selectedUser.id, role.name)"
-                :aria-label="`Rolle ${role.label} ${hasRole(selectedUser.id, role.name) ? 'entfernen' : 'zuweisen'}`"
+                :aria-label="`Rolle ${role.description || role.name} ${hasRole(selectedUser.id, role.name) ? 'entfernen' : 'zuweisen'}`"
                 @click="handleToggleRole(selectedUser.id, role.name)"
               >
-                {{ role.label }}
+                {{ role.description || role.name }}
               </button>
             </div>
           </section>
@@ -195,7 +195,10 @@ const filteredUsers = computed(() => {
   )
 })
 
-onMounted(() => userStore.loadUsers())
+onMounted(() => {
+  userStore.loadUsers()
+  userStore.loadAvailableRoles()
+})
 
 function openCreate() {
   modalMode.value = 'create'
@@ -219,12 +222,6 @@ async function handleDelete() {
   await userStore.deleteUser(deletingUser.value.id)
   deletingUser.value = null
 }
-
-const ROLES = [
-  { name: 'ADMIN', label: 'Admin' },
-  { name: 'SHOOTER', label: 'Schütze' },
-  { name: 'OWNER', label: 'Bereichsleiter' },
-]
 
 function hasRole(userId, roleName) {
   return (userStore.userRolesMap[userId] ?? []).some((r) => r.roleName === roleName)
