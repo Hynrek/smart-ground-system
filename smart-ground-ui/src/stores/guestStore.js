@@ -1,58 +1,39 @@
-import { defineStore } from 'pinia';
-import { ref } from 'vue';
-
-const generateUUID = () => {
-  if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) {
-    return globalThis.crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-};
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import * as guestApi from '@/services/guestApi.js'
 
 export const useGuestStore = defineStore('guests', () => {
-  const STORAGE_KEY = 'smart-ground:guests';
-  const guests = ref([]);
+  const guests = ref([])
+  const isLoading = ref(false)
+  const error = ref(null)
 
-  const loadGuests = () => {
+  const loadGuests = async () => {
+    isLoading.value = true
+    error.value = null
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      guests.value = raw ? JSON.parse(raw) : [];
-    } catch {
-      guests.value = [];
+      guests.value = await guestApi.fetchGuests()
+    } catch (e) {
+      error.value = e.message
+    } finally {
+      isLoading.value = false
     }
-  };
+  }
 
-  const persist = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(guests.value));
-  };
+  const addGuest = async (displayName) => {
+    const guest = await guestApi.createGuest(displayName.trim())
+    guests.value = [...guests.value, guest]
+    return guest
+  }
 
-  const addGuest = (displayName) => {
-    const guest = {
-      id: generateUUID(),
-      displayName: displayName.trim(),
-      createdAt: new Date().toISOString(),
-    };
-    guests.value = [...guests.value, guest];
-    persist();
-    return guest;
-  };
+  const removeGuest = async (id) => {
+    await guestApi.deleteGuest(id)
+    guests.value = guests.value.filter((g) => g.id !== id)
+  }
 
-  const removeGuest = (id) => {
-    guests.value = guests.value.filter((g) => g.id !== id);
-    persist();
-  };
+  const updateGuest = async (id, displayName) => {
+    const updated = await guestApi.updateGuest(id, displayName.trim())
+    guests.value = guests.value.map((g) => (g.id === id ? updated : g))
+  }
 
-  const updateGuest = (id, displayName) => {
-    guests.value = guests.value.map((g) =>
-      g.id === id ? { ...g, displayName: displayName.trim() } : g
-    );
-    persist();
-  };
-
-  loadGuests();
-
-  return { guests, loadGuests, addGuest, removeGuest, updateGuest };
-});
+  return { guests, isLoading, error, loadGuests, addGuest, removeGuest, updateGuest }
+})
