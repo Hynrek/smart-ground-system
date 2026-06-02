@@ -6,7 +6,7 @@
     <div class="view-header">
       <div class="header-left">
         <button class="back-btn" @click="router.push('/admin/wettkampf')">
-          <Icons icon="chevronLeft" :size="16" color="rgba(255,255,255,0.6)" />
+          <Icons icon="chevronLeft" :size="16" color="#718096" />
           Zurück
         </button>
         <div>
@@ -62,11 +62,11 @@
               v-for="rotte in event.rotten"
               :key="rotte.rotteId"
               :rotte="rotte"
+              :available-users="availableUsers"
               @rename="(name) => store.renameRotte(eventId, rotte.rotteId, name)"
               @remove="confirmRemoveRotte(rotte)"
-              @add-player="store.addPlayer(eventId, rotte.rotteId)"
+              @add-player="(user) => store.addPlayer(eventId, rotte.rotteId, user)"
               @remove-player="(pid) => store.removePlayer(eventId, rotte.rotteId, pid)"
-              @update-player-name="(pid, name) => store.updatePlayerName(eventId, rotte.rotteId, pid, name)"
               @toggle-paid="(pid) => store.togglePlayerPaid(eventId, rotte.rotteId, pid)"
             />
           </div>
@@ -133,6 +133,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 import { useActivePasseStore } from '@/stores/activePasseStore.js'
+import { useUserStore } from '@/stores/userStore.js'
 import Icons from '@/components/Icons.vue'
 import RotteEditorCard from '@/components/competition/RotteEditorCard.vue'
 import ActiveCompetitionPanel from '@/components/competition/ActiveCompetitionPanel.vue'
@@ -142,6 +143,7 @@ const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
 const store = useCompetitionEventStore()
 const activePasseStore = useActivePasseStore()
+const userStore = useUserStore()
 
 const eventId = computed(() => props.id)
 const event = computed(() => store.getEvent(eventId.value))
@@ -175,6 +177,16 @@ const unpaidPlayers = computed(() =>
 
 const paidPlayers = computed(() =>
   (event.value?.rotten ?? []).flatMap(r => r.players.filter(p => p.paid))
+)
+
+const assignedUserIds = computed(() =>
+  new Set((event.value?.rotten ?? []).flatMap(r => r.players.map(p => p.userId)))
+)
+
+const availableUsers = computed(() =>
+  userStore.users
+    .filter(u => !assignedUserIds.value.has(u.id))
+    .map(u => ({ id: u.id, displayName: u.username }))
 )
 
 // ── Rotte removal ──────────────────────────────────────────────────────────
@@ -211,7 +223,8 @@ const handleStop = () => {
 // ── Auto-complete watch ────────────────────────────────────────────────────
 let completionInterval = null
 
-onMounted(() => {
+onMounted(async () => {
+  await userStore.loadUsers()
   completionInterval = setInterval(() => {
     if (event.value?.status === 'ACTIVE') {
       store.checkAndCompleteEvent(eventId.value)
@@ -225,12 +238,11 @@ onUnmounted(() => clearInterval(completionInterval))
 <style scoped>
 .detail-view {
   display: flex; flex-direction: column; min-height: 100%;
-  background: #1a1a2e; color: #fff;
 }
 
 .view-header {
   display: flex; align-items: flex-start; justify-content: space-between;
-  padding: 24px 28px 20px; border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 24px 28px 20px; border-bottom: 1px solid #e2e8f0;
   flex-shrink: 0;
 }
 
@@ -238,22 +250,22 @@ onUnmounted(() => clearInterval(completionInterval))
 
 .back-btn {
   display: flex; align-items: center; gap: 6px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  background: #f7fafc; border: 1px solid #e2e8f0;
   border-radius: 10px; padding: 8px 14px;
-  color: rgba(255,255,255,0.6); font-size: 13px; font-family: inherit;
+  color: #718096; font-size: 13px; font-family: inherit;
   cursor: pointer; transition: background 0.15s; white-space: nowrap;
 }
-.back-btn:hover { background: rgba(255,255,255,0.09); }
+.back-btn:hover { background: #edf2f7; }
 
-.view-title { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+.view-title { font-size: 22px; font-weight: 700; color: #1a1a2e; margin: 0 0 4px; }
 
 .status-badge {
   font-size: 11px; font-weight: 700; border-radius: 8px; padding: 3px 10px;
 }
-.badge-planning { background: rgba(79,195,247,0.15); color: rgba(79,195,247,0.9); border: 1px solid rgba(79,195,247,0.25); }
-.badge-active { background: rgba(246,173,85,0.15); color: rgba(246,173,85,0.9); border: 1px solid rgba(246,173,85,0.3); }
-.badge-completed { background: rgba(72,187,120,0.15); color: rgba(72,187,120,0.9); border: 1px solid rgba(72,187,120,0.25); }
-.badge-cancelled { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.1); }
+.badge-planning { background: rgba(79,195,247,0.12); color: #0288d1; border: 1px solid #bee3f8; }
+.badge-active { background: #fffaf0; color: #dd6b20; border: 1px solid #fbd38d; }
+.badge-completed { background: #f0fff4; color: #276749; border: 1px solid #9ae6b4; }
+.badge-cancelled { background: #f7fafc; color: #a0aec0; border: 1px solid #e2e8f0; }
 
 .content { flex: 1; overflow-y: auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 20px; }
 
@@ -261,28 +273,28 @@ onUnmounted(() => clearInterval(completionInterval))
 
 .info-chip {
   font-size: 12px; font-weight: 600; padding: 4px 12px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px; color: rgba(255,255,255,0.5);
+  background: #f7fafc; border: 1px solid #e2e8f0;
+  border-radius: 20px; color: #718096;
 }
 
 .payment-warning {
   display: flex; align-items: center; gap: 8px;
-  background: rgba(246,173,85,0.08); border: 1px solid rgba(246,173,85,0.2);
+  background: #fffaf0; border: 1px solid #fbd38d;
   border-radius: 10px; padding: 10px 14px;
-  font-size: 13px; color: rgba(246,173,85,0.9);
+  font-size: 13px; color: #dd6b20;
 }
 
 .section { display: flex; flex-direction: column; gap: 14px; }
 
 .section-header { display: flex; align-items: center; justify-content: space-between; }
 
-.section-title { font-size: 16px; font-weight: 700; margin: 0; }
+.section-title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin: 0; }
 
 .add-rotte-btn {
   display: flex; align-items: center; gap: 6px;
-  background: rgba(79,195,247,0.08); border: 1px solid rgba(79,195,247,0.2);
+  background: rgba(79,195,247,0.08); border: 1px solid #bee3f8;
   border-radius: 10px; padding: 7px 14px;
-  color: rgba(79,195,247,0.8); font-size: 13px; font-weight: 600; font-family: inherit;
+  color: #0288d1; font-size: 13px; font-weight: 600; font-family: inherit;
   cursor: pointer; transition: all 0.15s;
 }
 .add-rotte-btn:hover:not(:disabled) { background: rgba(79,195,247,0.15); }
@@ -290,8 +302,8 @@ onUnmounted(() => clearInterval(completionInterval))
 
 .empty-rotten {
   padding: 24px; text-align: center;
-  border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;
-  color: rgba(255,255,255,0.25); font-size: 13px;
+  border: 1px dashed #e2e8f0; border-radius: 12px;
+  color: #a0aec0; font-size: 13px;
 }
 
 .rotten-grid { display: flex; flex-direction: column; gap: 12px; }
@@ -299,43 +311,44 @@ onUnmounted(() => clearInterval(completionInterval))
 .start-section {
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 20px;
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 14px;
+  background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
-.payment-total { font-size: 13px; color: rgba(255,255,255,0.4); }
+.payment-total { font-size: 13px; color: #a0aec0; }
 
 .start-btn {
   display: flex; align-items: center; gap: 8px;
-  background: rgba(79,195,247,0.2); border: 1px solid rgba(79,195,247,0.4);
+  background: #0288d1; border: none;
   border-radius: 12px; padding: 11px 24px;
-  color: #4fc3f7; font-size: 14px; font-weight: 700; font-family: inherit;
-  cursor: pointer; transition: all 0.15s;
+  color: #fff; font-size: 14px; font-weight: 700; font-family: inherit;
+  cursor: pointer; transition: background 0.15s;
 }
-.start-btn:hover:not(:disabled) { background: rgba(79,195,247,0.3); }
+.start-btn:hover:not(:disabled) { background: #0277bd; }
 .start-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ── Payment warning modal ── */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 100;
-  background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
   display: flex; align-items: center; justify-content: center; padding: 20px;
 }
 
 .warning-modal {
-  background: #1e2240; border: 1px solid rgba(246,173,85,0.3);
+  background: #fff; border: 1px solid #fbd38d;
   border-radius: 18px; padding: 24px; max-width: 360px; width: 100%;
   display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
 }
 
-.modal-title { font-size: 16px; font-weight: 700; margin: 0; color: rgba(246,173,85,0.9); }
-.modal-desc { font-size: 13px; color: rgba(255,255,255,0.5); margin: 0; }
+.modal-title { font-size: 16px; font-weight: 700; margin: 0; color: #dd6b20; }
+.modal-desc { font-size: 13px; color: #718096; margin: 0; }
 
 .unpaid-list {
   margin: 0; padding: 0 0 0 16px;
   display: flex; flex-direction: column; gap: 4px;
 }
-.unpaid-list li { font-size: 13px; color: rgba(255,255,255,0.7); }
+.unpaid-list li { font-size: 13px; color: #2d3748; }
 
 .modal-actions { display: flex; gap: 8px; }
 
@@ -345,15 +358,15 @@ onUnmounted(() => clearInterval(completionInterval))
   cursor: pointer; border: 1px solid transparent; transition: background 0.15s;
 }
 .action-btn--cancel {
-  background: transparent; border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.5);
+  background: transparent; border-color: #e2e8f0; color: #718096;
 }
-.action-btn--cancel:hover { background: rgba(255,255,255,0.05); }
+.action-btn--cancel:hover { background: #f7fafc; }
 .action-btn--start {
-  background: rgba(79,195,247,0.2); border-color: rgba(79,195,247,0.4); color: #4fc3f7;
+  background: rgba(79,195,247,0.12); border-color: #4fc3f7; color: #0288d1;
 }
-.action-btn--start:hover { background: rgba(79,195,247,0.3); }
+.action-btn--start:hover { background: rgba(79,195,247,0.2); }
 
 .not-found, .cancelled-note {
-  padding: 40px 28px; text-align: center; color: rgba(255,255,255,0.3); font-size: 14px;
+  padding: 40px 28px; text-align: center; color: #a0aec0; font-size: 14px;
 }
 </style>
