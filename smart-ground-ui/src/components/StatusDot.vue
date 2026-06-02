@@ -1,7 +1,7 @@
 <template>
   <span
-    :style="dotStyle"
     class="status-dot"
+    :class="`dot-${status}`"
     :aria-label="`Status: ${statusLabel}`"
     role="img"
   />
@@ -9,7 +9,6 @@
 
 <script setup>
 import { computed } from 'vue';
-import { STATUS_COLORS } from '../constants/deviceTypes.js';
 
 const props = defineProps({
   status: {
@@ -17,15 +16,6 @@ const props = defineProps({
     default: 'online',
   },
 });
-
-const dotStyle = computed(() => ({
-  display: 'inline-block',
-  width: '7px',
-  height: '7px',
-  borderRadius: '50%',
-  background: STATUS_COLORS[props.status] || '#ccc',
-  flexShrink: 0,
-}));
 
 const statusLabel = computed(() => {
   const labels = {
@@ -40,6 +30,26 @@ const statusLabel = computed(() => {
 
 <style scoped>
 .status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
   flex-shrink: 0;
+}
+
+.dot-online {
+  background: var(--sg-color-success);
+}
+
+.dot-offline {
+  background: var(--sg-color-danger);
+}
+
+.dot-warning {
+  background: var(--sg-color-warning);
+}
+
+.dot-error {
+  background: var(--sg-color-danger);
 }
 </style>
