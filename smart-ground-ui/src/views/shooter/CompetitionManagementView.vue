@@ -1,4 +1,4 @@
-<!-- src/views/shooter/CompetitionManagementView.vue -->
+﻿<!-- src/views/shooter/CompetitionManagementView.vue -->
 <template>
   <div class="competition-view">
     <div class="top-bar">
@@ -91,7 +91,7 @@ const allPlayers = (ev) => ev.rotten.flatMap(r => r.players)
 <style scoped>
 .competition-view {
   flex: 1; display: flex; flex-direction: column; min-height: 0;
-  background: #1a1a2e; color: #fff;
+  background: var(--sg-brand); color: #fff;
 }
 
 .top-bar {

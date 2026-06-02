@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="shooter-remote">
     <!-- Header with integrated controls -->
     <div class="page-header">
@@ -426,14 +426,14 @@ const chipLabel = (position) => {
 .mode-toggle-btn.active {
   background: rgba(79, 195, 247, 0.25);
   border: 1px solid rgba(79, 195, 247, 0.4);
-  color: #4fc3f7;
+  color: var(--sg-accent);
   font-weight: 900;
 }
 
 .mode-toggle-btn.is-recording {
   background: rgba(252, 129, 129, 0.25);
   border: 1px solid rgba(252, 129, 129, 0.4);
-  color: #fc8181;
+  color: var(--sg-color-danger-bg);
   animation: mode-record-pulse 1.5s ease-in-out infinite;
   font-weight: 900;
 }
@@ -526,7 +526,7 @@ const chipLabel = (position) => {
 .rotte-badge {
   display: inline-block;
   background: rgba(79, 195, 247, 0.15);
-  color: #4fc3f7;
+  color: var(--sg-accent);
   border-radius: 12px;
   padding: 2px 10px;
   font-size: 11px;
@@ -568,13 +568,13 @@ const chipLabel = (position) => {
 
 .status-indicator.is-ready {
   border-color: rgba(252, 129, 129, 0.3);
-  color: #fc8181;
+  color: var(--sg-color-danger-bg);
   background: rgba(252, 129, 129, 0.08);
 }
 
 .status-indicator.is-locked {
   border-color: rgba(72, 187, 120, 0.3);
-  color: #48bb78;
+  color: var(--sg-color-success);
 }
 
 .status-text {
@@ -779,11 +779,11 @@ const chipLabel = (position) => {
   border-radius: 20px;
 }
 
-.chip--ready { background: rgba(72,187,120,0.15); color: #48bb78; }
-.chip--fired { background: rgba(72,187,120,0.2); color: #68d391; }
-.chip--recording { background: rgba(79,195,247,0.15); color: #4fc3f7; }
-.chip--pending { background: rgba(72,187,120,0.15); color: #48bb78; }
-.chip--error { background: rgba(252,129,129,0.15); color: #fc8181; }
+.chip--ready { background: rgba(72,187,120,0.15); color: var(--sg-color-success); }
+.chip--fired { background: rgba(72,187,120,0.2); color: var(--sg-color-success); }
+.chip--recording { background: rgba(79,195,247,0.15); color: var(--sg-accent); }
+.chip--pending { background: rgba(72,187,120,0.15); color: var(--sg-color-success); }
+.chip--error { background: rgba(252,129,129,0.15); color: var(--sg-color-danger-bg); }
 .chip--blocked { background: rgba(252,129,129,0.12); color: rgba(252,129,129,0.7); }
 .chip--free { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.35); }
 
@@ -805,7 +805,7 @@ const chipLabel = (position) => {
   display: flex;
   overflow: hidden;
   backdrop-filter: blur(16px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--sg-shadow-md);
 }
 
 .toggle-btn {
@@ -823,7 +823,7 @@ const chipLabel = (position) => {
 
 .toggle-btn.active {
   background: rgba(79, 195, 247, 0.18);
-  color: #4fc3f7;
+  color: var(--sg-accent);
 }
 
 .toggle-btn:not(.active):hover {

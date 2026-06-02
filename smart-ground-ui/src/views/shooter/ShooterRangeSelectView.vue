@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="range-select">
     <!-- Header -->
     <div class="page-header">
@@ -52,7 +52,7 @@
             <div class="card-name-row">
               <span class="card-name">{{ range.name }}</span>
               <span v-if="range.locked" class="locked-chip">
-                <Icons icon="lock" :size="10" color="#fc8181" />
+                <Icons icon="lock" :size="10" color="var(--sg-color-danger-bg)" />
                 Gesperrt
               </span>
               <span v-else-if="isReservedByOther(range)" class="reserved-chip">
@@ -232,15 +232,15 @@ const selectRange = (range) => {
 }
 
 .card-accent--green {
-  background: #48bb78;
+  background: var(--sg-color-success);
 }
 
 .card-accent--red {
-  background: #fc8181;
+  background: var(--sg-color-danger-bg);
 }
 
 .card-accent--blue {
-  background: #63b3ed;
+  background: var(--sg-accent);
 }
 
 .card-body {
@@ -278,7 +278,7 @@ const selectRange = (range) => {
   align-items: center;
   gap: 4px;
   background: rgba(252, 129, 129, 0.15);
-  color: #fc8181;
+  color: var(--sg-color-danger-bg);
   font-size: 11px;
   font-weight: 500;
   padding: 2px 8px;
@@ -290,7 +290,7 @@ const selectRange = (range) => {
   align-items: center;
   gap: 4px;
   background: rgba(99, 179, 237, 0.15);
-  color: #63b3ed;
+  color: var(--sg-accent);
   font-size: 11px;
   font-weight: 500;
   padding: 2px 8px;

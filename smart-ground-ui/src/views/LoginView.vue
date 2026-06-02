@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
@@ -79,14 +79,14 @@ const handleKeydown = (e) => {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--sg-bg-page);
   font-family: system-ui, -apple-system, sans-serif;
 }
 
 .login-box {
-  background: white;
+  background: var(--sg-bg-card);
   border-radius: 8px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--sg-shadow-lg);
   padding: 40px;
   width: 100%;
   max-width: 400px;
@@ -95,14 +95,14 @@ const handleKeydown = (e) => {
 
 h1 {
   margin: 0 0 8px 0;
-  color: #1a1a2e;
+  color: var(--sg-brand);
   font-size: 28px;
   font-weight: 600;
 }
 
 .subtitle {
   margin: 0 0 30px 0;
-  color: #666;
+  color: var(--sg-text-muted);
   font-size: 14px;
 }
 
@@ -122,12 +122,12 @@ h1 {
 label {
   font-size: 14px;
   font-weight: 500;
-  color: #1a1a2e;
+  color: var(--sg-brand);
 }
 
 input {
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--sg-border);
   border-radius: 4px;
   font-size: 14px;
   font-family: inherit;
@@ -135,14 +135,14 @@ input {
 
 input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--sg-accent);
+  box-shadow: 0 0 0 3px var(--sg-accent-subtle);
 }
 
 .error-message {
   padding: 10px;
-  background: #fee;
-  color: #c33;
+  background: var(--sg-color-danger-bg);
+  color: var(--sg-color-danger);
   border-radius: 4px;
   font-size: 13px;
 }

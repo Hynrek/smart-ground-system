@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="passen-view">
     <!-- Top bar -->
     <div class="top-bar">
@@ -93,7 +93,7 @@
                   title="Umbenennen bestätigen"
                   @click="confirmRenamePasse(passe.id)"
                 >
-                  <Icons icon="check" :size="13" color="#48bb78" />
+                  <Icons icon="check" :size="13" />
                 </button>
                 <button
                   class="icon-btn"
@@ -145,7 +145,7 @@
               <!-- Actions -->
               <div class="prog-actions">
                 <button class="action-btn action-btn--start" @click.stop="openStartModal(passe)">
-                  <Icons icon="play" :size="14" color="#4fc3f7" />
+                  <Icons icon="play" :size="14" color="var(--sg-accent)" />
                   Starten
                 </button>
                 <button class="action-btn action-btn--danger" @click.stop="passeStore.deletePasse(passe.id)">
@@ -318,7 +318,7 @@
                       title="Umbenennen bestätigen"
                       @click.stop="confirmRename(seg.id)"
                     >
-                      <Icons icon="check" :size="13" color="#48bb78" />
+                      <Icons icon="check" :size="13" />
                     </button>
                     <button
                       v-else-if="seg.ownership !== 'range'"
@@ -537,7 +537,7 @@
               class="icon-btn icon-btn--danger"
               @click="removeStartModalPlayer(i)"
             >
-              <Icons icon="x" :size="11" color="#fc8181" />
+              <Icons icon="x" :size="11" color="var(--sg-color-danger-bg)" />
             </button>
           </div>
         </div>
@@ -553,7 +553,7 @@
             :disabled="startModalPlayers.length === 0"
             @click="confirmStartPasse"
           >
-            <Icons icon="play" :size="14" color="#4fc3f7" />
+            <Icons icon="play" :size="14" color="var(--sg-accent)" />
             Starten
           </button>
         </div>
@@ -828,7 +828,7 @@ const confirmRenameSession = (sessionId) => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: #1a1a2e;
+  background: var(--sg-brand);
   color: #fff;
 }
 
@@ -1003,7 +1003,7 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .segment-card.is-selected {
-  background: rgba(79, 195, 247, 0.08);
+  background: var(--sg-accent-subtle);
   border-color: rgba(79, 195, 247, 0.4);
 }
 
@@ -1074,7 +1074,7 @@ const confirmRenameSession = (sessionId) => {
 
 .check-circle.active {
   background: rgba(79, 195, 247, 0.8);
-  border-color: #4fc3f7;
+  border-color: var(--sg-accent);
 }
 
 .seg-steps-preview {
@@ -1256,9 +1256,9 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .prog-seg-chip--selected {
-  background: rgba(79, 195, 247, 0.12);
+  background: var(--sg-accent-tint);
   border-color: rgba(79, 195, 247, 0.3);
-  color: #4fc3f7;
+  color: var(--sg-accent);
 }
 
 .chip-throws {
@@ -1311,9 +1311,9 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .action-btn--start {
-  background: rgba(79, 195, 247, 0.12);
+  background: var(--sg-accent-tint);
   border-color: rgba(79, 195, 247, 0.3);
-  color: #4fc3f7;
+  color: var(--sg-accent);
 }
 
 .action-btn--start:hover:not(:disabled) {
@@ -1343,7 +1343,7 @@ const confirmRenameSession = (sessionId) => {
 .action-btn--create {
   background: rgba(79, 195, 247, 0.2);
   border-color: rgba(79, 195, 247, 0.4);
-  color: #4fc3f7;
+  color: var(--sg-accent);
 }
 
 .action-btn--create:hover:not(:disabled) {
@@ -1461,7 +1461,7 @@ const confirmRenameSession = (sessionId) => {
   flex-direction: column;
   gap: 12px;
   padding: 12px;
-  background: rgba(79, 195, 247, 0.08);
+  background: var(--sg-accent-subtle);
   border: 1px solid rgba(79, 195, 247, 0.15);
   border-radius: 12px;
 }
@@ -1499,7 +1499,7 @@ const confirmRenameSession = (sessionId) => {
 .tab-btn.active {
   background: rgba(79, 195, 247, 0.18);
   border-color: rgba(79, 195, 247, 0.4);
-  color: #4fc3f7;
+  color: var(--sg-accent);
 }
 
 .tab-btn:hover:not(.active) {

@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted } from 'vue';
 import MainLayout from './layouts/MainLayout.vue';
 import ShooterLayout from './layouts/ShooterLayout.vue';
@@ -64,8 +64,8 @@ onMounted(() => {
 <style scoped>
 :deep(body) {
   font-family: system-ui, -apple-system, sans-serif;
-  background: #f7f8fc;
-  color: #1a1a2e;
+  background: var(--sg-bg-page);
+  color: var(--sg-brand);
   margin: 0;
   padding: 0;
 }

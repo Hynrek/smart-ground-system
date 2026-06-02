@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="live-view">
     <!-- Top bar -->
     <div class="top-bar">
@@ -117,7 +117,7 @@ function onGoToRange({ rangeId, rotteId }) {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: #1a1a2e;
+  background: var(--sg-brand);
   color: #fff;
 }
 

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <!-- Group setup modal (shown before play starts) -->
   <div v-if="store.showGroupSetup" class="play-page group-setup-page">
     <div class="group-modal-overlay">
@@ -14,7 +14,7 @@
               class="player-remove-btn"
               @click="removePlayer(i)"
             >
-              <Icons icon="x" :size="12" color="#fc8181" />
+              <Icons icon="x" :size="12" color="var(--sg-color-danger-bg)" />
             </button>
           </div>
         </div>
@@ -706,7 +706,7 @@ watch(
   border-radius: 12px;
   border: 1px solid rgba(252, 129, 129, 0.35);
   background: rgba(252, 129, 129, 0.1);
-  color: #fc8181;
+  color: var(--sg-color-danger-bg);
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -756,7 +756,7 @@ watch(
   gap: 8px;
   background: rgba(79, 195, 247, 0.1);
   border: 1px solid rgba(79, 195, 247, 0.3);
-  color: #4fc3f7;
+  color: var(--sg-accent);
   border-radius: 10px;
   padding: 9px 16px;
   font-size: 13px;
@@ -787,7 +787,7 @@ watch(
 .score-value {
   font-size: 24px;
   font-weight: 700;
-  color: #48bb78;
+  color: var(--sg-color-success);
 }
 
 .score-max {
@@ -869,7 +869,7 @@ watch(
   align-items: center;
   gap: 12px;
   font-size: 13px;
-  color: #48bb78;
+  color: var(--sg-color-success);
   opacity: 0.7;
   position: relative;
   overflow: hidden;
@@ -878,19 +878,19 @@ watch(
 .completed-card.is-failed-a {
   background: linear-gradient(90deg, rgba(252, 129, 129, 0.15) 50%, rgba(72, 187, 120, 0.15) 50%);
   border-color: rgba(252, 129, 129, 0.3);
-  color: #fc8181;
+  color: var(--sg-color-danger-bg);
 }
 
 .completed-card.is-failed-b {
   background: linear-gradient(90deg, rgba(72, 187, 120, 0.15) 50%, rgba(252, 129, 129, 0.15) 50%);
   border-color: rgba(252, 129, 129, 0.3);
-  color: #fc8181;
+  color: var(--sg-color-danger-bg);
 }
 
 .completed-card.is-failed-full {
   background: rgba(252, 129, 129, 0.15);
   border-color: rgba(252, 129, 129, 0.3);
-  color: #fc8181;
+  color: var(--sg-color-danger-bg);
 }
 
 .step-number {
@@ -992,7 +992,7 @@ watch(
 }
 
 .getroffen-label {
-  color: #48bb78;
+  color: var(--sg-color-success);
 }
 
 /* a_schuss: each device shown as letter + alias column */
@@ -1018,7 +1018,7 @@ watch(
 .aschuss-main {
   font-size: 28px;
   font-weight: 700;
-  color: #4fc3f7;
+  color: var(--sg-accent);
   line-height: 1;
 }
 
@@ -1084,7 +1084,7 @@ watch(
   opacity: 1;
   background: rgba(72, 187, 120, 0.15);
   border-color: rgba(72, 187, 120, 0.3);
-  color: #48bb78;
+  color: var(--sg-color-success);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1135,7 +1135,7 @@ watch(
 .final-score-value {
   font-size: 36px;
   font-weight: 700;
-  color: #48bb78;
+  color: var(--sg-color-success);
   margin-bottom: 24px;
 }
 
@@ -1157,7 +1157,7 @@ watch(
 
 .btn-success {
   background: rgba(72, 187, 120, 0.2);
-  color: #48bb78;
+  color: var(--sg-color-success);
   border: 1px solid rgba(72, 187, 120, 0.35);
 }
 
@@ -1167,7 +1167,7 @@ watch(
 
 .btn-danger {
   background: rgba(252, 129, 129, 0.2);
-  color: #fc8181;
+  color: var(--sg-color-danger-bg);
   border: 1px solid rgba(252, 129, 129, 0.35);
 }
 
@@ -1178,7 +1178,7 @@ watch(
 .btn-primary {
   width: 100%;
   background: rgba(79, 195, 247, 0.2);
-  color: #4fc3f7;
+  color: var(--sg-accent);
   border: 1px solid rgba(79, 195, 247, 0.35);
 }
 
@@ -1202,7 +1202,7 @@ watch(
   border-radius: 10px;
   border: 1.5px solid rgba(252, 129, 129, 0.35);
   background: rgba(252, 129, 129, 0.12);
-  color: #fc8181;
+  color: var(--sg-color-danger-bg);
   font-family: inherit;
   font-size: 11px;
   font-weight: 600;
@@ -1225,8 +1225,8 @@ watch(
 
 .action-btn.btn-no-bird {
   border-color: rgba(79, 195, 247, 0.35);
-  background: rgba(79, 195, 247, 0.12);
-  color: #4fc3f7;
+  background: var(--sg-accent-tint);
+  color: var(--sg-accent);
 }
 
 .action-btn.btn-no-bird:hover:not(:disabled) {
@@ -1278,7 +1278,7 @@ watch(
 }
 
 .group-score-row.is-top .rank-badge {
-  color: #48bb78;
+  color: var(--sg-color-success);
 }
 
 .group-player-name {
@@ -1292,7 +1292,7 @@ watch(
 .group-player-points {
   font-size: 16px;
   font-weight: 700;
-  color: #48bb78;
+  color: var(--sg-color-success);
 }
 
 .group-points-max {
@@ -1324,7 +1324,7 @@ watch(
 
 .dot--current {
   width: 22px;
-  background: #4fc3f7;
+  background: var(--sg-accent);
 }
 
 .dot--pending {

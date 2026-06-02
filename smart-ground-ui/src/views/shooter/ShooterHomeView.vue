@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="shooter-home">
     <!-- Top bar -->
     <div class="top-bar">
@@ -21,7 +21,7 @@
     <div class="app-grid">
       <button class="app-tile app-tile--available" @click="router.push('/remote')">
         <div class="tile-icon-wrap tile-icon-wrap--cyan">
-          <Icons icon="program" :size="36" color="#4fc3f7" />
+          <Icons icon="program" :size="36" color="var(--sg-accent)" />
         </div>
         <span class="tile-label">Remote</span>
         <span class="tile-desc">Geräte steuern</span>
@@ -29,7 +29,7 @@
 
       <button class="app-tile app-tile--available" @click="router.push('/meine-passen')">
         <div class="tile-icon-wrap tile-icon-wrap--orange">
-          <Icons icon="program" :size="36" color="#f6ad55" />
+          <Icons icon="program" :size="36" />
         </div>
         <span class="tile-label">Passen</span>
         <span class="tile-desc">Serien & Trainings</span>
@@ -37,7 +37,7 @@
 
       <button class="app-tile app-tile--available" @click="router.push('/wettkampf')">
         <div class="tile-icon-wrap tile-icon-wrap--green">
-          <Icons icon="target" :size="36" color="#48bb78" />
+          <Icons icon="target" :size="36" />
         </div>
         <span class="tile-label">Wettkämpfe</span>
         <span class="tile-desc">Teilnehmen & Ergebnisse</span>
@@ -102,7 +102,7 @@ const handleLogout = () => {
   border-radius: 50%;
   background: rgba(79, 195, 247, 0.2);
   border: 1px solid rgba(79, 195, 247, 0.35);
-  color: #4fc3f7;
+  color: var(--sg-accent);
   font-size: 13px;
   font-weight: 700;
   display: flex;
