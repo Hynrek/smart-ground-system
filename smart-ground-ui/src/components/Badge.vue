@@ -24,27 +24,27 @@ defineProps({
 }
 
 .badge-blue {
-  background: #dbeffe;
-  color: #1a5fa0;
+  background: var(--sg-color-info-bg);
+  color: var(--sg-color-info-text);
 }
 
 .badge-green {
-  background: #d4f5e2;
-  color: #1e6640;
+  background: var(--sg-color-success-bg);
+  color: var(--sg-color-success-text);
 }
 
 .badge-red {
-  background: #fde0e0;
-  color: #9b2c2c;
+  background: var(--sg-color-danger-bg);
+  color: var(--sg-color-danger-text);
 }
 
 .badge-gray {
-  background: #e8edf0;
-  color: #555;
+  background: var(--sg-color-neutral-bg);
+  color: var(--sg-color-neutral-text);
 }
 
 .badge-warn {
-  background: #fff3d4;
-  color: #8a5a00;
+  background: var(--sg-color-warning-bg);
+  color: var(--sg-color-warning-text);
 }
 </style>
