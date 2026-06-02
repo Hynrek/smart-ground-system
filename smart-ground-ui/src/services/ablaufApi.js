@@ -1,8 +1,9 @@
+/* global URLSearchParams */
 import { apiFetch } from './apiClient.js'
 
 export async function fetchAblaeufe(params) {
   const query = params ? '?' + new URLSearchParams(params).toString() : ''
-  return apiFetch(`/ablaeufe${query}`, undefined)
+  return apiFetch(`/ablaeufe${query}`)
 }
 
 export async function getAblauf(id) {

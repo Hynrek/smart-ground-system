@@ -10,7 +10,7 @@ describe('ablaufApi', () => {
     apiClient.apiFetch.mockResolvedValue([])
     const { fetchAblaeufe } = await import('../ablaufApi.js')
     await fetchAblaeufe()
-    expect(apiClient.apiFetch).toHaveBeenCalledWith('/ablaeufe', undefined)
+    expect(apiClient.apiFetch).toHaveBeenCalledWith('/ablaeufe')
   })
 
   it('createAblauf calls POST /ablaeufe with body', async () => {
