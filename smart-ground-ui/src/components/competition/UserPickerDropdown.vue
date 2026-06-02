@@ -36,7 +36,7 @@ const wrapperRef = ref(null)
 
 const filtered = computed(() =>
   props.users.filter(u =>
-    u.displayName.toLowerCase().includes(search.value.toLowerCase())
+    u.displayName?.toLowerCase().includes(search.value.toLowerCase())
   )
 )
 

@@ -190,7 +190,7 @@ const assignedUserIds = computed(() =>
 const availableUsers = computed(() =>
   userStore.users
     .filter(u => !assignedUserIds.value.has(u.id))
-    .map(u => ({ id: u.id, displayName: u.username }))
+    .map(u => ({ id: u.id, displayName: u.fullName || u.username || u.email || u.id }))
 )
 
 // ── Rotte removal ──────────────────────────────────────────────────────────
