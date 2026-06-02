@@ -13,7 +13,7 @@ body,
 }
 
 :root {
-  /* Admin UI core palette */
+  /* Admin UI core palette — overridden per palette in color-palettes.css */
   --sg-brand: #1a1a2e;
   --sg-brand-hover: #0f0f1a;
   --sg-accent: #4fc3f7;
@@ -29,6 +29,49 @@ body,
   --sg-radius-card: 10px;
   --sg-radius-btn: 7px;
   --sg-radius-input: 6px;
+
+  /* Semantic status colors — overridden per palette in color-palettes.css */
+  --sg-color-success: #38c97a;
+  --sg-color-success-bg: #d4f5e2;
+  --sg-color-success-text: #1e6640;
+  --sg-color-warning: #ed8936;
+  --sg-color-warning-bg: #fff3d4;
+  --sg-color-warning-text: #8a5a00;
+  --sg-color-danger: #e05252;
+  --sg-color-danger-bg: #fde0e0;
+  --sg-color-danger-text: #9b2c2c;
+  --sg-color-info-bg: #dbeffe;
+  --sg-color-info-text: #1a5fa0;
+  --sg-color-neutral-bg: #e8edf0;
+  --sg-color-neutral-text: #555555;
+  --sg-color-purple-bg: #ede8ff;
+  --sg-color-purple-text: #4a2da0;
+
+  /* Spacing scale */
+  --sg-space-1: 0.25rem;
+  --sg-space-2: 0.5rem;
+  --sg-space-3: 0.75rem;
+  --sg-space-4: 1rem;
+  --sg-space-6: 1.5rem;
+  --sg-space-8: 2rem;
+
+  /* Typography scale */
+  --sg-text-xs: 0.72rem;
+  --sg-text-sm: 0.85rem;
+  --sg-text-base: 1rem;
+  --sg-text-lg: 1.125rem;
+  --sg-text-xl: 1.25rem;
+  --sg-text-2xl: 1.5rem;
+
+  /* Shadow scale */
+  --sg-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --sg-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --sg-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.10);
+
+  /* Accent/danger with opacity — used for hover/active backgrounds */
+  --sg-accent-subtle: color-mix(in srgb, var(--sg-accent) 8%, transparent);
+  --sg-accent-tint: color-mix(in srgb, var(--sg-accent) 12%, transparent);
+  --sg-danger-subtle: color-mix(in srgb, var(--sg-color-danger) 10%, transparent);
 
   /* Werfer Remote Colors */
   --werfer-pine-green: #1c3420;
@@ -50,8 +93,8 @@ body,
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
-  background: #f7f8fc;
-  color: #1a1a2e;
+  background: var(--sg-bg-page);
+  color: var(--sg-brand);
   margin: 0;
   padding: 0;
 }
@@ -94,7 +137,7 @@ button {
 
 /* Accessibility */
 :focus-visible {
-  outline: 2px solid #4fc3f7;
+  outline: 2px solid var(--sg-accent);
   outline-offset: 2px;
 }
 
