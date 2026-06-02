@@ -91,10 +91,11 @@ router.beforeEach(async (to, from, next) => {
     return;
   }
 
-  // Hard-lock: assigned users may only visit their range path
+  // Hard-lock: assigned users may only visit their range path (allow login/no-access through)
   if (authenticated && auth.profile?.assignedRangeId) {
     const allowedPath = `/remote/${auth.profile.assignedRangeId}`;
-    if (!to.path.startsWith(allowedPath)) {
+    const isEscapeRoute = to.meta.requiresAuth === false || to.path === '/no-access';
+    if (!isEscapeRoute && !to.path.startsWith(allowedPath)) {
       next(allowedPath);
       return;
     }

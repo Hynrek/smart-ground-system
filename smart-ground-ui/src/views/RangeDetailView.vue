@@ -172,7 +172,6 @@ import { useReservationStore } from '../stores/reservationStore.js';
 import { useUserStore } from '../stores/userStore.js';
 import Breadcrumb from '../components/Breadcrumb.vue';
 import UserSearchModal from '../components/UserSearchModal.vue';
-import { assignRangeUser } from '../services/rangeApi.js';
 import Badge from '../components/Badge.vue';
 import Button from '../components/Button.vue';
 import Icons from '../components/Icons.vue';
@@ -207,6 +206,7 @@ onMounted(async () => {
   }
   await rangeStore.loadPositions(props.id);
   await loadReservation();
+  if (userStore.users.length === 0) await userStore.loadUsers();
 });
 
 // ── Range & positions ─────────────────────────────────────────────────────────
@@ -331,9 +331,7 @@ const handleAssign = async (user) => {
   showUserModal.value = false;
   isAssigning.value = true;
   try {
-    await assignRangeUser(props.id, user.id);
-    const r = rangeStore.ranges.find((r) => r.id === props.id);
-    if (r) r.assignedUserId = user.id;
+    await rangeStore.assignUser(props.id, user.id);
   } catch (e) {
     console.error('Failed to assign remote user:', e);
   } finally {
@@ -344,9 +342,7 @@ const handleAssign = async (user) => {
 const handleUnassign = async () => {
   isAssigning.value = true;
   try {
-    await assignRangeUser(props.id, null);
-    const r = rangeStore.ranges.find((r) => r.id === props.id);
-    if (r) r.assignedUserId = null;
+    await rangeStore.assignUser(props.id, null);
   } catch (e) {
     console.error('Failed to unassign remote user:', e);
   } finally {
