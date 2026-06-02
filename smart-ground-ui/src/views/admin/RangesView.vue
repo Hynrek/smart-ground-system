@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="ranges-view">
     <div class="view-header">
       <div>
@@ -14,7 +14,7 @@
     <div class="stats-strip">
       <div class="stat-card">
         <div class="stat-icon stat-icon--blue">
-          <Icons icon="target" :size="16" color="#4fc3f7" />
+          <Icons icon="target" :size="16" color="var(--sg-accent)" />
         </div>
         <div>
           <div class="stat-value">0/{{ ranges.length }}</div>
@@ -23,7 +23,7 @@
       </div>
       <div class="stat-card">
         <div class="stat-icon stat-icon--amber">
-          <Icons icon="bolt" :size="16" color="#ed8936" />
+          <Icons icon="bolt" :size="16" color="var(--sg-color-warning)" />
         </div>
         <div>
           <div class="stat-value">{{ unassignedDeviceCount }}</div>
@@ -32,7 +32,7 @@
       </div>
       <div class="stat-card">
         <div class="stat-icon stat-icon--red">
-          <Icons icon="alert" :size="16" color="#e53e3e" />
+          <Icons icon="alert" :size="16" />
         </div>
         <div>
           <div class="stat-value">0</div>
@@ -81,7 +81,7 @@
     </div>
 
     <div v-if="rangeStore.error" class="error-banner">
-      <Icons icon="alert" :size="15" color="#c53030" />
+      <Icons icon="alert" :size="15" color="var(--sg-color-danger)" />
       {{ rangeStore.error }}
     </div>
 
@@ -90,7 +90,7 @@
     </div>
 
     <div v-else-if="ranges.length === 0 && !loading" class="empty-state">
-      <Icons icon="ranges" :size="40" color="#a0aec0" />
+      <Icons icon="ranges" :size="40" color="var(--sg-text-faint)" />
       <div class="empty-title">Keine Plätze vorhanden</div>
       <div class="empty-hint">Erstelle einen Platz, um Geräte zu gruppieren.</div>
     </div>
@@ -332,13 +332,13 @@ async function confirmDelete(range) {
 .view-title {
   font-size: 22px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--sg-brand);
   margin: 0;
 }
 
 .view-subtitle {
   font-size: 13px;
-  color: #718096;
+  color: var(--sg-text-muted);
   margin-top: 4px;
 }
 
@@ -351,8 +351,8 @@ async function confirmDelete(range) {
 
 .stat-card {
   flex: 1;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--sg-bg-card);
+  border: 1px solid var(--sg-border);
   border-radius: 10px;
   padding: 14px 16px;
   display: flex;
@@ -370,32 +370,32 @@ async function confirmDelete(range) {
   flex-shrink: 0;
 }
 
-.stat-icon--blue { background: #ebf8ff; }
-.stat-icon--green { background: #f0fff4; }
-.stat-icon--amber { background: #fffbeb; }
-.stat-icon--red { background: #fff5f5; }
+.stat-icon--blue { background: var(--sg-color-info-bg); }
+.stat-icon--green { background: var(--sg-color-success-bg); }
+.stat-icon--amber { background: var(--sg-color-warning-bg); }
+.stat-icon--red { background: var(--sg-color-danger-bg); }
 
 .stat-value {
   font-size: 22px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--sg-brand);
   line-height: 1;
 }
 
 .stat-label {
   font-size: 12px;
-  color: #718096;
+  color: var(--sg-text-muted);
   margin-top: 3px;
 }
 
 /* ── Create form ─────────────────────────────── */
 .form-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--sg-bg-card);
+  border: 1px solid var(--sg-border);
   border-radius: 10px;
   padding: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--sg-shadow-sm);
 }
 
 .form-card-header {
@@ -408,7 +408,7 @@ async function confirmDelete(range) {
 .form-card-title {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--sg-brand);
 }
 
 .form-fields {
@@ -426,28 +426,28 @@ async function confirmDelete(range) {
 .form-label {
   font-size: 13px;
   font-weight: 500;
-  color: #4a5568;
+  color: var(--sg-text-muted);
 }
 
 .optional {
   font-weight: 400;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
 }
 
 .form-input {
   padding: 8px 10px;
-  border: 1px solid #cbd5e0;
+  border: 1px solid var(--sg-border-input);
   border-radius: 6px;
   font-size: 14px;
-  color: #2d3748;
+  color: var(--sg-text-muted);
   font-family: inherit;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .form-input:focus {
-  border-color: #4fc3f7;
-  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.12);
+  border-color: var(--sg-accent);
+  box-shadow: 0 0 0 3px var(--sg-accent-tint);
 }
 
 .form-actions {
@@ -458,7 +458,7 @@ async function confirmDelete(range) {
 
 .inline-error {
   font-size: 12px;
-  color: #c53030;
+  color: var(--sg-color-danger);
 }
 
 /* ── Error banner ────────────────────────────── */
@@ -466,9 +466,9 @@ async function confirmDelete(range) {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #fff5f5;
-  border: 1px solid #fc8181;
-  color: #c53030;
+  background: var(--sg-color-danger-bg);
+  border: 1px solid var(--sg-color-danger-bg);
+  color: var(--sg-color-danger);
   padding: 10px 14px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -479,7 +479,7 @@ async function confirmDelete(range) {
 .loading-state {
   text-align: center;
   padding: 3rem;
-  color: #718096;
+  color: var(--sg-text-muted);
 }
 
 .empty-state {
@@ -493,12 +493,12 @@ async function confirmDelete(range) {
 .empty-title {
   font-size: 16px;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--sg-text-muted);
 }
 
 .empty-hint {
   font-size: 13px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
 }
 
 /* ── Ranges grid ─────────────────────────────── */
@@ -510,19 +510,19 @@ async function confirmDelete(range) {
 
 /* ── Range card ──────────────────────────────── */
 .range-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--sg-bg-card);
+  border: 1px solid var(--sg-border);
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--sg-shadow-sm);
   display: flex;
   flex-direction: row;
   transition: box-shadow 0.15s, border-color 0.15s;
 }
 
 .range-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  border-color: #c5d0e8;
+  box-shadow: var(--sg-shadow-lg);
+  border-color: var(--sg-border-input);
 }
 
 .range-card.editing {
@@ -531,12 +531,12 @@ async function confirmDelete(range) {
 
 .card-accent-bar {
   width: 4px;
-  background: #4fc3f7;
+  background: var(--sg-accent);
   flex-shrink: 0;
 }
 
 .range-card.locked .card-accent-bar {
-  background: #ed8936;
+  background: var(--sg-color-warning);
 }
 
 .card-content {
@@ -564,15 +564,15 @@ async function confirmDelete(range) {
 .range-name {
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--sg-brand);
 }
 
 .lock-chip {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--sg-color-warning-bg);
+  color: var(--sg-color-warning-text);
   font-size: 11px;
   font-weight: 500;
   padding: 2px 7px;
@@ -581,7 +581,7 @@ async function confirmDelete(range) {
 
 .range-description {
   font-size: 13px;
-  color: #718096;
+  color: var(--sg-text-muted);
   margin: 0 0 8px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -600,8 +600,8 @@ async function confirmDelete(range) {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #4a5568;
-  background: #f4f6fb;
+  color: var(--sg-text-muted);
+  background: var(--sg-bg-panel);
   padding: 3px 8px;
   border-radius: 20px;
 }
@@ -612,7 +612,7 @@ async function confirmDelete(range) {
   align-items: center;
   justify-content: space-between;
   padding-top: 12px;
-  border-top: 1px solid #f0f4f8;
+  border-top: 1px solid var(--sg-border);
 }
 
 .details-btn {
@@ -621,7 +621,7 @@ async function confirmDelete(range) {
   gap: 4px;
   font-size: 12.5px;
   font-weight: 500;
-  color: #4fc3f7;
+  color: var(--sg-accent);
   background: none;
   border: none;
   cursor: pointer;
@@ -631,7 +631,7 @@ async function confirmDelete(range) {
 }
 
 .details-btn:hover {
-  color: #0284c7;
+  color: var(--sg-accent-hover);
 }
 
 .action-icons {
@@ -649,24 +649,24 @@ async function confirmDelete(range) {
   border: 1px solid transparent;
   border-radius: 6px;
   cursor: pointer;
-  color: #718096;
+  color: var(--sg-text-muted);
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .icon-btn:hover:not(:disabled) {
-  background: #f4f6fb;
-  color: #1a1a2e;
-  border-color: #e2e8f0;
+  background: var(--sg-bg-panel);
+  color: var(--sg-brand);
+  border-color: var(--sg-border);
 }
 
 .icon-btn--amber {
-  color: #ed8936;
+  color: var(--sg-color-warning);
 }
 
 .icon-btn--danger:hover:not(:disabled) {
-  background: #fff5f5;
-  color: #c53030;
-  border-color: #fc8181;
+  background: var(--sg-color-danger-bg);
+  color: var(--sg-color-danger);
+  border-color: var(--sg-color-danger-bg);
 }
 
 .icon-btn:disabled {

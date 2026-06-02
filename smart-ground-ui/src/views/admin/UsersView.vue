@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="users-view">
     <!-- Left: User List Panel -->
     <aside class="list-panel">
@@ -285,14 +285,14 @@ const licenseExpiryClass = (dateStr) =>
 .list-panel {
   width: 260px;
   flex-shrink: 0;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid var(--sg-border);
   display: flex;
   flex-direction: column;
 }
 
 .list-header {
   padding: 0.75rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--sg-border);
   display: flex;
   gap: 0.5rem;
   align-items: center;
@@ -301,7 +301,7 @@ const licenseExpiryClass = (dateStr) =>
 .search-input {
   flex: 1;
   padding: 0.4rem 0.6rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--sg-border-input);
   border-radius: 4px;
   font-size: 0.85rem;
 }
@@ -314,7 +314,7 @@ const licenseExpiryClass = (dateStr) =>
 .list-empty {
   padding: 2rem;
   text-align: center;
-  color: #9ca3af;
+  color: var(--sg-text-faint);
   font-size: 0.9rem;
 }
 
@@ -332,12 +332,12 @@ const licenseExpiryClass = (dateStr) =>
 }
 
 .user-item:hover {
-  background: #f9fafb;
+  background: var(--sg-bg-panel);
 }
 
 .user-item.selected {
-  background: #eff6ff;
-  border-left-color: #2563eb;
+  background: var(--sg-color-info-bg);
+  border-left-color: var(--sg-accent-hover);
 }
 
 .user-item-name {
@@ -364,17 +364,17 @@ const licenseExpiryClass = (dateStr) =>
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9ca3af;
+  color: var(--sg-text-faint);
   font-size: 0.95rem;
 }
 
 .detail-header {
   padding: 0.85rem 1.25rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--sg-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #f9fafb;
+  background: var(--sg-bg-panel);
   flex-shrink: 0;
 }
 
@@ -409,7 +409,7 @@ const licenseExpiryClass = (dateStr) =>
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #6b7280;
+  color: var(--sg-text-muted);
   margin: 0 0 0.6rem;
 }
 
@@ -427,7 +427,7 @@ const licenseExpiryClass = (dateStr) =>
 
 .field-label {
   font-size: 0.72rem;
-  color: #9ca3af;
+  color: var(--sg-text-faint);
 }
 
 /* ── Badges ── */
@@ -439,18 +439,18 @@ const licenseExpiryClass = (dateStr) =>
   font-weight: 500;
 }
 
-.badge-green  { background: #d1fae5; color: #065f46; }
-.badge-gray   { background: #f3f4f6; color: #6b7280; }
-.badge-blue   { background: #dbeafe; color: #1d4ed8; }
-.badge-purple { background: #f3e8ff; color: #7e22ce; }
-.badge-yellow { background: #fef3c7; color: #92400e; }
+.badge-green  { background: var(--sg-color-success-bg); color: var(--sg-color-success-text); }
+.badge-gray   { background: var(--sg-color-neutral-bg); color: var(--sg-color-neutral-text); }
+.badge-blue   { background: var(--sg-color-info-bg); color: var(--sg-color-info-text); }
+.badge-purple { background: var(--sg-color-purple-bg); color: var(--sg-color-purple-text); }
+.badge-yellow { background: var(--sg-color-warning-bg); color: var(--sg-color-warning-text); }
 
 /* ── Warnings ── */
-.text-warning { color: #d97706; font-weight: 500; }
+.text-warning { color: var(--sg-color-warning); font-weight: 500; }
 
 .error-banner {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--sg-color-danger-bg);
+  color: var(--sg-color-danger-text);
   padding: 0.5rem 0.75rem;
   font-size: 0.85rem;
 }
@@ -466,9 +466,9 @@ const licenseExpiryClass = (dateStr) =>
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.82rem; }
-.btn-primary  { background: #2563eb; color: white; }
-.btn-secondary { background: #f3f4f6; color: #374151; }
-.btn-danger   { background: #dc2626; color: white; }
+.btn-primary  { background: var(--sg-accent-hover); color: #fff; }
+.btn-secondary { background: var(--sg-bg-panel); color: var(--sg-text-muted); }
+.btn-danger   { background: var(--sg-color-danger); color: #fff; }
 
 /* ── Delete confirm modal ── */
 .modal-overlay {
@@ -482,16 +482,16 @@ const licenseExpiryClass = (dateStr) =>
 }
 
 .confirm-modal {
-  background: white;
+  background: var(--sg-bg-card);
   border-radius: 8px;
   padding: 1.75rem;
   max-width: 420px;
   width: 90%;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--sg-shadow-lg);
 }
 
 .confirm-modal h3 { margin: 0 0 0.5rem; }
-.confirm-modal p  { color: #6b7280; margin: 0 0 1.5rem; font-size: 0.9rem; }
+.confirm-modal p  { color: var(--sg-text-muted); margin: 0 0 1.5rem; font-size: 0.9rem; }
 
 .confirm-actions {
   display: flex;
@@ -509,9 +509,9 @@ const licenseExpiryClass = (dateStr) =>
 .role-chip {
   padding: 0.3rem 0.9rem;
   border-radius: 20px;
-  border: 1.5px solid #d1d5db;
-  background: #f9fafb;
-  color: #6b7280;
+  border: 1.5px solid var(--sg-border-input);
+  background: var(--sg-bg-panel);
+  color: var(--sg-text-muted);
   font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
@@ -519,21 +519,21 @@ const licenseExpiryClass = (dateStr) =>
 }
 
 .role-chip:hover:not(:disabled) {
-  border-color: #2563eb;
-  color: #2563eb;
-  background: #eff6ff;
+  border-color: var(--sg-accent-hover);
+  color: var(--sg-accent-hover);
+  background: var(--sg-color-info-bg);
 }
 
 .role-chip--active {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: white;
+  background: var(--sg-accent-hover);
+  border-color: var(--sg-accent-hover);
+  color: #fff;
 }
 
 .role-chip--active:hover:not(:disabled) {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-  color: white;
+  background: var(--sg-accent);
+  border-color: var(--sg-accent);
+  color: #fff;
 }
 
 .role-chip:disabled {
@@ -543,7 +543,7 @@ const licenseExpiryClass = (dateStr) =>
 
 @media (max-width: 768px) {
   .users-view { flex-direction: column; }
-  .list-panel { width: 100%; border-right: none; border-bottom: 1px solid #e5e7eb; max-height: 240px; }
+  .list-panel { width: 100%; border-right: none; border-bottom: 1px solid var(--sg-border); max-height: 240px; }
   .detail-grid { grid-template-columns: 1fr 1fr; }
 }
 </style>

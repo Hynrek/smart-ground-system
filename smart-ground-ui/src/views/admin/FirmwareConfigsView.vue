@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { ref, computed } from 'vue'
 import { useDeviceTypeStore } from '@/stores/deviceTypeStore.js'
 import { registerFirmwareConfig } from '@/services/deviceTypeApi.js'
@@ -252,19 +252,19 @@ async function submitForm() {
   justify-content: space-between;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--sg-border);
 }
 
 .view-title {
   font-size: 22px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--sg-brand);
   margin: 0;
 }
 
 .btn-primary {
   padding: 0.5rem 1rem;
-  background: #1a1a2e;
+  background: var(--sg-brand);
   color: #fff;
   border: none;
   border-radius: 7px;
@@ -280,27 +280,27 @@ async function submitForm() {
 }
 
 .success-banner {
-  background: #f0fdf4;
-  border: 1px solid #86efac;
-  color: #166534;
+  background: var(--sg-color-success-bg);
+  border: 1px solid color-mix(in srgb, var(--sg-color-success) 40%, transparent);
+  color: var(--sg-color-success-text);
   padding: 0.75rem 1rem;
   border-radius: 8px;
   margin-bottom: 1rem;
 }
 
 .form-card {
-  background: #fff;
+  background: var(--sg-bg-card);
   border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  box-shadow: var(--sg-shadow-sm);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--sg-border);
 }
 
 .form-title {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--sg-brand);
   margin: 0 0 1.5rem 0;
 }
 
@@ -319,11 +319,11 @@ async function submitForm() {
 .section-title {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--sg-text-muted);
   margin: 0 0 1rem 0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #718096;
+  color: var(--sg-text-muted);
 }
 
 .form-row {
@@ -341,13 +341,13 @@ async function submitForm() {
 
 .form-label {
   font-size: 0.85rem;
-  color: #4a5568;
+  color: var(--sg-text-muted);
   font-weight: 500;
 }
 
 .form-input {
   padding: 0.5rem 0.75rem;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--sg-border);
   border-radius: 6px;
   font-size: 0.9rem;
   font-family: inherit;
@@ -355,12 +355,12 @@ async function submitForm() {
 
 .form-input:focus {
   outline: none;
-  border-color: #4fc3f7;
+  border-color: var(--sg-accent);
 }
 
 .signal-type-block {
-  background: #f7fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--sg-bg-panel);
+  border: 1px solid var(--sg-border);
   border-radius: 8px;
   padding: 1rem;
   margin-bottom: 1rem;
@@ -373,13 +373,13 @@ async function submitForm() {
   margin-bottom: 1rem;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--sg-text-muted);
 }
 
 .btn-remove {
-  background: #fff;
-  border: 1px solid #fc8181;
-  color: #c53030;
+  background: var(--sg-bg-card);
+  border: 1px solid var(--sg-color-danger-bg);
+  color: var(--sg-color-danger);
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   cursor: pointer;
@@ -387,14 +387,14 @@ async function submitForm() {
 }
 
 .btn-remove:hover {
-  background: #fff5f5;
+  background: var(--sg-color-danger-bg);
 }
 
 .btn-add-signal {
   padding: 0.5rem 1rem;
-  background: #f0f4f8;
-  color: #2d3748;
-  border: 1px solid #cbd5e0;
+  background: var(--sg-bg-panel);
+  color: var(--sg-text-muted);
+  border: 1px solid var(--sg-border-input);
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.85rem;
@@ -403,16 +403,16 @@ async function submitForm() {
 }
 
 .btn-add-signal:hover {
-  background: #e2e8f0;
+  background: var(--sg-border);
 }
 
 .inline-error {
-  color: #c53030;
+  color: var(--sg-color-danger);
   font-size: 0.85rem;
   margin-bottom: 0.75rem;
   padding: 0.5rem;
-  background: #fff5f5;
-  border-left: 3px solid #fc8181;
+  background: var(--sg-color-danger-bg);
+  border-left: 3px solid var(--sg-color-danger-bg);
   padding-left: 0.75rem;
 }
 
@@ -423,7 +423,7 @@ async function submitForm() {
 
 .btn-save {
   padding: 0.5rem 1rem;
-  background: #1a1a2e;
+  background: var(--sg-brand);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -440,12 +440,12 @@ async function submitForm() {
 
 .btn-cancel {
   padding: 0.5rem 1rem;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--sg-bg-card);
+  border: 1px solid var(--sg-border);
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.85rem;
-  color: #4a5568;
+  color: var(--sg-text-muted);
   font-family: inherit;
 }
 
@@ -453,7 +453,7 @@ async function submitForm() {
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
-  color: #718096;
+  color: var(--sg-text-muted);
 }
 
 .firmware-grid {
@@ -463,11 +463,11 @@ async function submitForm() {
 }
 
 .firmware-card {
-  background: #fff;
+  background: var(--sg-bg-card);
   border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  box-shadow: var(--sg-shadow-sm);
   padding: 1.25rem;
-  border: 1px solid #f0f4f8;
+  border: 1px solid var(--sg-border);
 }
 
 .firmware-header {
@@ -476,21 +476,21 @@ async function submitForm() {
   justify-content: space-between;
   margin-bottom: 1rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--sg-border);
 }
 
 .firmware-version {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--sg-brand);
   margin: 0;
 }
 
 .firmware-badge {
   font-size: 0.75rem;
   font-weight: 600;
-  background: #e0e7ff;
-  color: #3730a3;
+  background: var(--sg-color-purple-bg);
+  color: var(--sg-color-purple-text);
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
   text-transform: uppercase;
@@ -503,22 +503,22 @@ async function submitForm() {
 }
 
 .signal-type-item {
-  background: #f7fafc;
+  background: var(--sg-bg-panel);
   padding: 0.75rem;
   border-radius: 6px;
-  border-left: 3px solid #4fc3f7;
+  border-left: 3px solid var(--sg-accent);
 }
 
 .signal-type-label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--sg-text-muted);
   margin-bottom: 0.25rem;
 }
 
 .signal-type-command {
   font-size: 0.8rem;
-  color: #718096;
+  color: var(--sg-text-muted);
   font-family: 'Courier New', monospace;
 }
 </style>

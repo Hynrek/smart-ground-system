@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="profile-view">
     <div class="profile-container">
       <h1>Mein Profil</h1>
@@ -166,36 +166,36 @@ const resetPasswordForm = () => {
 
 h1 {
   margin: 0 0 1rem 0;
-  color: #333;
+  color: var(--sg-brand);
 }
 
 .error-banner {
-  background-color: #fee;
-  color: #c33;
+  background-color: var(--sg-color-danger-bg);
+  color: var(--sg-color-danger-text);
   padding: 1rem;
   border-radius: 4px;
 }
 
 .success-banner {
-  background-color: #efe;
-  color: #3c3;
+  background-color: var(--sg-color-success-bg);
+  color: var(--sg-color-success-text);
   padding: 1rem;
   border-radius: 4px;
 }
 
 .info-card,
 .password-card {
-  background: white;
-  border: 1px solid #eee;
+  background: var(--sg-bg-card);
+  border: 1px solid var(--sg-border);
   border-radius: 8px;
   padding: 2rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--sg-shadow-sm);
 }
 
 .info-card h2,
 .password-card h2 {
   margin: 0 0 1.5rem 0;
-  color: #333;
+  color: var(--sg-brand);
   font-size: 1.1rem;
 }
 
@@ -204,7 +204,7 @@ h1 {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--sg-border);
 }
 
 .info-row:last-child {
@@ -212,12 +212,12 @@ h1 {
 }
 
 .info-row label {
-  color: #666;
+  color: var(--sg-text-muted);
   font-weight: 500;
 }
 
 .info-row span {
-  color: #333;
+  color: var(--sg-text-primary);
 }
 
 .role-badge {
@@ -225,18 +225,18 @@ h1 {
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 500;
-  background-color: #ddd;
-  color: #333;
+  background-color: var(--sg-color-neutral-bg);
+  color: var(--sg-color-neutral-text);
 }
 
 .role-badge.admin {
-  background-color: #ffd700;
-  color: #333;
+  background-color: var(--sg-color-warning-bg);
+  color: var(--sg-color-warning-text);
 }
 
 .role-badge.shooter {
-  background-color: #87ceeb;
-  color: white;
+  background-color: var(--sg-color-info-bg);
+  color: var(--sg-color-info-text);
 }
 
 .form-group {
@@ -246,14 +246,14 @@ h1 {
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #333;
+  color: var(--sg-text-primary);
   font-weight: 500;
 }
 
 .form-input {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--sg-border-input);
   border-radius: 4px;
   font-size: 1rem;
   transition: border-color 0.2s;
@@ -261,13 +261,13 @@ h1 {
 
 .form-input:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  border-color: var(--sg-accent);
+  box-shadow: 0 0 0 3px var(--sg-accent-tint);
 }
 
 .form-input:disabled {
-  background-color: #f5f5f5;
-  color: #999;
+  background-color: var(--sg-bg-panel);
+  color: var(--sg-text-faint);
 }
 
 .form-actions {
@@ -292,21 +292,21 @@ h1 {
 }
 
 .btn-primary {
-  background-color: #007bff;
-  color: white;
+  background-color: var(--sg-accent-hover);
+  color: #fff;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #0056b3;
+  background-color: var(--sg-accent);
 }
 
 .btn-secondary {
-  background-color: #6c757d;
-  color: white;
+  background-color: var(--sg-text-muted);
+  color: #fff;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: #545b62;
+  background-color: var(--sg-brand);
 }
 
 @media (max-width: 768px) {

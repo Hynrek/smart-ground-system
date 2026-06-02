@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="range-detail-view">
     <div class="detail-content">
       <Breadcrumb :items="breadcrumbItems" />
@@ -53,7 +53,7 @@
             :class="{ 'action-mode-btn--active': actionMode }"
             @click="actionMode = !actionMode"
           >
-            <Icons icon="bolt" :size="13" :color="actionMode ? '#f6ad55' : 'currentColor'" />
+            <Icons icon="bolt" :size="13" :color="actionMode ? 'var(--sg-color-warning)' : 'currentColor'" />
             Aktionsmodus
           </button>
 
@@ -396,14 +396,14 @@ const forceReleaseRange = async () => {
 h1 {
   font-size: 22px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--sg-brand);
   margin: 0;
   margin-top: 4px;
 }
 
 .subtitle {
   font-size: 13px;
-  color: #718096;
+  color: var(--sg-text-muted);
   margin-top: 3px;
 }
 
@@ -441,7 +441,7 @@ h1 {
   padding: 7px 14px;
   border-radius: 8px;
   border: 1.5px solid;
-  background: #fff;
+  background: var(--sg-bg-card);
   font-size: 13px;
   font-weight: 500;
   font-family: inherit;
@@ -453,21 +453,21 @@ h1 {
 .release-btn:disabled,
 .override-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.block-btn   { border-color: #90cdf4; color: #2c5aa0; }
-.block-btn:hover:not(:disabled) { background: rgba(144,205,244,0.1); border-color: #2c5aa0; }
+.block-btn   { border-color: var(--sg-color-info-bg); color: var(--sg-color-info-text); }
+.block-btn:hover:not(:disabled) { background: var(--sg-accent-subtle); border-color: var(--sg-accent-hover); }
 
-.release-btn { border-color: #f6ad55; color: #c05621; }
-.release-btn:hover:not(:disabled) { background: rgba(246,173,85,0.1); border-color: #c05621; }
+.release-btn { border-color: var(--sg-color-warning); color: var(--sg-color-warning-text); }
+.release-btn:hover:not(:disabled) { background: var(--sg-color-warning-bg); border-color: var(--sg-color-warning-text); }
 
-.override-btn { border-color: #fc8181; color: #c53030; }
-.override-btn:hover:not(:disabled) { background: rgba(252,129,129,0.1); border-color: #c53030; }
+.override-btn { border-color: var(--sg-color-danger-bg); color: var(--sg-color-danger); }
+.override-btn:hover:not(:disabled) { background: var(--sg-danger-subtle); border-color: var(--sg-color-danger); }
 
-.action-mode-btn { border-color: #e2e8f0; color: #4a5568; }
-.action-mode-btn:hover { border-color: #f6ad55; color: #c05621; }
+.action-mode-btn { border-color: var(--sg-border); color: var(--sg-text-muted); }
+.action-mode-btn:hover { border-color: var(--sg-color-warning); color: var(--sg-color-warning-text); }
 .action-mode-btn--active {
-  background: rgba(246,173,85,0.12);
-  border-color: #f6ad55;
-  color: #c05621;
+  background: var(--sg-color-warning-bg);
+  border-color: var(--sg-color-warning);
+  color: var(--sg-color-warning-text);
 }
 
 /* ── Position grid ───────────────────────────────────── */
@@ -491,18 +491,18 @@ h1 {
 .panel-inner {
   width: 256px;
   height: 100%;
-  background: #f4f6fb;
-  border-left: 1px solid #e2e8f0;
+  background: var(--sg-bg-panel);
+  border-left: 1px solid var(--sg-border);
   display: flex;
   flex-direction: column;
 }
 
 .panel-header {
   padding: 20px 16px 12px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--sg-border);
 }
-.panel-title   { font-weight: 700; font-size: 14px; color: #1a1a2e; margin-bottom: 2px; }
-.panel-subtitle { font-size: 12px; color: #718096; }
+.panel-title   { font-weight: 700; font-size: 14px; color: var(--sg-brand); margin-bottom: 2px; }
+.panel-subtitle { font-size: 12px; color: var(--sg-text-muted); }
 
 .panel-content { flex: 1; overflow-y: auto; }
 
@@ -510,7 +510,7 @@ h1 {
   padding: 10px 16px 4px;
   font-size: 11px;
   font-weight: 700;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   text-transform: uppercase;
   letter-spacing: 0.6px;
 }
@@ -518,7 +518,7 @@ h1 {
 .empty-panel {
   padding: 32px 16px;
   text-align: center;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   font-size: 13px;
 }
 
@@ -530,17 +530,17 @@ h1 {
 }
 
 .device-item {
-  background: #fff;
+  background: var(--sg-bg-card);
   border-radius: 8px;
   padding: 8px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--sg-border);
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: grab;
   transition: box-shadow 0.15s;
 }
-.device-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.device-item:hover { box-shadow: var(--sg-shadow-md); }
 .device-item:active { cursor: grabbing; }
 
 .device-item-info { flex: 1; min-width: 0; }
@@ -551,7 +551,7 @@ h1 {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.device-item-box { font-size: 11px; color: #a0aec0; }
+.device-item-box { font-size: 11px; color: var(--sg-text-faint); }
 
 .device-item-actions {
   display: flex;
@@ -563,15 +563,15 @@ h1 {
 .remote-user-section {
   margin-bottom: 24px;
   padding: 16px 20px;
-  background: #f7fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--sg-bg-panel);
+  border: 1px solid var(--sg-border);
   border-radius: 12px;
 }
 
 .section-label {
   font-size: 11px;
   font-weight: 700;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   text-transform: uppercase;
   letter-spacing: 0.6px;
   margin: 0 0 12px;
@@ -587,9 +587,9 @@ h1 {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: rgba(79, 195, 247, 0.15);
-  border: 1px solid rgba(79, 195, 247, 0.3);
-  color: #2c7a9e;
+  background: var(--sg-accent-tint);
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 30%, transparent);
+  color: var(--sg-color-info-text);
   font-size: 13px;
   font-weight: 700;
   display: flex;
@@ -602,7 +602,7 @@ h1 {
   flex: 1;
   font-size: 14px;
   font-weight: 500;
-  color: #2d3748;
+  color: var(--sg-text-muted);
 }
 
 .unassigned-row {
@@ -614,6 +614,6 @@ h1 {
 
 .unassigned-hint {
   font-size: 13px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
 }
 </style>

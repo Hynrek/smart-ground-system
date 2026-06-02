@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="player-setup-container">
     <div class="setup-header">
       <h1>Schützen-Setup</h1>
@@ -382,7 +382,7 @@ const proceedToSession = () => {
 <style scoped>
 .player-setup-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: var(--sg-bg-page);
   padding: 2rem;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
@@ -394,12 +394,12 @@ const proceedToSession = () => {
 
 .setup-header h1 {
   font-size: 2.5rem;
-  color: #2c3e50;
+  color: var(--sg-brand);
   margin: 0 0 0.5rem 0;
 }
 
 .subtitle {
-  color: #7f8c8d;
+  color: var(--sg-text-muted);
   font-size: 1.1rem;
   margin: 0;
 }
@@ -416,22 +416,22 @@ const proceedToSession = () => {
 
 .left-panel,
 .right-panel {
-  background: white;
+  background: var(--sg-bg-card);
   border-radius: 12px;
   padding: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--sg-shadow-md);
 }
 
 .section h2 {
-  color: #2c3e50;
+  color: var(--sg-brand);
   margin-top: 0;
-  border-bottom: 2px solid #ecf0f1;
+  border-bottom: 2px solid var(--sg-border);
   padding-bottom: 1rem;
 }
 
 .new-player-form,
 .new-group-form {
-  background: #f8f9fa;
+  background: var(--sg-bg-panel);
   padding: 1.5rem;
   border-radius: 8px;
   margin-bottom: 2rem;
@@ -440,7 +440,7 @@ const proceedToSession = () => {
 .new-player-form h3,
 .new-group-form h3 {
   margin-top: 0;
-  color: #34495e;
+  color: var(--sg-text-muted);
   font-size: 1.1rem;
 }
 
@@ -451,7 +451,7 @@ const proceedToSession = () => {
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #34495e;
+  color: var(--sg-text-muted);
   font-weight: 500;
   font-size: 0.9rem;
 }
@@ -459,7 +459,7 @@ const proceedToSession = () => {
 .form-group input {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--sg-border-input);
   border-radius: 6px;
   font-size: 0.95rem;
   transition: border-color 0.3s;
@@ -467,8 +467,8 @@ const proceedToSession = () => {
 
 .form-group input:focus {
   outline: none;
-  border-color: #3498db;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  border-color: var(--sg-accent);
+  box-shadow: 0 0 0 3px var(--sg-accent-tint);
 }
 
 .btn {
@@ -482,28 +482,28 @@ const proceedToSession = () => {
 }
 
 .btn-primary {
-  background: #3498db;
-  color: white;
+  background: var(--sg-accent-hover);
+  color: #fff;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #2980b9;
+  background: var(--sg-accent);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+  box-shadow: var(--sg-shadow-md);
 }
 
 .btn-primary:disabled {
-  background: #bdc3c7;
+  background: var(--sg-color-neutral-bg);
   cursor: not-allowed;
 }
 
 .btn-secondary {
-  background: #95a5a6;
-  color: white;
+  background: var(--sg-text-faint);
+  color: #fff;
 }
 
 .btn-secondary:hover {
-  background: #7f8c8d;
+  background: var(--sg-text-muted);
   transform: translateY(-2px);
 }
 
@@ -513,13 +513,13 @@ const proceedToSession = () => {
 }
 
 .btn-assign {
-  background: #27ae60;
-  color: white;
+  background: var(--sg-color-success);
+  color: #fff;
   width: 100%;
 }
 
 .btn-assign:hover {
-  background: #229954;
+  background: var(--sg-color-success-text);
 }
 
 .btn-lg {
@@ -530,7 +530,7 @@ const proceedToSession = () => {
 .btn-icon {
   background: none;
   border: none;
-  color: #e74c3c;
+  color: var(--sg-color-danger);
   cursor: pointer;
   font-size: 1.5rem;
   padding: 0;
@@ -544,13 +544,13 @@ const proceedToSession = () => {
 }
 
 .btn-icon:hover {
-  background: rgba(231, 76, 60, 0.1);
+  background: var(--sg-danger-subtle);
 }
 
 .btn-remove {
   background: none;
   border: none;
-  color: #e74c3c;
+  color: var(--sg-color-danger);
   cursor: pointer;
   font-size: 0.9rem;
   padding: 2px 6px;
@@ -564,15 +564,15 @@ const proceedToSession = () => {
 }
 
 .message.success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+  background: var(--sg-color-success-bg);
+  color: var(--sg-color-success-text);
+  border: 1px solid color-mix(in srgb, var(--sg-color-success) 40%, transparent);
 }
 
 .message.error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+  background: var(--sg-color-danger-bg);
+  color: var(--sg-color-danger-text);
+  border: 1px solid color-mix(in srgb, var(--sg-color-danger) 40%, transparent);
 }
 
 .players-list {
@@ -585,7 +585,7 @@ const proceedToSession = () => {
   display: flex;
   align-items: center;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--sg-bg-panel);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
@@ -593,12 +593,12 @@ const proceedToSession = () => {
 }
 
 .player-item:hover {
-  background: #ecf0f1;
+  background: var(--sg-border);
 }
 
 .player-item.selected {
-  background: #d4edda;
-  border-color: #27ae60;
+  background: var(--sg-color-success-bg);
+  border-color: var(--sg-color-success);
 }
 
 .checkbox {
@@ -617,12 +617,12 @@ const proceedToSession = () => {
 
 .player-name {
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--sg-brand);
 }
 
 .player-meta {
   font-size: 0.8rem;
-  color: #7f8c8d;
+  color: var(--sg-text-muted);
   margin-top: 0.25rem;
 }
 
@@ -631,17 +631,17 @@ const proceedToSession = () => {
 }
 
 .groups-list h3 {
-  color: #34495e;
+  color: var(--sg-text-muted);
   font-size: 1.1rem;
   margin-top: 0;
 }
 
 .group-card {
-  background: #f8f9fa;
+  background: var(--sg-bg-panel);
   padding: 1.5rem;
   border-radius: 8px;
   margin-bottom: 1rem;
-  border-left: 4px solid #3498db;
+  border-left: 4px solid var(--sg-accent-hover);
 }
 
 .group-header {
@@ -653,11 +653,11 @@ const proceedToSession = () => {
 
 .group-header h4 {
   margin: 0;
-  color: #2c3e50;
+  color: var(--sg-brand);
 }
 
 .group-players {
-  background: white;
+  background: var(--sg-bg-card);
   padding: 1rem;
   border-radius: 6px;
   margin-bottom: 1rem;
@@ -669,7 +669,7 @@ const proceedToSession = () => {
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0;
-  border-bottom: 1px solid #ecf0f1;
+  border-bottom: 1px solid var(--sg-border);
 }
 
 .group-player:last-child {
@@ -677,7 +677,7 @@ const proceedToSession = () => {
 }
 
 .no-players {
-  color: #95a5a6;
+  color: var(--sg-text-faint);
   font-style: italic;
   padding: 0.5rem 0;
 }
@@ -687,7 +687,7 @@ const proceedToSession = () => {
 }
 
 .empty-state {
-  color: #95a5a6;
+  color: var(--sg-text-faint);
   font-style: italic;
   text-align: center;
   padding: 1rem;
@@ -702,9 +702,9 @@ const proceedToSession = () => {
 }
 
 .validation-errors {
-  background: #f8d7da;
-  border: 1px solid #f5c6cb;
-  color: #721c24;
+  background: var(--sg-color-danger-bg);
+  border: 1px solid color-mix(in srgb, var(--sg-color-danger) 40%, transparent);
+  color: var(--sg-color-danger-text);
   padding: 1.5rem;
   border-radius: 8px;
   max-width: 1400px;

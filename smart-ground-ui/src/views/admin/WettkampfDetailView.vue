@@ -1,4 +1,4 @@
-<!-- src/views/admin/WettkampfDetailView.vue -->
+﻿<!-- src/views/admin/WettkampfDetailView.vue -->
 <template>
   <div class="detail-view">
 
@@ -6,7 +6,7 @@
     <div class="view-header">
       <div class="header-left">
         <button class="back-btn" @click="router.push('/admin/wettkampf')">
-          <Icons icon="chevronLeft" :size="16" color="#718096" />
+          <Icons icon="chevronLeft" :size="16" color="var(--sg-text-muted)" />
           Zurück
         </button>
         <div>
@@ -48,7 +48,7 @@
               :disabled="event.rotten.length >= 8"
               @click="store.addRotte(eventId)"
             >
-              <Icons icon="plus" :size="13" color="rgba(79,195,247,0.8)" />
+              <Icons icon="plus" :size="13" />
               Rotte hinzufügen
             </button>
           </div>
@@ -251,7 +251,7 @@ onUnmounted(() => clearInterval(completionInterval))
 
 .view-header {
   display: flex; align-items: flex-start; justify-content: space-between;
-  padding: 24px 28px 20px; border-bottom: 1px solid #e2e8f0;
+  padding: 24px 28px 20px; border-bottom: 1px solid var(--sg-border);
   flex-shrink: 0;
 }
 
@@ -259,22 +259,22 @@ onUnmounted(() => clearInterval(completionInterval))
 
 .back-btn {
   display: flex; align-items: center; gap: 6px;
-  background: #f7fafc; border: 1px solid #e2e8f0;
+  background: var(--sg-bg-panel); border: 1px solid var(--sg-border);
   border-radius: 10px; padding: 8px 14px;
-  color: #718096; font-size: 13px; font-family: inherit;
+  color: var(--sg-text-muted); font-size: 13px; font-family: inherit;
   cursor: pointer; transition: background 0.15s; white-space: nowrap;
 }
-.back-btn:hover { background: #edf2f7; }
+.back-btn:hover { background: var(--sg-border); }
 
-.view-title { font-size: 22px; font-weight: 700; color: #1a1a2e; margin: 0 0 4px; }
+.view-title { font-size: 22px; font-weight: 700; color: var(--sg-brand); margin: 0 0 4px; }
 
 .status-badge {
   font-size: 11px; font-weight: 700; border-radius: 8px; padding: 3px 10px;
 }
-.badge-planning { background: rgba(79,195,247,0.12); color: #0288d1; border: 1px solid #bee3f8; }
-.badge-active { background: #fffaf0; color: #dd6b20; border: 1px solid #fbd38d; }
-.badge-completed { background: #f0fff4; color: #276749; border: 1px solid #9ae6b4; }
-.badge-cancelled { background: #f7fafc; color: #a0aec0; border: 1px solid #e2e8f0; }
+.badge-planning { background: var(--sg-accent-tint); color: var(--sg-color-info-text); border: 1px solid var(--sg-color-info-bg); }
+.badge-active { background: var(--sg-color-warning-bg); color: var(--sg-color-warning-text); border: 1px solid color-mix(in srgb, var(--sg-color-warning) 40%, transparent); }
+.badge-completed { background: var(--sg-color-success-bg); color: var(--sg-color-success-text); border: 1px solid color-mix(in srgb, var(--sg-color-success) 40%, transparent); }
+.badge-cancelled { background: var(--sg-bg-panel); color: var(--sg-text-faint); border: 1px solid var(--sg-border); }
 
 .content { flex: 1; overflow-y: auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 20px; }
 
@@ -282,37 +282,37 @@ onUnmounted(() => clearInterval(completionInterval))
 
 .info-chip {
   font-size: 12px; font-weight: 600; padding: 4px 12px;
-  background: #f7fafc; border: 1px solid #e2e8f0;
-  border-radius: 20px; color: #718096;
+  background: var(--sg-bg-panel); border: 1px solid var(--sg-border);
+  border-radius: 20px; color: var(--sg-text-muted);
 }
 
 .payment-warning {
   display: flex; align-items: center; gap: 8px;
-  background: #fffaf0; border: 1px solid #fbd38d;
+  background: var(--sg-color-warning-bg); border: 1px solid color-mix(in srgb, var(--sg-color-warning) 40%, transparent);
   border-radius: 10px; padding: 10px 14px;
-  font-size: 13px; color: #dd6b20;
+  font-size: 13px; color: var(--sg-color-warning-text);
 }
 
 .section { display: flex; flex-direction: column; gap: 14px; }
 
 .section-header { display: flex; align-items: center; justify-content: space-between; }
 
-.section-title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin: 0; }
+.section-title { font-size: 16px; font-weight: 700; color: var(--sg-brand); margin: 0; }
 
 .add-rotte-btn {
   display: flex; align-items: center; gap: 6px;
-  background: rgba(79,195,247,0.08); border: 1px solid #bee3f8;
+  background: var(--sg-accent-subtle); border: 1px solid var(--sg-color-info-bg);
   border-radius: 10px; padding: 7px 14px;
-  color: #0288d1; font-size: 13px; font-weight: 600; font-family: inherit;
+  color: var(--sg-color-info-text); font-size: 13px; font-weight: 600; font-family: inherit;
   cursor: pointer; transition: all 0.15s;
 }
-.add-rotte-btn:hover:not(:disabled) { background: rgba(79,195,247,0.15); }
+.add-rotte-btn:hover:not(:disabled) { background: var(--sg-accent-tint); }
 .add-rotte-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .empty-rotten {
   padding: 24px; text-align: center;
-  border: 1px dashed #e2e8f0; border-radius: 12px;
-  color: #a0aec0; font-size: 13px;
+  border: 1px dashed var(--sg-border); border-radius: 12px;
+  color: var(--sg-text-faint); font-size: 13px;
 }
 
 .rotten-grid { display: flex; flex-direction: column; gap: 12px; }
@@ -320,20 +320,20 @@ onUnmounted(() => clearInterval(completionInterval))
 .start-section {
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 20px;
-  background: #fff; border: 1px solid #e2e8f0;
-  border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  background: var(--sg-bg-card); border: 1px solid var(--sg-border);
+  border-radius: 14px; box-shadow: var(--sg-shadow-sm);
 }
 
-.payment-total { font-size: 13px; color: #a0aec0; }
+.payment-total { font-size: 13px; color: var(--sg-text-faint); }
 
 .start-btn {
   display: flex; align-items: center; gap: 8px;
-  background: #0288d1; border: none;
+  background: var(--sg-accent-hover); border: none;
   border-radius: 12px; padding: 11px 24px;
   color: #fff; font-size: 14px; font-weight: 700; font-family: inherit;
   cursor: pointer; transition: background 0.15s;
 }
-.start-btn:hover:not(:disabled) { background: #0277bd; }
+.start-btn:hover:not(:disabled) { background: var(--sg-accent); }
 .start-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ── Payment warning modal ── */
@@ -344,20 +344,20 @@ onUnmounted(() => clearInterval(completionInterval))
 }
 
 .warning-modal {
-  background: #fff; border: 1px solid #fbd38d;
+  background: var(--sg-bg-card); border: 1px solid color-mix(in srgb, var(--sg-color-warning) 40%, transparent);
   border-radius: 18px; padding: 24px; max-width: 360px; width: 100%;
   display: flex; flex-direction: column; gap: 14px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  box-shadow: var(--sg-shadow-lg);
 }
 
-.modal-title { font-size: 16px; font-weight: 700; margin: 0; color: #dd6b20; }
-.modal-desc { font-size: 13px; color: #718096; margin: 0; }
+.modal-title { font-size: 16px; font-weight: 700; margin: 0; color: var(--sg-color-warning-text); }
+.modal-desc { font-size: 13px; color: var(--sg-text-muted); margin: 0; }
 
 .unpaid-list {
   margin: 0; padding: 0 0 0 16px;
   display: flex; flex-direction: column; gap: 4px;
 }
-.unpaid-list li { font-size: 13px; color: #2d3748; }
+.unpaid-list li { font-size: 13px; color: var(--sg-text-muted); }
 
 .modal-actions { display: flex; gap: 8px; }
 
@@ -367,15 +367,15 @@ onUnmounted(() => clearInterval(completionInterval))
   cursor: pointer; border: 1px solid transparent; transition: background 0.15s;
 }
 .action-btn--cancel {
-  background: transparent; border-color: #e2e8f0; color: #718096;
+  background: transparent; border-color: var(--sg-border); color: var(--sg-text-muted);
 }
-.action-btn--cancel:hover { background: #f7fafc; }
+.action-btn--cancel:hover { background: var(--sg-bg-panel); }
 .action-btn--start {
-  background: rgba(79,195,247,0.12); border-color: #4fc3f7; color: #0288d1;
+  background: var(--sg-accent-tint); border-color: var(--sg-accent); color: var(--sg-color-info-text);
 }
-.action-btn--start:hover { background: rgba(79,195,247,0.2); }
+.action-btn--start:hover { background: color-mix(in srgb, var(--sg-accent) 20%, transparent); }
 
 .not-found, .cancelled-note {
-  padding: 40px 28px; text-align: center; color: #a0aec0; font-size: 14px;
+  padding: 40px 28px; text-align: center; color: var(--sg-text-faint); font-size: 14px;
 }
 </style>

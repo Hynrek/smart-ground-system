@@ -1,4 +1,4 @@
-<!-- src/views/admin/WettkampfListView.vue -->
+﻿<!-- src/views/admin/WettkampfListView.vue -->
 <template>
   <div class="list-view">
     <div class="view-header">
@@ -48,7 +48,7 @@
                   </template>
                 </div>
               </div>
-              <Icons icon="chevronRight" :size="14" color="#cbd5e0" />
+              <Icons icon="chevronRight" :size="14" color="var(--sg-border-input)" />
             </div>
             <div class="ec-actions" @click.stop>
               <button class="ec-delete-btn" @click="handleDelete(ev)">
@@ -101,7 +101,7 @@
         </div>
 
         <button v-if="!creating" class="new-btn" @click="creating = true">
-          <Icons icon="plus" :size="15" color="rgba(79,195,247,0.8)" />
+          <Icons icon="plus" :size="15" />
           Neuer Wettkampf
         </button>
 
@@ -130,7 +130,7 @@
                 </div>
               </div>
               <div class="ec-active-dot" />
-              <Icons icon="chevronRight" :size="14" color="#cbd5e0" />
+              <Icons icon="chevronRight" :size="14" color="var(--sg-border-input)" />
             </div>
           </div>
         </div>
@@ -157,7 +157,7 @@
                   <span class="ec-meta">{{ totalPlayers(ev) }} Schützen</span>
                 </div>
               </div>
-              <Icons icon="chevronRight" :size="14" color="#cbd5e0" />
+              <Icons icon="chevronRight" :size="14" color="var(--sg-border-input)" />
             </div>
           </div>
         </div>
@@ -237,31 +237,31 @@ const unpaidCount = (ev) => ev.rotten.reduce((s, r) => s + r.players.filter(p =>
 
 .view-header {
   display: flex; align-items: flex-start; justify-content: space-between;
-  padding: 24px 28px 20px; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;
+  padding: 24px 28px 20px; border-bottom: 1px solid var(--sg-border); flex-shrink: 0;
 }
 
-.view-title { font-size: 22px; font-weight: 700; color: #1a1a2e; margin: 0 0 4px; }
+.view-title { font-size: 22px; font-weight: 700; color: var(--sg-brand); margin: 0 0 4px; }
 
-.view-subtitle { font-size: 13px; color: #718096; margin: 0; }
+.view-subtitle { font-size: 13px; color: var(--sg-text-muted); margin: 0; }
 
 .tab-bar {
   display: flex; gap: 0; padding: 0 28px;
-  border-bottom: 1px solid #e2e8f0; flex-shrink: 0;
+  border-bottom: 1px solid var(--sg-border); flex-shrink: 0;
 }
 
 .tab-btn {
   display: flex; align-items: center; gap: 6px;
   padding: 12px 18px; background: transparent; border: none;
   border-bottom: 2px solid transparent; margin-bottom: -1px;
-  color: #a0aec0; font-size: 13px; font-weight: 600; font-family: inherit;
+  color: var(--sg-text-faint); font-size: 13px; font-weight: 600; font-family: inherit;
   cursor: pointer; transition: all 0.15s;
 }
-.tab-btn.active { color: #1a1a2e; border-bottom-color: #4fc3f7; }
-.tab-btn:hover:not(.active) { color: #4a5568; }
+.tab-btn.active { color: var(--sg-brand); border-bottom-color: var(--sg-accent); }
+.tab-btn:hover:not(.active) { color: var(--sg-text-muted); }
 
 .tab-count {
   font-size: 10px; font-weight: 700;
-  background: rgba(79,195,247,0.12); color: #0288d1;
+  background: var(--sg-accent-tint); color: var(--sg-color-info-text);
   border-radius: 10px; padding: 1px 6px;
 }
 
@@ -270,26 +270,26 @@ const unpaidCount = (ev) => ev.rotten.reduce((s, r) => s + r.players.filter(p =>
 .event-list { display: flex; flex-direction: column; gap: 8px; }
 
 .event-card {
-  background: #fff; border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.07); padding: 14px 16px; cursor: pointer;
+  background: var(--sg-bg-card); border-radius: 12px;
+  box-shadow: var(--sg-shadow-sm); padding: 14px 16px; cursor: pointer;
   transition: box-shadow 0.15s; display: flex; flex-direction: column; gap: 8px;
 }
-.event-card:hover { box-shadow: 0 3px 8px rgba(0,0,0,0.1); }
-.event-card--active { border-left: 3px solid #f6ad55; }
+.event-card:hover { box-shadow: var(--sg-shadow-md); }
+.event-card--active { border-left: 3px solid var(--sg-color-warning); }
 
 .ec-main { display: flex; align-items: center; gap: 10px; }
 
 .ec-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 
-.ec-name { font-size: 15px; font-weight: 600; color: #1a1a2e; }
+.ec-name { font-size: 15px; font-weight: 600; color: var(--sg-brand); }
 
 .ec-meta-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
-.ec-meta { font-size: 12px; color: #a0aec0; }
-.ec-meta--warn { color: #dd6b20; }
-.ec-dot { font-size: 12px; color: #cbd5e0; }
+.ec-meta { font-size: 12px; color: var(--sg-text-faint); }
+.ec-meta--warn { color: var(--sg-color-warning-text); }
+.ec-dot { font-size: 12px; color: var(--sg-border-input); }
 
-.ec-active-dot { width: 8px; height: 8px; border-radius: 50%; background: #f6ad55; }
+.ec-active-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sg-color-warning); }
 
 .ec-actions { display: flex; justify-content: flex-end; }
 
@@ -298,60 +298,60 @@ const unpaidCount = (ev) => ev.rotten.reduce((s, r) => s + r.players.filter(p =>
   padding: 4px 8px; border-radius: 6px;
   display: flex; align-items: center; transition: background 0.15s;
 }
-.ec-delete-btn:hover { background: #fff5f5; }
+.ec-delete-btn:hover { background: var(--sg-color-danger-bg); }
 
 /* ── Create panel ── */
 .create-panel {
-  background: #fff; border: 1px solid #bee3f8;
+  background: var(--sg-bg-card); border: 1px solid var(--sg-color-info-bg);
   border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 14px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  box-shadow: var(--sg-shadow-sm);
 }
 
-.create-title { font-size: 14px; font-weight: 700; color: #0288d1; }
+.create-title { font-size: 14px; font-weight: 700; color: var(--sg-color-info-text); }
 
 .create-field { display: flex; flex-direction: column; gap: 6px; }
 
 .create-label {
-  font-size: 11px; font-weight: 600; color: #718096;
+  font-size: 11px; font-weight: 600; color: var(--sg-text-muted);
   text-transform: uppercase; letter-spacing: 0.5px;
   display: flex; align-items: center; gap: 8px;
 }
 
 .create-count {
-  background: rgba(79,195,247,0.12); color: #0288d1;
+  background: var(--sg-accent-tint); color: var(--sg-color-info-text);
   border-radius: 12px; padding: 2px 8px; font-size: 10px; font-weight: 700; text-transform: none;
 }
 
 .create-input {
-  background: #f7fafc; border: 1px solid #e2e8f0;
-  border-radius: 10px; color: #1a1a2e; font-size: 14px; font-family: inherit;
+  background: var(--sg-bg-panel); border: 1px solid var(--sg-border);
+  border-radius: 10px; color: var(--sg-brand); font-size: 14px; font-family: inherit;
   padding: 10px 12px; outline: none; transition: border-color 0.15s;
 }
-.create-input:focus { border-color: #4fc3f7; }
+.create-input:focus { border-color: var(--sg-accent); }
 
-.create-hint { font-size: 12px; color: #a0aec0; margin: 0; }
+.create-hint { font-size: 12px; color: var(--sg-text-faint); margin: 0; }
 
 .passen-picker { display: flex; flex-direction: column; gap: 6px; }
 
 .picker-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; background: #f7fafc;
-  border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 9px 12px; background: var(--sg-bg-panel);
+  border: 1px solid var(--sg-border); border-radius: 10px;
   cursor: pointer; transition: all 0.15s;
 }
-.picker-item.selected { background: rgba(79,195,247,0.08); border-color: #4fc3f7; }
+.picker-item.selected { background: var(--sg-accent-subtle); border-color: var(--sg-accent); }
 
 .picker-check {
   width: 22px; height: 22px; border-radius: 50%;
-  background: rgba(79,195,247,0.12);
+  background: var(--sg-accent-tint);
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; color: #0288d1; flex-shrink: 0;
+  font-size: 12px; font-weight: 700; color: var(--sg-color-info-text); flex-shrink: 0;
 }
 
-.picker-name { font-size: 13px; color: #2d3748; flex: 1; }
+.picker-name { font-size: 13px; color: var(--sg-text-muted); flex: 1; }
 
 .create-actions {
-  display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0;
+  display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid var(--sg-border);
 }
 
 .action-btn {
@@ -360,23 +360,23 @@ const unpaidCount = (ev) => ev.rotten.reduce((s, r) => s + r.players.filter(p =>
   cursor: pointer; border: 1px solid transparent; transition: background 0.15s;
 }
 .action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.action-btn--cancel { background: transparent; border-color: #e2e8f0; color: #718096; }
-.action-btn--cancel:hover { background: #f7fafc; }
-.action-btn--primary { background: rgba(79,195,247,0.12); border-color: #4fc3f7; color: #0288d1; }
-.action-btn--primary:hover:not(:disabled) { background: rgba(79,195,247,0.2); }
+.action-btn--cancel { background: transparent; border-color: var(--sg-border); color: var(--sg-text-muted); }
+.action-btn--cancel:hover { background: var(--sg-bg-panel); }
+.action-btn--primary { background: var(--sg-accent-tint); border-color: var(--sg-accent); color: var(--sg-color-info-text); }
+.action-btn--primary:hover:not(:disabled) { background: color-mix(in srgb, var(--sg-accent) 20%, transparent); }
 
 .new-btn {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   padding: 13px; background: transparent;
-  border: 1.5px dashed #bee3f8; border-radius: 12px;
-  color: #0288d1; font-size: 14px; font-weight: 600; font-family: inherit;
+  border: 1.5px dashed var(--sg-color-info-bg); border-radius: 12px;
+  color: var(--sg-color-info-text); font-size: 14px; font-weight: 600; font-family: inherit;
   cursor: pointer; transition: all 0.15s;
 }
-.new-btn:hover { background: rgba(79,195,247,0.06); border-color: #4fc3f7; }
+.new-btn:hover { background: var(--sg-accent-subtle); border-color: var(--sg-accent); }
 
 .empty-state {
   padding: 32px; text-align: center; display: flex; flex-direction: column; gap: 6px;
 }
-.empty-state p { font-size: 14px; color: #a0aec0; margin: 0; }
-.empty-hint { font-size: 12px !important; color: #cbd5e0 !important; }
+.empty-state p { font-size: 14px; color: var(--sg-text-faint); margin: 0; }
+.empty-hint { font-size: 12px !important; color: var(--sg-border-input) !important; }
 </style>

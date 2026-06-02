@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="passen-admin">
     <!-- Header -->
     <div class="view-header">
@@ -32,7 +32,7 @@
       <div class="section-header">
         <div class="section-title-row">
           <h2 class="section-title">
-            <Icons icon="target" :size="18" color="#4fc3f7" />
+            <Icons icon="target" :size="18" color="var(--sg-accent)" />
             Platz-Serien
           </h2>
           <span class="badge badge-blue">{{ rangeSerien.length }}</span>
@@ -42,7 +42,7 @@
           data-testid="new-serie-btn"
           @click="openCreate"
         >
-          <Icons icon="plus" :size="14" color="#fff" />
+          <Icons icon="plus" :size="14" />
           Neue Serie
         </button>
       </div>
@@ -62,11 +62,11 @@
             <Icons
               icon="chevronRight"
               :size="13"
-              color="#a0aec0"
+              color="var(--sg-text-faint)"
               class="group-chevron"
               :class="{ rotated: expandedGroups.has(group.rangeId ?? '__none__') }"
             />
-            <Icons icon="ranges" :size="13" color="#4fc3f7" />
+            <Icons icon="ranges" :size="13" color="var(--sg-accent)" />
             <span class="range-group-name">{{ group.rangeName ?? 'Kein Platz' }}</span>
             <span class="range-group-count">{{ group.serien.length }}</span>
           </button>
@@ -103,7 +103,7 @@
                   title="Bearbeiten"
                   @click="openEdit(s)"
                 >
-                  <Icons icon="edit" :size="13" color="#718096" />
+                  <Icons icon="edit" :size="13" color="var(--sg-text-muted)" />
                 </button>
               </div>
             </div>
@@ -129,7 +129,7 @@
       <div class="section-header">
         <div class="section-title-row">
           <h2 class="section-title">
-            <Icons icon="program" :size="18" color="#4fc3f7" />
+            <Icons icon="program" :size="18" color="var(--sg-accent)" />
             Passen-Vorlagen
           </h2>
           <span class="badge badge-blue">{{ savedGlobalPassen.length }}</span>
@@ -139,7 +139,7 @@
           data-testid="new-passe-btn"
           @click="openPasseCreate"
         >
-          <Icons icon="plus" :size="14" color="#fff" />
+          <Icons icon="plus" :size="14" />
           Neue Passe
         </button>
       </div>
@@ -159,11 +159,11 @@
             <Icons
               icon="chevronRight"
               :size="13"
-              color="#a0aec0"
+              color="var(--sg-text-faint)"
               class="group-chevron"
               :class="{ rotated: expandedPasseGroups.has(group.rangeId ?? '__none__') }"
             />
-            <Icons icon="ranges" :size="13" color="#4fc3f7" />
+            <Icons icon="ranges" :size="13" color="var(--sg-accent)" />
             <span class="range-group-name">{{ group.rangeName ?? 'Kein Platz' }}</span>
             <span class="range-group-count">{{ group.passen.length }}</span>
           </button>
@@ -189,7 +189,7 @@
                   title="Bearbeiten"
                   @click="openPasseEdit(p)"
                 >
-                  <Icons icon="edit" :size="13" color="#718096" />
+                  <Icons icon="edit" :size="13" color="var(--sg-text-muted)" />
                 </button>
               </div>
             </div>
@@ -383,13 +383,13 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 .view-title {
   font-size: 22px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--sg-brand);
   margin: 0 0 4px;
 }
 
 .view-subtitle {
   font-size: 13.5px;
-  color: #718096;
+  color: var(--sg-text-muted);
   margin: 0;
 }
 
@@ -398,7 +398,7 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
   display: flex;
   gap: 8px;
   margin-bottom: 24px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--sg-border);
   padding-bottom: 0;
 }
 
@@ -410,18 +410,18 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   cursor: pointer;
   margin-bottom: -1px;
   transition: color 0.15s, border-color 0.15s;
 }
 
 .tab-btn.active {
-  color: #1a1a2e;
-  border-bottom-color: #4fc3f7;
+  color: var(--sg-brand);
+  border-bottom-color: var(--sg-accent);
 }
 
-.tab-btn:hover:not(.active) { color: #4a5568; }
+.tab-btn:hover:not(.active) { color: var(--sg-text-muted); }
 
 /* ── Section header ─────────────────────────────────────────────────────── */
 .section-header {
@@ -441,7 +441,7 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 .section-title {
   font-size: 15px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--sg-brand);
   margin: 0;
   display: flex;
   align-items: center;
@@ -456,8 +456,8 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 }
 
 .badge-blue {
-  background: rgba(79, 195, 247, 0.12);
-  color: #0288d1;
+  background: var(--sg-accent-tint);
+  color: var(--sg-color-info-text);
 }
 
 /* ── Range groups ───────────────────────────────────────────────────────── */
@@ -468,9 +468,9 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 }
 
 .range-group {
-  background: #fff;
+  background: var(--sg-bg-card);
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
+  box-shadow: var(--sg-shadow-sm);
   overflow: hidden;
 }
 
@@ -487,7 +487,7 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
   transition: background 0.15s;
 }
 
-.range-group-header:hover { background: #f7fafc; }
+.range-group-header:hover { background: var(--sg-bg-panel); }
 
 .group-chevron {
   flex-shrink: 0;
@@ -499,21 +499,21 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 .range-group-name {
   font-size: 13px;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--sg-text-muted);
   flex: 1;
 }
 
 .range-group-count {
   font-size: 11px;
-  color: #a0aec0;
-  background: #f7fafc;
+  color: var(--sg-text-faint);
+  background: var(--sg-bg-panel);
   border-radius: 20px;
   padding: 1px 7px;
 }
 
 /* ── Serie rows ─────────────────────────────────────────────────────────── */
 .serie-list {
-  border-top: 1px solid #f0f4f8;
+  border-top: 1px solid var(--sg-border);
   display: flex;
   flex-direction: column;
 }
@@ -523,13 +523,13 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
-  border-bottom: 1px solid #f0f4f8;
+  border-bottom: 1px solid var(--sg-border);
   cursor: pointer;
   transition: background 0.12s;
 }
 
 .serie-row:last-child { border-bottom: none; }
-.serie-row:hover { background: #f7f8fc; }
+.serie-row:hover { background: var(--sg-bg-page); }
 
 .serie-info {
   flex: 1;
@@ -540,7 +540,7 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
   display: block;
   font-size: 13.5px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--sg-brand);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -549,7 +549,7 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 .serie-meta {
   display: block;
   font-size: 11.5px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   margin-top: 1px;
 }
 
@@ -567,14 +567,14 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
   flex-shrink: 0;
 }
 
-.dot-solo     { background: #4fc3f7; }
+.dot-solo     { background: var(--sg-accent); }
 .dot-pair     { background: #48bb78; }
 .dot-a_schuss { background: #f6ad55; }
 .dot-raffale  { background: #a855f7; }
 
 .step-dot-more {
   font-size: 10px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   margin-left: 2px;
 }
 
@@ -598,8 +598,8 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 }
 
 .icon-btn:hover {
-  background: #f0f4f8;
-  border-color: #e2e8f0;
+  background: var(--sg-bg-panel);
+  border-color: var(--sg-border);
 }
 
 /* ── Empty state ────────────────────────────────────────────────────────── */
@@ -610,21 +610,21 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
   gap: 10px;
   padding: 48px 16px;
   text-align: center;
-  background: #fff;
+  background: var(--sg-bg-card);
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
+  box-shadow: var(--sg-shadow-sm);
 }
 
 .empty-title {
   font-size: 14px;
   font-weight: 600;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   margin: 0;
 }
 
 .empty-hint {
   font-size: 13px;
-  color: #cbd5e0;
+  color: var(--sg-border-input);
   margin: 0;
   max-width: 340px;
   line-height: 1.5;
@@ -646,10 +646,10 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 }
 
 .btn--primary {
-  background: #1a1a2e;
+  background: var(--sg-brand);
   color: #fff;
-  border-color: #1a1a2e;
+  border-color: var(--sg-brand);
 }
 
-.btn--primary:hover { background: #0f0f1a; }
+.btn--primary:hover { background: var(--sg-brand); }
 </style>

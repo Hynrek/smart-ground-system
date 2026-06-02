@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="smartboxes-view">
     <div class="view-content">
       <div class="view-header">
@@ -220,13 +220,13 @@ const renameBox = ({ boxId, alias }) => {
 h1 {
   font-size: 22px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--sg-brand);
   margin: 0;
 }
 
 .subtitle {
   font-size: 13px;
-  color: #718096;
+  color: var(--sg-text-muted);
   margin-top: 4px;
 }
 
@@ -234,7 +234,7 @@ h1 {
 .tab-bar {
   display: flex;
   gap: 2px;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid var(--sg-border);
   margin-bottom: 20px;
 }
 
@@ -246,20 +246,20 @@ h1 {
   margin-bottom: -2px;
   font-size: 13px;
   font-weight: 500;
-  color: #718096;
+  color: var(--sg-text-muted);
   cursor: pointer;
   font-family: inherit;
   transition: color 0.15s, border-color 0.15s;
 }
 
 .tab:hover {
-  color: #1a1a2e;
+  color: var(--sg-brand);
 }
 
 .tab--active {
-  color: #1a1a2e;
+  color: var(--sg-brand);
   font-weight: 700;
-  border-bottom-color: #1a1a2e;
+  border-bottom-color: var(--sg-brand);
 }
 
 /* ── Filter chips ─────────────────────────────────── */
@@ -273,9 +273,9 @@ h1 {
 .filter-chip {
   padding: 5px 13px;
   border-radius: 99px;
-  border: 1.5px solid #e2e8f0;
-  background: #fff;
-  color: #4a5568;
+  border: 1.5px solid var(--sg-border);
+  background: var(--sg-bg-card);
+  color: var(--sg-text-muted);
   cursor: pointer;
   font-size: 13px;
   font-weight: 400;
@@ -287,15 +287,15 @@ h1 {
 }
 
 .filter-chip.active {
-  border-color: #1a1a2e;
-  background: #1a1a2e;
+  border-color: var(--sg-brand);
+  background: var(--sg-brand);
   color: #fff;
   font-weight: 600;
 }
 
 .filter-count {
-  background: #e8edf0;
-  color: #718096;
+  background: var(--sg-bg-panel);
+  color: var(--sg-text-muted);
   border-radius: 99px;
   font-size: 11px;
   padding: 1px 6px;
@@ -316,7 +316,7 @@ h1 {
 .empty-state {
   text-align: center;
   padding: 48px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
 }
 
 .empty-text {
