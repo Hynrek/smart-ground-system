@@ -66,6 +66,37 @@
         </div>
       </div>
 
+      <!-- User als Remote zuweisen -->
+      <section class="remote-user-section">
+        <h4 class="section-label">User als Remote zuweisen</h4>
+
+        <div v-if="assignedUser" class="assigned-user-row">
+          <div class="assigned-avatar">{{ assignedUser.fullName?.charAt(0).toUpperCase() }}</div>
+          <span class="assigned-name">{{ assignedUser.fullName }}</span>
+          <button
+            class="release-btn"
+            :disabled="isAssigning"
+            @click="handleUnassign"
+          >
+            {{ isAssigning ? '…' : 'Entfernen' }}
+          </button>
+        </div>
+
+        <div v-else class="unassigned-row">
+          <span class="unassigned-hint">Kein Benutzer zugewiesen</span>
+          <button class="block-btn" :disabled="isAssigning" @click="openUserModal">
+            + Zuweisen
+          </button>
+        </div>
+
+        <UserSearchModal
+          v-if="showUserModal"
+          :users="userStore.users"
+          @select="handleAssign"
+          @close="showUserModal = false"
+        />
+      </section>
+
       <!-- Position grid -->
       <div class="positions-grid">
         <PositionCard
@@ -140,6 +171,8 @@ import { useSmartBoxStore } from '../stores/smartBoxStore.js';
 import { useReservationStore } from '../stores/reservationStore.js';
 import { useUserStore } from '../stores/userStore.js';
 import Breadcrumb from '../components/Breadcrumb.vue';
+import UserSearchModal from '../components/UserSearchModal.vue';
+import { assignRangeUser } from '../services/rangeApi.js';
 import Badge from '../components/Badge.vue';
 import Button from '../components/Button.vue';
 import Icons from '../components/Icons.vue';
@@ -161,6 +194,8 @@ const actionMode = ref(false);
 const assignOpen = ref(false);
 const draggingDevice = ref(null);
 const firedDevices = ref({});
+const showUserModal = ref(false);
+const isAssigning = ref(false);
 
 const currentUsername = computed(() => userStore.currentUser?.username || '');
 const isAdmin = computed(() => userStore.currentUser?.role === 'ADMIN');
@@ -279,6 +314,45 @@ const fireDevice = (deviceId) => {
 };
 
 const toggleAssignPanel = () => { assignOpen.value = !assignOpen.value; };
+
+// ── Remote user assignment ─────────────────────────────────────────────────────
+const assignedUser = computed(() => {
+  const id = range.value?.assignedUserId;
+  if (!id) return null;
+  return userStore.users.find((u) => u.id === id) ?? null;
+});
+
+const openUserModal = async () => {
+  if (userStore.users.length === 0) await userStore.loadUsers();
+  showUserModal.value = true;
+};
+
+const handleAssign = async (user) => {
+  showUserModal.value = false;
+  isAssigning.value = true;
+  try {
+    await assignRangeUser(props.id, user.id);
+    const r = rangeStore.ranges.find((r) => r.id === props.id);
+    if (r) r.assignedUserId = user.id;
+  } catch (e) {
+    console.error('Failed to assign remote user:', e);
+  } finally {
+    isAssigning.value = false;
+  }
+};
+
+const handleUnassign = async () => {
+  isAssigning.value = true;
+  try {
+    await assignRangeUser(props.id, null);
+    const r = rangeStore.ranges.find((r) => r.id === props.id);
+    if (r) r.assignedUserId = null;
+  } catch (e) {
+    console.error('Failed to unassign remote user:', e);
+  } finally {
+    isAssigning.value = false;
+  }
+};
 
 // ── Reservation ───────────────────────────────────────────────────────────────
 const loadReservation = async () => {
@@ -487,5 +561,63 @@ h1 {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+/* ── Remote user section ─────────────────────────────── */
+.remote-user-section {
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a0aec0;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0 0 12px;
+}
+
+.assigned-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.assigned-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(79, 195, 247, 0.15);
+  border: 1px solid rgba(79, 195, 247, 0.3);
+  color: #2c7a9e;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.assigned-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.unassigned-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.unassigned-hint {
+  font-size: 13px;
+  color: #a0aec0;
 }
 </style>
