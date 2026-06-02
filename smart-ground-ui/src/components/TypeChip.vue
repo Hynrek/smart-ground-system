@@ -1,12 +1,11 @@
 <template>
-  <span class="type-chip" :style="chipStyle">
+  <span class="type-chip" :class="chipClass">
     {{ label }}
   </span>
 </template>
 
 <script setup>
 import { computed } from 'vue';
-import { DEVICE_COLORS, DIRECTION_COLORS } from '../constants/deviceTypes.js';
 
 const props = defineProps({
   device: {
@@ -30,19 +29,14 @@ const label = computed(() => {
   return props.type || 'Unknown';
 });
 
-const chipStyle = computed(() => {
-  let color = { bg: '#e8edf0', text: '#555' };
-
+const chipClass = computed(() => {
   if (props.device) {
-    color = DEVICE_COLORS[props.device] || color;
-  } else if (props.type) {
-    color = DIRECTION_COLORS[props.type] || color;
+    return `chip-${props.device.toLowerCase()}`;
   }
-
-  return {
-    background: color.bg,
-    color: color.text,
-  };
+  if (props.type) {
+    return `chip-${props.type.toLowerCase()}`;
+  }
+  return 'chip-default';
 });
 </script>
 
@@ -54,5 +48,30 @@ const chipStyle = computed(() => {
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.2px;
+}
+
+.chip-gpio {
+  background: var(--sg-color-info-bg);
+  color: var(--sg-color-info-text);
+}
+
+.chip-led {
+  background: var(--sg-color-purple-bg);
+  color: var(--sg-color-purple-text);
+}
+
+.chip-input {
+  background: var(--sg-color-success-bg);
+  color: var(--sg-color-success-text);
+}
+
+.chip-output {
+  background: var(--sg-color-warning-bg);
+  color: var(--sg-color-warning-text);
+}
+
+.chip-default {
+  background: var(--sg-color-neutral-bg);
+  color: var(--sg-color-neutral-text);
 }
 </style>
