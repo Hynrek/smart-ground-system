@@ -76,35 +76,36 @@ const maxPoints = (rotte, playerId) =>
 <style scoped>
 .panel-content { flex: 1; overflow-y: auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 20px; }
 
-.panel-title { font-size: 18px; font-weight: 700; margin: 0; }
+.panel-title { font-size: 18px; font-weight: 700; color: #1a1a2e; margin: 0; }
 
 .rotte-result-card {
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  background: #fff; border: 1px solid #e2e8f0;
   border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
-.rr-header { padding-bottom: 8px; border-bottom: 1px solid rgba(79,195,247,0.12); }
+.rr-header { padding-bottom: 8px; border-bottom: 1px solid #bee3f8; }
 
-.rr-name { font-size: 13px; font-weight: 700; color: rgba(79,195,247,0.8); text-transform: uppercase; letter-spacing: 0.4px; }
+.rr-name { font-size: 13px; font-weight: 700; color: #0288d1; text-transform: uppercase; letter-spacing: 0.4px; }
 
 .player-result-row {
   display: flex; align-items: flex-start; gap: 12px;
-  padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding: 6px 0; border-bottom: 1px solid #f7fafc;
 }
 .player-result-row:last-child { border-bottom: none; }
 
-.pr-name { font-size: 13px; font-weight: 600; min-width: 130px; color: rgba(255,255,255,0.8); }
+.pr-name { font-size: 13px; font-weight: 600; min-width: 130px; color: #2d3748; }
 
 .pr-phases { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; }
 
 .phase-result {
   display: flex; gap: 4px; font-size: 11px;
-  background: rgba(255,255,255,0.04); border-radius: 6px; padding: 2px 8px;
+  background: #f7fafc; border-radius: 6px; padding: 2px 8px;
 }
 
-.phase-label { color: rgba(255,255,255,0.3); }
+.phase-label { color: #a0aec0; }
 
-.phase-pts { color: rgba(255,255,255,0.6); font-weight: 600; }
+.phase-pts { color: #4a5568; font-weight: 600; }
 
-.pr-total { font-size: 13px; font-weight: 700; color: rgba(79,195,247,0.9); white-space: nowrap; }
+.pr-total { font-size: 13px; font-weight: 700; color: #0288d1; white-space: nowrap; }
 </style>

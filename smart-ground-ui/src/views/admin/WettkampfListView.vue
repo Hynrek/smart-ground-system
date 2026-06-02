@@ -48,7 +48,7 @@
                   </template>
                 </div>
               </div>
-              <Icons icon="chevronRight" :size="14" color="rgba(255,255,255,0.2)" />
+              <Icons icon="chevronRight" :size="14" color="#cbd5e0" />
             </div>
             <div class="ec-actions" @click.stop>
               <button class="ec-delete-btn" @click="handleDelete(ev)">
@@ -130,7 +130,7 @@
                 </div>
               </div>
               <div class="ec-active-dot" />
-              <Icons icon="chevronRight" :size="14" color="rgba(255,255,255,0.2)" />
+              <Icons icon="chevronRight" :size="14" color="#cbd5e0" />
             </div>
           </div>
         </div>
@@ -157,7 +157,7 @@
                   <span class="ec-meta">{{ totalPlayers(ev) }} Schützen</span>
                 </div>
               </div>
-              <Icons icon="chevronRight" :size="14" color="rgba(255,255,255,0.2)" />
+              <Icons icon="chevronRight" :size="14" color="#cbd5e0" />
             </div>
           </div>
         </div>
@@ -194,9 +194,7 @@ const creating = ref(false)
 const newName = ref('')
 const selectedPassen = ref([])
 
-const availablePassen = computed(() =>
-  passeStore.savedTrainings.filter(t => t.type === 'competition')
-)
+const availablePassen = computed(() => passeStore.savedGlobalPassen)
 
 const isSelected = (id) => selectedPassen.value.some(p => p.id === id)
 
@@ -235,37 +233,36 @@ const unpaidCount = (ev) => ev.rotten.reduce((s, r) => s + r.players.filter(p =>
 </script>
 
 <style scoped>
-.list-view { display: flex; flex-direction: column; height: 100%; background: #1a1a2e; color: #fff; }
+.list-view { display: flex; flex-direction: column; height: 100%; }
 
 .view-header {
   display: flex; align-items: flex-start; justify-content: space-between;
-  padding: 24px 28px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
+  padding: 24px 28px 20px; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;
 }
 
-.view-title { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+.view-title { font-size: 22px; font-weight: 700; color: #1a1a2e; margin: 0 0 4px; }
 
-.view-subtitle { font-size: 13px; color: rgba(255,255,255,0.3); margin: 0; }
+.view-subtitle { font-size: 13px; color: #718096; margin: 0; }
 
 .tab-bar {
-  display: flex; gap: 8px; padding: 16px 28px;
-  border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
+  display: flex; gap: 0; padding: 0 28px;
+  border-bottom: 1px solid #e2e8f0; flex-shrink: 0;
 }
 
 .tab-btn {
   display: flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border-radius: 10px;
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.4); font-size: 13px; font-weight: 600; font-family: inherit;
+  padding: 12px 18px; background: transparent; border: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  color: #a0aec0; font-size: 13px; font-weight: 600; font-family: inherit;
   cursor: pointer; transition: all 0.15s;
 }
-.tab-btn.active {
-  background: rgba(79,195,247,0.15); border-color: rgba(79,195,247,0.35); color: #4fc3f7;
-}
-.tab-btn:hover:not(.active) { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.6); }
+.tab-btn.active { color: #1a1a2e; border-bottom-color: #4fc3f7; }
+.tab-btn:hover:not(.active) { color: #4a5568; }
 
 .tab-count {
   font-size: 10px; font-weight: 700;
-  background: rgba(255,255,255,0.1); border-radius: 10px; padding: 1px 6px;
+  background: rgba(79,195,247,0.12); color: #0288d1;
+  border-radius: 10px; padding: 1px 6px;
 }
 
 .content { flex: 1; overflow-y: auto; padding: 20px 28px 40px; display: flex; flex-direction: column; gap: 10px; }
@@ -273,26 +270,26 @@ const unpaidCount = (ev) => ev.rotten.reduce((s, r) => s + r.players.filter(p =>
 .event-list { display: flex; flex-direction: column; gap: 8px; }
 
 .event-card {
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px; padding: 14px 16px; cursor: pointer;
-  transition: border-color 0.15s; display: flex; flex-direction: column; gap: 8px;
+  background: #fff; border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07); padding: 14px 16px; cursor: pointer;
+  transition: box-shadow 0.15s; display: flex; flex-direction: column; gap: 8px;
 }
-.event-card:hover { border-color: rgba(79,195,247,0.25); }
-.event-card--active { border-color: rgba(246,173,85,0.2); }
+.event-card:hover { box-shadow: 0 3px 8px rgba(0,0,0,0.1); }
+.event-card--active { border-left: 3px solid #f6ad55; }
 
 .ec-main { display: flex; align-items: center; gap: 10px; }
 
 .ec-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 
-.ec-name { font-size: 15px; font-weight: 600; }
+.ec-name { font-size: 15px; font-weight: 600; color: #1a1a2e; }
 
 .ec-meta-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
-.ec-meta { font-size: 12px; color: rgba(255,255,255,0.3); }
-.ec-meta--warn { color: rgba(246,173,85,0.8); }
-.ec-dot { font-size: 12px; color: rgba(255,255,255,0.15); }
+.ec-meta { font-size: 12px; color: #a0aec0; }
+.ec-meta--warn { color: #dd6b20; }
+.ec-dot { font-size: 12px; color: #cbd5e0; }
 
-.ec-active-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(246,173,85,0.8); }
+.ec-active-dot { width: 8px; height: 8px; border-radius: 50%; background: #f6ad55; }
 
 .ec-actions { display: flex; justify-content: flex-end; }
 
@@ -301,59 +298,60 @@ const unpaidCount = (ev) => ev.rotten.reduce((s, r) => s + r.players.filter(p =>
   padding: 4px 8px; border-radius: 6px;
   display: flex; align-items: center; transition: background 0.15s;
 }
-.ec-delete-btn:hover { background: rgba(252,129,129,0.08); }
+.ec-delete-btn:hover { background: #fff5f5; }
 
 /* ── Create panel ── */
 .create-panel {
-  background: rgba(79,195,247,0.04); border: 1px solid rgba(79,195,247,0.2);
-  border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px;
+  background: #fff; border: 1px solid #bee3f8;
+  border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
-.create-title { font-size: 14px; font-weight: 700; color: rgba(79,195,247,0.9); }
+.create-title { font-size: 14px; font-weight: 700; color: #0288d1; }
 
 .create-field { display: flex; flex-direction: column; gap: 6px; }
 
 .create-label {
-  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3);
+  font-size: 11px; font-weight: 600; color: #718096;
   text-transform: uppercase; letter-spacing: 0.5px;
   display: flex; align-items: center; gap: 8px;
 }
 
 .create-count {
-  background: rgba(79,195,247,0.15); color: rgba(79,195,247,0.8);
+  background: rgba(79,195,247,0.12); color: #0288d1;
   border-radius: 12px; padding: 2px 8px; font-size: 10px; font-weight: 700; text-transform: none;
 }
 
 .create-input {
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px; color: #fff; font-size: 14px; font-family: inherit;
+  background: #f7fafc; border: 1px solid #e2e8f0;
+  border-radius: 10px; color: #1a1a2e; font-size: 14px; font-family: inherit;
   padding: 10px 12px; outline: none; transition: border-color 0.15s;
 }
-.create-input:focus { border-color: rgba(79,195,247,0.3); }
+.create-input:focus { border-color: #4fc3f7; }
 
-.create-hint { font-size: 12px; color: rgba(255,255,255,0.25); margin: 0; }
+.create-hint { font-size: 12px; color: #a0aec0; margin: 0; }
 
 .passen-picker { display: flex; flex-direction: column; gap: 6px; }
 
 .picker-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+  padding: 9px 12px; background: #f7fafc;
+  border: 1px solid #e2e8f0; border-radius: 10px;
   cursor: pointer; transition: all 0.15s;
 }
-.picker-item.selected { background: rgba(79,195,247,0.08); border-color: rgba(79,195,247,0.3); }
+.picker-item.selected { background: rgba(79,195,247,0.08); border-color: #4fc3f7; }
 
 .picker-check {
   width: 22px; height: 22px; border-radius: 50%;
-  background: rgba(79,195,247,0.15);
+  background: rgba(79,195,247,0.12);
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; color: rgba(79,195,247,0.9); flex-shrink: 0;
+  font-size: 12px; font-weight: 700; color: #0288d1; flex-shrink: 0;
 }
 
-.picker-name { font-size: 13px; color: rgba(255,255,255,0.8); flex: 1; }
+.picker-name { font-size: 13px; color: #2d3748; flex: 1; }
 
 .create-actions {
-  display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid rgba(79,195,247,0.15);
+  display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0;
 }
 
 .action-btn {
@@ -362,23 +360,23 @@ const unpaidCount = (ev) => ev.rotten.reduce((s, r) => s + r.players.filter(p =>
   cursor: pointer; border: 1px solid transparent; transition: background 0.15s;
 }
 .action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.action-btn--cancel { background: transparent; border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.4); }
-.action-btn--cancel:hover { background: rgba(255,255,255,0.05); }
-.action-btn--primary { background: rgba(79,195,247,0.2); border-color: rgba(79,195,247,0.4); color: #4fc3f7; }
-.action-btn--primary:hover:not(:disabled) { background: rgba(79,195,247,0.28); }
+.action-btn--cancel { background: transparent; border-color: #e2e8f0; color: #718096; }
+.action-btn--cancel:hover { background: #f7fafc; }
+.action-btn--primary { background: rgba(79,195,247,0.12); border-color: #4fc3f7; color: #0288d1; }
+.action-btn--primary:hover:not(:disabled) { background: rgba(79,195,247,0.2); }
 
 .new-btn {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   padding: 13px; background: transparent;
-  border: 1.5px dashed rgba(79,195,247,0.25); border-radius: 14px;
-  color: rgba(79,195,247,0.6); font-size: 14px; font-weight: 600; font-family: inherit;
+  border: 1.5px dashed #bee3f8; border-radius: 12px;
+  color: #0288d1; font-size: 14px; font-weight: 600; font-family: inherit;
   cursor: pointer; transition: all 0.15s;
 }
-.new-btn:hover { background: rgba(79,195,247,0.06); border-color: rgba(79,195,247,0.4); color: rgba(79,195,247,0.9); }
+.new-btn:hover { background: rgba(79,195,247,0.06); border-color: #4fc3f7; }
 
 .empty-state {
   padding: 32px; text-align: center; display: flex; flex-direction: column; gap: 6px;
 }
-.empty-state p { font-size: 14px; color: rgba(255,255,255,0.2); margin: 0; }
-.empty-hint { font-size: 12px !important; color: rgba(255,255,255,0.12) !important; }
+.empty-state p { font-size: 14px; color: #a0aec0; margin: 0; }
+.empty-hint { font-size: 12px !important; color: #cbd5e0 !important; }
 </style>
