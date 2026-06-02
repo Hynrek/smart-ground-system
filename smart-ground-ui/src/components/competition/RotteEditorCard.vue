@@ -1,4 +1,3 @@
-<!-- src/components/competition/RotteEditorCard.vue -->
 <template>
   <div class="rotte-card">
     <div class="rotte-header">
@@ -17,13 +16,7 @@
     <div class="player-list">
       <div v-for="(player, idx) in rotte.players" :key="player.id" class="player-row">
         <span class="player-num">{{ idx + 1 }}.</span>
-        <input
-          class="player-name-input"
-          :value="player.displayName"
-          placeholder="Name..."
-          maxlength="40"
-          @input="emit('update-player-name', player.id, $event.target.value)"
-        />
+        <span class="player-name-locked">{{ player.displayName }}</span>
         <PaymentChip :paid="player.paid" @toggle="emit('toggle-paid', player.id)" />
         <button
           v-if="rotte.players.length > 1"
@@ -35,9 +28,22 @@
       </div>
     </div>
 
-    <button class="add-player-btn" @click="emit('add-player')">
-      + Schütze hinzufügen
-    </button>
+    <div class="add-section">
+      <button
+        class="add-player-btn"
+        :disabled="availableUsers.length === 0"
+        :title="availableUsers.length === 0 ? 'Alle Schützen bereits zugewiesen' : ''"
+        @click="showPicker = true"
+      >
+        + Schütze hinzufügen
+      </button>
+      <UserPickerDropdown
+        v-if="showPicker"
+        :users="availableUsers"
+        @select="onPickUser"
+        @close="showPicker = false"
+      />
+    </div>
   </div>
 </template>
 
@@ -45,27 +51,36 @@
 import { ref, computed, watch } from 'vue'
 import Icons from '@/components/Icons.vue'
 import PaymentChip from './PaymentChip.vue'
+import UserPickerDropdown from './UserPickerDropdown.vue'
 
 const props = defineProps({
   rotte: { type: Object, required: true },
+  availableUsers: { type: Array, required: true },
 })
 
-const emit = defineEmits(['rename', 'remove', 'add-player', 'remove-player', 'update-player-name', 'toggle-paid'])
+const emit = defineEmits(['rename', 'remove', 'add-player', 'remove-player', 'toggle-paid'])
 
 const localName = ref(props.rotte.name)
+const showPicker = ref(false)
 
 watch(() => props.rotte.name, (val) => { localName.value = val })
 
 const paidCount = computed(() => props.rotte.players.filter(p => p.paid).length)
+
+const onPickUser = (user) => {
+  emit('add-player', user)
+  showPicker.value = false
+}
 </script>
 
 <style scoped>
 .rotte-card {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: #fff;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
   padding: 14px 16px;
   display: flex; flex-direction: column; gap: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
 .rotte-header {
@@ -74,14 +89,14 @@ const paidCount = computed(() => props.rotte.players.filter(p => p.paid).length)
 
 .rotte-name-input {
   flex: 1; background: transparent;
-  border: none; border-bottom: 1px solid rgba(255,255,255,0.15);
-  color: #fff; font-size: 14px; font-weight: 700; font-family: inherit;
+  border: none; border-bottom: 1px solid #e2e8f0;
+  color: #1a1a2e; font-size: 14px; font-weight: 700; font-family: inherit;
   padding: 2px 4px; outline: none;
 }
-.rotte-name-input:focus { border-bottom-color: rgba(79,195,247,0.5); }
+.rotte-name-input:focus { border-bottom-color: #4fc3f7; }
 
 .payment-summary {
-  font-size: 11px; color: rgba(255,255,255,0.3); white-space: nowrap;
+  font-size: 11px; color: #a0aec0; white-space: nowrap;
 }
 
 .player-list { display: flex; flex-direction: column; gap: 6px; }
@@ -91,18 +106,17 @@ const paidCount = computed(() => props.rotte.players.filter(p => p.paid).length)
 }
 
 .player-num {
-  font-size: 12px; color: rgba(255,255,255,0.3); width: 20px; flex-shrink: 0;
+  font-size: 12px; color: #a0aec0; width: 20px; flex-shrink: 0;
 }
 
-.player-name-input {
+.player-name-locked {
   flex: 1;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
-  color: #fff; font-size: 13px; font-family: inherit;
-  padding: 6px 10px; outline: none;
+  color: #2d3748; font-size: 13px;
+  padding: 6px 10px;
 }
-.player-name-input:focus { border-color: rgba(79,195,247,0.3); }
 
 .icon-btn {
   background: none; border: none; cursor: pointer;
@@ -110,19 +124,27 @@ const paidCount = computed(() => props.rotte.players.filter(p => p.paid).length)
   display: flex; align-items: center; flex-shrink: 0;
   transition: background 0.15s;
 }
-.icon-btn:hover { background: rgba(255,255,255,0.07); }
+.icon-btn:hover { background: #fff5f5; }
+
+.add-section {
+  position: relative;
+}
 
 .add-player-btn {
+  width: 100%;
   background: transparent;
-  border: 1px dashed rgba(79,195,247,0.2);
+  border: 1px dashed #bee3f8;
   border-radius: 8px;
-  color: rgba(79,195,247,0.5);
+  color: #0288d1;
   font-size: 12px; font-family: inherit;
   padding: 7px; cursor: pointer; transition: all 0.15s;
 }
-.add-player-btn:hover {
-  background: rgba(79,195,247,0.05);
-  border-color: rgba(79,195,247,0.35);
-  color: rgba(79,195,247,0.8);
+.add-player-btn:hover:not(:disabled) {
+  background: rgba(79,195,247,0.06);
+  border-color: #4fc3f7;
+}
+.add-player-btn:disabled {
+  opacity: 0.35; cursor: not-allowed;
+  border-color: #e2e8f0; color: #a0aec0;
 }
 </style>
