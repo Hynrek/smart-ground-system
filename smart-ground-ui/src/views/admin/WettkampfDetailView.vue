@@ -180,7 +180,11 @@ const paidPlayers = computed(() =>
 )
 
 const assignedUserIds = computed(() =>
-  new Set((event.value?.rotten ?? []).flatMap(r => r.players.map(p => p.userId)))
+  new Set(
+    (event.value?.rotten ?? [])
+      .flatMap(r => r.players.map(p => p.userId))
+      .filter(Boolean)
+  )
 )
 
 const availableUsers = computed(() =>
@@ -224,7 +228,12 @@ const handleStop = () => {
 let completionInterval = null
 
 onMounted(async () => {
-  await userStore.loadUsers()
+  try {
+    await userStore.loadUsers()
+  } catch {
+    // Benutzer konnten nicht geladen werden; availableUsers bleibt leer.
+    // userStore.error wird für Banner-UI gesetzt.
+  }
   completionInterval = setInterval(() => {
     if (event.value?.status === 'ACTIVE') {
       store.checkAndCompleteEvent(eventId.value)
