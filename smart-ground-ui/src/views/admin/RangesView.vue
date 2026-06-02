@@ -193,10 +193,10 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { useRangeStore } from '../stores/rangeStore.js';
-import { useDeviceStore } from '../stores/deviceStore.js';
-import Button from '../components/Button.vue';
-import Icons from '../components/Icons.vue';
+import { useRangeStore } from '@/stores/rangeStore.js';
+import { useDeviceStore } from '@/stores/deviceStore.js';
+import Button from '@/components/Button.vue';
+import Icons from '@/components/Icons.vue';
 
 const router = useRouter();
 const rangeStore = useRangeStore();

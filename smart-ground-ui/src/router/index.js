@@ -1,21 +1,21 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import RangesView from '@/views/RangesView.vue';
-import RangeDetailView from '@/views/RangeDetailView.vue';
-import SmartBoxesView from '@/views/SmartBoxesView.vue';
-import FirmwareConfigsView from '@/views/FirmwareConfigsView.vue';
-import UsersView from '@/views/UsersView.vue';
-import ProfileView from '@/views/ProfileView.vue';
 import LoginView from '@/views/LoginView.vue';
+import RangesView from '@/views/admin/RangesView.vue';
+import RangeDetailView from '@/views/admin/RangeDetailView.vue';
+import SmartBoxesView from '@/views/admin/SmartBoxesView.vue';
+import FirmwareConfigsView from '@/views/admin/FirmwareConfigsView.vue';
+import UsersView from '@/views/admin/UsersView.vue';
+import ProfileView from '@/views/admin/ProfileView.vue';
+import PassenAdminView from '@/views/admin/PassenAdminView.vue';
+import PlayerSetupView from '@/views/admin/PlayerSetupView.vue';
+import WettkampfListView from '@/views/admin/WettkampfListView.vue';
+import WettkampfDetailView from '@/views/admin/WettkampfDetailView.vue';
 import ShooterHomeView from '@/views/shooter/ShooterHomeView.vue';
 import ShooterRangeSelectView from '@/views/shooter/ShooterRangeSelectView.vue';
 import ShooterRemoteView from '@/views/shooter/ShooterRemoteView.vue';
 import ShooterPlayPage from '@/views/shooter/ShooterPlayPage.vue';
-import CompetitionLiveView from '@/views/competition/CompetitionLiveView.vue';
+import CompetitionLiveView from '@/views/shooter/CompetitionLiveView.vue';
 import PasseManagementView from '@/views/shooter/PasseManagementView.vue';
-import PassenAdminView from '@/views/PassenAdminView.vue';
-import PlayerSetupView from '@/views/PlayerSetupView.vue';
-import WettkampfListView from '@/views/admin/WettkampfListView.vue';
-import WettkampfDetailView from '@/views/admin/WettkampfDetailView.vue';
 import { useAuthStore } from '@/stores/authStore';
 
 const routes = [

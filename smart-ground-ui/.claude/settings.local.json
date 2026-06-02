@@ -44,7 +44,24 @@
       "Bash(cd \"/mnt/c/Users/hynre/IdeaProjects/Smart Ground/smart-ground-ui\" && npm run test -- src/components/__tests__/GlobalPasseDrawer.test.js 2>&1 | tail -100)",
       "Bash(npm test *)",
       "Bash(npx vitest *)",
-      "Bash(git worktree *)"
+      "Bash(git worktree *)",
+      "Bash(./mvnw test *)",
+      "Bash(./mvnw.cmd test *)",
+      "PowerShell($mvnw = \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\\\\mvnw.cmd\"; & $mvnw test \"-Dtest=RoleControllerTest\" -q 2>&1 | Select-Object -Last 20)",
+      "PowerShell(cmd /c \"cd /d \"\"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\"\" && mvnw.cmd test -Dtest=RoleControllerTest -q\" 2>&1)",
+      "Bash(mvn test *)",
+      "Bash(mvn dependency:resolve -f \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\\\\pom.xml\")",
+      "Bash(mvn dependency:resolve -f \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\\\\pom.xml\" -Dclassifier=sources)",
+      "Bash(git stash *)",
+      "Bash(git checkout *)",
+      "Bash(git rev-parse *)",
+      "Bash(git merge-base *)",
+      "Bash(grep -n \"competition/\\\\|/passen\\\\|/player-setup\\\\|career-stats\\\\|/wettkampf\\\\|/meine-passen\" components/Sidebar.vue App.vue)",
+      "Bash(grep -v \"stores/\\\\|__tests__\")",
+      "Bash(xargs grep -l \"bracketStore\\\\|bracketService\\\\|competitionStore\\\\|competitionService\\\\|BracketVisualizer\\\\|CompetitionBracketView\\\\|CompetitionSetupView\\\\|CompetitionTemplate\\\\|CareerStats\\\\|CompetitionLeaderboard\\\\|RangeListView\\\\|SmartBoxListView\\\\|SmartBoxDetailView\\\\|DeviceTypesView\\\\|DeviceTypeView\\\\|ShooterProfileView\\\\|ShooterPlayOverlay\")",
+      "Bash(grep -n \"competition/\\\\|NoAccessView\" router/index.js)",
+      "Bash(sed -i \"s|from '\\\\.\\\\./PassenAdminView\\\\.vue'|from '@/views/admin/PassenAdminView.vue'|g\" PassenAdminView.test.js)",
+      "Bash(sed -i \"s|from '\\\\.\\\\./UsersView\\\\.vue'|from '@/views/admin/UsersView.vue'|g\" UsersView.test.js)"
     ]
   }
 }

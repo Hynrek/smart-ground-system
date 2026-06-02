@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
-import PassenAdminView from '../PassenAdminView.vue'
+import PassenAdminView from '@/views/admin/PassenAdminView.vue'
 
 const routes = [{ path: '/', component: { template: '<div />' } }]
 

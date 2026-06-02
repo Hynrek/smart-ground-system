@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { useDeviceTypeStore } from '../stores/deviceTypeStore.js'
-import { registerFirmwareConfig } from '../services/deviceTypeApi.js'
+import { useDeviceTypeStore } from '@/stores/deviceTypeStore.js'
+import { registerFirmwareConfig } from '@/services/deviceTypeApi.js'
 
 const deviceTypeStore = useDeviceTypeStore()
 

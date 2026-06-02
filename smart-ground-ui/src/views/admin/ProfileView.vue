@@ -87,7 +87,7 @@
 
 <script setup>
 import { onMounted, ref, computed } from 'vue'
-import { useUserStore } from '../stores/userStore.js'
+import { useUserStore } from '@/stores/userStore.js'
 
 const userStore = useUserStore()
 const passwordForm = ref({

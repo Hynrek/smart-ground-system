@@ -165,18 +165,18 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useRangeStore } from '../stores/rangeStore.js';
-import { useDeviceStore } from '../stores/deviceStore.js';
-import { useSmartBoxStore } from '../stores/smartBoxStore.js';
-import { useReservationStore } from '../stores/reservationStore.js';
-import { useUserStore } from '../stores/userStore.js';
-import Breadcrumb from '../components/Breadcrumb.vue';
-import UserSearchModal from '../components/UserSearchModal.vue';
-import Badge from '../components/Badge.vue';
-import Button from '../components/Button.vue';
-import Icons from '../components/Icons.vue';
-import TypeChip from '../components/TypeChip.vue';
-import PositionCard from '../components/PositionCard.vue';
+import { useRangeStore } from '@/stores/rangeStore.js';
+import { useDeviceStore } from '@/stores/deviceStore.js';
+import { useSmartBoxStore } from '@/stores/smartBoxStore.js';
+import { useReservationStore } from '@/stores/reservationStore.js';
+import { useUserStore } from '@/stores/userStore.js';
+import Breadcrumb from '@/components/Breadcrumb.vue';
+import UserSearchModal from '@/components/UserSearchModal.vue';
+import Badge from '@/components/Badge.vue';
+import Button from '@/components/Button.vue';
+import Icons from '@/components/Icons.vue';
+import TypeChip from '@/components/TypeChip.vue';
+import PositionCard from '@/components/PositionCard.vue';
 
 const props = defineProps({ id: { type: String, required: true } });
 

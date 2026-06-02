@@ -1,0 +1,81 @@
+<h2>Wie soll die Benutzerübersicht aufgebaut sein?</h2>
+<p class="subtitle">Die aktuelle Karten-Ansicht zeigt nur Name + E-Mail. Mit den vielen neuen Feldern brauchen wir ein neues Layout.</p>
+
+<div class="cards">
+  <div class="card" data-choice="table" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding:1rem;font-size:0.8rem;">
+        <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 0.8fr;gap:0.5rem;background:#f0f0f0;padding:0.5rem;border-radius:4px;font-weight:600;color:#555;">
+          <span>Name</span><span>E-Mail</span><span>Mitgliedsnr.</span><span>Status</span><span>Aktionen</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 0.8fr;gap:0.5rem;padding:0.5rem;border-bottom:1px solid #eee;">
+          <span>Hans Müller</span><span style="color:#888;font-size:0.75rem;">hans@mail.ch</span><span>SG-0042</span><span><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:10px;font-size:0.75rem;">Aktiv</span></span><span>✏️ 🗑️</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 0.8fr;gap:0.5rem;padding:0.5rem;border-bottom:1px solid #eee;background:#fafafa;">
+          <span>Anna Schmidt</span><span style="color:#888;font-size:0.75rem;">anna@mail.ch</span><span>SG-0043</span><span><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:10px;font-size:0.75rem;">Aktiv</span></span><span>✏️ 🗑️</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 0.8fr;gap:0.5rem;padding:0.5rem;">
+          <span>Peter Keller</span><span style="color:#888;font-size:0.75rem;">peter@mail.ch</span><span>—</span><span><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:0.75rem;">Inaktiv</span></span><span>✏️ 🗑️</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Tabelle</h3>
+      <p>Kompakte Listenansicht. Viele Benutzer auf einen Blick. Bearbeiten öffnet ein Modal oder eine Detailseite.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="cards" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding:1rem;display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;font-size:0.8rem;">
+        <div style="border:1px solid #e5e7eb;border-radius:6px;padding:0.75rem;">
+          <div style="font-weight:600;margin-bottom:0.25rem;">Hans Müller</div>
+          <div style="color:#6b7280;font-size:0.75rem;">hans@mail.ch</div>
+          <div style="color:#6b7280;font-size:0.75rem;">SG-0042 · Schütze</div>
+          <div style="margin-top:0.5rem;display:flex;gap:0.5rem;font-size:0.7rem;">
+            <span style="background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:8px;">Aktiv</span>
+            <span style="background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:8px;">Lizenz OK</span>
+          </div>
+        </div>
+        <div style="border:1px solid #e5e7eb;border-radius:6px;padding:0.75rem;">
+          <div style="font-weight:600;margin-bottom:0.25rem;">Anna Schmidt</div>
+          <div style="color:#6b7280;font-size:0.75rem;">anna@mail.ch</div>
+          <div style="color:#6b7280;font-size:0.75rem;">SG-0043 · Schütze</div>
+          <div style="margin-top:0.5rem;display:flex;gap:0.5rem;font-size:0.7rem;">
+            <span style="background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:8px;">Aktiv</span>
+            <span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:8px;">Lizenz läuft ab</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Karten</h3>
+      <p>Ähnlich wie heute, aber mit mehr Infos pro Karte (Status-Badges, Mitgliedsnummer, Lizenzstatus). Übersichtlicher bei wenigen Benutzern.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="master-detail" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding:1rem;display:flex;gap:0.75rem;font-size:0.8rem;">
+        <div style="width:40%;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">
+          <div style="background:#3b82f6;color:white;padding:0.4rem 0.75rem;font-size:0.75rem;font-weight:600;">Benutzer</div>
+          <div style="padding:0.4rem 0.75rem;background:#eff6ff;border-left:2px solid #3b82f6;">Hans Müller</div>
+          <div style="padding:0.4rem 0.75rem;">Anna Schmidt</div>
+          <div style="padding:0.4rem 0.75rem;color:#9ca3af;">Peter Keller</div>
+        </div>
+        <div style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:0.75rem;">
+          <div style="font-weight:600;margin-bottom:0.4rem;">Hans Müller</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.2rem;font-size:0.72rem;color:#6b7280;">
+            <span>hans@mail.ch</span><span>SG-0042</span>
+            <span>+41 79 123 45 67</span><span>Hauptstr. 1, Bern</span>
+            <span>Lizenz: SL-999</span><span>Ablauf: 31.12.2025</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Master-Detail</h3>
+      <p>Liste links, Detailbereich rechts. Sofortiger Zugriff auf alle Felder ohne Seitenwechsel. Gut für Desktop-Admins.</p>
+    </div>
+  </div>
+</div>

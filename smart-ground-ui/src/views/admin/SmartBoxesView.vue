@@ -94,15 +94,15 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { useSmartBoxStore } from '../stores/smartBoxStore.js';
-import { useDeviceStore } from '../stores/deviceStore.js';
-import { useDeviceTypeStore } from '../stores/deviceTypeStore.js';
-import * as deviceApi from '../services/deviceApi.js';
-import Button from '../components/Button.vue';
-import Icons from '../components/Icons.vue';
-import SmartBoxCard from '../components/SmartBoxCard.vue';
-import DeviceTypeGroupsPanel from '../components/DeviceTypeGroupsPanel.vue';
-import { useUrlTab } from '../composables/useUrlTab.js';
+import { useSmartBoxStore } from '@/stores/smartBoxStore.js';
+import { useDeviceStore } from '@/stores/deviceStore.js';
+import { useDeviceTypeStore } from '@/stores/deviceTypeStore.js';
+import * as deviceApi from '@/services/deviceApi.js';
+import Button from '@/components/Button.vue';
+import Icons from '@/components/Icons.vue';
+import SmartBoxCard from '@/components/SmartBoxCard.vue';
+import DeviceTypeGroupsPanel from '@/components/DeviceTypeGroupsPanel.vue';
+import { useUrlTab } from '@/composables/useUrlTab.js';
 
 const smartBoxStore = useSmartBoxStore();
 const deviceStore = useDeviceStore();
