@@ -10,6 +10,7 @@
         v-for="item in navItems"
         :key="item.id"
         :class="{ active: activeNav === item.id }"
+        :aria-current="activeNav === item.id ? 'page' : undefined"
         class="nav-item"
         @click="handleNavClick(item.id)"
       >
@@ -87,7 +88,7 @@ const handleLogout = () => {
 <style scoped>
 .sidebar {
   width: 210px;
-  background: #1a1a2e;
+  background: var(--sg-brand);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -136,26 +137,26 @@ const handleLogout = () => {
 }
 
 .nav-item:hover {
-  background: rgba(79, 195, 247, 0.08);
+  background: var(--sg-accent-subtle);
 }
 
 .nav-item.active {
-  background: rgba(79, 195, 247, 0.12);
-  border-left-color: #4fc3f7;
+  background: var(--sg-accent-tint);
+  border-left-color: var(--sg-accent);
 }
 
 .nav-icon {
-  color: #718096;
+  color: var(--sg-text-faint);
   transition: color 0.15s;
 }
 
 .nav-item.active .nav-icon {
-  color: #4fc3f7;
+  color: var(--sg-accent);
 }
 
 .nav-label {
   font-size: 13.5px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   font-weight: 400;
   transition: all 0.15s;
 }
@@ -188,13 +189,13 @@ const handleLogout = () => {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #4fc3f7;
+  background: var(--sg-accent);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--sg-brand);
   flex-shrink: 0;
 }
 
@@ -211,7 +212,7 @@ const handleLogout = () => {
 
 .user-email {
   font-size: 11px;
-  color: #718096;
+  color: var(--sg-text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -221,11 +222,11 @@ const handleLogout = () => {
   margin-top: 10px;
   width: 100%;
   padding: 8px;
-  background: rgba(244, 67, 54, 0.1);
-  border: 1px solid rgba(244, 67, 54, 0.3);
+  background: var(--sg-danger-subtle);
+  border: 1px solid var(--sg-color-danger-bg);
   border-radius: 4px;
   cursor: pointer;
-  color: #f44336;
+  color: var(--sg-color-danger);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -233,8 +234,8 @@ const handleLogout = () => {
 }
 
 .logout-btn:hover {
-  background: rgba(244, 67, 54, 0.2);
-  border-color: rgba(244, 67, 54, 0.5);
+  background: var(--sg-color-danger-bg);
+  border-color: var(--sg-color-danger);
 }
 
 /* Mobile: Icon-only mode */
@@ -265,12 +266,12 @@ const handleLogout = () => {
   }
 
   .nav-item:hover {
-    background: rgba(79, 195, 247, 0.08);
+    background: var(--sg-accent-subtle);
   }
 
   .nav-item.active {
-    background: rgba(79, 195, 247, 0.12);
-    border-top-color: #4fc3f7;
+    background: var(--sg-accent-tint);
+    border-top-color: var(--sg-accent);
   }
 
   .nav-label {
