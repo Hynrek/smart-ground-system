@@ -1,7 +1,6 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.dto.SessionLeaderboardResponse;
-import ch.jp.shooting.dto.ScoreboardResponse;
 import ch.jp.shooting.model.BracketPhase;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -46,15 +45,6 @@ public class SessionWebSocketService {
     public void publishLeaderboardUpdate(UUID sessionId, SessionLeaderboardResponse leaderboard) {
         String destination = "/topic/sessions/" + sessionId + "/leaderboard";
         messagingTemplate.convertAndSend(destination, leaderboard);
-    }
-
-    /**
-     * Sendet ein Scoreboard-Update (Punkte-Änderungen) an alle Tablets.
-     * Ziel: /topic/sessions/{sessionId}/scoreboard
-     */
-    public void publishScoreboardUpdate(UUID sessionId, ScoreboardResponse scoreboard) {
-        String destination = "/topic/sessions/" + sessionId + "/scoreboard";
-        messagingTemplate.convertAndSend(destination, scoreboard);
     }
 
     /**

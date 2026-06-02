@@ -115,13 +115,6 @@ public class GlobalExceptionHandler {
         return detail;
     }
 
-    @ExceptionHandler(CorrectionAuthorizationException.class)
-    ProblemDetail handleCorrectionUnauthorized(CorrectionAuthorizationException ex) {
-        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
-        detail.setType(URI.create("/errors/correction-unauthorized"));
-        return detail;
-    }
-
     // ── Authentication Exceptions ──
 
     @ExceptionHandler(AuthenticationException.class)
