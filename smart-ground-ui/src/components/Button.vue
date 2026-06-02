@@ -1,5 +1,12 @@
 <template>
-  <button class="btn" :class="`btn-${variant} btn-${size}`" :disabled="disabled" @click="$emit('click')">
+  <button
+    class="btn"
+    :class="`btn-${variant} btn-${size}`"
+    :disabled="disabled"
+    :aria-disabled="disabled || undefined"
+    :aria-label="ariaLabel || undefined"
+    @click="$emit('click')"
+  >
     <span v-if="icon" class="btn-icon" v-html="icon"></span>
     <slot />
   </button>
@@ -19,6 +26,7 @@ defineProps({
   },
   icon: String,
   disabled: Boolean,
+  ariaLabel: String,
 });
 
 defineEmits(['click']);
@@ -34,7 +42,7 @@ defineEmits(['click']);
   font-family: inherit;
   font-weight: 500;
   transition: all 0.15s;
-  border-radius: 7px;
+  border-radius: var(--sg-radius-btn);
 }
 
 .btn:disabled {
@@ -44,12 +52,12 @@ defineEmits(['click']);
 
 .btn-sm {
   padding: 5px 11px;
-  font-size: 12px;
+  font-size: var(--sg-text-xs);
 }
 
 .btn-md {
   padding: 8px 16px;
-  font-size: 13px;
+  font-size: var(--sg-text-sm);
 }
 
 .btn-icon-only {
@@ -60,32 +68,32 @@ defineEmits(['click']);
 }
 
 .btn-primary {
-  background: #1a1a2e;
-  color: #fff;
+  background: var(--sg-brand);
+  color: var(--sg-bg-card);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #0f0f1a;
+  background: var(--sg-accent);
 }
 
 .btn-ghost {
   background: transparent;
-  border: 1px solid #e2e8f0;
-  color: #4a5568;
+  border: 1px solid var(--sg-border);
+  color: var(--sg-text-muted);
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: #f9fafb;
+  background: var(--sg-bg-panel);
 }
 
 .btn-danger {
   background: transparent;
-  border: 1px solid #fca5a5;
-  color: #e05252;
+  border: 1px solid var(--sg-color-danger-bg);
+  color: var(--sg-color-danger);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #fde0e0;
+  background: var(--sg-color-danger-bg);
 }
 
 .btn-icon {
