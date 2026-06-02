@@ -35,14 +35,6 @@
         <span class="tile-desc">Serien & Trainings</span>
       </button>
 
-      <button class="app-tile app-tile--available" @click="router.push('/training')">
-        <div class="tile-icon-wrap tile-icon-wrap--teal">
-          <Icons icon="program" :size="36" color="#4fd1c5" />
-        </div>
-        <span class="tile-label">Training</span>
-        <span class="tile-desc">Strukturierte Einheiten</span>
-      </button>
-
       <button class="app-tile app-tile--available" @click="router.push('/wettkampf')">
         <div class="tile-icon-wrap tile-icon-wrap--green">
           <Icons icon="target" :size="36" color="#48bb78" />
@@ -224,10 +216,6 @@ const handleLogout = () => {
 
 .tile-icon-wrap--orange {
   background: rgba(246, 173, 85, 0.15);
-}
-
-.tile-icon-wrap--teal {
-  background: rgba(79, 209, 197, 0.15);
 }
 
 .tile-icon-wrap--muted {

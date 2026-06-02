@@ -8,6 +8,7 @@ export const useAuthStore = defineStore('auth', () => {
   const permissions = ref([]);
   const isLoading = ref(false);
   const error = ref(null);
+  const ready = ref(false);
 
   const displayName = computed(() => {
     if (!profile.value) return null;
@@ -45,8 +46,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
+  let _readyResolve;
+  const readyPromise = new Promise((resolve) => { _readyResolve = resolve; });
+
   const init = async () => {
-    if (!token.value) return;
+    if (!token.value) { ready.value = true; _readyResolve(); return; }
     try {
       await _loadProfile();
     } catch {
@@ -54,6 +58,9 @@ export const useAuthStore = defineStore('auth', () => {
       profile.value = null;
       permissions.value = [];
       localStorage.removeItem('sg_token');
+    } finally {
+      ready.value = true;
+      _readyResolve();
     }
   };
 
@@ -84,6 +91,8 @@ export const useAuthStore = defineStore('auth', () => {
     displayName,
     isLoading,
     error,
+    ready,
+    readyPromise,
     isAuthenticated,
     hasPermission,
     login,

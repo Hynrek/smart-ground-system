@@ -50,7 +50,7 @@ const authStore = useAuthStore();
 const allNavItems = [
   { id: 'ranges', label: 'Plätze', icon: 'target', requiredPermission: 'MANAGE_RANGES' },
   { id: 'smartboxes', label: 'SmartBoxen', icon: 'wifi', requiredPermission: 'MANAGE_RANGES' },
-  { id: 'competition', label: 'Wettkampf', icon: 'award', requiredPermission: 'MANAGE_COMPETITIONS' },
+  { id: 'competition', path: '/admin/wettkampf', label: 'Wettkampf', icon: 'award', requiredPermission: 'MANAGE_COMPETITIONS' },
   { id: 'passen', label: 'Passen', icon: 'program', requiredPermission: 'MANAGE_PASSE_TEMPLATES' },
   { id: 'users', label: 'Benutzer', icon: 'user', requiredPermission: 'MANAGE_USERS' },
   { id: 'profile', label: 'Profil', icon: 'user' },
@@ -74,7 +74,8 @@ const userAvatarLetter = computed(() => {
 });
 
 const handleNavClick = (itemId) => {
-  router.push(`/${itemId}`);
+  const item = allNavItems.find(i => i.id === itemId);
+  router.push(item?.path ?? `/${itemId}`);
 };
 
 const handleLogout = () => {
