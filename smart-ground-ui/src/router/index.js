@@ -10,14 +10,9 @@ import ShooterHomeView from '@/views/shooter/ShooterHomeView.vue';
 import ShooterRangeSelectView from '@/views/shooter/ShooterRangeSelectView.vue';
 import ShooterRemoteView from '@/views/shooter/ShooterRemoteView.vue';
 import ShooterPlayPage from '@/views/shooter/ShooterPlayPage.vue';
-import CompetitionTemplateListView from '@/views/competition/CompetitionTemplateListView.vue';
-import CompetitionSetupView from '@/views/competition/CompetitionSetupView.vue';
 import CompetitionLiveView from '@/views/competition/CompetitionLiveView.vue';
-import CompetitionLeaderboardView from '@/views/competition/CompetitionLeaderboardView.vue';
-import CareerStatsView from '@/views/competition/CareerStatsView.vue';
 import PasseManagementView from '@/views/shooter/PasseManagementView.vue';
 import PassenAdminView from '@/views/PassenAdminView.vue';
-import CompetitionBracketView from '@/views/CompetitionBracketView.vue';
 import PlayerSetupView from '@/views/PlayerSetupView.vue';
 import WettkampfListView from '@/views/admin/WettkampfListView.vue';
 import WettkampfDetailView from '@/views/admin/WettkampfDetailView.vue';
@@ -36,9 +31,6 @@ const routes = [
   { path: '/users',                component: UsersView,                    meta: { layout: 'admin', permission: 'MANAGE_USERS' } },
   { path: '/profile',              component: ProfileView,                  meta: { layout: 'admin' } },
   { path: '/player-setup',         component: PlayerSetupView,              meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
-{ path: '/competition/templates', component: CompetitionTemplateListView, meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
-  { path: '/competition/setup',    component: CompetitionSetupView,         meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
-  { path: '/competition/bracket',  component: CompetitionBracketView,       meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/admin/wettkampf',       component: WettkampfListView,            meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/admin/wettkampf/:id',   component: WettkampfDetailView, props: true, meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/passen',               component: PassenAdminView,              meta: { layout: 'admin', permission: 'MANAGE_PASSE_TEMPLATES' } },
@@ -49,9 +41,7 @@ const routes = [
   { path: '/remote/:rangeId',      component: ShooterRemoteView, props: true, meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },
   { path: '/remote/:rangeId/play', component: ShooterPlayPage,  props: true, meta: { layout: 'shooter', permission: 'PLAY_SERIES' } },
   { path: '/competition/live',     component: CompetitionLiveView,          meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
-  { path: '/wettkampf/live/:instanceId', component: () => import('@/views/competition/CompetitionLiveView.vue'), props: true, meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
-  { path: '/competition/leaderboard', component: CompetitionLeaderboardView, meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },
-  { path: '/career-stats',         component: CareerStatsView,              meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },
+  { path: '/wettkampf/live/:instanceId', component: CompetitionLiveView, props: true, meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
   { path: '/meine-passen',         component: PasseManagementView,          meta: { layout: 'shooter', permission: 'PLAY_SERIES' } },
   { path: '/wettkampf',            component: () => import('@/views/shooter/CompetitionManagementView.vue'), meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
 ];
