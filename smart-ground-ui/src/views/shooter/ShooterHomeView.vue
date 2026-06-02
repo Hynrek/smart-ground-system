@@ -100,8 +100,8 @@ const handleLogout = () => {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: rgba(79, 195, 247, 0.2);
-  border: 1px solid rgba(79, 195, 247, 0.35);
+  background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 35%, transparent);
   color: var(--sg-accent);
   font-size: 13px;
   font-weight: 700;
@@ -203,7 +203,7 @@ const handleLogout = () => {
 }
 
 .tile-icon-wrap--cyan {
-  background: rgba(79, 195, 247, 0.15);
+  background: var(--sg-accent-tint);
 }
 
 .tile-icon-wrap--green {

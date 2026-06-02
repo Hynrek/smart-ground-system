@@ -231,7 +231,7 @@
               :disabled="selectedSerieIds.size === 0"
               @click="confirmCreatePasse"
             >
-              <Icons icon="check" :size="13" color="#fff" />
+              <Icons icon="check" :size="13" />
               Erstellen
             </button>
           </div>
@@ -244,7 +244,7 @@
           :disabled="passeStore.savedSerien.length === 0"
           @click="startCreatePasse"
         >
-          <Icons icon="plus" :size="16" color="rgba(79,195,247,0.8)" />
+          <Icons icon="plus" :size="16" color="var(--sg-accent-subtle)" />
           Neue Passe
         </button>
       </section>
@@ -339,7 +339,7 @@
                   </div>
                   <div v-else class="seg-check">
                     <div class="check-circle" :class="{ active: selectedSerieIds.has(seg.id) }">
-                      <Icons v-if="selectedSerieIds.has(seg.id)" icon="check" :size="11" color="#fff" />
+                      <Icons v-if="selectedSerieIds.has(seg.id)" icon="check" :size="11" />
                     </div>
                   </div>
                 </div>
@@ -949,9 +949,9 @@ const confirmRenameSession = (sessionId) => {
 .ownership-chip {
   font-size: 10px;
   font-weight: 700;
-  color: rgba(79, 195, 247, 0.8);
-  background: rgba(79, 195, 247, 0.1);
-  border: 1px solid rgba(79, 195, 247, 0.2);
+  color: var(--sg-accent-subtle);
+  background: var(--sg-accent-tint);
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 20%, transparent);
   border-radius: 20px;
   padding: 1px 6px;
   flex-shrink: 0;
@@ -1004,7 +1004,7 @@ const confirmRenameSession = (sessionId) => {
 
 .segment-card.is-selected {
   background: var(--sg-accent-subtle);
-  border-color: rgba(79, 195, 247, 0.4);
+  border-color: color-mix(in srgb, var(--sg-accent) 40%, transparent);
 }
 
 .seg-main {
@@ -1073,7 +1073,7 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .check-circle.active {
-  background: rgba(79, 195, 247, 0.8);
+  background: var(--sg-accent-subtle);
   border-color: var(--sg-accent);
 }
 
@@ -1091,7 +1091,7 @@ const confirmRenameSession = (sessionId) => {
   background: rgba(255, 255, 255, 0.15);
 }
 
-.step-dot.dot-solo { background: rgba(79, 195, 247, 0.5); }
+.step-dot.dot-solo { background: color-mix(in srgb, var(--sg-accent) 50%, transparent); }
 .step-dot.dot-pair { background: rgba(72, 187, 120, 0.5); }
 .step-dot.dot-a_schuss { background: rgba(246, 173, 85, 0.5); }
 .step-dot.dot-raffale { background: rgba(168, 85, 247, 0.5); }
@@ -1105,7 +1105,7 @@ const confirmRenameSession = (sessionId) => {
 .rename-input {
   width: 100%;
   background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(79, 195, 247, 0.4);
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 40%, transparent);
   border-radius: 8px;
   color: #fff;
   font-size: 14px;
@@ -1153,7 +1153,7 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .program-card.expanded {
-  border-color: rgba(79, 195, 247, 0.25);
+  border-color: color-mix(in srgb, var(--sg-accent) 25%, transparent);
 }
 
 .prog-main {
@@ -1257,7 +1257,7 @@ const confirmRenameSession = (sessionId) => {
 
 .prog-seg-chip--selected {
   background: var(--sg-accent-tint);
-  border-color: rgba(79, 195, 247, 0.3);
+  border-color: color-mix(in srgb, var(--sg-accent) 30%, transparent);
   color: var(--sg-accent);
 }
 
@@ -1267,7 +1267,7 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .prog-seg-chip--selected .chip-throws {
-  color: rgba(79, 195, 247, 0.5);
+  color: color-mix(in srgb, var(--sg-accent) 50%, transparent);
 }
 
 .chip-remove {
@@ -1312,12 +1312,12 @@ const confirmRenameSession = (sessionId) => {
 
 .action-btn--start {
   background: var(--sg-accent-tint);
-  border-color: rgba(79, 195, 247, 0.3);
+  border-color: color-mix(in srgb, var(--sg-accent) 30%, transparent);
   color: var(--sg-accent);
 }
 
 .action-btn--start:hover:not(:disabled) {
-  background: rgba(79, 195, 247, 0.2);
+  background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
 }
 
 .action-btn--danger {
@@ -1341,13 +1341,13 @@ const confirmRenameSession = (sessionId) => {
 .action-btn--cancel:hover { background: rgba(255, 255, 255, 0.05); }
 
 .action-btn--create {
-  background: rgba(79, 195, 247, 0.2);
-  border-color: rgba(79, 195, 247, 0.4);
+  background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
+  border-color: color-mix(in srgb, var(--sg-accent) 40%, transparent);
   color: var(--sg-accent);
 }
 
 .action-btn--create:hover:not(:disabled) {
-  background: rgba(79, 195, 247, 0.28);
+  background: color-mix(in srgb, var(--sg-accent) 28%, transparent);
 }
 
 /* ── New passe button ────────────────────────────── */
@@ -1359,9 +1359,9 @@ const confirmRenameSession = (sessionId) => {
   gap: 8px;
   padding: 13px;
   background: transparent;
-  border: 1.5px dashed rgba(79, 195, 247, 0.25);
+  border: 1.5px dashed color-mix(in srgb, var(--sg-accent) 25%, transparent);
   border-radius: 14px;
-  color: rgba(79, 195, 247, 0.6);
+  color: color-mix(in srgb, var(--sg-accent) 60%, transparent);
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
@@ -1371,9 +1371,9 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .new-program-btn:hover:not(:disabled) {
-  background: rgba(79, 195, 247, 0.06);
-  border-color: rgba(79, 195, 247, 0.4);
-  color: rgba(79, 195, 247, 0.9);
+  background: var(--sg-accent-subtle);
+  border-color: color-mix(in srgb, var(--sg-accent) 40%, transparent);
+  color: var(--sg-accent-subtle);
 }
 
 .new-program-btn:disabled {
@@ -1383,8 +1383,8 @@ const confirmRenameSession = (sessionId) => {
 
 /* ── Create passe panel ──────────────────────────── */
 .create-program-panel {
-  background: rgba(79, 195, 247, 0.04);
-  border: 1px solid rgba(79, 195, 247, 0.2);
+  background: var(--sg-accent-subtle);
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 20%, transparent);
   border-radius: 16px;
   padding: 16px;
   display: flex;
@@ -1402,7 +1402,7 @@ const confirmRenameSession = (sessionId) => {
 .create-panel-title {
   font-size: 14px;
   font-weight: 700;
-  color: rgba(79, 195, 247, 0.9);
+  color: var(--sg-accent-subtle);
 }
 
 .create-field {
@@ -1423,8 +1423,8 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .create-label-count {
-  background: rgba(79, 195, 247, 0.15);
-  color: rgba(79, 195, 247, 0.8);
+  background: var(--sg-accent-tint);
+  color: var(--sg-accent-subtle);
   border-radius: 12px;
   padding: 2px 8px;
   font-size: 10px;
@@ -1445,7 +1445,7 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .create-input:focus {
-  border-color: rgba(79, 195, 247, 0.3);
+  border-color: color-mix(in srgb, var(--sg-accent) 30%, transparent);
 }
 
 .create-no-serien,
@@ -1462,7 +1462,7 @@ const confirmRenameSession = (sessionId) => {
   gap: 12px;
   padding: 12px;
   background: var(--sg-accent-subtle);
-  border: 1px solid rgba(79, 195, 247, 0.15);
+  border: 1px solid var(--sg-accent-tint);
   border-radius: 12px;
 }
 
@@ -1470,7 +1470,7 @@ const confirmRenameSession = (sessionId) => {
   display: flex;
   gap: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(79, 195, 247, 0.15);
+  border-top: 1px solid var(--sg-accent-tint);
 }
 
 /* ── Tab toggle ──────────────────────────────── */
@@ -1497,8 +1497,8 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .tab-btn.active {
-  background: rgba(79, 195, 247, 0.18);
-  border-color: rgba(79, 195, 247, 0.4);
+  background: var(--sg-accent-tint);
+  border-color: color-mix(in srgb, var(--sg-accent) 40%, transparent);
   color: var(--sg-accent);
 }
 
@@ -1572,7 +1572,7 @@ const confirmRenameSession = (sessionId) => {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, rgba(79, 195, 247, 0.6), rgba(79, 195, 247, 0.9));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--sg-accent) 60%, transparent), var(--sg-accent-subtle));
   width: 0;
   transition: width 0.3s ease;
 }
@@ -1580,7 +1580,7 @@ const confirmRenameSession = (sessionId) => {
 .progress-label {
   font-size: 11px;
   font-weight: 700;
-  color: rgba(79, 195, 247, 0.8);
+  color: var(--sg-accent-subtle);
   min-width: 35px;
   text-align: right;
 }
@@ -1633,7 +1633,7 @@ const confirmRenameSession = (sessionId) => {
 .start-player-num {
   font-size: 13px;
   font-weight: 700;
-  color: rgba(79, 195, 247, 0.7);
+  color: color-mix(in srgb, var(--sg-accent) 70%, transparent);
   min-width: 20px;
 }
 
@@ -1650,7 +1650,7 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .start-player-input:focus {
-  border-color: rgba(79, 195, 247, 0.3);
+  border-color: color-mix(in srgb, var(--sg-accent) 30%, transparent);
 }
 
 .add-player-btn {
@@ -1754,7 +1754,7 @@ const confirmRenameSession = (sessionId) => {
 
 .ps-pts {
   font-weight: 700;
-  color: rgba(79, 195, 247, 0.9);
+  color: var(--sg-accent-subtle);
 }
 
 .ps-pct {
@@ -1797,7 +1797,7 @@ const confirmRenameSession = (sessionId) => {
 .pd-total {
   font-size: 12px;
   font-weight: 700;
-  color: rgba(79, 195, 247, 0.8);
+  color: var(--sg-accent-subtle);
 }
 
 .completed-score-row {

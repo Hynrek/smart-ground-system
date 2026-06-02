@@ -424,8 +424,8 @@ const chipLabel = (position) => {
 }
 
 .mode-toggle-btn.active {
-  background: rgba(79, 195, 247, 0.25);
-  border: 1px solid rgba(79, 195, 247, 0.4);
+  background: color-mix(in srgb, var(--sg-accent) 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 40%, transparent);
   color: var(--sg-accent);
   font-weight: 900;
 }
@@ -525,7 +525,7 @@ const chipLabel = (position) => {
 
 .rotte-badge {
   display: inline-block;
-  background: rgba(79, 195, 247, 0.15);
+  background: var(--sg-accent-tint);
   color: var(--sg-accent);
   border-radius: 12px;
   padding: 2px 10px;
@@ -654,7 +654,7 @@ const chipLabel = (position) => {
 
 .device-btn:not(:disabled):hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(79, 195, 247, 0.3);
+  border-color: color-mix(in srgb, var(--sg-accent) 30%, transparent);
 }
 
 .device-btn:not(:disabled):active {
@@ -680,8 +680,8 @@ const chipLabel = (position) => {
 }
 
 .device-btn--firing {
-  background: rgba(79, 195, 247, 0.1) !important;
-  border-color: rgba(79, 195, 247, 0.4) !important;
+  background: var(--sg-accent-tint) !important;
+  border-color: color-mix(in srgb, var(--sg-accent) 40%, transparent) !important;
 }
 
 .device-btn--error {
@@ -695,7 +695,7 @@ const chipLabel = (position) => {
 
 .device-btn--recording {
   animation: record-flash 500ms ease-out;
-  border-color: rgba(79, 195, 247, 0.5) !important;
+  border-color: color-mix(in srgb, var(--sg-accent) 50%, transparent) !important;
 }
 
 @keyframes fired-pulse {
@@ -705,7 +705,7 @@ const chipLabel = (position) => {
 }
 
 @keyframes record-flash {
-  0% { background: rgba(79, 195, 247, 0.2); }
+  0% { background: color-mix(in srgb, var(--sg-accent) 20%, transparent); }
   100% { background: rgba(255, 255, 255, 0.06); }
 }
 
@@ -714,7 +714,7 @@ const chipLabel = (position) => {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(circle at 50% 40%, rgba(79, 195, 247, 0.18) 0%, transparent 70%);
+  background: radial-gradient(circle at 50% 40%, var(--sg-accent-tint) 0%, transparent 70%);
   opacity: 0;
   transition: opacity 0.3s;
   pointer-events: none;
@@ -749,7 +749,7 @@ const chipLabel = (position) => {
 }
 
 .device-btn--firing .btn-icon-wrap {
-  background: rgba(79, 195, 247, 0.15);
+  background: var(--sg-accent-tint);
   animation: icon-pulse 0.7s ease-in-out infinite alternate;
 }
 
@@ -781,7 +781,7 @@ const chipLabel = (position) => {
 
 .chip--ready { background: rgba(72,187,120,0.15); color: var(--sg-color-success); }
 .chip--fired { background: rgba(72,187,120,0.2); color: var(--sg-color-success); }
-.chip--recording { background: rgba(79,195,247,0.15); color: var(--sg-accent); }
+.chip--recording { background: var(--sg-accent-tint); color: var(--sg-accent); }
 .chip--pending { background: rgba(72,187,120,0.15); color: var(--sg-color-success); }
 .chip--error { background: rgba(252,129,129,0.15); color: var(--sg-color-danger-bg); }
 .chip--blocked { background: rgba(252,129,129,0.12); color: rgba(252,129,129,0.7); }
@@ -822,7 +822,7 @@ const chipLabel = (position) => {
 }
 
 .toggle-btn.active {
-  background: rgba(79, 195, 247, 0.18);
+  background: var(--sg-accent-tint);
   color: var(--sg-accent);
 }
 

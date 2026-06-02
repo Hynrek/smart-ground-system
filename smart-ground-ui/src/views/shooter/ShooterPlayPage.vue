@@ -649,7 +649,7 @@ watch(
 .player-number {
   font-size: 13px;
   font-weight: 700;
-  color: rgba(79, 195, 247, 0.7);
+  color: color-mix(in srgb, var(--sg-accent) 70%, transparent);
   min-width: 22px;
 }
 
@@ -754,8 +754,8 @@ watch(
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(79, 195, 247, 0.1);
-  border: 1px solid rgba(79, 195, 247, 0.3);
+  background: var(--sg-accent-tint);
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 30%, transparent);
   color: var(--sg-accent);
   border-radius: 10px;
   padding: 9px 16px;
@@ -767,7 +767,7 @@ watch(
 }
 
 .back-btn:hover {
-  background: rgba(79, 195, 247, 0.16);
+  background: var(--sg-accent-tint);
 }
 
 .score-display {
@@ -906,7 +906,7 @@ watch(
 
 .step-card {
   background: rgba(255, 255, 255, 0.06);
-  border: 1.5px solid rgba(79, 195, 247, 0.35);
+  border: 1.5px solid color-mix(in srgb, var(--sg-accent) 35%, transparent);
   border-radius: 20px;
   padding: 24px 24px;
   width: 100%;
@@ -946,10 +946,10 @@ watch(
 .card-badge {
   font-size: 10px;
   font-weight: 600;
-  color: rgba(79, 195, 247, 0.7);
+  color: color-mix(in srgb, var(--sg-accent) 70%, transparent);
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  background: rgba(79, 195, 247, 0.1);
+  background: var(--sg-accent-tint);
   padding: 3px 10px;
   border-radius: 20px;
 }
@@ -1062,7 +1062,7 @@ watch(
 
 .hint {
   font-size: 13px;
-  color: rgba(79, 195, 247, 0.6);
+  color: color-mix(in srgb, var(--sg-accent) 60%, transparent);
   margin: 0;
   margin-top: 4px;
 }
@@ -1177,13 +1177,13 @@ watch(
 
 .btn-primary {
   width: 100%;
-  background: rgba(79, 195, 247, 0.2);
+  background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
   color: var(--sg-accent);
-  border: 1px solid rgba(79, 195, 247, 0.35);
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 35%, transparent);
 }
 
 .btn-primary:hover {
-  background: rgba(79, 195, 247, 0.28);
+  background: color-mix(in srgb, var(--sg-accent) 28%, transparent);
 }
 
 /* ── Action bar (bottom buttons) ─────────────────── */
@@ -1224,13 +1224,13 @@ watch(
 }
 
 .action-btn.btn-no-bird {
-  border-color: rgba(79, 195, 247, 0.35);
+  border-color: color-mix(in srgb, var(--sg-accent) 35%, transparent);
   background: var(--sg-accent-tint);
   color: var(--sg-accent);
 }
 
 .action-btn.btn-no-bird:hover:not(:disabled) {
-  background: rgba(79, 195, 247, 0.2);
+  background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
 }
 
 .btn-label {

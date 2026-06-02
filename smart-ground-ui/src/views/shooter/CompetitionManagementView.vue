@@ -139,7 +139,7 @@ const allPlayers = (ev) => ev.rotten.flatMap(r => r.players)
 
 .rotte-name { font-weight: 600; color: rgba(255,255,255,0.8); min-width: 52px; }
 
-.rotte-passe { flex: 1; color: rgba(79,195,247,0.7); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rotte-passe { flex: 1; color: color-mix(in srgb, var(--sg-accent) 70%, transparent); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .rotte-badge {
   font-size: 10px; font-weight: 700; border-radius: 6px; padding: 2px 7px; flex-shrink: 0;
