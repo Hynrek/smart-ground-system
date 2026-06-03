@@ -3,9 +3,12 @@ package ch.jp.shooting.api;
 import ch.jp.shooting.exception.RangeHasDevicesException;
 import ch.jp.shooting.exception.RangeNameAlreadyExistsException;
 import ch.jp.shooting.exception.RangeNotFoundException;
+import ch.jp.shooting.exception.UserNotFoundException;
 import ch.jp.shooting.mapper.EntityMappers;
 import ch.jp.shooting.model.Range;
+import ch.jp.shooting.model.auth.User;
 import ch.jp.shooting.repository.RangeRepository;
+import ch.jp.shooting.repository.auth.UserRepository;
 import ch.jp.shooting.service.RangePositionService;
 import ch.jp.smartground.api.RangeApi;
 import ch.jp.smartground.model.AssignDeviceToPositionRequest;
@@ -18,6 +21,8 @@ import ch.jp.smartground.model.RangePageResponse;
 import ch.jp.smartground.model.RangePositionResponse;
 import ch.jp.smartground.model.RangeSummaryResponse;
 import ch.jp.smartground.model.SetLockedRequest;
+import ch.jp.smartground.model.SetRangeAssignedUserRequest;
+import org.openapitools.jackson.nullable.JsonNullable;
 import ch.jp.smartground.model.UpdateRangePositionLabelRequest;
 import ch.jp.smartground.model.UpdateRangeRequest;
 import org.springframework.security.core.Authentication;
@@ -42,11 +47,14 @@ public class RangeController implements RangeApi {
 
     private final RangeRepository rangeRepository;
     private final RangePositionService positionService;
+    private final UserRepository userRepository;
 
     public RangeController(RangeRepository rangeRepository,
-                           RangePositionService positionService) {
+                           RangePositionService positionService,
+                           UserRepository userRepository) {
         this.rangeRepository = rangeRepository;
         this.positionService = positionService;
+        this.userRepository = userRepository;
     }
 
     // ── Range CRUD ────────────────────────────────────────────────────────────
@@ -123,6 +131,23 @@ public class RangeController implements RangeApi {
         return ResponseEntity.ok(toSummaryResponse(saved));
     }
 
+    @Override
+    public ResponseEntity<RangeSummaryResponse> setRangeAssignedUser(UUID id, @Valid @RequestBody SetRangeAssignedUserRequest request) {
+        Range range = rangeRepository.findById(id)
+                .orElseThrow(() -> new RangeNotFoundException(id));
+        JsonNullable<UUID> userIdNullable = request.getUserId();
+        if (userIdNullable.isPresent() && userIdNullable.get() != null) {
+            UUID userId = userIdNullable.get();
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new UserNotFoundException(userId));
+            range.setAssignedUser(user);
+        } else {
+            range.setAssignedUser(null);
+        }
+        Range saved = rangeRepository.save(range);
+        return ResponseEntity.ok(toSummaryResponse(saved));
+    }
+
     // ── Range Positions ───────────────────────────────────────────────────────
 
     @Override
@@ -161,12 +186,8 @@ public class RangeController implements RangeApi {
         return ResponseEntity.ok(positionService.removeDevice(id, positionId));
     }
 
-    // TODO: Sobald mvnw generate-sources gelaufen ist und RangeApi.sendPositionCommand generiert wurde,
-    //       @Override wiederherstellen und @PostMapping / @PathVariable entfernen.
-    @PostMapping(value = "/api/ranges/{id}/positions/{positionId}/command", produces = "application/json")
-    public ResponseEntity<CommandResponse> sendPositionCommand(
-            @PathVariable("id") UUID id,
-            @PathVariable("positionId") UUID positionId) {
+    @Override
+    public ResponseEntity<CommandResponse> sendPositionCommand(UUID id, UUID positionId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication != null ? authentication.getName() : "";
         boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
@@ -178,12 +199,14 @@ public class RangeController implements RangeApi {
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private RangeSummaryResponse toSummaryResponse(Range range) {
+        var assignedUser = range.getAssignedUser();
         return new RangeSummaryResponse()
                 .id(range.getId())
                 .name(range.getName())
                 .description(range.getDescription())
                 .locked(range.isLocked())
                 .deviceCount(range.getDevices().size())
+                .assignedUserId(assignedUser != null ? assignedUser.getId() : null)
                 .createdAt(range.getCreatedAt() != null
                         ? range.getCreatedAt().atOffset(java.time.ZoneOffset.UTC)
                         : null);
