@@ -1,82 +1,103 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { usePasseStore } from '../passeStore'
+import { usePasseStore } from '../passeStore.js'
+import * as trainingApi from '@/services/trainingApi.js'
 
-const passe1 = {
-  id: 'p1',
-  name: 'Aufwärmen',
-  serien: [{ id: 'serie-1', name: 'S1', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }],
-}
-const passe2 = {
-  id: 'p2',
-  name: 'Hauptteil',
-  serien: [{ id: 'serie-2', name: 'S2', rangeId: 'r2', rangeName: 'Platz 2', steps: [] }],
-}
+vi.mock('@/services/ablaufApi.js')
+vi.mock('@/services/programmeApi.js')
+vi.mock('@/services/trainingApi.js')
+vi.mock('@/stores/shooterRemoteStore.js', () => ({
+  useShooterRemoteStore: () => ({ isReserved: true, mode: 'solo', setMode: vi.fn() }),
+}))
+vi.mock('@/stores/authStore.js', () => ({
+  useAuthStore: () => ({ profile: { email: 'test@test.com' } }),
+}))
 
-describe('passeStore — Training CRUD', () => {
+describe('passeStore — Training layer', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    localStorage.clear()
+    vi.clearAllMocks()
   })
 
-  it('createTraining adds a training with snapshotted passen', () => {
+  it('createTraining creates Training via API with programmeIds', async () => {
+    trainingApi.createTraining.mockResolvedValue({
+      id: 't1',
+      name: 'Training 1',
+      programmes: [],
+      ownerUsername: 'user',
+    })
     const store = usePasseStore()
-    store.createTraining('Training 1', [passe1, passe2])
+    const passen = [
+      { id: 'p1', name: 'Passe 1', serien: [] },
+      { id: 'p2', name: 'Passe 2', serien: [] },
+    ]
+    await store.createTraining('Training 1', passen)
+    expect(trainingApi.createTraining).toHaveBeenCalledWith('Training 1', ['p1', 'p2'])
     expect(store.savedTrainings).toHaveLength(1)
     expect(store.savedTrainings[0].name).toBe('Training 1')
-    expect(store.savedTrainings[0].passen).toHaveLength(2)
-    expect(store.savedTrainings[0].passen[0].name).toBe('Aufwärmen')
   })
 
-  it('createTraining persists to localStorage', () => {
+  it('createTraining with empty passen does nothing', async () => {
     const store = usePasseStore()
-    store.createTraining('Training 1', [passe1])
-    const keys = Object.keys(localStorage).filter(k => k.includes('_training_'))
-    expect(keys).toHaveLength(1)
-    const data = JSON.parse(localStorage.getItem(keys[0]))
-    expect(data.trainingName).toBe('Training 1')
-    expect(data.passen).toHaveLength(1)
-  })
-
-  it('deleteTraining removes from memory and localStorage', () => {
-    const store = usePasseStore()
-    store.createTraining('Training 1', [passe1])
-    const id = store.savedTrainings[0].id
-    store.deleteTraining(id)
+    await store.createTraining('Empty', [])
+    expect(trainingApi.createTraining).not.toHaveBeenCalled()
     expect(store.savedTrainings).toHaveLength(0)
-    expect(localStorage.getItem(id)).toBeNull()
   })
 
-  it('renameTraining updates name in memory and localStorage', () => {
+  it('deleteTraining calls API and removes from list', async () => {
+    trainingApi.deleteTraining.mockResolvedValue(null)
     const store = usePasseStore()
-    store.createTraining('Alter Name', [passe1])
-    const id = store.savedTrainings[0].id
-    store.renameTraining(id, 'Neuer Name')
-    expect(store.savedTrainings[0].name).toBe('Neuer Name')
-    const data = JSON.parse(localStorage.getItem(id))
-    expect(data.trainingName).toBe('Neuer Name')
+    store.savedTrainings = [{ id: 't1', name: 'Training 1', passen: [] }]
+    await store.deleteTraining('t1')
+    expect(trainingApi.deleteTraining).toHaveBeenCalledWith('t1')
+    expect(store.savedTrainings).toHaveLength(0)
   })
 
-  it('loadTrainingsFromStorage reloads after re-init', () => {
+  it('renameTraining calls API and updates name in list', async () => {
+    trainingApi.updateTraining.mockResolvedValue(null)
     const store = usePasseStore()
-    store.createTraining('Training 1', [passe1, passe2])
-    setActivePinia(createPinia())
-    const store2 = usePasseStore()
-    expect(store2.savedTrainings).toHaveLength(1)
-    expect(store2.savedTrainings[0].passen).toHaveLength(2)
+    store.savedTrainings = [{ id: 't1', name: 'Old Name', passen: [] }]
+    await store.renameTraining('t1', 'New Name')
+    expect(trainingApi.updateTraining).toHaveBeenCalledWith('t1', 'New Name')
+    expect(store.savedTrainings[0].name).toBe('New Name')
   })
 
-  it('createTraining snapshots steps so original mutation does not affect training', () => {
+  it('loadTrainingsFromStorage fetches from API and hydrates', async () => {
+    trainingApi.fetchTrainings.mockResolvedValue([
+      {
+        id: 't1',
+        name: 'Training A',
+        programmes: [
+          {
+            id: 'p1',
+            name: 'Prog 1',
+            ablaeufe: [
+              { id: 'ab1', alias: 'Serie 1', rangeId: null, rangeName: null, steps: [] },
+            ],
+          },
+        ],
+        ownerUsername: 'user',
+      },
+    ])
     const store = usePasseStore()
-    const passeWithSteps = {
-      id: 'p1',
-      name: 'Test',
-      serien: [{ id: 'serie-1', name: 'S1', rangeId: 'r1', rangeName: 'Platz 1', steps: [{ id: 's1', type: 'solo' }] }],
-    }
-    store.createTraining('T1', [passeWithSteps])
-    // Mutate the original steps array
-    passeWithSteps.serien[0].steps.push({ id: 's2', type: 'pair' })
-    // Training snapshot must not be affected
-    expect(store.savedTrainings[0].passen[0].serien[0].steps).toHaveLength(1)
+    await store.loadTrainingsFromStorage()
+    expect(store.savedTrainings).toHaveLength(1)
+    expect(store.savedTrainings[0].name).toBe('Training A')
+    expect(store.savedTrainings[0].passen).toHaveLength(1)
+    expect(store.savedTrainings[0].passen[0].serien).toHaveLength(1)
+  })
+
+  it('createCompetition delegates to createTraining', async () => {
+    trainingApi.createTraining.mockResolvedValue({
+      id: 't2',
+      name: 'Wettkampf 1',
+      programmes: [],
+      ownerUsername: 'user',
+    })
+    const store = usePasseStore()
+    const passen = [{ id: 'p1', name: 'Passe 1', serien: [] }]
+    await store.createCompetition('Wettkampf 1', passen)
+    expect(trainingApi.createTraining).toHaveBeenCalledWith('Wettkampf 1', ['p1'])
+    expect(store.savedTrainings).toHaveLength(1)
   })
 })
