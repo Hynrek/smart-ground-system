@@ -76,6 +76,35 @@ paths:
           description: Not authenticated
 
   /api/users:
+    get:
+      summary: List all users (admin only)
+      operationId: listUsers
+      tags: [User]
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 20
+      responses:
+        '200':
+          description: Paginated list of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPageResponse'
+        '403':
+          description: Not an admin
     post:
       summary: Create a new user
       operationId: createUser
@@ -89,8 +118,254 @@ paths:
       responses:
         '201':
           description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
         '409':
-          description: User already exists
+          description: Email or membership number already registered
+
+  /api/users/me/password:
+    post:
+      summary: Change the calling user's password
+      operationId: changePassword
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Password changed
+        '400':
+          description: Old password incorrect
+
+  /api/users/{id}:
+    get:
+      summary: Get user by ID
+      operationId: getUser
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: User not found
+    patch:
+      summary: Partially update a user profile
+      operationId: updateUser
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '403':
+          description: Cannot modify another user's profile
+        '404':
+          description: User not found
+    delete:
+      summary: Soft-delete a user (admin only)
+      operationId: deleteUser
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: User deleted
+        '403':
+          description: Not an admin
+        '404':
+          description: User not found
+
+  /api/users/{id}/roles:
+    get:
+      summary: List all roles assigned to a user
+      operationId: getUserRoles
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of role assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserRoleResponse'
+        '404':
+          description: User not found
+    post:
+      summary: Assign a global role to a user (admin only)
+      operationId: assignRole
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRoleRequest'
+      responses:
+        '201':
+          description: Role assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRoleResponse'
+        '404':
+          description: User or role not found
+
+  /api/users/{id}/roles/scoped:
+    post:
+      summary: Assign a scoped role to a user (admin only)
+      operationId: assignScopedRole
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignScopedRoleRequest'
+      responses:
+        '201':
+          description: Scoped role assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRoleResponse'
+        '400':
+          description: scopeType and scopeId are required
+        '404':
+          description: User or role not found
+
+  /api/users/{id}/roles/{roleName}:
+    delete:
+      summary: Revoke a global role from a user (admin only)
+      operationId: revokeRole
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Role revoked
+        '404':
+          description: User or role assignment not found
+
+  /api/users/{id}/roles/{roleName}/scoped:
+    delete:
+      summary: Revoke a scoped role from a user (admin only)
+      operationId: revokeScopedRole
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: scopeType
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: scopeId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Scoped role revoked
+        '404':
+          description: User or scoped access not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Roles
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/roles:
+    get:
+      summary: List all roles (admin only)
+      operationId: listRoles
+      tags: [Role]
+      responses:
+        '200':
+          description: List of roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '403':
+          description: Not an admin
 
   # ─────────────────────────────────────────────────────────────────────────────
   # DeviceType
@@ -630,6 +905,36 @@ paths:
         '404':
           description: Range not found
 
+  /api/ranges/{id}/assigned-user:
+    patch:
+      summary: Assign or unassign a user to a range
+      description: >
+        Sets the user assigned to this range. Pass null as userId to unassign.
+      operationId: setRangeAssignedUser
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRangeAssignedUserRequest'
+      responses:
+        '200':
+          description: Assigned user updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangeSummaryResponse'
+        '404':
+          description: Range or user not found
+
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Range Positions
@@ -852,36 +1157,6 @@ paths:
           description: Range or position not found
         '409':
           description: Range is reserved by another user
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Events (SSE)
-  # ─────────────────────────────────────────────────────────────────────────────
-  /api/events:
-    get:
-      summary: Server-Sent Events stream for real-time state changes
-      description: >
-        Opens a persistent SSE connection. The server pushes events whenever
-        SmartBox or Device state changes (driven by MQTT). Clients should
-        reconnect automatically on disconnect using the EventSource API.
-
-        Event types:
-        - `smartbox.status`   — SmartBox status changed (ONLINE/OFFLINE/BLOCKED)
-        - `smartbox.synced`   — SmartBox configSynced flag changed
-        - `device.health`     — Device healthy or blocked flag changed
-
-        Each event's `data` field is a JSON object. See schemas below.
-      operationId: streamEvents
-      tags: [Events]
-      responses:
-        '200':
-          description: SSE stream established
-          content:
-            text/event-stream:
-              schema:
-                oneOf:
-                  - $ref: '#/components/schemas/SmartBoxStatusEvent'
-                  - $ref: '#/components/schemas/SmartBoxSyncedEvent'
-                  - $ref: '#/components/schemas/DeviceHealthEvent'
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Sessions (Competition Management)
@@ -1799,6 +2074,7 @@ paths:
           description: Block marked as in_progress; updated instance returned
           content:
             application/json:
+              schema:
                 $ref: '#/components/schemas/PlayInstanceResponse'
         '404':
           description: Instance or block not found
@@ -2738,6 +3014,10 @@ components:
           type: boolean
         deviceCount:
           type: integer
+        assignedUserId:
+          type: string
+          format: uuid
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -2754,6 +3034,10 @@ components:
           type: string
         locked:
           type: boolean
+        assignedUserId:
+          type: string
+          format: uuid
+          nullable: true
         devices:
           type: array
           items:
@@ -2828,6 +3112,14 @@ components:
       properties:
         locked:
           type: boolean
+
+    SetRangeAssignedUserRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+          nullable: true
 
     # ─────────────────────────────────────────────────────────────────────────
 
@@ -3045,20 +3337,58 @@ components:
           items:
             type: string
           description: Flat union of all permissions from all assigned roles
+        assignedRangeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the range this user is currently assigned to as operator
 
     CreateUserRequest:
       type: object
-      required: [username, password, role]
+      required: [email, password, vorname, nachname]
       properties:
-        username:
+        email:
           type: string
-          description: Username for the new user
+          format: email
         password:
           type: string
-          description: Password for the new user
-        role:
+        vorname:
           type: string
-          description: User role (ADMIN or SHOOTER)
+        nachname:
+          type: string
+        geburtsdatum:
+          type: string
+          format: date
+          nullable: true
+        geschlecht:
+          type: string
+          nullable: true
+          enum: [MAENNLICH, WEIBLICH, DIVERS, UNBEKANNT]
+        telefonnummer:
+          type: string
+          nullable: true
+        strasse:
+          type: string
+          nullable: true
+        hausnummer:
+          type: string
+          nullable: true
+        plz:
+          type: string
+          nullable: true
+        stadt:
+          type: string
+          nullable: true
+        land:
+          type: string
+          nullable: true
+        mitgliedsnummer:
+          type: string
+          nullable: true
+        sprache:
+          type: string
+          nullable: true
+          enum: [DE, EN, FR, IT]
 
     # ───── Session/Competition ──────────────────────────────────────────────────
 
@@ -3248,49 +3578,236 @@ components:
           type: string
           format: date-time
 
-    # ───── SSE Events ─────────────────────────────────────────────────────────
-
-    SmartBoxStatusEvent:
+    UpdateUserRequest:
       type: object
-      description: Emitted when a SmartBox changes status (ONLINE/OFFLINE/BLOCKED)
-      required: [type, smartBoxId]
       properties:
-        type:
+        email:
           type: string
-          enum: [smartbox.status]
-        smartBoxId:
+          format: email
+          nullable: true
+        vorname:
           type: string
-          format: uuid
+          nullable: true
+        nachname:
+          type: string
+          nullable: true
+        geburtsdatum:
+          type: string
+          format: date
+          nullable: true
+        geschlecht:
+          type: string
+          nullable: true
+          enum: [MAENNLICH, WEIBLICH, DIVERS, UNBEKANNT]
+        telefonnummer:
+          type: string
+          nullable: true
+        telefonBestaetigt:
+          type: boolean
+          nullable: true
+        strasse:
+          type: string
+          nullable: true
+        hausnummer:
+          type: string
+          nullable: true
+        plz:
+          type: string
+          nullable: true
+        stadt:
+          type: string
+          nullable: true
+        land:
+          type: string
+          nullable: true
+        profilbildUrl:
+          type: string
+          nullable: true
+        biographie:
+          type: string
+          nullable: true
+        sprache:
+          type: string
+          nullable: true
+          enum: [DE, EN, FR, IT]
+        mitgliedsnummer:
+          type: string
+          nullable: true
+        schiessLizenz:
+          type: string
+          nullable: true
+        schiessLizenzVerfallsdatum:
+          type: string
+          format: date
+          nullable: true
         status:
-          $ref: '#/components/schemas/SmartBoxStatus'
-
-    SmartBoxSyncedEvent:
-      type: object
-      description: Emitted when a SmartBox ACKs a config push
-      required: [type, smartBoxId]
-      properties:
-        type:
           type: string
-          enum: [smartbox.synced]
-        smartBoxId:
+          nullable: true
+          enum: [ACTIVE, INACTIVE, SUSPENDED, PENDING_APPROVAL]
+
+    ChangePasswordRequest:
+      type: object
+      required: [oldPassword, newPassword]
+      properties:
+        oldPassword:
+          type: string
+        newPassword:
+          type: string
+
+    UserResponse:
+      type: object
+      properties:
+        id:
           type: string
           format: uuid
-
-    DeviceHealthEvent:
-      type: object
-      description: Emitted when a device healthy or blocked flag changes
-      required: [type, deviceId]
-      properties:
-        type:
+        email:
           type: string
-          enum: [device.health]
-        deviceId:
+        vorname:
+          type: string
+        nachname:
+          type: string
+        fullName:
+          type: string
+          nullable: true
+        geburtsdatum:
+          type: string
+          format: date
+          nullable: true
+        geschlecht:
+          type: string
+          nullable: true
+          enum: [MAENNLICH, WEIBLICH, DIVERS, UNBEKANNT]
+        telefonnummer:
+          type: string
+          nullable: true
+        strasse:
+          type: string
+          nullable: true
+        hausnummer:
+          type: string
+          nullable: true
+        plz:
+          type: string
+          nullable: true
+        stadt:
+          type: string
+          nullable: true
+        land:
+          type: string
+          nullable: true
+        profilbildUrl:
+          type: string
+          nullable: true
+        biographie:
+          type: string
+          nullable: true
+        sprache:
+          type: string
+          nullable: true
+        mitgliedsnummer:
+          type: string
+          nullable: true
+        schiessLizenz:
+          type: string
+          nullable: true
+        schiessLizenzVerfallsdatum:
+          type: string
+          format: date
+          nullable: true
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, SUSPENDED, PENDING_APPROVAL]
+        erstelltAm:
+          type: string
+          format: date-time
+        aktualisiertAm:
+          type: string
+          format: date-time
+          nullable: true
+        assignedRangeId:
           type: string
           format: uuid
-        healthy:
+          nullable: true
+
+    UserPageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    RoleResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+
+    UserRoleResponse:
+      type: object
+      properties:
+        roleId:
+          type: string
+          format: uuid
+        roleName:
+          type: string
+        description:
+          type: string
+          nullable: true
+        scopeType:
+          type: string
+          nullable: true
+          enum: [RANGE, COMPETITION, FACILITY]
+        scopeId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        isExpired:
           type: boolean
-        blocked:
-          type: boolean
+          nullable: true
+
+    AssignRoleRequest:
+      type: object
+      required: [roleName]
+      properties:
+        roleName:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AssignScopedRoleRequest:
+      type: object
+      required: [roleName, scopeType, scopeId]
+      properties:
+        roleName:
+          type: string
+        scopeType:
+          type: string
+          enum: [RANGE, COMPETITION, FACILITY]
+        scopeId:
+          type: string
+          format: uuid
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
 
   securitySchemes:
     bearerAuth:
