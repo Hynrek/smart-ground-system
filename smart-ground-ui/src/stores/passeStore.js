@@ -19,7 +19,7 @@ const generateUUID = () =>
 function toApiStep(step) {
   const base = { id: String(step.id), type: step.type };
   if (step.type === 'solo' || step.type === 'raffale') {
-    return { ...base, posId: step.positionId ?? null, alias: step.alias ?? null };
+    return { ...base, posId: step.positionId ?? null, alias: step.alias ?? null, letter: step.letter ?? null };
   }
   return {
     ...base,
@@ -27,13 +27,15 @@ function toApiStep(step) {
     posId2: step.positionId2 ?? null,
     alias1: step.alias1 ?? null,
     alias2: step.alias2 ?? null,
+    letter1: step.letter1 ?? null,
+    letter2: step.letter2 ?? null,
   };
 }
 
 function fromApiStep(step) {
   const base = { id: step.id, type: step.type };
   if (step.type === 'solo' || step.type === 'raffale') {
-    return { ...base, positionId: step.posId ?? null, alias: step.alias ?? null };
+    return { ...base, positionId: step.posId ?? null, alias: step.alias ?? null, letter: step.letter ?? null };
   }
   return {
     ...base,
@@ -41,6 +43,8 @@ function fromApiStep(step) {
     positionId2: step.posId2 ?? null,
     alias1: step.alias1 ?? null,
     alias2: step.alias2 ?? null,
+    letter1: step.letter1 ?? null,
+    letter2: step.letter2 ?? null,
   };
 }
 
@@ -246,38 +250,66 @@ export const usePasseStore = defineStore('passe', () => {
     if (steps.length === 0) return;
     const name = serieName?.trim() || `Serie ${savedSerien.value.length + 1}`;
     const apiSteps = steps.map(toApiStep);
-    const created = await ablaufApi.createAblauf(name, apiSteps, rangeId, ownership);
-    savedSerien.value = [...savedSerien.value, toUiSerie({ ...created, rangeName })];
-    cancelCapture();
+    try {
+      const created = await ablaufApi.createAblauf(name, apiSteps, rangeId, ownership);
+      savedSerien.value = [...savedSerien.value, toUiSerie({ ...created, rangeName })];
+      cancelCapture();
+    } catch (e) {
+      console.error('Failed to save Serie:', e);
+      throw e;
+    }
   };
 
   const deleteSerie = async (serieId) => {
-    await ablaufApi.deleteAblauf(serieId);
-    savedSerien.value = savedSerien.value.filter((s) => s.id !== serieId);
+    try {
+      await ablaufApi.deleteAblauf(serieId);
+      savedSerien.value = savedSerien.value.filter((s) => s.id !== serieId);
+    } catch (e) {
+      console.error('Failed to delete Serie:', e);
+      throw e;
+    }
   };
 
   const renameSerie = async (serieId, newName) => {
     const serie = savedSerien.value.find((s) => s.id === serieId);
     if (!serie) return;
-    await ablaufApi.updateAblauf(serieId, newName, serie.rangeId ?? null);
-    serie.name = newName;
+    try {
+      await ablaufApi.updateAblauf(serieId, newName, serie.rangeId ?? null);
+      serie.name = newName;
+    } catch (e) {
+      console.error('Failed to rename Serie:', e);
+      throw e;
+    }
   };
 
   const createRangeSerie = async (name, rangeId, rangeName, steps) => {
     if (!steps || steps.length === 0) return;
     const trimmedName = name?.trim() || `Serie ${savedSerien.value.length + 1}`;
     const apiSteps = steps.map(toApiStep);
-    const created = await ablaufApi.createAblauf(trimmedName, apiSteps, rangeId, 'range');
-    savedSerien.value = [...savedSerien.value, toUiSerie({ ...created, rangeName })];
+    try {
+      const created = await ablaufApi.createAblauf(trimmedName, apiSteps, rangeId, 'range');
+      savedSerien.value = [...savedSerien.value, toUiSerie({ ...created, rangeName })];
+    } catch (e) {
+      console.error('Failed to create range Serie:', e);
+      throw e;
+    }
   };
 
   const updateSerie = async (serieId, newName, newSteps) => {
     const serie = savedSerien.value.find((s) => s.id === serieId);
     if (!serie) return;
-    await ablaufApi.updateAblauf(serieId, newName, serie.rangeId ?? null);
-    savedSerien.value = savedSerien.value.map((s) =>
-      s.id === serieId ? { ...s, name: newName, steps: [...(newSteps ?? [])] } : s,
-    );
+    // Backend PUT only accepts name/rangeId — replace via delete+create to persist steps
+    try {
+      await ablaufApi.deleteAblauf(serieId);
+      const apiSteps = (newSteps ?? []).map(toApiStep);
+      const created = await ablaufApi.createAblauf(newName, apiSteps, serie.rangeId ?? null, serie.ownership ?? 'user');
+      savedSerien.value = savedSerien.value.map((s) =>
+        s.id === serieId ? toUiSerie({ ...created, rangeName: serie.rangeName }) : s,
+      );
+    } catch (e) {
+      console.error('Failed to update Serie:', e);
+      throw e;
+    }
   };
 
   // ── Passe (Programme) persistence ─────────────────────────────────────────
@@ -286,26 +318,48 @@ export const usePasseStore = defineStore('passe', () => {
     if (selectedSerien.length === 0) return;
     const name = passeName?.trim() || `Passe ${savedPassen.value.length + 1}`;
     const ablaufIds = selectedSerien.map((s) => s.id);
-    const created = await programmeApi.createProgramme(name, ablaufIds);
-    savedPassen.value = [...savedPassen.value, toUiPasse(created)];
+    try {
+      const created = await programmeApi.createProgramme(name, ablaufIds);
+      savedPassen.value = [...savedPassen.value, toUiPasse(created)];
+    } catch (e) {
+      console.error('Failed to create Passe:', e);
+      throw e;
+    }
   };
 
   const deletePasse = async (passeId) => {
-    await programmeApi.deleteProgramme(passeId);
-    savedPassen.value = savedPassen.value.filter((p) => p.id !== passeId);
-    if (pendingPasseId.value === passeId) pendingPasseId.value = null;
+    try {
+      await programmeApi.deleteProgramme(passeId);
+      savedPassen.value = savedPassen.value.filter((p) => p.id !== passeId);
+      if (pendingPasseId.value === passeId) pendingPasseId.value = null;
+    } catch (e) {
+      console.error('Failed to delete Passe:', e);
+      throw e;
+    }
   };
 
   const renamePasse = async (passeId, newName) => {
-    await programmeApi.updateProgramme(passeId, newName);
-    savedPassen.value = savedPassen.value.map((p) =>
-      p.id === passeId ? { ...p, name: newName } : p,
-    );
+    try {
+      await programmeApi.updateProgramme(passeId, newName);
+      savedPassen.value = savedPassen.value.map((p) =>
+        p.id === passeId ? { ...p, name: newName } : p,
+      );
+    } catch (e) {
+      console.error('Failed to rename Passe:', e);
+      throw e;
+    }
   };
 
   // Global passen merged into savedPassen — these are aliases for backward compat
   const createGlobalPasse = (name, selectedSerien) => createPasse(name, selectedSerien);
-  const updateGlobalPasse = async (id, newName) => renamePasse(id, newName);
+  const updateGlobalPasse = async (id, newName, _selectedSerien) => {
+    // Note: backend PUT /api/programmes/{id} only supports renaming.
+    // Updating Ablauf membership requires a backend API extension.
+    if (_selectedSerien !== undefined) {
+      console.warn('updateGlobalPasse: updating Ablauf membership is not yet supported by the backend API. Only the name will be saved.');
+    }
+    return renamePasse(id, newName);
+  };
   const deleteGlobalPasse = (id) => deletePasse(id);
 
   // ── Training persistence ───────────────────────────────────────────────────
@@ -314,8 +368,13 @@ export const usePasseStore = defineStore('passe', () => {
     if (selectedPassen.length === 0) return;
     const name = trainingName?.trim() || `Training ${savedTrainings.value.length + 1}`;
     const programmeIds = selectedPassen.map((p) => p.id);
-    const created = await trainingApi.createTraining(name, programmeIds);
-    savedTrainings.value = [...savedTrainings.value, toUiTraining(created)];
+    try {
+      const created = await trainingApi.createTraining(name, programmeIds);
+      savedTrainings.value = [...savedTrainings.value, toUiTraining(created)];
+    } catch (e) {
+      console.error('Failed to create Training:', e);
+      throw e;
+    }
   };
 
   const createCompetition = (name, selectedPassen, rottCountHint = null) => {
@@ -323,15 +382,25 @@ export const usePasseStore = defineStore('passe', () => {
   };
 
   const deleteTraining = async (trainingId) => {
-    await trainingApi.deleteTraining(trainingId);
-    savedTrainings.value = savedTrainings.value.filter((t) => t.id !== trainingId);
+    try {
+      await trainingApi.deleteTraining(trainingId);
+      savedTrainings.value = savedTrainings.value.filter((t) => t.id !== trainingId);
+    } catch (e) {
+      console.error('Failed to delete Training:', e);
+      throw e;
+    }
   };
 
   const renameTraining = async (trainingId, newName) => {
-    await trainingApi.updateTraining(trainingId, newName);
-    savedTrainings.value = savedTrainings.value.map((t) =>
-      t.id === trainingId ? { ...t, name: newName } : t,
-    );
+    try {
+      await trainingApi.updateTraining(trainingId, newName);
+      savedTrainings.value = savedTrainings.value.map((t) =>
+        t.id === trainingId ? { ...t, name: newName } : t,
+      );
+    } catch (e) {
+      console.error('Failed to rename Training:', e);
+      throw e;
+    }
   };
 
   // ── Pending passe ──────────────────────────────────────────────────────────

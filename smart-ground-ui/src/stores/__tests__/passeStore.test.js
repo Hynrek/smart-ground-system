@@ -36,7 +36,7 @@ describe('passeStore — Ablauf layer', () => {
     await store.saveSerie('New Serie')
     expect(ablaufApi.createAblauf).toHaveBeenCalledWith(
       'New Serie',
-      [{ id: '1', type: 'solo', posId: 'pos-uuid', alias: 'A' }],
+      [{ id: '1', type: 'solo', posId: 'pos-uuid', alias: 'A', letter: null }],
       null,
       'user',
     )
