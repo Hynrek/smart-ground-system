@@ -1,21 +1,98 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
-import { useAuthStore } from '@/stores/authStore.js';
+import * as ablaufApi from '@/services/ablaufApi.js';
+import * as programmeApi from '@/services/programmeApi.js';
+import * as trainingApi from '@/services/trainingApi.js';
 
-const generateUUID = () => {
-  if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) {
-    return globalThis.crypto.randomUUID();
+const generateUUID = () =>
+  typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      });
+
+// ── Step mapping: UI step ↔ backend Step schema ──────────────────────────────
+// positionId (UUID) stored in posId; resolves directly when sending position commands
+
+function toApiStep(step) {
+  const base = { id: String(step.id), type: step.type };
+  if (step.type === 'solo' || step.type === 'raffale') {
+    return { ...base, posId: step.positionId ?? null, alias: step.alias ?? null };
   }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-};
+  return {
+    ...base,
+    posId1: step.positionId1 ?? null,
+    posId2: step.positionId2 ?? null,
+    alias1: step.alias1 ?? null,
+    alias2: step.alias2 ?? null,
+  };
+}
+
+function fromApiStep(step) {
+  const base = { id: step.id, type: step.type };
+  if (step.type === 'solo' || step.type === 'raffale') {
+    return { ...base, positionId: step.posId ?? null, alias: step.alias ?? null };
+  }
+  return {
+    ...base,
+    positionId1: step.posId1 ?? null,
+    positionId2: step.posId2 ?? null,
+    alias1: step.alias1 ?? null,
+    alias2: step.alias2 ?? null,
+  };
+}
+
+function toUiSerie(ablauf) {
+  return {
+    id: ablauf.id,
+    name: ablauf.name,
+    rangeId: ablauf.rangeId ?? null,
+    rangeName: ablauf.rangeName ?? null,
+    steps: (ablauf.steps ?? []).map(fromApiStep),
+    ownership: ablauf.ownership ?? 'user',
+    createdAt: ablauf.createdAt ?? null,
+    ownerUsername: ablauf.ownerUsername ?? null,
+  };
+}
+
+function toUiPasse(programme) {
+  return {
+    id: programme.id,
+    name: programme.name,
+    serien: (programme.ablaeufe ?? []).map((a) => ({
+      id: a.id,
+      alias: a.alias,
+      rangeId: a.rangeId ?? null,
+      rangeName: a.rangeName ?? null,
+      steps: (a.steps ?? []).map(fromApiStep),
+    })),
+    ownerUsername: programme.ownerUsername ?? null,
+  };
+}
+
+function toUiTraining(training) {
+  return {
+    id: training.id,
+    name: training.name,
+    passen: (training.programmes ?? []).map((prog) => ({
+      id: prog.id,
+      name: prog.name,
+      serien: (prog.ablaeufe ?? []).map((a) => ({
+        id: a.id,
+        alias: a.alias,
+        rangeId: a.rangeId ?? null,
+        rangeName: a.rangeName ?? null,
+        steps: (a.steps ?? []).map(fromApiStep),
+      })),
+    })),
+    ownerUsername: training.ownerUsername ?? null,
+  };
+}
 
 export const usePasseStore = defineStore('passe', () => {
-  // ── Capture state (Erfassen-Modus) ───────────────────────────────────────
+  // ── Capture state (in-memory only, no persistence) ────────────────────────
   const recording = ref({});
   const passeMode = ref(false);
   const pairPending = ref(null);
@@ -23,161 +100,50 @@ export const usePasseStore = defineStore('passe', () => {
   const editingId = ref(null);
   const editingSerie = ref([]);
 
-  // ── Persisted state ───────────────────────────────────────────────────────
-  // Alle Serien: user-eigene (ownership:'user') + platzweite (ownership:'range')
+  // ── Persisted state (backed by backend API) ────────────────────────────────
   const savedSerien = ref([]);
   const savedPassen = ref([]);
-  const pendingPasseId = ref(null);
   const savedGlobalPassen = ref([]);
+  const savedTrainings = ref([]);
+  const pendingPasseId = ref(null);
 
-  // ── Storage key helpers ───────────────────────────────────────────────────
-  // Platzweite Serien — global, nicht benutzerspezifisch
-  const RANGE_SERIE_PREFIX = '_sg_range_serie_';
-  const GLOBAL_PASSE_PREFIX = '_sg_global_passe_';
+  // ── Load from backend API ──────────────────────────────────────────────────
 
-  const getPassePrefix = () => {
-    const authStore = useAuthStore();
-    return `${authStore.profile?.email ?? 'anonymous'}_passe_`;
+  const loadSerienFromStorage = async () => {
+    try {
+      const ablaeufe = await ablaufApi.fetchAblaeufe();
+      savedSerien.value = ablaeufe.map(toUiSerie);
+    } catch (e) {
+      console.error('Failed to load Abläufe from API:', e);
+    }
   };
 
-  const getSeriePrefix = () => {
-    const authStore = useAuthStore();
-    return `${authStore.profile?.email ?? 'anonymous'}_serie_`;
+  const loadPassenFromStorage = async () => {
+    try {
+      const programmes = await programmeApi.fetchProgrammes();
+      savedPassen.value = programmes.map(toUiPasse);
+      savedGlobalPassen.value = [];
+    } catch (e) {
+      console.error('Failed to load Programmes from API:', e);
+    }
   };
 
-  const nextPasseKey = () => {
-    const prefix = getPassePrefix();
-    const existing = Object.keys(localStorage)
-      .filter((k) => k.startsWith(prefix))
-      .map((k) => parseInt(k.slice(prefix.length), 10))
-      .filter((n) => !isNaN(n));
-    return `${prefix}${existing.length > 0 ? Math.max(...existing) + 1 : 1}`;
+  const loadGlobalPassenFromStorage = async () => {
+    // Global passen are unified with savedPassen (both are Programmes on the backend).
+    // No-op kept for API compatibility with existing callers.
   };
 
-  const nextSerieKey = () => {
-    const prefix = getSeriePrefix();
-    const existing = Object.keys(localStorage)
-      .filter((k) => k.startsWith(prefix))
-      .map((k) => parseInt(k.slice(prefix.length), 10))
-      .filter((n) => !isNaN(n));
-    return `${prefix}${existing.length > 0 ? Math.max(...existing) + 1 : 1}`;
+  const loadTrainingsFromStorage = async () => {
+    try {
+      const trainings = await trainingApi.fetchTrainings();
+      savedTrainings.value = trainings.map(toUiTraining);
+    } catch (e) {
+      console.error('Failed to load Trainings from API:', e);
+    }
   };
 
-  const nextRangeSerieKey = () => {
-    const existing = Object.keys(localStorage)
-      .filter((k) => k.startsWith(RANGE_SERIE_PREFIX))
-      .map((k) => parseInt(k.slice(RANGE_SERIE_PREFIX.length), 10))
-      .filter((n) => !isNaN(n));
-    return `${RANGE_SERIE_PREFIX}${existing.length > 0 ? Math.max(...existing) + 1 : 1}`;
-  };
+  // ── Capture lifecycle ──────────────────────────────────────────────────────
 
-  const nextGlobalPasseKey = () => {
-    const existing = Object.keys(localStorage)
-      .filter((k) => k.startsWith(GLOBAL_PASSE_PREFIX))
-      .map((k) => parseInt(k.slice(GLOBAL_PASSE_PREFIX.length), 10))
-      .filter((n) => !isNaN(n));
-    return `${GLOBAL_PASSE_PREFIX}${existing.length > 0 ? Math.max(...existing) + 1 : 1}`;
-  };
-
-  // ── Load from localStorage ────────────────────────────────────────────────
-  const loadPassenFromStorage = () => {
-    const prefix = getPassePrefix();
-    savedPassen.value = Object.keys(localStorage)
-      .filter((k) => k.startsWith(prefix))
-      .map((key) => {
-        try {
-          const data = JSON.parse(localStorage.getItem(key));
-          // Backward compat: old format had top-level steps array
-          if (data.steps && !data.serien && !data.segments) {
-            data.serien = [{ id: 's1', alias: null, steps: data.steps }];
-          }
-          // Backward compat: old format used 'segments' or 'ablaeufe' key
-          if (!data.serien && data.segments) {
-            data.serien = data.segments;
-          }
-          if (!data.serien && data.ablaeufe) {
-            data.serien = data.ablaeufe;
-          }
-          return {
-            id: key,
-            name: data.passeName ?? data.programName,
-            serien: (data.serien ?? []).map((s) => ({
-              ...s,
-              rangeId: s.rangeId ?? null,
-              rangeName: s.rangeName ?? null,
-            })),
-          };
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean)
-      .sort((a, b) => {
-        const numA = parseInt(a.id.slice(prefix.length), 10);
-        const numB = parseInt(b.id.slice(prefix.length), 10);
-        return numA - numB;
-      });
-  };
-
-  const loadSerienFromStorage = () => {
-    const parseSerie = (key, defaultOwnership) => {
-      try {
-        const data = JSON.parse(localStorage.getItem(key));
-        return {
-          id: key,
-          name: data.serieName ?? data.ablaufName ?? data.segmentName,   // backward compat
-          rangeId: data.rangeId ?? null,
-          rangeName: data.rangeName ?? null,
-          steps: data.steps ?? [],
-          createdAt: data.createdAt ?? 0,
-          ownership: data.ownership ?? defaultOwnership,
-        };
-      } catch {
-        return null;
-      }
-    };
-
-    const userPrefix = getSeriePrefix();
-    const userSerien = Object.keys(localStorage)
-      .filter((k) => k.startsWith(userPrefix))
-      .map((k) => parseSerie(k, 'user'))
-      .filter(Boolean);
-
-    const rangeSerien = Object.keys(localStorage)
-      .filter((k) => k.startsWith(RANGE_SERIE_PREFIX))
-      .map((k) => parseSerie(k, 'range'))
-      .filter(Boolean);
-
-    savedSerien.value = [...userSerien, ...rangeSerien]
-      .sort((a, b) => a.createdAt - b.createdAt);
-  };
-
-  const loadGlobalPassenFromStorage = () => {
-    savedGlobalPassen.value = Object.keys(localStorage)
-      .filter((k) => k.startsWith(GLOBAL_PASSE_PREFIX))
-      .map((key) => {
-        try {
-          const data = JSON.parse(localStorage.getItem(key));
-          return {
-            id: key,
-            name: data.passeName,
-            serien: data.serien ?? [],
-            createdAt: data.createdAt ?? 0,
-            ownership: 'global',
-          };
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.createdAt - b.createdAt);
-  };
-
-  loadPassenFromStorage();
-  loadSerienFromStorage();
-  loadGlobalPassenFromStorage();
-
-  // ── Capture lifecycle ─────────────────────────────────────────────────────
   const resetCapture = () => {
     passeMode.value = false;
     pairPending.value = null;
@@ -201,7 +167,8 @@ export const usePasseStore = defineStore('passe', () => {
     editingId.value = null;
   };
 
-  // ── Step recording ────────────────────────────────────────────────────────
+  // ── Step recording (in-memory) ────────────────────────────────────────────
+
   const addStep = (positionId, position, positionLabel) => {
     const alias = position.device?.alias ?? position.label;
     const letter = positionLabel;
@@ -238,7 +205,6 @@ export const usePasseStore = defineStore('passe', () => {
       } else {
         const pendingId = pairPending.value.id;
         const pendingAlias = pairPending.value.alias;
-        const pendingLetter = pairPending.value.letter;
         recording.value = { ...recording.value, [positionId]: true, [pendingId]: true };
         setTimeout(() => {
           const r = { ...recording.value };
@@ -254,8 +220,6 @@ export const usePasseStore = defineStore('passe', () => {
           alias2: alias,
           positionId1: pendingId,
           positionId2: positionId,
-          letter1: pendingLetter,
-          letter2: letter,
         };
         const segs = [...editingSerie.value];
         segs[0].steps = [...segs[0].steps, step];
@@ -275,346 +239,142 @@ export const usePasseStore = defineStore('passe', () => {
     editingSerie.value = segs;
   };
 
-  // ── Serie persistence ────────────────────────────────────────────────────
-  /**
-   * Speichert die aktuelle Erfassungs-Serie.
-   * ownership: 'user' (privat) | 'range' (platzweit sichtbar, nur Admin/Owner)
-   */
-  const saveSerie = (serieName, rangeId = null, rangeName = null, ownership = 'user') => {
+  // ── Serie (Ablauf) persistence ────────────────────────────────────────────
+
+  const saveSerie = async (serieName, rangeId = null, rangeName = null, ownership = 'user') => {
     const steps = editingSerie.value[0]?.steps ?? [];
     if (steps.length === 0) return;
     const name = serieName?.trim() || `Serie ${savedSerien.value.length + 1}`;
-    const key = ownership === 'range' ? nextRangeSerieKey() : nextSerieKey();
-    const createdAt = Date.now();
-    const data = { serieName: name, rangeId, rangeName, steps, createdAt, ownership };
-    localStorage.setItem(key, JSON.stringify(data));
-    savedSerien.value = [
-      ...savedSerien.value,
-      { id: key, name, rangeId, rangeName, steps: [...steps], createdAt, ownership },
-    ];
+    const apiSteps = steps.map(toApiStep);
+    const created = await ablaufApi.createAblauf(name, apiSteps, rangeId, ownership);
+    savedSerien.value = [...savedSerien.value, toUiSerie({ ...created, rangeName })];
     cancelCapture();
   };
 
-  const deleteSerie = (serieId) => {
-    localStorage.removeItem(serieId);
+  const deleteSerie = async (serieId) => {
+    await ablaufApi.deleteAblauf(serieId);
     savedSerien.value = savedSerien.value.filter((s) => s.id !== serieId);
   };
 
-  const renameSerie = (serieId, newName) => {
+  const renameSerie = async (serieId, newName) => {
     const serie = savedSerien.value.find((s) => s.id === serieId);
     if (!serie) return;
+    await ablaufApi.updateAblauf(serieId, newName, serie.rangeId ?? null);
     serie.name = newName;
-    try {
-      const stored = JSON.parse(localStorage.getItem(serieId));
-      if (stored) {
-        stored.serieName = newName;
-        localStorage.setItem(serieId, JSON.stringify(stored));
-      }
-    } catch { /* ignorieren */ }
   };
 
-  const createRangeSerie = (name, rangeId, rangeName, steps) => {
+  const createRangeSerie = async (name, rangeId, rangeName, steps) => {
     if (!steps || steps.length === 0) return;
     const trimmedName = name?.trim() || `Serie ${savedSerien.value.length + 1}`;
-    const key = nextRangeSerieKey();
-    const createdAt = Date.now();
-    const data = { serieName: trimmedName, rangeId, rangeName, steps, createdAt, ownership: 'range' };
-    localStorage.setItem(key, JSON.stringify(data));
-    savedSerien.value = [
-      ...savedSerien.value,
-      { id: key, name: trimmedName, rangeId, rangeName, steps: [...steps], createdAt, ownership: 'range' },
-    ];
+    const apiSteps = steps.map(toApiStep);
+    const created = await ablaufApi.createAblauf(trimmedName, apiSteps, rangeId, 'range');
+    savedSerien.value = [...savedSerien.value, toUiSerie({ ...created, rangeName })];
   };
 
-  const updateSerie = (serieId, newName, newSteps) => {
-    const exists = savedSerien.value.some((s) => s.id === serieId);
-    if (!exists) return;
+  const updateSerie = async (serieId, newName, newSteps) => {
+    const serie = savedSerien.value.find((s) => s.id === serieId);
+    if (!serie) return;
+    await ablaufApi.updateAblauf(serieId, newName, serie.rangeId ?? null);
     savedSerien.value = savedSerien.value.map((s) =>
-      s.id === serieId ? { ...s, name: newName, steps: [...(newSteps ?? [])] } : s
+      s.id === serieId ? { ...s, name: newName, steps: [...(newSteps ?? [])] } : s,
     );
-    try {
-      const stored = JSON.parse(localStorage.getItem(serieId));
-      if (stored) {
-        stored.serieName = newName;
-        stored.steps = newSteps ?? [];
-        localStorage.setItem(serieId, JSON.stringify(stored));
-      }
-    } catch { /* ignorieren */ }
   };
 
-  const createGlobalPasse = (name, selectedSerien) => {
-    if (!selectedSerien || selectedSerien.length === 0) return;
-    const trimmedName = name?.trim() || `Passe ${savedGlobalPassen.value.length + 1}`;
-    const key = nextGlobalPasseKey();
-    const createdAt = Date.now();
-    const serien = selectedSerien.map((s) => ({
-      id: s.id,
-      alias: s.name,
-      rangeId: s.rangeId,
-      rangeName: s.rangeName,
-      steps: [...(s.steps ?? [])],
-    }));
-    localStorage.setItem(key, JSON.stringify({ passeName: trimmedName, serien, createdAt, ownership: 'global' }));
-    savedGlobalPassen.value = [
-      ...savedGlobalPassen.value,
-      { id: key, name: trimmedName, serien, createdAt, ownership: 'global' },
-    ];
-  };
+  // ── Passe (Programme) persistence ─────────────────────────────────────────
 
-  const updateGlobalPasse = (id, newName, newSerien) => {
-    const existing = savedGlobalPassen.value.find((p) => p.id === id);
-    if (!existing) return;
-    const trimmedName = newName?.trim() || existing.name;
-    const serien = (newSerien ?? []).map((s) => ({
-      id: s.id,
-      alias: s.name,
-      rangeId: s.rangeId,
-      rangeName: s.rangeName,
-      steps: [...(s.steps ?? [])],
-    }));
-    savedGlobalPassen.value = savedGlobalPassen.value.map((p) =>
-      p.id === id ? { ...p, name: trimmedName, serien } : p
-    );
-    try {
-      const stored = JSON.parse(localStorage.getItem(id));
-      if (stored) {
-        stored.passeName = trimmedName;
-        stored.serien = serien;
-        localStorage.setItem(id, JSON.stringify(stored));
-      }
-    } catch { /* ignorieren */ }
-  };
-
-  const deleteGlobalPasse = (id) => {
-    localStorage.removeItem(id);
-    savedGlobalPassen.value = savedGlobalPassen.value.filter((p) => p.id !== id);
-  };
-
-  // ── Passe persistence ───────────────────────────────────────────────────────
-  /**
-   * Erstellt eine Passe aus einer Liste von Serie-Objekten.
-   * selectedSerien: Array von { id, name, rangeId, rangeName, steps }
-   */
-  const createPasse = (passeName, selectedSerien) => {
+  const createPasse = async (passeName, selectedSerien) => {
     if (selectedSerien.length === 0) return;
     const name = passeName?.trim() || `Passe ${savedPassen.value.length + 1}`;
-    const key = nextPasseKey();
-    // Serien werden vollständig eingebettet (Snapshot für Playback)
-    const serien = selectedSerien.map((s) => ({
-      id: s.id,
-      alias: s.name,
-      rangeId: s.rangeId,
-      rangeName: s.rangeName,
-      steps: [...s.steps],
-    }));
-    localStorage.setItem(key, JSON.stringify({ passeName: name, serien }));
-    savedPassen.value = [...savedPassen.value, { id: key, name, serien }];
+    const ablaufIds = selectedSerien.map((s) => s.id);
+    const created = await programmeApi.createProgramme(name, ablaufIds);
+    savedPassen.value = [...savedPassen.value, toUiPasse(created)];
   };
 
-  const deletePasse = (passeId) => {
-    localStorage.removeItem(passeId);
+  const deletePasse = async (passeId) => {
+    await programmeApi.deleteProgramme(passeId);
     savedPassen.value = savedPassen.value.filter((p) => p.id !== passeId);
     if (pendingPasseId.value === passeId) pendingPasseId.value = null;
   };
 
-  const renamePasse = (passeId, newName) => {
-    const passe = savedPassen.value.find((p) => p.id === passeId);
-    if (!passe) return;
-    passe.name = newName;
-    try {
-      const stored = JSON.parse(localStorage.getItem(passeId));
-      if (stored) {
-        stored.passeName = newName;
-        localStorage.setItem(passeId, JSON.stringify(stored));
-      }
-    } catch { /* ignorieren */ }
+  const renamePasse = async (passeId, newName) => {
+    await programmeApi.updateProgramme(passeId, newName);
+    savedPassen.value = savedPassen.value.map((p) =>
+      p.id === passeId ? { ...p, name: newName } : p,
+    );
   };
 
-  // ── Pending passe (für "Starten" aus Passen-Verwaltung) ───────────────
-  const setPendingPasse = (passeId) => {
-    pendingPasseId.value = passeId;
-  };
+  // Global passen merged into savedPassen — these are aliases for backward compat
+  const createGlobalPasse = (name, selectedSerien) => createPasse(name, selectedSerien);
+  const updateGlobalPasse = async (id, newName) => renamePasse(id, newName);
+  const deleteGlobalPasse = (id) => deletePasse(id);
 
-  const clearPendingPasse = () => {
-    pendingPasseId.value = null;
-  };
+  // ── Training persistence ───────────────────────────────────────────────────
 
-  // ── Legacy: savePasse ───────────────────────────────────────────────────────
-  /** @deprecated Wird durch saveSerie ersetzt. */
-  const savePasse = (passeName = null) => {
-    if (editingSerie.value.every((s) => s.steps.length === 0)) return;
-    const name = passeName || `Passe ${savedPassen.value.length + 1}`;
-    const key = nextPasseKey();
-    localStorage.setItem(key, JSON.stringify({ passeName: name, serien: [...editingSerie.value] }));
-    savedPassen.value = [
-      ...savedPassen.value,
-      { id: key, name, serien: [...editingSerie.value] },
-    ];
-    cancelCapture();
-  };
-
-  // ── Training template persistence ─────────────────────────────────────────
-  const savedTrainings = ref([]);
-
-  const getTrainingPrefix = () => {
-    const authStore = useAuthStore();
-    return `${authStore.profile?.email ?? 'anonymous'}_training_`;
-  };
-
-  const nextTrainingKey = () => {
-    const prefix = getTrainingPrefix();
-    const existing = Object.keys(localStorage)
-      .filter((k) => k.startsWith(prefix))
-      .map((k) => parseInt(k.slice(prefix.length), 10))
-      .filter((n) => !isNaN(n));
-    return `${prefix}${existing.length > 0 ? Math.max(...existing) + 1 : 1}`;
-  };
-
-  const loadTrainingsFromStorage = () => {
-    const prefix = getTrainingPrefix();
-    savedTrainings.value = Object.keys(localStorage)
-      .filter((k) => k.startsWith(prefix))
-      .map((key) => {
-        try {
-          const data = JSON.parse(localStorage.getItem(key));
-          return {
-            id: key,
-            name: data.trainingName,
-            passen: data.passen ?? data.programmes ?? [],
-            type: data.type ?? 'training',
-            rottCountHint: data.rottCountHint ?? null,
-          };
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean)
-      .sort((a, b) => {
-        const numA = parseInt(a.id.slice(prefix.length), 10);
-        const numB = parseInt(b.id.slice(prefix.length), 10);
-        return numA - numB;
-      });
-  };
-
-  const createTraining = (trainingName, selectedPassen, options = {}) => {
+  const createTraining = async (trainingName, selectedPassen, _options = {}) => {
     if (selectedPassen.length === 0) return;
-    const type = options.type ?? 'training';
-    const rottCountHint = options.rottCountHint ?? null;
     const name = trainingName?.trim() || `Training ${savedTrainings.value.length + 1}`;
-    const key = nextTrainingKey();
-    const passen = selectedPassen.map((passe) => ({
-      id: passe.id,
-      name: passe.name,
-      serien: passe.serien.map((s) => ({ ...s, steps: [...(s.steps ?? [])] })),
-    }));
-    localStorage.setItem(key, JSON.stringify({ trainingName: name, passen, type, rottCountHint }));
-    savedTrainings.value = [...savedTrainings.value, { id: key, name, passen, type, rottCountHint }];
+    const programmeIds = selectedPassen.map((p) => p.id);
+    const created = await trainingApi.createTraining(name, programmeIds);
+    savedTrainings.value = [...savedTrainings.value, toUiTraining(created)];
   };
 
   const createCompetition = (name, selectedPassen, rottCountHint = null) => {
-    createTraining(name, selectedPassen, { type: 'competition', rottCountHint });
+    return createTraining(name, selectedPassen, { type: 'competition', rottCountHint });
   };
 
-  const deleteTraining = (trainingId) => {
-    localStorage.removeItem(trainingId);
+  const deleteTraining = async (trainingId) => {
+    await trainingApi.deleteTraining(trainingId);
     savedTrainings.value = savedTrainings.value.filter((t) => t.id !== trainingId);
   };
 
-  const renameTraining = (trainingId, newName) => {
-    const training = savedTrainings.value.find((t) => t.id === trainingId);
-    if (!training) return;
-    training.name = newName;
-    try {
-      const stored = JSON.parse(localStorage.getItem(trainingId));
-      if (stored) {
-        stored.trainingName = newName;
-        localStorage.setItem(trainingId, JSON.stringify(stored));
-      }
-    } catch { /* ignorieren */ }
+  const renameTraining = async (trainingId, newName) => {
+    await trainingApi.updateTraining(trainingId, newName);
+    savedTrainings.value = savedTrainings.value.map((t) =>
+      t.id === trainingId ? { ...t, name: newName } : t,
+    );
   };
 
-  loadTrainingsFromStorage();
+  // ── Pending passe ──────────────────────────────────────────────────────────
 
-  // ── Serie retrieval by category ────────────────────────────────────────────
-  /**
-   * Gets user-created Serien (ownership: 'user')
-   */
-  const getUserSerien = () => {
-    return savedSerien.value.filter((s) => s.ownership === 'user');
-  };
+  const setPendingPasse = (passeId) => { pendingPasseId.value = passeId; };
+  const clearPendingPasse = () => { pendingPasseId.value = null; };
 
-  /**
-   * Gets globally published Serien (ownership: 'range')
-   */
-  const getGlobalSerien = () => {
-    return savedSerien.value.filter((s) => s.ownership === 'range');
-  };
+  // ── Serie retrieval helpers ────────────────────────────────────────────────
 
-  /**
-   * Gets Serien assigned to a specific range (for Trainings/Wettkämpfe)
-   */
-  const getSerienForRange = (rangeId) => {
-    return savedSerien.value.filter((s) => s.rangeId === rangeId);
-  };
+  const getUserSerien = () => savedSerien.value.filter((s) => s.ownership === 'user');
+  const getGlobalSerien = () => savedSerien.value.filter((s) => s.ownership === 'range');
+  const getSerienForRange = (rangeId) => savedSerien.value.filter((s) => s.rangeId === rangeId);
+  const getUserSerienForRange = (rangeId) => getUserSerien().filter((s) => s.rangeId === rangeId);
 
-  /**
-   * Gets user Serien for a specific range
-   */
-  const getUserSerienForRange = (rangeId) => {
-    return getUserSerien().filter((s) => s.rangeId === rangeId);
+  // ── Legacy ─────────────────────────────────────────────────────────────────
+
+  /** @deprecated use saveSerie */
+  const savePasse = async (passeName = null) => {
+    if (editingSerie.value.every((s) => s.steps.length === 0)) return;
+    await saveSerie(passeName);
   };
 
   return {
     // Capture state
-    recording,
-    passeMode,
-    pairPending,
-    activeSerieIndex,
-    editingId,
-    editingSerie,
+    recording, passeMode, pairPending, activeSerieIndex, editingId, editingSerie,
     // Persisted state
-    savedSerien,
-    savedPassen,
-    pendingPasseId,
-    savedTrainings,
-    savedGlobalPassen,
+    savedSerien, savedPassen, pendingPasseId, savedTrainings, savedGlobalPassen,
     // Capture lifecycle
-    resetCapture,
-    startCapture,
-    cancelCapture,
+    resetCapture, startCapture, cancelCapture,
     // Step recording
-    addStep,
-    removeStep,
+    addStep, removeStep,
     // Serie actions
-    saveSerie,
-    deleteSerie,
-    renameSerie,
-    createRangeSerie,
-    updateSerie,
+    saveSerie, deleteSerie, renameSerie, createRangeSerie, updateSerie,
     loadSerienFromStorage,
     // Serie retrieval
-    getUserSerien,
-    getGlobalSerien,
-    getSerienForRange,
-    getUserSerienForRange,
+    getUserSerien, getGlobalSerien, getSerienForRange, getUserSerienForRange,
     // Passe actions
-    createPasse,
-    deletePasse,
-    renamePasse,
-    setPendingPasse,
-    clearPendingPasse,
+    createPasse, deletePasse, renamePasse, setPendingPasse, clearPendingPasse,
     loadPassenFromStorage,
-    // Global Passe actions
-    createGlobalPasse,
-    updateGlobalPasse,
-    deleteGlobalPasse,
-    loadGlobalPassenFromStorage,
+    // Global Passe actions (aliases)
+    createGlobalPasse, updateGlobalPasse, deleteGlobalPasse, loadGlobalPassenFromStorage,
     // Training actions
-    loadTrainingsFromStorage,
-    createTraining,
-    createCompetition,
-    deleteTraining,
-    renameTraining,
+    loadTrainingsFromStorage, createTraining, createCompetition, deleteTraining, renameTraining,
     // Legacy
     savePasse,
   };

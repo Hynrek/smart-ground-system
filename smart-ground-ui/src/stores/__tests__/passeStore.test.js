@@ -1,268 +1,53 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { usePasseStore } from '../passeStore.js'
-import { useShooterRemoteStore } from '../shooterRemoteStore.js'
+import * as ablaufApi from '@/services/ablaufApi.js'
 
-describe('passeStore.addStep', () => {
+vi.mock('@/services/ablaufApi.js')
+vi.mock('@/services/programmeApi.js')
+vi.mock('@/services/trainingApi.js')
+vi.mock('@/stores/shooterRemoteStore.js', () => ({
+  useShooterRemoteStore: () => ({ isReserved: true, mode: 'solo', setMode: vi.fn() }),
+}))
+vi.mock('@/stores/authStore.js', () => ({
+  useAuthStore: () => ({ profile: { email: 'test@test.com' } }),
+}))
+
+describe('passeStore — Ablauf layer', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    const remote = useShooterRemoteStore()
-    remote.reservePlatz('range-1')
-    const store = usePasseStore()
-    store.startCapture()
+    vi.clearAllMocks()
   })
 
-  it('solo step stores positionId and label letter', () => {
-    const remote = useShooterRemoteStore()
-    remote.setMode('solo')
+  it('loadSerienFromStorage fetches Abläufe from API', async () => {
+    ablaufApi.fetchAblaeufe.mockResolvedValue([
+      { id: 'ab1', name: 'Test Serie', ownership: 'user', rangeId: null, rangeName: null, steps: [], createdAt: '2025-01-01T00:00:00Z' },
+    ])
     const store = usePasseStore()
-
-    const position = { id: 'pos-1', label: 'A', device: { alias: 'Werfer 1' } }
-    store.addStep('pos-1', position, 'A')
-
-    const step = store.editingSerie[0].steps[0]
-    expect(step.type).toBe('solo')
-    expect(step.positionId).toBe('pos-1')
-    expect(step.letter).toBe('A')
-    expect(step.alias).toBe('Werfer 1')
-  })
-
-  it('solo step uses position.label as alias when device is null', () => {
-    const remote = useShooterRemoteStore()
-    remote.setMode('solo')
-    const store = usePasseStore()
-
-    const position = { id: 'pos-2', label: 'B', device: null }
-    store.addStep('pos-2', position, 'B')
-
-    const step = store.editingSerie[0].steps[0]
-    expect(step.alias).toBe('B')
-  })
-
-  it('pair step stores positionId1 and positionId2', () => {
-    const remote = useShooterRemoteStore()
-    remote.setMode('pair')
-    const store = usePasseStore()
-
-    const pos1 = { id: 'pos-1', label: 'A', device: { alias: 'Werfer 1' } }
-    const pos2 = { id: 'pos-2', label: 'B', device: { alias: 'Werfer 2' } }
-
-    store.addStep('pos-1', pos1, 'A')
-    store.addStep('pos-2', pos2, 'B')
-
-    const step = store.editingSerie[0].steps[0]
-    expect(step.type).toBe('pair')
-    expect(step.positionId1).toBe('pos-1')
-    expect(step.positionId2).toBe('pos-2')
-    expect(step.letter1).toBe('A')
-    expect(step.letter2).toBe('B')
-  })
-
-  it('raffale step stores positionId', () => {
-    const remote = useShooterRemoteStore()
-    remote.setMode('raffale')
-    const store = usePasseStore()
-
-    const position = { id: 'pos-3', label: 'C', device: { alias: 'Werfer 3' } }
-    store.addStep('pos-3', position, 'C')
-
-    const step = store.editingSerie[0].steps[0]
-    expect(step.type).toBe('raffale')
-    expect(step.positionId).toBe('pos-3')
-    expect(step.letter).toBe('C')
-  })
-
-  it('recording flash is keyed by positionId', () => {
-    const remote = useShooterRemoteStore()
-    remote.setMode('solo')
-    const store = usePasseStore()
-
-    const position = { id: 'pos-1', label: 'A', device: { alias: 'Werfer 1' } }
-    store.addStep('pos-1', position, 'A')
-
-    expect(store.recording['pos-1']).toBe(true)
-  })
-})
-
-describe('passeStore.createRangeSerie', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia())
-    localStorage.clear()
-  })
-
-  it('adds a range-owned serie to savedSerien', () => {
-    const store = usePasseStore()
-    const steps = [{ id: 1, type: 'solo', alias: 'Werfer 1', positionId: 'pos-1', letter: 'A' }]
-    store.createRangeSerie('Test Serie', 'range-1', 'Platz 1', steps)
+    await store.loadSerienFromStorage()
     expect(store.savedSerien).toHaveLength(1)
-    const serie = store.savedSerien[0]
-    expect(serie.name).toBe('Test Serie')
-    expect(serie.ownership).toBe('range')
-    expect(serie.rangeId).toBe('range-1')
-    expect(serie.rangeName).toBe('Platz 1')
-    expect(serie.steps).toHaveLength(1)
+    expect(store.savedSerien[0].name).toBe('Test Serie')
   })
 
-  it('persists to localStorage with _sg_range_serie_ prefix', () => {
+  it('saveSerie creates an Ablauf via API', async () => {
+    ablaufApi.createAblauf.mockResolvedValue({ id: 'ab2', name: 'New Serie', ownership: 'user', rangeId: null, rangeName: null, steps: [] })
     const store = usePasseStore()
-    const steps = [{ id: 1, type: 'solo', alias: 'W1', positionId: 'pos-1', letter: 'A' }]
-    store.createRangeSerie('My Serie', 'range-1', 'Platz 1', steps)
-    const key = Object.keys(localStorage).find(k => k.startsWith('_sg_range_serie_'))
-    expect(key).toBeDefined()
-    const stored = JSON.parse(localStorage.getItem(key))
-    expect(stored.serieName).toBe('My Serie')
-    expect(stored.ownership).toBe('range')
-    expect(stored.rangeId).toBe('range-1')
+    store.editingSerie = [{ id: 's1', alias: null, steps: [{ id: '1', type: 'solo', positionId: 'pos-uuid', alias: 'A' }] }]
+    await store.saveSerie('New Serie')
+    expect(ablaufApi.createAblauf).toHaveBeenCalledWith(
+      'New Serie',
+      [{ id: '1', type: 'solo', posId: 'pos-uuid', alias: 'A' }],
+      null,
+      'user',
+    )
   })
 
-  it('does nothing when steps array is empty', () => {
+  it('deleteSerie calls deleteAblauf on API', async () => {
+    ablaufApi.deleteAblauf.mockResolvedValue(null)
     const store = usePasseStore()
-    store.createRangeSerie('Empty', 'range-1', 'Platz 1', [])
+    store.savedSerien = [{ id: 'ab1', name: 'Test', steps: [], ownership: 'user' }]
+    await store.deleteSerie('ab1')
+    expect(ablaufApi.deleteAblauf).toHaveBeenCalledWith('ab1')
     expect(store.savedSerien).toHaveLength(0)
-    expect(Object.keys(localStorage)).toHaveLength(0)
-  })
-
-  it('falls back to generated name when name is blank', () => {
-    const store = usePasseStore()
-    const steps = [{ id: 1, type: 'solo', alias: 'W1', positionId: 'pos-1', letter: 'A' }]
-    store.createRangeSerie('  ', 'range-1', 'Platz 1', steps)
-    expect(store.savedSerien[0].name).toBe('Serie 1')
-  })
-})
-
-describe('passeStore.updateSerie', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia())
-    localStorage.clear()
-  })
-
-  it('updates name and steps in memory', () => {
-    const store = usePasseStore()
-    const steps = [{ id: 1, type: 'solo', alias: 'W1', positionId: 'pos-1', letter: 'A' }]
-    store.createRangeSerie('Old Name', 'range-1', 'Platz 1', steps)
-    const serieId = store.savedSerien[0].id
-    const newSteps = [
-      { id: 1, type: 'solo', alias: 'W1', positionId: 'pos-1', letter: 'A' },
-      { id: 2, type: 'solo', alias: 'W2', positionId: 'pos-2', letter: 'B' },
-    ]
-    store.updateSerie(serieId, 'New Name', newSteps)
-    expect(store.savedSerien[0].name).toBe('New Name')
-    expect(store.savedSerien[0].steps).toHaveLength(2)
-  })
-
-  it('persists changes to localStorage', () => {
-    const store = usePasseStore()
-    const steps = [{ id: 1, type: 'solo', alias: 'W1', positionId: 'pos-1', letter: 'A' }]
-    store.createRangeSerie('Old Name', 'range-1', 'Platz 1', steps)
-    const serieId = store.savedSerien[0].id
-    const newSteps = [
-      { id: 1, type: 'solo', alias: 'W1', positionId: 'pos-1', letter: 'A' },
-      { id: 2, type: 'raffale', alias: 'W2', positionId: 'pos-2', letter: 'B' },
-    ]
-    store.updateSerie(serieId, 'New Name', newSteps)
-    const stored = JSON.parse(localStorage.getItem(serieId))
-    expect(stored.serieName).toBe('New Name')
-    expect(stored.steps).toHaveLength(2)
-  })
-
-  it('does not throw when serie id is not found', () => {
-    const store = usePasseStore()
-    expect(() => store.updateSerie('nonexistent-id', 'Name', [])).not.toThrow()
-  })
-})
-
-describe('passeStore.createGlobalPasse', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia())
-    localStorage.clear()
-  })
-
-  it('adds a global passe to savedGlobalPassen', () => {
-    const store = usePasseStore()
-    const serien = [{ id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }]
-    store.createGlobalPasse('Test Passe', serien)
-    expect(store.savedGlobalPassen).toHaveLength(1)
-    const passe = store.savedGlobalPassen[0]
-    expect(passe.name).toBe('Test Passe')
-    expect(passe.ownership).toBe('global')
-    expect(passe.serien).toHaveLength(1)
-  })
-
-  it('persists to localStorage with _sg_global_passe_ prefix', () => {
-    const store = usePasseStore()
-    const serien = [{ id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }]
-    store.createGlobalPasse('My Passe', serien)
-    const key = Object.keys(localStorage).find((k) => k.startsWith('_sg_global_passe_'))
-    expect(key).toBeDefined()
-    const stored = JSON.parse(localStorage.getItem(key))
-    expect(stored.passeName).toBe('My Passe')
-    expect(stored.ownership).toBe('global')
-  })
-
-  it('does nothing when serien array is empty', () => {
-    const store = usePasseStore()
-    store.createGlobalPasse('Empty', [])
-    expect(store.savedGlobalPassen).toHaveLength(0)
-    expect(Object.keys(localStorage)).toHaveLength(0)
-  })
-
-  it('falls back to generated name when name is blank', () => {
-    const store = usePasseStore()
-    const serien = [{ id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }]
-    store.createGlobalPasse('  ', serien)
-    expect(store.savedGlobalPassen[0].name).toBe('Passe 1')
-  })
-})
-
-describe('passeStore.updateGlobalPasse', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia())
-    localStorage.clear()
-  })
-
-  it('updates name and serien in memory', () => {
-    const store = usePasseStore()
-    const serien = [{ id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }]
-    store.createGlobalPasse('Old Name', serien)
-    const passeId = store.savedGlobalPassen[0].id
-    const newSerien = [
-      { id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] },
-      { id: '_sg_range_serie_2', name: 'Skeet', rangeId: 'r2', rangeName: 'Platz 2', steps: [] },
-    ]
-    store.updateGlobalPasse(passeId, 'New Name', newSerien)
-    expect(store.savedGlobalPassen[0].name).toBe('New Name')
-    expect(store.savedGlobalPassen[0].serien).toHaveLength(2)
-  })
-
-  it('persists changes to localStorage', () => {
-    const store = usePasseStore()
-    const serien = [{ id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }]
-    store.createGlobalPasse('Old Name', serien)
-    const passeId = store.savedGlobalPassen[0].id
-    store.updateGlobalPasse(passeId, 'New Name', serien)
-    const stored = JSON.parse(localStorage.getItem(passeId))
-    expect(stored.passeName).toBe('New Name')
-  })
-
-  it('does not throw when passe id is not found', () => {
-    const store = usePasseStore()
-    expect(() => store.updateGlobalPasse('nonexistent', 'Name', [])).not.toThrow()
-  })
-})
-
-describe('passeStore.deleteGlobalPasse', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia())
-    localStorage.clear()
-  })
-
-  it('removes passe from savedGlobalPassen and localStorage', () => {
-    const store = usePasseStore()
-    const serien = [{ id: '_sg_range_serie_1', name: 'Olympisch', rangeId: 'r1', rangeName: 'Platz 1', steps: [] }]
-    store.createGlobalPasse('Test', serien)
-    const passeId = store.savedGlobalPassen[0].id
-    store.deleteGlobalPasse(passeId)
-    expect(store.savedGlobalPassen).toHaveLength(0)
-    expect(localStorage.getItem(passeId)).toBeNull()
   })
 })
