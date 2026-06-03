@@ -306,6 +306,9 @@ export const usePasseStore = defineStore('passe', () => {
       savedSerien.value = savedSerien.value.map((s) =>
         s.id === serieId ? toUiSerie({ ...created, rangeName: serie.rangeName }) : s,
       );
+      // Ablauf ID changed — reload Passen to repair any Programme references
+      console.warn('[passeStore] updateSerie: Ablauf ID changed from', serieId, 'to', created.id, '— reloading Passen.');
+      loadPassenFromStorage().catch(console.error);
     } catch (e) {
       console.error('Failed to update Serie:', e);
       throw e;

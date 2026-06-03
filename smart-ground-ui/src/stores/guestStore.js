@@ -20,14 +20,24 @@ export const useGuestStore = defineStore('guests', () => {
   }
 
   const addGuest = async (displayName) => {
-    const guest = await guestApi.createGuest(displayName.trim())
-    guests.value = [...guests.value, guest]
-    return guest
+    try {
+      const guest = await guestApi.createGuest(displayName.trim())
+      guests.value = [...guests.value, guest]
+      return guest
+    } catch (e) {
+      error.value = e.message
+      throw e
+    }
   }
 
   const removeGuest = async (id) => {
-    await guestApi.deleteGuest(id)
-    guests.value = guests.value.filter((g) => g.id !== id)
+    try {
+      await guestApi.deleteGuest(id)
+      guests.value = guests.value.filter((g) => g.id !== id)
+    } catch (e) {
+      error.value = e.message
+      throw e
+    }
   }
 
   const updateGuest = async (id, displayName) => {

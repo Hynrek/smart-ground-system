@@ -17,6 +17,8 @@ import CompetitionLiveView from '@/views/shooter/CompetitionLiveView.vue';
 import PasseManagementView from '@/views/shooter/PasseManagementView.vue';
 import { useAuthStore } from '@/stores/authStore';
 
+let _storesInitialized = false
+
 const routes = [
   { path: '/login', component: LoginView, meta: { requiresAuth: false } },
   { path: '/no-access', component: () => import('@/views/NoAccessView.vue'), meta: { requiresAuth: true } },
@@ -89,8 +91,9 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // Lazy-initialize API-backed stores after first authenticated navigation
-  if (authenticated && to.path !== '/login' && to.path !== '/no-access') {
+  // Lazy-initialize API-backed stores on first authenticated navigation
+  if (authenticated && !_storesInitialized && to.path !== '/login' && to.path !== '/no-access') {
+    _storesInitialized = true
     const { useGuestStore } = await import('@/stores/guestStore.js');
     const { usePasseStore } = await import('@/stores/passeStore.js');
     const { useActivePasseStore } = await import('@/stores/activePasseStore.js');
@@ -99,17 +102,11 @@ router.beforeEach(async (to, from, next) => {
     const passeStore = usePasseStore();
     const activePasseStore = useActivePasseStore();
 
-    if (!guestStore.isLoading && guestStore.guests.length === 0) {
-      guestStore.loadGuests().catch(console.error);
-    }
-    if (passeStore.savedSerien.length === 0) {
-      passeStore.loadSerienFromStorage().catch(console.error);
-      passeStore.loadPassenFromStorage().catch(console.error);
-      passeStore.loadTrainingsFromStorage().catch(console.error);
-    }
-    if (activePasseStore.activeInstances.length === 0) {
-      activePasseStore.loadFromStorage().catch(console.error);
-    }
+    guestStore.loadGuests().catch(console.error);
+    passeStore.loadSerienFromStorage().catch(console.error);
+    passeStore.loadPassenFromStorage().catch(console.error);
+    passeStore.loadTrainingsFromStorage().catch(console.error);
+    activePasseStore.loadFromStorage().catch(console.error);
   }
 
   next();

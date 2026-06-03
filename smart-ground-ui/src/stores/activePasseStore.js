@@ -30,15 +30,25 @@ export const useActivePasseStore = defineStore('activePasse', () => {
   // ── Start instances ───────────────────────────────────────────────────────
 
   const startPasse = async (template, players) => {
-    const instance = await playInstanceApi.startProgrammeInstance(template.id, players)
-    activeInstances.value.push(instance)
-    return instance
+    try {
+      const instance = await playInstanceApi.startProgrammeInstance(template.id, players)
+      activeInstances.value.push(instance)
+      return instance
+    } catch (e) {
+      console.error('Failed to start Passe instance:', e)
+      throw e
+    }
   }
 
   const startTraining = async (template, players) => {
-    const instance = await playInstanceApi.startTrainingInstance(template.id, players)
-    activeInstances.value.push(instance)
-    return instance
+    try {
+      const instance = await playInstanceApi.startTrainingInstance(template.id, players)
+      activeInstances.value.push(instance)
+      return instance
+    } catch (e) {
+      console.error('Failed to start Training instance:', e)
+      throw e
+    }
   }
 
   // Competition instances remain in-memory only (no backend endpoint for rotten-based competitions)
@@ -219,7 +229,11 @@ export const useActivePasseStore = defineStore('activePasse', () => {
 
   function _mergeInstance(updated) {
     const idx = activeInstances.value.findIndex((i) => i.instanceId === updated.instanceId)
-    if (idx > -1) activeInstances.value[idx] = updated
+    if (idx === -1) {
+      console.warn('[activePasseStore] _mergeInstance: no matching instance for', updated.instanceId)
+      return
+    }
+    activeInstances.value[idx] = updated
   }
 
   function _completeCompetitionBlock(inst, blockId, playerResults, rotteId) {
