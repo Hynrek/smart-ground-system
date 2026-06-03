@@ -56,9 +56,9 @@ public class PlayInstanceController implements PlayInstanceApi {
     }
 
     @Override
-    public ResponseEntity<Void> startBlock(UUID instanceId, UUID blockId) {
+    public ResponseEntity<PlayInstanceResponse> startBlock(UUID instanceId, UUID blockId) {
         playInstanceService.startBlock(instanceId, blockId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(playInstanceService.getPlayInstance(instanceId));
     }
 
     @Override
