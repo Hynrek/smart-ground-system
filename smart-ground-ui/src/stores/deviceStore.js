@@ -101,6 +101,15 @@ export const useDeviceStore = defineStore('device', () => {
     return createDevice(boxId, groupId, deviceTypeId, alias, rangeId, delaySignalDurationMs);
   };
 
+  const applyDeviceEvent = (event) => {
+    if (event.type !== 'device.health') return;
+    const device = devices.value.find((d) => d.id === event.deviceId);
+    if (device) {
+      device.healthy = event.healthy;
+      device.blocked = event.blocked;
+    }
+  };
+
   return {
     devices,
     isLoading,
@@ -112,6 +121,7 @@ export const useDeviceStore = defineStore('device', () => {
     saveDevice,
     createDevice,
     registerDevice,
+    applyDeviceEvent,
     initialize,
     loadDevices,
     loadDevicesForBox,

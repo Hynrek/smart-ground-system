@@ -50,6 +50,16 @@ export const useSmartBoxStore = defineStore('smartbox', () => {
     }
   };
 
+  const applySmartBoxEvent = (event) => {
+    if (event.type === 'smartbox.status') {
+      const box = smartboxes.value.find((b) => b.id === event.smartBoxId);
+      if (box) box.status = event.status;
+    } else if (event.type === 'smartbox.synced') {
+      const box = smartboxes.value.find((b) => b.id === event.smartBoxId);
+      if (box) box.configSynced = true;
+    }
+  };
+
   return {
     smartboxes,
     isLoading,
@@ -57,6 +67,7 @@ export const useSmartBoxStore = defineStore('smartbox', () => {
     getDeviceCount,
     updateSmartBox,
     saveSmartBox,
+    applySmartBoxEvent,
     initialize,
     loadApiData,
   };
