@@ -5,7 +5,6 @@ import RangeDetailView from '@/views/admin/RangeDetailView.vue';
 import SmartBoxesView from '@/views/admin/SmartBoxesView.vue';
 import FirmwareConfigsView from '@/views/admin/FirmwareConfigsView.vue';
 import UsersView from '@/views/admin/UsersView.vue';
-import ProfileView from '@/views/admin/ProfileView.vue';
 import PassenAdminView from '@/views/admin/PassenAdminView.vue';
 import PlayerSetupView from '@/views/admin/PlayerSetupView.vue';
 import WettkampfListView from '@/views/admin/WettkampfListView.vue';
@@ -29,7 +28,6 @@ const routes = [
   { path: '/smartboxes',           component: SmartBoxesView,               meta: { layout: 'admin', permission: 'MANAGE_RANGES' } },
   { path: '/admin/firmware-configs', component: FirmwareConfigsView,        meta: { layout: 'admin', permission: 'MANAGE_RANGES' } },
   { path: '/users',                component: UsersView,                    meta: { layout: 'admin', permission: 'MANAGE_USERS' } },
-  { path: '/profile',              component: ProfileView,                  meta: { layout: 'admin' } },
   { path: '/player-setup',         component: PlayerSetupView,              meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/admin/wettkampf',       component: WettkampfListView,            meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/admin/wettkampf/:id',   component: WettkampfDetailView, props: true, meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
@@ -88,6 +86,29 @@ router.beforeEach(async (to, from, next) => {
     if (!isEscapeRoute && !to.path.startsWith(allowedPath)) {
       next(allowedPath);
       return;
+    }
+  }
+
+  // Lazy-initialize API-backed stores after first authenticated navigation
+  if (authenticated && to.path !== '/login' && to.path !== '/no-access') {
+    const { useGuestStore } = await import('@/stores/guestStore.js');
+    const { usePasseStore } = await import('@/stores/passeStore.js');
+    const { useActivePasseStore } = await import('@/stores/activePasseStore.js');
+
+    const guestStore = useGuestStore();
+    const passeStore = usePasseStore();
+    const activePasseStore = useActivePasseStore();
+
+    if (!guestStore.isLoading && guestStore.guests.length === 0) {
+      guestStore.loadGuests().catch(console.error);
+    }
+    if (passeStore.savedSerien.length === 0) {
+      passeStore.loadSerienFromStorage().catch(console.error);
+      passeStore.loadPassenFromStorage().catch(console.error);
+      passeStore.loadTrainingsFromStorage().catch(console.error);
+    }
+    if (activePasseStore.activeInstances.length === 0) {
+      activePasseStore.loadFromStorage().catch(console.error);
     }
   }
 
