@@ -1,56 +1,70 @@
-# Competition Flyout — Active Wettkampf View
+# Competition Flyout & Admin Panel — Active Wettkampf View
 
 **Date:** 2026-06-04  
 **Status:** Approved  
-**Scope:** ShooterFlyoutPanel + new CompetitionFlyoutContent component
+**Scope:** ShooterFlyoutPanel + new CompetitionFlyoutContent component + ActiveCompetitionPanel read-only redesign
 
 ---
 
 ## Problem
 
-When a Wettkampf is active the shooter flyout shows one card per Rotte under "Offene Wettkämpfe". This gives no overview of Passen progress, no per-Serie Rotten status, and no score ranking. Operators and shooters have no at-a-glance picture of where the competition stands.
+When a Wettkampf is active:
+- The shooter flyout shows one card per Rotte under "Offene Wettkämpfe" — no Passen progress, no per-Serie status, no score ranking.
+- The admin `ActiveCompetitionPanel` shows interactive rotten cards with range-assignment dropdowns that serve no purpose during execution (scoring and Serie completion happen in the ShooterRemoteView play mode).
+
+Neither view gives operators or shooters an at-a-glance picture of where the competition stands.
 
 ---
 
 ## Goal
 
-Restructure the flyout so that, when a competition context is active, it shows:
-
-1. A **Passen progress bar** — step-by-step status of every Passe in the competition.
-2. A **Serien view** — one card per Serie in the active Passe, each listing every Rotte's current status.
-3. A **Rangliste tab** — individual player scores aggregated across all completed blocks.
-
-The admin `ActiveCompetitionPanel` is **not** changed in this iteration.
+1. **Shooter flyout**: when a competition context is active, show a Passen progress bar, a per-Serie Rotten status view, and an individual-player leaderboard.
+2. **Admin panel**: replace the current interactive rotten cards with the same read-only progress view. The only action retained is "Wettkampf abbrechen".
 
 ---
 
 ## Architecture
 
+### Shared composable
+
+`src/composables/useCompetitionProgress.js` (new) — accepts a competition `instance` ref and exposes:
+
+- `passenProgress[]` — per-phase status (fertig / aktiv / offen)
+- `activePhaseIndex` — lowest phase index not fully done by all rotten
+- `serieCards[]` — blocks for the active phase with per-rotte status
+- `leaderboard[]` — players sorted by aggregated totalPoints
+
+Both the flyout component and the admin panel consume this composable, keeping derivation logic in one place.
+
 ### Component boundary
 
 **`ShooterFlyoutPanel.vue`** (modified)  
-Adds one computed property `competitionInstance`: looks up `shooterRemoteStore.competitionContext.instanceId` in `activePasseStore.activeInstances`, filtered to `type === 'competition'`. When `competitionInstance` is non-null the scrollable content area renders `<CompetitionFlyoutContent :instance="competitionInstance" />` instead of the existing non-competition sections. All panel chrome (handle, slide animation, overlay) remains unchanged.
+Adds one computed `competitionInstance`: looks up `shooterRemoteStore.competitionContext.instanceId` in `activePasseStore.activeInstances` filtered to `type === 'competition'`. When non-null, the scrollable content area renders `<CompetitionFlyoutContent :instance="competitionInstance" />` instead of the existing non-competition sections. Panel chrome (handle, slide animation, overlay) is untouched.
 
 **`src/components/shooter-remote/CompetitionFlyoutContent.vue`** (new)  
-Receives `instance` as a required prop. Owns all competition-specific UI: tab bar, Passen progress bar, Serien cards, and leaderboard. No store writes — read-only derived view.
+Receives `instance` prop. Uses `useCompetitionProgress`. Renders: Passen stepper, tab bar (Serien / Rangliste), Serien cards, leaderboard. No store writes.
+
+**`src/components/competition/ActiveCompetitionPanel.vue`** (modified)  
+Replaces the current interactive rotten cards (range-assignment dropdowns, status badges) with the same read-only Passen stepper + Serien cards + Rangliste view via `useCompetitionProgress`. The only remaining action is the existing "Wettkampf abbrechen" button.
 
 ---
 
 ## Data Flow
 
 ```
-shooterRemoteStore.competitionContext.instanceId
-        │
-        ▼
 activePasseStore.activeInstances  (type === 'competition')
         │
-        ▼
-CompetitionFlyoutContent (prop: instance)
+        ├─── ShooterFlyoutPanel ──▶ CompetitionFlyoutContent
+        │         (via competitionContext.instanceId)
         │
-        ├─ pasenProgress[]  ← derived from rotten[0].phases + all rotten statuses
-        ├─ activePhaseIndex ← lowest phase index not fully done by all rotten
-        ├─ serieCards[]     ← instance.rotten[*].phases[activePhaseIndex].blocks[i]
-        └─ leaderboard[]    ← aggregated block.result.playerResults across all done blocks
+        └─── ActiveCompetitionPanel
+                    │
+              useCompetitionProgress(instance)
+                    │
+                    ├─ passenProgress[]
+                    ├─ activePhaseIndex
+                    ├─ serieCards[]
+                    └─ leaderboard[]
 ```
 
 No new API calls. All data lives in `activePasseStore.activeInstances` (in-memory, set at competition start).
@@ -108,8 +122,10 @@ Updates automatically as blocks are marked done (reactive to `activePasseStore.a
 
 | File | Change |
 |---|---|
+| `src/composables/useCompetitionProgress.js` | New composable — shared derivation logic |
 | `src/components/shooter-remote/ShooterFlyoutPanel.vue` | Add `competitionInstance` computed; conditionally render `CompetitionFlyoutContent` |
-| `src/components/shooter-remote/CompetitionFlyoutContent.vue` | New component |
+| `src/components/shooter-remote/CompetitionFlyoutContent.vue` | New component — flyout competition view |
+| `src/components/competition/ActiveCompetitionPanel.vue` | Replace interactive rotten cards with read-only progress view; keep only abort button |
 
 No store changes. No router changes. No new dependencies.
 
@@ -117,7 +133,7 @@ No store changes. No router changes. No new dependencies.
 
 ## Out of Scope
 
-- Admin `ActiveCompetitionPanel` changes
 - Writing scores back to the backend
 - Real-time SSE-driven score updates (leaderboard reflects last completed block only)
 - Multi-competition support (one active instance per flyout context)
+- Any admin interactions with Rotten, Serien, or Passen during an active Wettkampf
