@@ -11,6 +11,7 @@ import ch.jp.shooting.repository.SerieRepository;
 import ch.jp.smartground.model.CreateSerieRequest;
 import ch.jp.smartground.model.SerieResponse;
 import ch.jp.smartground.model.UpdateSerieOwnershipRequest;
+import ch.jp.smartground.model.UpdateSeriePublishedRequest;
 import ch.jp.smartground.model.UpdateSerieRequest;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -41,12 +42,11 @@ public class SerieService {
 
     /**
      * Listet sichtbare Serien auf – optional gefiltert nach Ownership und Platz.
-     *
-     * @param ownership "user" = eigene, "range" = platzweit, null = alle sichtbaren
-     * @param rangeId   optionale Platz-ID
+     * Admins sehen alle Platz-Serien; reguläre Nutzer nur publizierte.
      */
     public List<SerieResponse> listSerien(@Nullable String ownership, @Nullable UUID rangeId) {
         var owner = securityHelper.currentUser();
+        boolean isAdmin = securityHelper.isAdminOrOwner();
         List<Serie> result;
 
         if ("user".equals(ownership)) {
@@ -54,16 +54,21 @@ public class SerieService {
                     ? serieRepository.findByOwnerAndRange_Id(owner, rangeId)
                     : serieRepository.findByOwner(owner);
         } else if ("range".equals(ownership)) {
+            // Admins sehen alle, reguläre Nutzer nur publizierte
+            result = isAdmin
+                    ? serieRepository.findByOwnership("range")
+                    : serieRepository.findByOwnershipAndPublished("range", true);
             if (rangeId != null) {
                 final UUID finalRangeId = rangeId;
-                result = serieRepository.findByOwnership("range").stream()
+                result = result.stream()
                         .filter(s -> s.getRange() != null && finalRangeId.equals(s.getRange().getId()))
                         .toList();
-            } else {
-                result = serieRepository.findByOwnership("range");
             }
         } else {
-            result = serieRepository.findByOwnerOrOwnership(owner, "range");
+            // Kein Filter: eigene + sichtbare Platz-Serien
+            result = isAdmin
+                    ? serieRepository.findByOwnerOrOwnership(owner, "range")
+                    : serieRepository.findByOwnerOrPublishedRange(owner);
             if (rangeId != null) {
                 final UUID finalRangeId = rangeId;
                 result = result.stream()
@@ -110,16 +115,21 @@ public class SerieService {
         return PlayMapper.toSerieResponse(serieRepository.save(serie));
     }
 
-    /** Gibt eine Serie zurück, wenn der Nutzer Zugriff hat. */
+    /**
+     * Gibt eine Serie zurück, wenn der Nutzer Zugriff hat.
+     * Unpublizierte Platz-Serien erscheinen für reguläre Nutzer als nicht gefunden (404).
+     */
     public SerieResponse getSerie(UUID id) {
         var serie = serieRepository.findById(id)
                 .orElseThrow(() -> new SerieNotFoundException(id));
         var owner = securityHelper.currentUser();
-        boolean hatZugriff = serie.getOwner().getId().equals(owner.getId())
-                || "range".equals(serie.getOwnership())
-                || securityHelper.isAdminOrOwner();
-        if (!hatZugriff) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        boolean isOwner = serie.getOwner().getId().equals(owner.getId());
+        boolean isAdmin = securityHelper.isAdminOrOwner();
+        boolean isVisibleRangeSerie = "range".equals(serie.getOwnership()) && serie.isPublished();
+
+        if (!isOwner && !isAdmin && !isVisibleRangeSerie) {
+            // Unpublizierte Platz-Serie: 404 statt 403, um Existenz nicht preiszugeben
+            throw new SerieNotFoundException(id);
         }
         return PlayMapper.toSerieResponse(serie);
     }
@@ -161,6 +171,20 @@ public class SerieService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
         serie.setOwnership(request.getOwnership().getValue());
+        return PlayMapper.toSerieResponse(serieRepository.save(serie));
+    }
+
+    /**
+     * Publiziert oder versteckt eine Platz-Serie.
+     * Nur ADMIN/GROUND_OWNER dürfen diese Aktion ausführen.
+     */
+    public SerieResponse updateSeriePublished(UUID id, UpdateSeriePublishedRequest request) {
+        var serie = serieRepository.findById(id)
+                .orElseThrow(() -> new SerieNotFoundException(id));
+        if (!securityHelper.isAdminOrOwner()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+        serie.setPublished(request.getPublished());
         return PlayMapper.toSerieResponse(serieRepository.save(serie));
     }
 
