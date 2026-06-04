@@ -272,6 +272,11 @@ const onPublishedChange = async () => {
   await passeStore.setSeriePublished(props.serie.id, published.value);
 };
 
+// Keep local ref in sync with store on rollback or external changes
+watch(() => props.serie?.published, (v) => {
+  if (v !== undefined) published.value = v;
+});
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const totalThrows = computed(() => {
   let count = 0;
