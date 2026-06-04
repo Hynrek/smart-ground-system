@@ -7,13 +7,13 @@ import ch.jp.shooting.dto.play.PlayPhaseRecord;
 import ch.jp.shooting.dto.play.PlayerRefRecord;
 import ch.jp.shooting.dto.play.PlayerResultRecord;
 import ch.jp.shooting.exception.BlockStateException;
+import ch.jp.shooting.exception.PasseNotFoundException;
 import ch.jp.shooting.exception.PlayInstanceNotFoundException;
-import ch.jp.shooting.exception.ProgrammNotFoundException;
 import ch.jp.shooting.exception.TrainingNotFoundException;
 import ch.jp.shooting.mapper.PlayMapper;
 import ch.jp.shooting.model.PlayInstance;
+import ch.jp.shooting.repository.PasseRepository;
 import ch.jp.shooting.repository.PlayInstanceRepository;
-import ch.jp.shooting.repository.ProgrammRepository;
 import ch.jp.shooting.repository.TrainingRepository;
 import ch.jp.smartground.model.CompleteBlockRequest;
 import ch.jp.smartground.model.PageMeta;
@@ -22,7 +22,7 @@ import ch.jp.smartground.model.PlayResultPage;
 import ch.jp.smartground.model.PlayResultResponse;
 import ch.jp.smartground.model.PlayResultSummary;
 import ch.jp.smartground.model.PlayerRef;
-import ch.jp.smartground.model.StartProgrammeInstanceRequest;
+import ch.jp.smartground.model.StartPasseInstanceRequest;
 import ch.jp.smartground.model.StartTrainingInstanceRequest;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -38,40 +38,40 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-// Geschäftslogik für Play-Instanzen (Programm- und Training-Läufe)
+// Geschäftslogik für Play-Instanzen (Passe- und Training-Läufe)
 @Service
 @NullMarked
 public class PlayInstanceService {
 
     private final PlayInstanceRepository playInstanceRepository;
-    private final ProgrammRepository programmRepository;
+    private final PasseRepository passeRepository;
     private final TrainingRepository trainingRepository;
     private final SecurityHelper securityHelper;
 
     public PlayInstanceService(PlayInstanceRepository playInstanceRepository,
-                               ProgrammRepository programmRepository,
+                               PasseRepository passeRepository,
                                TrainingRepository trainingRepository,
                                SecurityHelper securityHelper) {
         this.playInstanceRepository = playInstanceRepository;
-        this.programmRepository = programmRepository;
+        this.passeRepository = passeRepository;
         this.trainingRepository = trainingRepository;
         this.securityHelper = securityHelper;
     }
 
     // ── Neue Instanz starten ──────────────────────────────────────────────────
 
-    /** Startet einen neuen Programm-Lauf für einen oder mehrere Spieler. */
-    public PlayInstanceResponse startProgrammeInstance(StartProgrammeInstanceRequest request) {
+    /** Startet einen neuen Passe-Lauf für einen oder mehrere Spieler. */
+    public PlayInstanceResponse startPasseInstance(StartPasseInstanceRequest request) {
         var owner = securityHelper.currentUser();
-        var programm = programmRepository.findById(request.getProgrammeId())
-            .orElseThrow(() -> new ProgrammNotFoundException(request.getProgrammeId()));
-        var ablaeufe = PlayMapper.parseEmbeddedAblaeufe(programm.getAblaufeJson());
+        var passe = passeRepository.findById(request.getPasseId())
+            .orElseThrow(() -> new PasseNotFoundException(request.getPasseId()));
+        var serien = PlayMapper.parseEmbeddedSerien(passe.getSerienJson());
 
-        var blocks = ablaeufe.stream().map(abl ->
+        var blocks = serien.stream().map(s ->
             new PlayBlockRecord(
-                UUID.randomUUID(), abl.id(), abl.alias(),
-                abl.rangeId(), abl.rangeName(),
-                abl.steps(), "pending", null, null
+                UUID.randomUUID(), s.id(), s.alias(),
+                s.rangeId(), s.rangeName(),
+                s.steps(), "pending", null, null
             )
         ).toList();
 
@@ -80,9 +80,9 @@ public class PlayInstanceService {
             .toList();
 
         var instance = new PlayInstance();
-        instance.setType("programm");
-        instance.setTemplateId(programm.getId());
-        instance.setTemplateName(programm.getName());
+        instance.setType("passe");
+        instance.setTemplateId(passe.getId());
+        instance.setTemplateName(passe.getName());
         instance.setOwner(owner);
         instance.setPlayersJson(PlayMapper.writePlayerRefs(players));
         instance.setStateJson(PlayMapper.writeBlocks(blocks));
@@ -91,24 +91,24 @@ public class PlayInstanceService {
         return PlayMapper.toPlayInstanceResponse(playInstanceRepository.save(instance));
     }
 
-    /** Startet einen neuen Training-Lauf (mehrere Programm-Phasen). */
+    /** Startet einen neuen Training-Lauf (mehrere Passe-Phasen). */
     public PlayInstanceResponse startTrainingInstance(StartTrainingInstanceRequest request) {
         var owner = securityHelper.currentUser();
         var training = trainingRepository.findById(request.getTrainingId())
             .orElseThrow(() -> new TrainingNotFoundException(request.getTrainingId()));
-        var programmes = PlayMapper.parseTrainingProgrammes(training.getProgrammesJson());
+        var passen = PlayMapper.parseTrainingPassen(training.getProgrammesJson());
 
         var phases = new ArrayList<PlayPhaseRecord>();
-        for (int i = 0; i < programmes.size(); i++) {
-            var prog = programmes.get(i);
-            var blocks = prog.ablaeufe().stream().map(abl ->
+        for (int i = 0; i < passen.size(); i++) {
+            var passe = passen.get(i);
+            var blocks = passe.serien().stream().map(s ->
                 new PlayBlockRecord(
-                    UUID.randomUUID(), abl.id(), abl.alias(),
-                    abl.rangeId(), abl.rangeName(),
-                    abl.steps(), "pending", null, null
+                    UUID.randomUUID(), s.id(), s.alias(),
+                    s.rangeId(), s.rangeName(),
+                    s.steps(), "pending", null, null
                 )
             ).toList();
-            phases.add(new PlayPhaseRecord(i, prog.id(), prog.name(),
+            phases.add(new PlayPhaseRecord(i, passe.id(), passe.name(),
                 i == 0 ? "active" : "pending", blocks));
         }
 
@@ -158,7 +158,7 @@ public class PlayInstanceService {
     public void startBlock(UUID instanceId, UUID blockId) {
         var instance = playInstanceRepository.findById(instanceId)
             .orElseThrow(() -> new PlayInstanceNotFoundException(instanceId));
-        if ("programm".equals(instance.getType())) {
+        if ("passe".equals(instance.getType())) {
             var blocks = new ArrayList<>(PlayMapper.parseBlocks(instance.getStateJson()));
             int idx = findeBlockIndex(blocks, blockId, instanceId);
             var block = blocks.get(idx);
@@ -166,7 +166,7 @@ public class PlayInstanceService {
                 throw new BlockStateException("Block bereits abgeschlossen: " + blockId);
             }
             if (!"in_progress".equals(block.status())) {
-                blocks.set(idx, new PlayBlockRecord(block.blockId(), block.ablaufId(), block.ablaufAlias(),
+                blocks.set(idx, new PlayBlockRecord(block.blockId(), block.serieId(), block.serieAlias(),
                     block.rangeId(), block.rangeName(), block.steps(), "in_progress", null, null));
             }
             instance.setStateJson(PlayMapper.writeBlocks(blocks));
@@ -181,11 +181,11 @@ public class PlayInstanceService {
                 throw new BlockStateException("Block bereits abgeschlossen: " + blockId);
             }
             if (!"in_progress".equals(block.status())) {
-                blocks.set(bIdx, new PlayBlockRecord(block.blockId(), block.ablaufId(), block.ablaufAlias(),
+                blocks.set(bIdx, new PlayBlockRecord(block.blockId(), block.serieId(), block.serieAlias(),
                     block.rangeId(), block.rangeName(), block.steps(), "in_progress", null, null));
             }
-            phases.set(phaseIdx, new PlayPhaseRecord(phase.phaseIndex(), phase.programmeId(),
-                phase.programmeName(), phase.status(), blocks));
+            phases.set(phaseIdx, new PlayPhaseRecord(phase.phaseIndex(), phase.passeId(),
+                phase.passeName(), phase.status(), blocks));
             instance.setStateJson(PlayMapper.writePhases(phases));
         }
         playInstanceRepository.save(instance);
@@ -196,7 +196,6 @@ public class PlayInstanceService {
         var instance = playInstanceRepository.findById(instanceId)
             .orElseThrow(() -> new PlayInstanceNotFoundException(instanceId));
 
-        // Ergebnisse aus Request konvertieren
         var playerResults = request.getPlayerResults().stream()
             .map(pr -> new PlayerResultRecord(
                 pr.getPlayerId() != null ? pr.getPlayerId() : "",
@@ -206,7 +205,7 @@ public class PlayInstanceService {
                 pr.getStepStates().stream()
                     .map(ss -> new ch.jp.shooting.dto.play.StepStateRecord(
                         ss.getPlayerId() != null ? ss.getPlayerId() : "",
-                        ss.getAblaufIndex() != null ? ss.getAblaufIndex() : 0,
+                        ss.getSerieIndex() != null ? ss.getSerieIndex() : 0,
                         ss.getStepIndex() != null ? ss.getStepIndex() : 0,
                         ss.getState() != null ? ss.getState().getValue() : "miss",
                         ss.getPointValue() != null ? ss.getPointValue() : 0,
@@ -218,14 +217,14 @@ public class PlayInstanceService {
             .toList();
         var blockResult = new BlockResultRecord(playerResults);
 
-        if ("programm".equals(instance.getType())) {
+        if ("passe".equals(instance.getType())) {
             var blocks = new ArrayList<>(PlayMapper.parseBlocks(instance.getStateJson()));
             int idx = findeBlockIndex(blocks, blockId, instanceId);
             var block = blocks.get(idx);
             if (!"in_progress".equals(block.status())) {
                 throw new BlockStateException("Block ist nicht aktiv: " + blockId);
             }
-            blocks.set(idx, new PlayBlockRecord(block.blockId(), block.ablaufId(), block.ablaufAlias(),
+            blocks.set(idx, new PlayBlockRecord(block.blockId(), block.serieId(), block.serieAlias(),
                 block.rangeId(), block.rangeName(), block.steps(), "done", Instant.now(), blockResult));
             instance.setStateJson(PlayMapper.writeBlocks(blocks));
             if (blocks.stream().allMatch(b -> "done".equals(b.status()))) {
@@ -242,18 +241,18 @@ public class PlayInstanceService {
             if (!"in_progress".equals(block.status())) {
                 throw new BlockStateException("Block ist nicht aktiv: " + blockId);
             }
-            blocks.set(bIdx, new PlayBlockRecord(block.blockId(), block.ablaufId(), block.ablaufAlias(),
+            blocks.set(bIdx, new PlayBlockRecord(block.blockId(), block.serieId(), block.serieAlias(),
                 block.rangeId(), block.rangeName(), block.steps(), "done", Instant.now(), blockResult));
             boolean phaseDone = blocks.stream().allMatch(b -> "done".equals(b.status()));
             var updatedPhaseStatus = phaseDone ? "done" : phase.status();
-            phases.set(phaseIdx, new PlayPhaseRecord(phase.phaseIndex(), phase.programmeId(),
-                phase.programmeName(), updatedPhaseStatus, blocks));
+            phases.set(phaseIdx, new PlayPhaseRecord(phase.phaseIndex(), phase.passeId(),
+                phase.passeName(), updatedPhaseStatus, blocks));
             if (phaseDone) {
                 int next = phaseIdx + 1;
                 if (next < phases.size()) {
                     var nextPhase = phases.get(next);
-                    phases.set(next, new PlayPhaseRecord(nextPhase.phaseIndex(), nextPhase.programmeId(),
-                        nextPhase.programmeName(), "active", nextPhase.blocks()));
+                    phases.set(next, new PlayPhaseRecord(nextPhase.phaseIndex(), nextPhase.passeId(),
+                        nextPhase.passeName(), "active", nextPhase.blocks()));
                     instance.setCurrentPhaseIndex(next);
                 } else {
                     instance.setStatus("completed");
@@ -325,7 +324,7 @@ public class PlayInstanceService {
 
     /** Prüft ob die Instanz einen nicht-abgeschlossenen Block auf der angegebenen Range hat. */
     private boolean hatBlockAufRange(PlayInstance instance, UUID rangeId) {
-        if ("programm".equals(instance.getType())) {
+        if ("passe".equals(instance.getType())) {
             return PlayMapper.parseBlocks(instance.getStateJson()).stream()
                 .anyMatch(b -> rangeId.equals(b.rangeId()) && !"done".equals(b.status()));
         } else {
@@ -382,7 +381,7 @@ public class PlayInstanceService {
         if (instance.getCompletedAt() != null) {
             response.completedAt(OffsetDateTime.ofInstant(instance.getCompletedAt(), ZoneOffset.UTC));
         }
-        if ("programm".equals(instance.getType())) {
+        if ("passe".equals(instance.getType())) {
             response.blocks(PlayMapper.parseBlocks(instance.getStateJson()).stream()
                 .map(PlayMapper::toPlayBlockPublic)
                 .toList());
@@ -397,7 +396,7 @@ public class PlayInstanceService {
     /** Berechnet den höchsten Gesamtpunktestand aller Spieler. */
     private int berechneTopScore(PlayInstance instance) {
         List<PlayBlockRecord> allBlocks;
-        if ("programm".equals(instance.getType())) {
+        if ("passe".equals(instance.getType())) {
             allBlocks = PlayMapper.parseBlocks(instance.getStateJson());
         } else {
             allBlocks = PlayMapper.parsePhases(instance.getStateJson()).stream()

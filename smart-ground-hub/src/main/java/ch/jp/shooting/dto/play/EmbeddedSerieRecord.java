@@ -4,7 +4,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.List;
 import java.util.UUID;
 
-public record EmbeddedAblaufRecord(
+public record EmbeddedSerieRecord(
     UUID id,
     String alias,
     @Nullable UUID rangeId,

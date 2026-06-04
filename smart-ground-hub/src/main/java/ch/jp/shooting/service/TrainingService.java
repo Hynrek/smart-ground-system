@@ -1,12 +1,13 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.config.SecurityHelper;
-import ch.jp.shooting.dto.play.TrainingProgrammeRecord;
-import ch.jp.shooting.exception.ProgrammNotFoundException;
+import ch.jp.shooting.dto.play.EmbeddedSerieRecord;
+import ch.jp.shooting.dto.play.TrainingPasseRecord;
+import ch.jp.shooting.exception.PasseNotFoundException;
 import ch.jp.shooting.exception.TrainingNotFoundException;
 import ch.jp.shooting.mapper.PlayMapper;
 import ch.jp.shooting.model.Training;
-import ch.jp.shooting.repository.ProgrammRepository;
+import ch.jp.shooting.repository.PasseRepository;
 import ch.jp.shooting.repository.TrainingRepository;
 import ch.jp.smartground.model.CreateTrainingRequest;
 import ch.jp.smartground.model.TrainingResponse;
@@ -19,20 +20,20 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.UUID;
 
-// Geschäftslogik für Trainings (Sammlungen von Programmen)
+// Geschäftslogik für Trainings (Sammlungen von Passen)
 @Service
 @NullMarked
 public class TrainingService {
 
     private final TrainingRepository trainingRepository;
-    private final ProgrammRepository programmRepository;
+    private final PasseRepository passeRepository;
     private final SecurityHelper securityHelper;
 
     public TrainingService(TrainingRepository trainingRepository,
-                           ProgrammRepository programmRepository,
+                           PasseRepository passeRepository,
                            SecurityHelper securityHelper) {
         this.trainingRepository = trainingRepository;
-        this.programmRepository = programmRepository;
+        this.passeRepository = passeRepository;
         this.securityHelper = securityHelper;
     }
 
@@ -45,27 +46,26 @@ public class TrainingService {
     }
 
     /**
-     * Erstellt ein neues Training. Die gewählten Programme werden als Snapshot eingebettet.
-     * request.getProgrammeIds() gibt List<UUID> zurück.
-     * Für jedes Programm werden seine eingebetteten Abläufe als TrainingProgrammeRecord übernommen.
+     * Erstellt ein neues Training. Die gewählten Passen werden als Snapshot eingebettet.
+     * request.getPasseIds() gibt List<UUID> zurück.
+     * Für jede Passe werden ihre eingebetteten Serien als TrainingPasseRecord übernommen.
      */
     public TrainingResponse createTraining(CreateTrainingRequest request) {
         var owner = securityHelper.currentUser();
-        // Snapshot jedes Programms (inklusive seiner eingebetteten Abläufe)
-        var programmes = request.getProgrammeIds().stream()
-            .map(id -> programmRepository.findById(id)
-                .orElseThrow(() -> new ProgrammNotFoundException(id)))
-            .map(p -> new TrainingProgrammeRecord(
+        var passen = request.getPasseIds().stream()
+            .map(id -> passeRepository.findById(id)
+                .orElseThrow(() -> new PasseNotFoundException(id)))
+            .map(p -> new TrainingPasseRecord(
                 p.getId(),
                 p.getName(),
-                PlayMapper.parseEmbeddedAblaeufe(p.getAblaufeJson())  // Snapshot der Abläufe
+                PlayMapper.parseEmbeddedSerien(p.getSerienJson())
             ))
             .toList();
 
         var training = new Training();
         training.setName(request.getName());
         training.setOwner(owner);
-        training.setProgrammesJson(PlayMapper.writeTrainingProgrammes(programmes));
+        training.setProgrammesJson(PlayMapper.writeTrainingPassen(passen));
 
         return PlayMapper.toTrainingResponse(trainingRepository.save(training));
     }

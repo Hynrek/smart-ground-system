@@ -3,8 +3,8 @@ package ch.jp.shooting.dto.play;
 import java.util.List;
 import java.util.UUID;
 
-public record TrainingProgrammeRecord(
+public record TrainingPasseRecord(
     UUID id,
     String name,
-    List<EmbeddedAblaufRecord> ablaeufe
+    List<EmbeddedSerieRecord> serien
 ) {}

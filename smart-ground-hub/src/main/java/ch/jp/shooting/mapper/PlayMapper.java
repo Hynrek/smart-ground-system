@@ -1,34 +1,34 @@
 package ch.jp.shooting.mapper;
 
 import ch.jp.shooting.dto.play.BlockResultRecord;
-import ch.jp.shooting.dto.play.EmbeddedAblaufRecord;
+import ch.jp.shooting.dto.play.EmbeddedSerieRecord;
 import ch.jp.shooting.dto.play.PlayBlockRecord;
 import ch.jp.shooting.dto.play.PlayPhaseRecord;
 import ch.jp.shooting.dto.play.PlayerRefRecord;
 import ch.jp.shooting.dto.play.PlayerResultRecord;
-import ch.jp.shooting.dto.play.TrainingProgrammeRecord;
-import ch.jp.shooting.model.Ablauf;
+import ch.jp.shooting.dto.play.TrainingPasseRecord;
+import ch.jp.shooting.model.Passe;
 import ch.jp.shooting.model.PlayInstance;
-import ch.jp.shooting.model.Programm;
+import ch.jp.shooting.model.Serie;
 import ch.jp.shooting.model.Training;
 import ch.jp.shooting.model.Guest;
-import ch.jp.smartground.model.AblaufOwnership;
-import ch.jp.smartground.model.AblaufResponse;
 import ch.jp.smartground.model.BlockResult;
 import ch.jp.smartground.model.BlockStatus;
-import ch.jp.smartground.model.EmbeddedAblauf;
+import ch.jp.smartground.model.EmbeddedSerie;
 import ch.jp.smartground.model.GuestResponse;
+import ch.jp.smartground.model.PasseResponse;
 import ch.jp.smartground.model.PlayBlock;
 import ch.jp.smartground.model.PlayInstanceResponse;
 import ch.jp.smartground.model.PlayInstanceStatus;
 import ch.jp.smartground.model.PlayPhase;
 import ch.jp.smartground.model.PlayerRef;
 import ch.jp.smartground.model.PlayerResult;
-import ch.jp.smartground.model.ProgrammeResponse;
+import ch.jp.smartground.model.SerieOwnership;
+import ch.jp.smartground.model.SerieResponse;
 import ch.jp.smartground.model.Step;
 import ch.jp.smartground.model.StepState;
 import ch.jp.smartground.model.StepType;
-import ch.jp.smartground.model.TrainingProgramme;
+import ch.jp.smartground.model.TrainingPasse;
 import ch.jp.smartground.model.TrainingResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,34 +58,34 @@ public final class PlayMapper {
             .createdAt(OffsetDateTime.ofInstant(guest.getCreatedAt(), ZoneOffset.UTC));
     }
 
-    // ── Ablauf ───────────────────────────────────────────────────────────────
+    // ── Serie ────────────────────────────────────────────────────────────────
 
-    public static AblaufResponse toAblaufResponse(Ablauf ablauf) {
-        var range = ablauf.getRange();
-        return new AblaufResponse()
-            .id(ablauf.getId())
-            .name(ablauf.getName())
-            .ownership(AblaufOwnership.fromValue(ablauf.getOwnership()))
+    public static SerieResponse toSerieResponse(Serie serie) {
+        var range = serie.getRange();
+        return new SerieResponse()
+            .id(serie.getId())
+            .name(serie.getName())
+            .ownership(SerieOwnership.fromValue(serie.getOwnership()))
             .rangeId(range != null ? range.getId() : null)
             .rangeName(range != null ? range.getName() : null)
-            .steps(parseSteps(ablauf.getStepsJson()).stream()
+            .steps(parseSteps(serie.getStepsJson()).stream()
                 .map(PlayMapper::toStep)
                 .toList())
-            .createdAt(OffsetDateTime.ofInstant(ablauf.getCreatedAt(), ZoneOffset.UTC))
-            .ownerUsername(ablauf.getOwner().getEmail());
+            .createdAt(OffsetDateTime.ofInstant(serie.getCreatedAt(), ZoneOffset.UTC))
+            .ownerUsername(serie.getOwner().getEmail());
     }
 
-    // ── Programm ─────────────────────────────────────────────────────────────
+    // ── Passe ─────────────────────────────────────────────────────────────────
 
-    public static ProgrammeResponse toProgrammeResponse(Programm programm) {
-        return new ProgrammeResponse()
-            .id(programm.getId())
-            .name(programm.getName())
-            .ablaeufe(parseEmbeddedAblaeufe(programm.getAblaufeJson()).stream()
-                .map(PlayMapper::toEmbeddedAblauf)
+    public static PasseResponse toPasseResponse(Passe passe) {
+        return new PasseResponse()
+            .id(passe.getId())
+            .name(passe.getName())
+            .serien(parseEmbeddedSerien(passe.getSerienJson()).stream()
+                .map(PlayMapper::toEmbeddedSerie)
                 .toList())
-            .createdAt(OffsetDateTime.ofInstant(programm.getCreatedAt(), ZoneOffset.UTC))
-            .ownerUsername(programm.getOwner().getEmail());
+            .createdAt(OffsetDateTime.ofInstant(passe.getCreatedAt(), ZoneOffset.UTC))
+            .ownerUsername(passe.getOwner().getEmail());
     }
 
     // ── Training ─────────────────────────────────────────────────────────────
@@ -94,8 +94,8 @@ public final class PlayMapper {
         return new TrainingResponse()
             .id(training.getId())
             .name(training.getName())
-            .programmes(parseTrainingProgrammes(training.getProgrammesJson()).stream()
-                .map(PlayMapper::toTrainingProgramme)
+            .passen(parseTrainingPassen(training.getProgrammesJson()).stream()
+                .map(PlayMapper::toTrainingPasse)
                 .toList())
             .createdAt(OffsetDateTime.ofInstant(training.getCreatedAt(), ZoneOffset.UTC))
             .ownerUsername(training.getOwner().getEmail());
@@ -123,7 +123,7 @@ public final class PlayMapper {
             response.currentPhaseIndex(instance.getCurrentPhaseIndex());
         }
 
-        if ("programm".equals(instance.getType())) {
+        if ("passe".equals(instance.getType())) {
             response.blocks(parseBlocks(instance.getStateJson()).stream()
                 .map(PlayMapper::toPlayBlock)
                 .toList());
@@ -145,20 +145,20 @@ public final class PlayMapper {
         return writeValue(steps);
     }
 
-    public static List<EmbeddedAblaufRecord> parseEmbeddedAblaeufe(String json) {
+    public static List<EmbeddedSerieRecord> parseEmbeddedSerien(String json) {
         return parseList(json, new TypeReference<>() {});
     }
 
-    public static String writeEmbeddedAblaeufe(List<EmbeddedAblaufRecord> ablaeufe) {
-        return writeValue(ablaeufe);
+    public static String writeEmbeddedSerien(List<EmbeddedSerieRecord> serien) {
+        return writeValue(serien);
     }
 
-    public static List<TrainingProgrammeRecord> parseTrainingProgrammes(String json) {
+    public static List<TrainingPasseRecord> parseTrainingPassen(String json) {
         return parseList(json, new TypeReference<>() {});
     }
 
-    public static String writeTrainingProgrammes(List<TrainingProgrammeRecord> programmes) {
-        return writeValue(programmes);
+    public static String writeTrainingPassen(List<TrainingPasseRecord> passen) {
+        return writeValue(passen);
     }
 
     public static List<PlayerRefRecord> parsePlayerRefs(String json) {
@@ -206,11 +206,12 @@ public final class PlayMapper {
             .posId1(r.posId1())
             .posId2(r.posId2())
             .alias1(r.alias1())
-            .alias2(r.alias2());
+            .alias2(r.alias2())
+            .letter(r.letter());
     }
 
-    private static EmbeddedAblauf toEmbeddedAblauf(EmbeddedAblaufRecord r) {
-        return new EmbeddedAblauf()
+    private static EmbeddedSerie toEmbeddedSerie(EmbeddedSerieRecord r) {
+        return new EmbeddedSerie()
             .id(r.id())
             .alias(r.alias())
             .rangeId(r.rangeId())
@@ -218,11 +219,11 @@ public final class PlayMapper {
             .steps(r.steps().stream().map(PlayMapper::toStep).toList());
     }
 
-    private static TrainingProgramme toTrainingProgramme(TrainingProgrammeRecord r) {
-        return new TrainingProgramme()
+    private static TrainingPasse toTrainingPasse(TrainingPasseRecord r) {
+        return new TrainingPasse()
             .id(r.id())
             .name(r.name())
-            .ablaeufe(r.ablaeufe().stream().map(PlayMapper::toEmbeddedAblauf).toList());
+            .serien(r.serien().stream().map(PlayMapper::toEmbeddedSerie).toList());
     }
 
     private static PlayerRef toPlayerRef(PlayerRefRecord r) {
@@ -235,8 +236,8 @@ public final class PlayMapper {
     private static PlayBlock toPlayBlock(PlayBlockRecord r) {
         var block = new PlayBlock()
             .blockId(r.blockId())
-            .ablaufId(r.ablaufId())
-            .ablaufAlias(r.ablaufAlias())
+            .serieId(r.serieId())
+            .serieAlias(r.serieAlias())
             .rangeId(r.rangeId())
             .rangeName(r.rangeName())
             .steps(r.steps().stream().map(PlayMapper::toStep).toList())
@@ -272,7 +273,7 @@ public final class PlayMapper {
             ch.jp.shooting.dto.play.StepStateRecord r) {
         return new ch.jp.smartground.model.StepStateRecord()
             .playerId(r.playerId())
-            .ablaufIndex(r.ablaufIndex())
+            .serieIndex(r.serieIndex())
             .stepIndex(r.stepIndex())
             .state(StepState.fromValue(r.state()))
             .pointValue(r.pointValue())
@@ -283,8 +284,8 @@ public final class PlayMapper {
     private static PlayPhase toPlayPhase(PlayPhaseRecord r) {
         return new PlayPhase()
             .phaseIndex(r.phaseIndex())
-            .programmeId(r.programmeId())
-            .programmeName(r.programmeName())
+            .passeId(r.passeId())
+            .passeName(r.passeName())
             .status(PlayPhase.StatusEnum.fromValue(r.status()))
             .blocks(r.blocks().stream().map(PlayMapper::toPlayBlock).toList());
     }

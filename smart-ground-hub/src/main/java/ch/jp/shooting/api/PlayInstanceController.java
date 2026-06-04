@@ -4,7 +4,7 @@ import ch.jp.shooting.service.PlayInstanceService;
 import ch.jp.smartground.api.PlayInstanceApi;
 import ch.jp.smartground.model.CompleteBlockRequest;
 import ch.jp.smartground.model.PlayInstanceResponse;
-import ch.jp.smartground.model.StartProgrammeInstanceRequest;
+import ch.jp.smartground.model.StartPasseInstanceRequest;
 import ch.jp.smartground.model.StartTrainingInstanceRequest;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.http.HttpStatus;
@@ -26,10 +26,10 @@ public class PlayInstanceController implements PlayInstanceApi {
     }
 
     @Override
-    public ResponseEntity<PlayInstanceResponse> startProgrammeInstance(
-            StartProgrammeInstanceRequest startProgrammeInstanceRequest) {
+    public ResponseEntity<PlayInstanceResponse> startPasseInstance(
+            StartPasseInstanceRequest startPasseInstanceRequest) {
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(playInstanceService.startProgrammeInstance(startProgrammeInstanceRequest));
+            .body(playInstanceService.startPasseInstance(startPasseInstanceRequest));
     }
 
     @Override

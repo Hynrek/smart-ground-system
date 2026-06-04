@@ -9,8 +9,8 @@ import java.util.UUID;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record PlayBlockRecord(
     UUID blockId,
-    UUID ablaufId,
-    String ablaufAlias,
+    UUID serieId,
+    String serieAlias,
     @Nullable UUID rangeId,
     @Nullable String rangeName,
     List<StepRecord> steps,

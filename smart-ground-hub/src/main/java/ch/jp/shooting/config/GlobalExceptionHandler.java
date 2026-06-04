@@ -2,13 +2,16 @@ package ch.jp.shooting.config;
 
 import ch.jp.shooting.exception.*;
 import org.jspecify.annotations.NullMarked;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.net.URI;
 
@@ -19,6 +22,8 @@ import java.net.URI;
 @RestControllerAdvice
 @NullMarked
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     // ── Device/Range Exceptions ──
 
@@ -61,6 +66,13 @@ public class GlobalExceptionHandler {
     ProblemDetail handleSmartBoxNotFound(SmartBoxNotFoundException ex) {
         var detail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
         detail.setType(URI.create("/errors/smartbox-not-found"));
+        return detail;
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    ProblemDetail handleUserNotFound(UserNotFoundException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        detail.setType(URI.create("/errors/user-not-found"));
         return detail;
     }
 
@@ -138,7 +150,7 @@ public class GlobalExceptionHandler {
         return detail;
     }
 
-    // ── Play/Programme Exceptions ──
+    // ── Play/Passe Exceptions ──
 
     @ExceptionHandler(BlockStateException.class)
     ProblemDetail handleBlockState(BlockStateException ex) {
@@ -170,8 +182,28 @@ public class GlobalExceptionHandler {
         return detail;
     }
 
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(e -> e.getField() + " " + e.getDefaultMessage())
+                .sorted()
+                .reduce((a, b) -> a + "; " + b)
+                .orElse("Validation failed");
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, message);
+        detail.setType(URI.create("/errors/validation-failed"));
+        return detail;
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        detail.setType(URI.create("/errors/bad-request"));
+        return detail;
+    }
+
     @ExceptionHandler(Exception.class)
     ProblemDetail handleGeneralException(Exception ex) {
+        log.error("Unbehandelter Fehler", ex);
         var detail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "Ein interner Fehler ist aufgetreten"

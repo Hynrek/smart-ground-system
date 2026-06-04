@@ -1536,17 +1536,17 @@ paths:
           description: Guest not found
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Abläufe (Sequences)
+  # Serien (formerly Abläufe)
   # ─────────────────────────────────────────────────────────────────────────────
-  /api/ablaeufe:
+  /api/serien:
     get:
-      summary: List Abläufe visible to the current user
+      summary: List Serien visible to the current user
       description: >
-        Returns the calling user's own Abläufe (ownership=user) plus all
-        range-published Abläufe (ownership=range). Admins and Ground Owners see
-        all Abläufe. Results can be narrowed with query parameters.
-      operationId: listAblaeufe
-      tags: [Programme]
+        Returns the calling user's own Serien (ownership=user) plus all
+        range-published Serien (ownership=range). Admins and Ground Owners see
+        all Serien. Results can be narrowed with query parameters.
+      operationId: listSerien
+      tags: [Serie]
       parameters:
         - name: ownership
           in: query
@@ -1564,38 +1564,38 @@ paths:
           description: Filter by range assignment
       responses:
         '200':
-          description: List of Abläufe
+          description: List of Serien
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/AblaufResponse'
+                  $ref: '#/components/schemas/SerieResponse'
     post:
-      summary: Create a new Ablauf
-      operationId: createAblauf
-      tags: [Programme]
+      summary: Create a new Serie
+      operationId: createSerie
+      tags: [Serie]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateAblaufRequest'
+              $ref: '#/components/schemas/CreateSerieRequest'
       responses:
         '201':
-          description: Ablauf created
+          description: Serie created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AblaufResponse'
+                $ref: '#/components/schemas/SerieResponse'
         '400':
           description: Validation error (e.g. empty steps array)
 
-  /api/ablaeufe/{id}:
+  /api/serien/{id}:
     get:
-      summary: Get an Ablauf by ID
-      operationId: getAblauf
-      tags: [Programme]
+      summary: Get a Serie by ID
+      operationId: getSerie
+      tags: [Serie]
       parameters:
         - name: id
           in: path
@@ -1605,19 +1605,19 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Ablauf detail
+          description: Serie detail
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AblaufResponse'
+                $ref: '#/components/schemas/SerieResponse'
         '403':
-          description: Ablauf belongs to another user
+          description: Serie belongs to another user
         '404':
-          description: Ablauf not found
+          description: Serie not found
     put:
-      summary: Rename or reassign an Ablauf
-      operationId: updateAblauf
-      tags: [Programme]
+      summary: Rename or reassign a Serie
+      operationId: updateSerie
+      tags: [Serie]
       parameters:
         - name: id
           in: path
@@ -1630,22 +1630,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateAblaufRequest'
+              $ref: '#/components/schemas/UpdateSerieRequest'
       responses:
         '200':
-          description: Ablauf updated
+          description: Serie updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AblaufResponse'
+                $ref: '#/components/schemas/SerieResponse'
         '403':
-          description: Not the owner of this Ablauf
+          description: Not the owner of this Serie
         '404':
-          description: Ablauf not found
+          description: Serie not found
     delete:
-      summary: Delete an Ablauf
-      operationId: deleteAblauf
-      tags: [Programme]
+      summary: Delete a Serie
+      operationId: deleteSerie
+      tags: [Serie]
       parameters:
         - name: id
           in: path
@@ -1655,21 +1655,21 @@ paths:
             format: uuid
       responses:
         '204':
-          description: Ablauf deleted
+          description: Serie deleted
         '403':
-          description: Not the owner of this Ablauf
+          description: Not the owner of this Serie
         '404':
-          description: Ablauf not found
+          description: Serie not found
 
-  /api/ablaeufe/{id}/ownership:
+  /api/serien/{id}/ownership:
     patch:
-      summary: Publish Ablauf to the range or make it private again
+      summary: Publish Serie to the range or make it private again
       description: >
-        Changing ownership to 'range' makes the Ablauf visible to all users.
+        Changing ownership to 'range' makes the Serie visible to all users.
         Only ADMIN and GROUND_OWNER roles may publish to the range.
         Reverting to 'user' removes it from the global list.
-      operationId: updateAblaufOwnership
-      tags: [Programme]
+      operationId: updateSerieOwnership
+      tags: [Serie]
       parameters:
         - name: id
           in: path
@@ -1682,67 +1682,67 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateAblaufOwnershipRequest'
+              $ref: '#/components/schemas/UpdateSerieOwnershipRequest'
       responses:
         '200':
           description: Ownership updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AblaufResponse'
+                $ref: '#/components/schemas/SerieResponse'
         '403':
           description: Insufficient role to publish to range
         '404':
-          description: Ablauf not found
+          description: Serie not found
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Programme
+  # Passen (formerly Programme)
   # ─────────────────────────────────────────────────────────────────────────────
-  /api/programmes:
+  /api/passen:
     get:
-      summary: List Programmes owned by the current user
-      operationId: listProgrammes
-      tags: [Programme]
+      summary: List Passen owned by the current user
+      operationId: listPassen
+      tags: [Passe]
       responses:
         '200':
-          description: List of Programmes
+          description: List of Passen
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ProgrammeResponse'
+                  $ref: '#/components/schemas/PasseResponse'
     post:
-      summary: Create a new Programme from a list of Abläufe
+      summary: Create a new Passe from a list of Serien
       description: >
-        The selected Abläufe are snapshotted into the Programme at creation time.
-        Later edits to the source Abläufe do not affect this Programme.
-        Provide ablaufIds in the desired playback order.
-      operationId: createProgramme
-      tags: [Programme]
+        The selected Serien are snapshotted into the Passe at creation time.
+        Later edits to the source Serien do not affect this Passe.
+        Provide serieIds in the desired playback order.
+      operationId: createPasse
+      tags: [Passe]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateProgrammeRequest'
+              $ref: '#/components/schemas/CreatePasseRequest'
       responses:
         '201':
-          description: Programme created
+          description: Passe created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProgrammeResponse'
+                $ref: '#/components/schemas/PasseResponse'
         '400':
           description: Validation error
         '404':
-          description: One or more Ablauf IDs not found
+          description: One or more Serie IDs not found
 
-  /api/programmes/{id}:
+  /api/passen/{id}:
     get:
-      summary: Get a Programme by ID
-      operationId: getProgramme
-      tags: [Programme]
+      summary: Get a Passe by ID
+      operationId: getPasse
+      tags: [Passe]
       parameters:
         - name: id
           in: path
@@ -1752,19 +1752,19 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Programme detail (includes full embedded Abläufe with steps)
+          description: Passe detail (includes full embedded Serien with steps)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProgrammeResponse'
+                $ref: '#/components/schemas/PasseResponse'
         '403':
-          description: Programme belongs to another user
+          description: Passe belongs to another user
         '404':
-          description: Programme not found
+          description: Passe not found
     put:
-      summary: Rename a Programme
-      operationId: updateProgramme
-      tags: [Programme]
+      summary: Rename a Passe
+      operationId: updatePasse
+      tags: [Passe]
       parameters:
         - name: id
           in: path
@@ -1777,22 +1777,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateProgrammeRequest'
+              $ref: '#/components/schemas/UpdatePasseRequest'
       responses:
         '200':
-          description: Programme updated
+          description: Passe updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProgrammeResponse'
+                $ref: '#/components/schemas/PasseResponse'
         '403':
           description: Not the owner
         '404':
-          description: Programme not found
+          description: Passe not found
     delete:
-      summary: Delete a Programme
-      operationId: deleteProgramme
-      tags: [Programme]
+      summary: Delete a Passe
+      operationId: deletePasse
+      tags: [Passe]
       parameters:
         - name: id
           in: path
@@ -1802,11 +1802,11 @@ paths:
             format: uuid
       responses:
         '204':
-          description: Programme deleted
+          description: Passe deleted
         '403':
           description: Not the owner
         '404':
-          description: Programme not found
+          description: Passe not found
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Trainings
@@ -1826,10 +1826,10 @@ paths:
                 items:
                   $ref: '#/components/schemas/TrainingResponse'
     post:
-      summary: Create a new Training from a list of Programmes
+      summary: Create a new Training from a list of Passen
       description: >
-        Programmes are snapshotted (with all their embedded Abläufe and steps)
-        at creation time. Provide programmeIds in the desired execution order.
+        Passen are snapshotted (with all their embedded Serien and steps)
+        at creation time. Provide passeIds in the desired execution order.
       operationId: createTraining
       tags: [Training]
       requestBody:
@@ -1848,7 +1848,7 @@ paths:
         '400':
           description: Validation error
         '404':
-          description: One or more Programme IDs not found
+          description: One or more Passe IDs not found
 
   /api/trainings/{id}:
     get:
@@ -1921,23 +1921,23 @@ paths:
           description: Training not found
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Play Instances (live execution of a Programme or Training)
+  # Play Instances (live execution of a Passe or Training)
   # ─────────────────────────────────────────────────────────────────────────────
-  /api/play-instances/programme:
+  /api/play-instances/passe:
     post:
-      summary: Start a Programme play instance
+      summary: Start a Passe play instance
       description: >
-        Launches a new active run of a Programme for one or more players.
-        The backend creates a block for every Ablauf in the Programme and
+        Launches a new active run of a Passe for one or more players.
+        The backend creates a block for every Serie in the Passe and
         sets all blocks to 'pending'. Players can be registered users or guests.
-      operationId: startProgrammeInstance
+      operationId: startPasseInstance
       tags: [PlayInstance]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StartProgrammeInstanceRequest'
+              $ref: '#/components/schemas/StartPasseInstanceRequest'
       responses:
         '201':
           description: Play instance created and active
@@ -1946,14 +1946,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/PlayInstanceResponse'
         '404':
-          description: Programme not found
+          description: Passe not found
 
   /api/play-instances/training:
     post:
       summary: Start a Training play instance
       description: >
         Launches a new active run of a Training. The backend maps each
-        Programme in the Training to a phase, and each Ablauf to a block within
+        Passe in the Training to a phase, and each Serie to a block within
         that phase. Only the first phase starts as 'active'; subsequent phases
         unlock automatically when the previous phase completes.
       operationId: startTrainingInstance
@@ -2051,7 +2051,7 @@ paths:
     post:
       summary: Mark a block as in-progress
       description: >
-        Called when the range starts executing this Ablauf block. Transitions
+        Called when the range starts executing this Serie block. Transitions
         the block from 'pending' to 'in_progress'. Idempotent if already
         in_progress.
       operationId: startBlock
@@ -2088,7 +2088,7 @@ paths:
         Stores the per-player score and step-state data for this block.
         If all blocks in the current phase are done, the backend advances the
         Training to the next phase (or marks the whole instance as completed).
-        For a Programme instance, completing all blocks closes the instance.
+        For a Passe instance, completing all blocks closes the instance.
       operationId: completeBlock
       tags: [PlayInstance]
       parameters:
@@ -2129,7 +2129,7 @@ paths:
     get:
       summary: List completed play results (paginated)
       description: >
-        Historical record of all completed Programme and Training runs.
+        Historical record of all completed Passe and Training runs.
         Ordered by completedAt descending.
       operationId: listPlayResults
       tags: [PlayResult]
@@ -2255,7 +2255,7 @@ components:
       type: object
       required: [id, type]
       description: >
-        A single throw event within an Ablauf.
+        A single throw event within a Serie.
         Fields populated depend on step type.
       properties:
         id:
@@ -2287,17 +2287,20 @@ components:
         alias2:
           type: string
           nullable: true
+        letter:
+          type: string
+          description: Position letter label (A, B, C …) for display purposes
 
-    # ───── Ablauf ─────────────────────────────────────────────────────────────
+    # ───── Serie ──────────────────────────────────────────────────────────────
 
-    AblaufOwnership:
+    SerieOwnership:
       type: string
       enum: [user, range]
       description: >
         user  — private to the owner.
         range — published for all users at this shooting range.
 
-    AblaufResponse:
+    SerieResponse:
       type: object
       properties:
         id:
@@ -2306,12 +2309,12 @@ components:
         name:
           type: string
         ownership:
-          $ref: '#/components/schemas/AblaufOwnership'
+          $ref: '#/components/schemas/SerieOwnership'
         rangeId:
           type: string
           format: uuid
           nullable: true
-          description: Range this Ablauf is designed for (used for block routing)
+          description: Range this Serie is designed for (used for block routing)
         rangeName:
           type: string
           nullable: true
@@ -2324,9 +2327,9 @@ components:
           format: date-time
         ownerUsername:
           type: string
-          description: Username of the user who created this Ablauf
+          description: Username of the user who created this Serie
 
-    CreateAblaufRequest:
+    CreateSerieRequest:
       type: object
       required: [name, steps]
       properties:
@@ -2344,9 +2347,9 @@ components:
           items:
             $ref: '#/components/schemas/Step'
         ownership:
-          $ref: '#/components/schemas/AblaufOwnership'
+          $ref: '#/components/schemas/SerieOwnership'
 
-    UpdateAblaufRequest:
+    UpdateSerieRequest:
       type: object
       required: [name]
       properties:
@@ -2358,25 +2361,25 @@ components:
           format: uuid
           nullable: true
 
-    UpdateAblaufOwnershipRequest:
+    UpdateSerieOwnershipRequest:
       type: object
       required: [ownership]
       properties:
         ownership:
-          $ref: '#/components/schemas/AblaufOwnership'
+          $ref: '#/components/schemas/SerieOwnership'
 
-    # ───── Programme ──────────────────────────────────────────────────────────
+    # ───── Passe ──────────────────────────────────────────────────────────────
 
-    EmbeddedAblauf:
+    EmbeddedSerie:
       type: object
       description: >
-        Snapshot of an Ablauf stored inside a Programme or Training.
-        The source Ablauf may change independently; this snapshot is immutable.
+        Snapshot of a Serie stored inside a Passe or Training.
+        The source Serie may change independently; this snapshot is immutable.
       properties:
         id:
           type: string
           format: uuid
-          description: References the source Ablauf (for UI cross-linking only)
+          description: References the source Serie (for UI cross-linking only)
         alias:
           type: string
           description: Name at snapshot time
@@ -2392,7 +2395,7 @@ components:
           items:
             $ref: '#/components/schemas/Step'
 
-    ProgrammeResponse:
+    PasseResponse:
       type: object
       properties:
         id:
@@ -2400,34 +2403,34 @@ components:
           format: uuid
         name:
           type: string
-        ablaeufe:
+        serien:
           type: array
           items:
-            $ref: '#/components/schemas/EmbeddedAblauf'
+            $ref: '#/components/schemas/EmbeddedSerie'
         createdAt:
           type: string
           format: date-time
         ownerUsername:
           type: string
 
-    CreateProgrammeRequest:
+    CreatePasseRequest:
       type: object
-      required: [name, ablaufIds]
+      required: [name, serieIds]
       properties:
         name:
           type: string
           minLength: 1
-        ablaufIds:
+        serieIds:
           type: array
           minItems: 1
           items:
             type: string
             format: uuid
           description: >
-            Ordered list of Ablauf IDs. Steps are snapshotted at creation
-            time so later edits to source Abläufe do not affect this Programme.
+            Ordered list of Serie IDs. Steps are snapshotted at creation
+            time so later edits to source Serien do not affect this Passe.
 
-    UpdateProgrammeRequest:
+    UpdatePasseRequest:
       type: object
       required: [name]
       properties:
@@ -2437,21 +2440,21 @@ components:
 
     # ───── Training ───────────────────────────────────────────────────────────
 
-    TrainingProgramme:
+    TrainingPasse:
       type: object
-      description: Snapshot of one Programme phase within a Training.
+      description: Snapshot of one Passe phase within a Training.
       properties:
         id:
           type: string
           format: uuid
-          description: References the source Programme
+          description: References the source Passe
         name:
           type: string
           description: Name at snapshot time
-        ablaeufe:
+        serien:
           type: array
           items:
-            $ref: '#/components/schemas/EmbeddedAblauf'
+            $ref: '#/components/schemas/EmbeddedSerie'
 
     TrainingResponse:
       type: object
@@ -2461,10 +2464,10 @@ components:
           format: uuid
         name:
           type: string
-        programmes:
+        passen:
           type: array
           items:
-            $ref: '#/components/schemas/TrainingProgramme'
+            $ref: '#/components/schemas/TrainingPasse'
         createdAt:
           type: string
           format: date-time
@@ -2473,19 +2476,19 @@ components:
 
     CreateTrainingRequest:
       type: object
-      required: [name, programmeIds]
+      required: [name, passeIds]
       properties:
         name:
           type: string
           minLength: 1
-        programmeIds:
+        passeIds:
           type: array
           minItems: 1
           items:
             type: string
             format: uuid
           description: >
-            Ordered list of Programme IDs. Each becomes one phase in the
+            Ordered list of Passe IDs. Each becomes one phase in the
             Training. Steps are snapshotted at creation time.
 
     UpdateTrainingRequest:
@@ -2524,12 +2527,12 @@ components:
       properties:
         playerId:
           type: string
-        ablaufIndex:
+        serieIndex:
           type: integer
-          description: Index of the Ablauf (segment) within the Programme
+          description: Index of the Serie (segment) within the Passe
         stepIndex:
           type: integer
-          description: Index of the step within the Ablauf
+          description: Index of the step within the Serie
         state:
           $ref: '#/components/schemas/StepState'
         pointValue:
@@ -2570,18 +2573,18 @@ components:
 
     PlayBlock:
       type: object
-      description: One Ablauf execution slot within a play instance.
+      description: One Serie execution slot within a play instance.
       properties:
         blockId:
           type: string
           format: uuid
-        ablaufId:
+        serieId:
           type: string
           format: uuid
-          description: Source Ablauf ID (for cross-linking to the template)
-        ablaufAlias:
+          description: Source Serie ID (for cross-linking to the template)
+        serieAlias:
           type: string
-          description: Name of the Ablauf at the time the instance was created
+          description: Name of the Serie at the time the instance was created
         rangeId:
           type: string
           format: uuid
@@ -2608,16 +2611,16 @@ components:
     PlayPhase:
       type: object
       description: >
-        One Programme execution slot within a Training play instance.
+        One Passe execution slot within a Training play instance.
         Phases run sequentially — the next phase becomes active only after
         all blocks in the current phase are done.
       properties:
         phaseIndex:
           type: integer
-        programmeId:
+        passeId:
           type: string
           format: uuid
-        programmeName:
+        passeName:
           type: string
         status:
           type: string
@@ -2639,11 +2642,11 @@ components:
           format: uuid
         type:
           type: string
-          enum: [programm, training]
+          enum: [passe, training]
         templateId:
           type: string
           format: uuid
-          description: ID of the Programme or Training template used
+          description: ID of the Passe or Training template used
         templateName:
           type: string
         status:
@@ -2662,7 +2665,7 @@ components:
         blocks:
           type: array
           nullable: true
-          description: Populated for type=programm
+          description: Populated for type=passe
           items:
             $ref: '#/components/schemas/PlayBlock'
         phases:
@@ -2676,11 +2679,11 @@ components:
           nullable: true
           description: Index of the currently active phase (training instances only)
 
-    StartProgrammeInstanceRequest:
+    StartPasseInstanceRequest:
       type: object
-      required: [programmeId, players]
+      required: [passeId, players]
       properties:
-        programmeId:
+        passeId:
           type: string
           format: uuid
         players:
@@ -2723,7 +2726,7 @@ components:
           format: uuid
         type:
           type: string
-          enum: [programm, training]
+          enum: [passe, training]
         templateId:
           type: string
           format: uuid
@@ -2759,7 +2762,7 @@ components:
           format: uuid
         type:
           type: string
-          enum: [programm, training]
+          enum: [passe, training]
         templateId:
           type: string
           format: uuid
@@ -2778,7 +2781,7 @@ components:
         blocks:
           type: array
           nullable: true
-          description: Populated for programm results
+          description: Populated for passe results
           items:
             $ref: '#/components/schemas/PlayBlock'
         phases:

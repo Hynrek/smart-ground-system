@@ -1,613 +1,413 @@
-# smart-ground-backend — Spring Boot Development Guide
+# Smart Ground — Backend Development Guide
 
 ## Project Overview
 
-The Smart Ground backend is a Spring Boot 4 REST API that serves as the single authority for all IoT device commands and state. It integrates an MQTT broker to communicate with SmartBox firmware devices, manages a PostgreSQL database, and exposes OpenAPI-generated REST endpoints.
+Smart Ground is an IoT system for managing shooting-range devices (clay pigeon throwers, LEDs, sensors) over MQTT. This is the backend sub-project; the monorepo also contains `smart-ground-ui` (Vue 3) and `smart-box` (MicroPython firmware for Raspberry Pi Pico 2W).
+
+**No production release has been made.** Schema and API contracts can be rewritten freely — do not preserve backward compatibility for existing data.
+
+---
+
+## Architecture
+
+The backend is the single authority. Every command and event flows through it:
+
+```
+Client App  ──REST──▶  Backend  ──MQTT──▶  SmartBox  ──GPIO/LED──▶  Physical Device
+                           ▲
+SmartBox   ──MQTT──────────┘   (INPUT signals: sensor triggers, status)
+```
+
+- **Client → Backend**: REST (OpenAPI-generated interfaces)
+- **Backend → SmartBox**: MQTT publish (config push, commands)
+- **SmartBox → Backend**: MQTT publish (discovery, status, config ACK, sensor events)
+- **Client ↔ Backend (real-time)**: STOMP/WebSocket at `/ws/shooting`
+
+SmartBoxes are identified by their **MAC address** in MQTT topics. The backend assigns a UUID as the stable DB primary key.
+
+---
+
+## Working with AI Agents (Superpowers)
+
+This project uses the [Superpowers skill system](../smart-ground-ui/CLAUDE.md). When working in this repo:
+
+- **Use the skill system.** Before implementing anything non-trivial, invoke the relevant skill (brainstorming, debugging, architecture, etc.) via the `Skill` tool.
+- **Document decisions here.** Any architectural or design decision made during a session must be written back into this file before the session ends. CLAUDE.md is the single source of truth — not memory, not commit messages. If a decision changes how the system works (new pattern, changed convention, rejected approach and why), add or update the relevant section here.
+- **Keep it precise.** Update the specific section that owns the decision (e.g. add a new permission value to the Permission enum list; update the MQTT topic table if topics change; note a rejected alternative under the relevant heading). Do not create a separate ADR file.
 
 ---
 
 ## Stack & Versions
 
-- **Java**: 25 (latest LTS)
+- **Java**: 25
 - **Spring Boot**: 4.x
-- **Database**: PostgreSQL (production), H2 (testing)
-- **MQTT**: Eclipse Paho MQTTv5, Spring Integration
-- **Schema**: Liquibase (v1.0+), JPA/Hibernate (pre-v1.0)
+- **Database**: PostgreSQL (prod), H2 (tests)
+- **MQTT**: Eclipse Paho MQTTv5 + Spring Integration
+- **Schema**: JPA/Hibernate (pre-v1.0), Liquibase (v1.0+)
+- **Real-time**: STOMP over WebSocket + SockJS (`/ws/shooting`)
 - **Build**: Maven 3.8+
-- **Container**: Docker Compose for local PostgreSQL + Mosquitto
+- **Container**: Docker Compose (PostgreSQL + Mosquitto)
 
 ---
 
 ## Project Structure
 
 ```
-smart-ground-backend/
-├── src/main/java/ch/jp/shooting/
-│   ├── api/                   # Generated OpenAPI interfaces + implementations
-│   ├── config/                # Spring config, MQTT router, handlers
-│   ├── dto/                   # Request/response DTOs
-│   ├── exception/             # Domain exceptions
-│   ├── mapper/                # Entity ↔ DTO mapping
-│   ├── model/                 # JPA entities
-│   ├── repository/            # Spring Data repositories
-│   └── service/               # Business logic
-├── src/main/resources/
-│   ├── static/openapi.yaml    # OpenAPI contract (contract-first)
-│   ├── db/changelog/          # Liquibase migrations
-│   └── application*.properties # Environment config
-├── src/test/java/             # JUnit 5 tests (mirror main structure)
-├── pom.xml                    # Maven dependencies
-└── docker-compose.yml         # PostgreSQL + Mosquitto for local dev
+src/main/java/ch/jp/shooting/
+├── api/          # OpenAPI-generated interfaces + their implementations
+├── config/       # Spring config, MQTT router, MQTT handlers, Security, WebSocket
+├── dto/          # Request/response DTOs and records
+│   └── play/     # Play-session specific DTOs
+├── exception/    # Domain exceptions (extend RuntimeException)
+├── mapper/       # Entity ↔ DTO mapping utilities
+├── model/        # JPA entities
+│   └── auth/     # User, Role, Permission, ScopedAccess, UserRoleEntity
+├── repository/   # Spring Data repositories
+│   └── auth/     # Auth-related repositories
+└── service/      # Business logic
+    └── auth/     # AuthorizationService, PermissionService, UserService
 ```
+
+### ⚠️ Two distinct Java packages
+
+| Package | Origin | Contents |
+|---|---|---|
+| `ch.jp.shooting.*` | Handwritten | Controllers, entities, repos, services, config |
+| `ch.jp.smartground.*` | Generated by openapi-generator | Spring interfaces (`api`) + request/response DTOs (`model`) |
+
+Controllers in `ch.jp.shooting.api` **implement** the generated interfaces from `ch.jp.smartground.api`. Never confuse the two — never edit files under `ch.jp.smartground.*`.
 
 ---
 
 ## Running Locally
 
-### Option 1: Docker (Recommended)
 ```bash
 # Terminal 1: Start PostgreSQL & Mosquitto
 docker compose up
 
 # Terminal 2: Run backend
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=postgres
-# Server runs on http://localhost:8080
-# PostgreSQL on localhost:5432, Mosquitto on localhost:1883
+# Server: http://localhost:8080 | PostgreSQL: 5432 | Mosquitto: 1883
+# Swagger UI: http://localhost:8080/swagger-ui.html
+
+# Tests (H2 in-memory, no Docker needed)
+./mvnw test
 ```
 
-### Option 2: Without Docker
-```bash
-# Requires local PostgreSQL installation
-./mvnw spring-boot:run -Dspring-boot.run.profiles=postgres
-```
+### Spring Profiles
 
-### Option 3: H2 In-Memory (Testing)
-```bash
-# Fast, no external DB needed
-./mvnw spring-boot:run -Dspring-boot.run.profiles=h2
-```
+| Profile | File | Use |
+|---|---|---|
+| *(default)* | `application.properties` | Local dev — PostgreSQL via env vars |
+| `h2` | `application-h2.properties` | H2 in-memory for tests |
+| `postgres` | `application-postgres.properties` | Explicit PostgreSQL |
+| `docker` | `application-docker.properties` | Docker Compose (`db` hostname) |
+
+### Key Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `DB_HOST` / `DB_PORT` / `DB_NAME` | `db` / `5432` / `smartground` | PostgreSQL connection |
+| `DB_USERNAME` / `DB_PASSWORD` | `postgres` / `postgres` | PostgreSQL credentials |
+| `MQTT_BROKER_URL` | `tcp://mosquitto:1883` | Mosquitto broker |
+| `MQTT_CLIENT_ID` | `smartrange-backend` | MQTT client ID |
+| `cors.allowed-origins` | `http://localhost:5173` | Vue dev server |
 
 ---
 
 ## Authentication & Security
 
-### JWT-Based Auth
+### JWT Flow
 
-Your backend uses **Spring Security** with **JWT tokens**:
+1. `POST /api/auth/login` — email + password → JWT bearer token
+2. Every request: `Authorization: Bearer <token>` header
+3. `JwtAuthenticationFilter` validates the token, sets `SecurityContext`
+4. Public endpoints: `/api/auth/login`, Swagger UI, `/actuator/health`
 
-1. **User Login** → `POST /api/auth/login`
-   - Username + password → JWT token (contains username + role)
-   - Token stored in `Authorization: Bearer <token>` header
+### Dynamic RBAC
 
-2. **JwtAuthenticationFilter** → Validates token on every request
-   - Extracts username and role from token
-   - Sets authentication in SecurityContext
-   - Public endpoints bypass filter
+Roles are **DB entities** (`Role`), not a fixed enum:
+- Each `Role` carries a `Set<PermissionEntity>` (backed by the `Permission` enum)
+- `UserRoleEntity` = global role grant for a user
+- `ScopedAccess` = role grant scoped to a specific resource (`scopeType`: RANGE, COMPETITION, FACILITY; `scopeId`: UUID) with optional `expiresAt`
+- `AuthorizationService` resolves the effective permission set for the current user
 
-3. **User Roles**
-   - `ADMIN` — Full system access, user management
-   - `SHOOTER` — Standard user, can participate in sessions
+### Permission enum values
+`MANAGE_USERS`, `MANAGE_RANGES`, `MANAGE_SERIES_TEMPLATES`, `MANAGE_PASSE_TEMPLATES`, `MANAGE_COMPETITIONS`, `OPERATE_RANGE`, `START_TRAINING`, `START_COMPETITION`, `MANAGE_SERIES`, `RESERVE_REMOTE`, `VIEW_REMOTE`, `PLAY_SERIES`, `PLAY_COMPETITION`
 
-### Current Implementation
+### User model
+`User` is a full profile entity (not just credentials):
+- Auth: `email` (unique), `passwordHash`
+- Personal: `vorname`, `nachname`, `geburtsdatum`, `geschlecht`
+- Contact: `telefonnummer`, address fields
+- Profile: `profilbildUrl`, `biographie`, `sprache`
+- Membership: `mitgliedsnummer`, `schiessLizenz`, `schiessLizenzVerfallsdatum`
+- Status: `ACTIVE`, `INACTIVE`, `SUSPENDED`, `PENDING_APPROVAL`
+- Soft delete: `geloeschtAm` (deleted_at)
 
-**Classes involved:**
-- `JwtService` — Token generation/validation
-- `AuthController` — Login endpoint
-- `JwtAuthenticationFilter` — Per-request validation
-- `User` model — Username, password (hashed), role
-
-**Endpoints:**
-```
-POST /api/auth/login           # Username + password → JWT
-POST /api/users                # Create new user (ADMIN only)
-PATCH /api/users/{id}/role     # Change user role (ADMIN only)
-```
-
----
-
-## Session/Competition Management
-
-Your backend supports **reusable session templates** and **live competition sessions**:
-
-### SessionTemplate (Reusable Configuration)
-
-A template defines the "blueprint" for a competition:
-- Name, type (COMPETITION, TRAINING, FREE)
-- Optional program/segment snapshots
-- Bracket type (ROUND_ROBIN, SINGLE_ELIMINATION, DOUBLE_ELIMINATION)
-- Default tiebreaker strategy
-- Default player list
-- Created by, audit timestamps
-
-**Use case:** Create once, reuse for multiple actual competitions.
-
-### LiveSession (Active Competition)
-
-An instance of a competition in progress:
-- References SessionTemplate (optional)
-- Status: SETUP → ACTIVE → PAUSED → COMPLETED/ABANDONED
-- Immutable program/range snapshots (taken at start)
-- List of SessionPlayers (competitors)
-- Groups (e.g., "Group A", "Group B")
-- Results tracking
-
-**Lifecycle:**
-1. Create from template or standalone
-2. Add players/groups
-3. Initialize bracket (if applicable)
-4. Transition to ACTIVE
-5. Record results as competition runs
-6. Transition to COMPLETED
-
-### Controllers
-
-| Controller | Responsibility |
+### Key classes
+| Class | Role |
 |---|---|
-| `SessionController` | CRUD operations for sessions |
-| `GroupController` | Manage groups within a session |
-| `BracketController` | Initialize and manage tournament brackets |
-| `CompetitionController` | Competition-specific operations |
-| `ResultsController` | Record and retrieve results/scoring |
+| `JwtService` | Token generation/validation |
+| `JwtAuthenticationFilter` | Per-request JWT validation |
+| `SecurityConfig` | Stateless filter chain, CORS, no CSRF |
+| `CustomUserDetailsService` | Loads `User` by email for Spring Security |
+| `AuthorizationService` | Resolves scoped + global permissions |
+| `UserService` | User CRUD |
+| `RoleDataInitializer` / `DataInitializer` | Seeds default roles/permissions on startup |
 
 ---
 
-## Actual Database Schema
+## Domain: Serie / Passe / Training / Play
 
-Your entities (from the JPA models):
+### Template hierarchy
 
-### Core Entities
+```
+Serie  ──────────────────────▶  steps (JSON array)
+  └─ Passe  ─────────────────▶  list of Serie snapshots (JSON)
+        └─ Training  ────────▶  list of Passe snapshots (JSON)
+```
 
-**smart_boxes** — Physical Pico 2W devices
-- id (UUID)
-- mac_address (unique)
-- alias, status, firmware_version, config_synced
+- **`Serie`** (formerly Ablauf): A shooting sequence. `ownership`: `user` (private) or `range` (visible to all on that range). Steps stored as JSON array.
+- **`Passe`** (formerly Programm): Named collection of Serie snapshots. Owner-scoped.
+- **`Training`**: Named collection of Passe snapshots. Owner-scoped.
 
-**devices** — GPIO devices registered on a SmartBox
-- id (UUID)
-- smartbox_id → smart_boxes
-- device_type_id → device_types
-- range_id → ranges (nullable)
-- alias, pin_config (JSON), config_json (JSON), blocked, healthy
+### PlayInstance (live execution)
 
-**ranges** — Shooting lanes/zones
-- id (UUID)
-- name (unique), description, locked, created_at
+Created when a user starts running a Passe or Training:
 
-**device_types** — Categorized device capabilities
-- id (UUID)
-- name, signal_type_id, group_id, signal_duration_ms, delay_signal_duration_ms
+| Field | Values |
+|---|---|
+| `type` | `passe` \| `training` |
+| `status` | `active` \| `completed` \| `cancelled` |
+| `playersJson` | `PlayerRef[]` — participants |
+| `stateJson` | `PlayBlock[]` (passe) or `PlayPhase[]` (training) |
+| `currentPhaseIndex` | Training only — active phase |
 
-### Authentication Entities
+**Lifecycle**: `startBlock()` → `completeBlock(results)` → all done → `completed`. `stopPlayInstance()` → `cancelled`.
 
-**users** — System users
-- id (UUID)
-- username (unique), password (bcrypt hashed), role (ADMIN/SHOOTER)
-- created_at, updated_at
-
-### Session/Competition Entities
-
-**session_templates** — Reusable competition blueprints
-- id (UUID)
-- name (unique), type (COMPETITION/TRAINING/FREE)
-- program_ids, range_segment_map, default_players (all JSON)
-- bracket_type, default_tiebreaker, max_groups
-- publish_results (boolean), created_by_id → users
-
-**live_sessions** — Active or completed competitions
-- id (UUID)
-- name, type (COMPETITION/TRAINING/FREE)
-- status (SETUP/ACTIVE/PAUSED/COMPLETED/ABANDONED)
-- template_id → session_templates (nullable)
-- program_snapshots, range_segment_map (immutable JSON)
-- created_at, updated_at
-
-**session_players** — Competitors in a session
-- id (UUID)
-- session_id → live_sessions
-- user_id → users (nullable, for guests)
-- type (USER/GUEST), display_name
-- joined_at
-
-**groups** — Player divisions within a session (e.g., "Group A")
-- id (UUID)
-- session_id → live_sessions
-- name, created_at
-
-### Notes on JSON Columns
-
-Several columns store **immutable snapshots** as JSON:
-- `program_snapshots` — Complete program structure at session start (prevents changes mid-competition)
-- `range_segment_map` — Range/segment assignments at session start
-- `default_players` — Pre-populated players for templates
-- `pin_config` — GPIO mapping for devices
-- `config_json` — Sensor threshold config for devices
-
-These allow flexibility without breaking existing sessions.
+`SessionWebSocketService` pushes state changes to subscribed clients via STOMP.
 
 ---
 
-## Testing
+## Domain: Competition / Session
 
-### Run All Tests
-```bash
-./mvnw test
-# Uses H2 in-memory database (spring.jpa.hibernate.ddl-auto=create-drop)
-```
+| Entity | Role |
+|---|---|
+| `LiveSession` | Active or completed competition. Status: `SETUP → ACTIVE → PAUSED → COMPLETED/ABANDONED` |
+| `SessionTemplate` | Reusable competition blueprint |
+| `ShooterGroup` | Player division (e.g., "Group A") within a session |
+| `SessionPlayer` | Participant — `type` = USER or GUEST |
+| `PlayerResult` | Scores/accuracy per player per session |
+| `BracketMatch` | Single match in a tournament bracket |
+| `CareerStats` | Aggregate career-wide stats per user |
 
-### Run Specific Test
-```bash
-./mvnw test -Dtest=SmartBoxServiceTest
-```
-
-### Test Coverage
-```bash
-./mvnw clean test jacoco:report
-# Report: target/site/jacoco/index.html
-```
-
-### Test Structure
-
-**Unit Tests**: Business logic in isolation
-- Path: `src/test/java/ch/jp/shooting/service/`
-- Mock external dependencies (MQTT, DB)
-- Use `@ExtendWith(MockitoExtension.class)`
-
-**Integration Tests**: Database + MQTT with test containers
-- Path: `src/test/java/ch/jp/shooting/config/mqtt/`
-- Use `@SpringBootTest` + `@TestPropertySource`
-- Embedded Mosquitto for MQTT integration
-- H2 in-memory for database
-
-Example:
-```java
-@SpringBootTest
-@TestPropertySource(locations = "classpath:test-application.properties")
-class SmartBoxMqttHandlerTest {
-    @Autowired private SmartBoxRepository smartBoxRepository;
-    @Autowired private MqttTemplate mqttTemplate;
-    
-    @Test
-    void testDiscoveryMessage_CreatesSmartBox() {
-        // MQTT discovery → database write
-    }
-}
-```
+### Bracket seeding strategies
+- `BY_REGISTRATION_ORDER` — seed 1, 2, 3, ...
+- `BY_SCORE_RANKING` — seed by previous scores (tiebreaker-aware)
+- `BY_TIEBREAKER` — custom tiebreakers: TOTAL_SCORE, WIN_RATIO, HEADTOHEAD
 
 ---
 
-## Code Review Checklist (Backend-Specific)
+## Domain: Range & Reservations
 
-### Functional Correctness
-- [ ] All tests pass: `./mvnw clean test`
-- [ ] OpenAPI schema updated in `src/main/resources/static/openapi.yaml`
-- [ ] New endpoints implement generated interface (no hardcoded `@RequestMapping`)
-- [ ] Auth required endpoints use JWT validation (via `JwtAuthenticationFilter`)
-- [ ] Session state transitions are validated (no invalid SETUP→COMPLETED jumps)
-- [ ] MQTT topics follow `smartboxes/{mac}/...` convention
-- [ ] Device commands routed correctly via MQTT (not direct GPIO)
-
-### Code Quality
-- [ ] All new classes annotated with `@NullMarked`
-- [ ] New entities use `UUID` primary key with `GenerationType.UUID`
-- [ ] Fetch strategies reviewed (EAGER only when necessary, default LAZY)
-- [ ] JSON columns use TEXT type (not JSONB for H2 compatibility)
-- [ ] New exceptions in `ch.jp.shooting.exception`, mapped in `@ControllerAdvice`
-- [ ] Inline comments in German (domain logic), English (API docs)
-- [ ] No hardcoded secrets (use `application.properties`)
-
-### Database & Schema
-- [ ] No breaking schema changes without migration plan
-- [ ] Liquibase migrations (if v1.0+) or JPA entity changes (pre-v1.0)
-- [ ] JSON snapshots documented (why immutable during session)
-- [ ] Foreign key relationships verified
-- [ ] Unique constraints documented (@Column(unique=true))
-
-### Testing
-- [ ] Auth flow tested (login, token validation, role checks)
-- [ ] Session lifecycle tested (state transitions)
-- [ ] Bracket initialization tested (seeding strategies)
-- [ ] Result recording tested (player scoring)
-- [ ] MQTT integration tested with embedded Mosquitto
-- [ ] Mock H2 DB used for tests (not PostgreSQL)
+- **`Range`**: A shooting lane. `locked` flag prevents device reassignment during active play.
+- **`RangePosition`**: A physical slot within a range (label, sortOrder). May hold one `Device`. Unique per `(range_id, label)`.
+- **`Reservation`**: Time-boxed exclusive claim on a range. `ReservationCleanupTask` (@Scheduled) auto-releases expired ones.
+- **`Guest`**: A guest shooter — display name only, system-wide, no owner.
 
 ---
 
-## Database & Schema Management
+## Database Schema (JPA-managed, pre-v1.0)
 
-### Pre-v1.0: JPA Controls Schema
+**To change schema**: edit entities in `model/`, Hibernate applies the diff on next startup.
+- PostgreSQL: `ddl-auto=update` (alters in place, preserves data)
+- H2: `ddl-auto=create-drop` (rebuilt from scratch each test run)
 
-Currently, Liquibase is disabled. JPA/Hibernate auto-generates the schema:
+### IoT / Device tables
+```
+smart_boxes       id, mac_address*, alias, status, last_seen, firmware_version,
+                  mqtt_username, config_synced, firmware_config_id→firmware_configs
+firmware_configs  id, version, box_type  UNIQUE(version, box_type)
+signal_types      id, firmware_config_id, communication_direction, device, command
+device_type_groups id, name*
+device_types      id, name, signal_type_id, group_id, signal_duration_ms, delay_signal_duration_ms
+devices           id, smartbox_id→smart_boxes, range_id→ranges?, device_type_id,
+                  alias, pin_config TEXT, config_json TEXT, blocked, healthy
+ranges            id, name*, description, locked, created_at
+range_positions   id, range_id→ranges, label, sort_order, device_id→devices? (unique)
+reservations      id, range_id→ranges, user_id→users, reserved_at, expires_at
+```
 
-- **PostgreSQL profile**: `spring.jpa.hibernate.ddl-auto=update` (alter in place)
-- **H2 profile**: `spring.jpa.hibernate.ddl-auto=create-drop` (rebuild on each test)
+### Auth / User tables
+```
+users             id, email*, password_hash, vorname, nachname, geburtsdatum, geschlecht,
+                  telefonnummer, telefon_bestaetigt, strasse, hausnummer, plz, stadt, land,
+                  profilbild_url, biographie, sprache, mitgliedsnummer, schiess_lizenz,
+                  schiess_lizenz_verfallsdatum, status, email_bestaetigt, letzter_login,
+                  created_at, updated_at, deleted_at
+roles             id, name*, description, created_at
+permissions       id, name*
+role_permissions  role_id→roles, permission_id→permissions
+user_roles        id, user_id→users, role_id→roles
+scoped_access     id, user_id→users, role_id→roles, scope_type, scope_id UUID, assigned_at, expires_at?
+guests            id, display_name, created_at
+```
 
-**To change the schema:**
-1. Edit JPA entity classes in `src/main/java/ch/jp/shooting/model/`
-2. Hibernate applies the diff on startup
-3. Test with `./mvnw test` to verify
+### Serie / Passe / Training / Play tables
+```
+serien            id, name, ownership(user|range), range_id→ranges?, owner_id→users,
+                  steps_json TEXT, created_at
+passen            id, name, owner_id→users, serien_json TEXT, created_at
+trainings         id, name, owner_id→users, programmes_json TEXT, created_at
+play_instances    instanceId, type(passe|training), template_id UUID, template_name,
+                  status(active|completed|cancelled), owner_id→users, players_json TEXT,
+                  state_json TEXT, current_phase_index?, started_at, completed_at?
+```
 
-### Post-v1.0: Liquibase Takes Over
+### Competition / Session tables
+`session_templates`, `live_sessions`, `session_players` (type USER|GUEST), `shooter_groups`, `player_results`, `bracket_matches`, `career_stats`
 
-When the project reaches v1.0:
+### JSON column rule
+All JSON columns use `TEXT` (never `JSONB`) for H2 test compatibility.
 
+---
+
+## Post-v1.0: Liquibase Takes Over
+
+When v1.0 is released:
 1. Set `spring.liquibase.enabled=true` and `spring.jpa.hibernate.ddl-auto=none`
-2. All future schema changes go into `src/main/resources/db/changelog/01__init.xml`
-3. New changesets follow: `v1.0-9`, `v1.0-10`, etc.
-4. Never edit existing changesets (Liquibase checksums them)
+2. All future schema changes go into `src/main/resources/db/changelog/01__init.xml` as new changesets
+3. Never edit existing changesets (Liquibase checksums them)
 
-Example adding a column post-v1.0:
 ```xml
 <changeSet id="v1.0-9" author="smartground">
     <addColumn tableName="devices">
-        <column name="config_json" type="TEXT"/>
+        <column name="new_col" type="TEXT"/>
     </addColumn>
-    <modifySql dbms="h2">
-        <replace replace="TEXT" with="CLOB"/>
-    </modifySql>
 </changeSet>
 ```
 
 ---
 
-## OpenAPI & REST Contracts
-
-### OpenAPI Workflow
-
-1. **Write the contract** in `src/main/resources/static/openapi.yaml`
-   ```yaml
-   /api/smartboxes:
-     get:
-       operationId: listSmartBoxes
-       responses:
-         '200':
-           content:
-             application/json:
-               schema:
-                 type: array
-                 items:
-                   $ref: '#/components/schemas/SmartBoxDto'
-   ```
-
-2. **Generate interfaces** with Maven plugin (defined in `pom.xml`)
-   ```bash
-   ./mvnw generate-sources
-   # Creates: target/generated-sources/openapi/ch/jp/shooting/api/SmartboxesApi.java
-   ```
-
-3. **Implement the interface**
-   ```java
-   @RestController
-   @RequestMapping("/api")
-   public class SmartBoxesController implements SmartboxesApi {
-       @Override
-       public ResponseEntity<List<SmartBoxDto>> listSmartBoxes() {
-           // Implementation
-       }
-   }
-   ```
-
-### Never
-- Add `@RequestMapping` to the controller class (OpenAPI generator creates the path)
-- Modify generated interface files (regenerate instead)
-- Create REST endpoints outside of OpenAPI contract
-
----
-
 ## MQTT Integration
 
-### Architecture
+### Topic convention
 
 ```
-MQTT Input (SmartBox publishes)
+smartboxes/discovery           # SmartBox → Backend: registration payload
+smartboxes/{mac}/status        # SmartBox → Backend: heartbeat / state
+smartboxes/{mac}/config        # Backend → SmartBox: full device/GPIO config
+smartboxes/{mac}/config/ack    # SmartBox → Backend: confirm config received
+smartboxes/{mac}/command       # Backend → SmartBox: fire a device
+```
+
+Do not hardcode topic strings outside of `SmartBoxMqttRouter` and its handlers.
+
+### Architecture
+```
+SmartBox publishes
     ↓
 SmartBoxMqttRouter (dispatches by topic suffix)
     ↓
-Topic-specific handler (e.g., DiscoveryHandler)
+Handler (SmartBoxDiscoveryHandler, SmartBoxStatusHandler, SmartBoxConfigAckHandler)
     ↓
-Service layer (SmartBoxService, DeviceService, etc.)
-    ↓
-Database & REST responses
+Service layer → Database
 ```
 
-### Adding a New MQTT Handler
+### SmartBox payloads
 
-1. **Define the topic** in `SmartBoxMqttRouter`:
-   ```java
-   if (topic.endsWith("/status")) {
-       handlers.statusHandler().handle(payload, mac);
-   }
-   ```
-
-2. **Create handler** in `ch.jp.shooting.config.mqtt`:
-   ```java
-   @Component
-   public class StatusHandler {
-       public void handle(String payload, String mac) {
-           // Parse JSON, update SmartBox status
-       }
-   }
-   ```
-
-3. **Test** with embedded Mosquitto:
-   ```java
-   @SpringBootTest
-   class StatusHandlerTest {
-       @Autowired private MqttTemplate mqttTemplate;
-       
-       @Test
-       void testStatusUpdate() {
-           mqttTemplate.convertAndSend("smartboxes/aabbccddeeff/status", "{...}");
-           // Verify SmartBox entity updated
-       }
-   }
-   ```
-
-### MQTT Topic Convention
-
-Do not hardcode topic strings. Use the router and handlers pattern:
-
+Discovery (published to `smartboxes/discovery` on boot):
+```json
+{ "mac": "aabbccddeeff", "firmwareVersion": "0.6", "boxType": "pico2w", "ip": "192.168.1.42" }
 ```
-smartboxes/discovery           # SmartBox → Backend: registration
-smartboxes/{mac}/status        # SmartBox → Backend: heartbeat
-smartboxes/{mac}/config        # Backend → SmartBox: push config
-smartboxes/{mac}/config/ack    # SmartBox → Backend: confirm receipt
-smartboxes/{mac}/command       # Backend → SmartBox: fire device
+
+Config push (published to `smartboxes/{mac}/config`):
+```json
+{ "devices": [{ "id": "<uuid>", "alias": "Werfer 1", "gpioPin": 14, "signalType": "LED", "defaultSignalDurationS": 1 }] }
+```
+
+Config ACK (published to `smartboxes/{mac}/config/ack`):
+```
+OK
 ```
 
 ---
 
-## Conventions
+## WebSocket (STOMP/SockJS)
 
-### Naming
-- **Entities**: `SmartBox`, `Device`, `Range` (singular, PascalCase)
-- **Repositories**: `SmartBoxRepository`, `DeviceRepository`
-- **Services**: `SmartBoxService`, `DeviceService` (business logic)
-- **DTOs**: `SmartBoxDto`, `CreateDeviceRequest`, `DeviceResponse`
-- **Handlers**: `DiscoveryHandler`, `StatusHandler`
-
-### Classes & Annotations
-- `@NullMarked` on all new classes (prevents null pointer errors)
-- `@Nullable` on fields/parameters that can be null
-- UUID primary key: `@Id @GeneratedValue(strategy = GenerationType.UUID)`
-- Fetch: `@ManyToOne(fetch = FetchType.LAZY)` by default
-- Comments: German inline comments for business logic
-
-### Entity Example
-```java
-@Entity
-@Table(name = "devices")
-@NullMarked
-public class Device {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "smartbox_id")
-    private SmartBox smartBox;
-    
-    @Nullable
-    @Column(columnDefinition = "TEXT")
-    private String configJson; // { "threshold_db": 85, ... }
-    
-    // Getters, setters
-}
-```
-
-### Exception Handling
-```java
-// Define custom exception
-@NullMarked
-public class DeviceNotFound extends RuntimeException {
-    public DeviceNotFound(UUID id) {
-        super("Device not found: " + id);
-    }
-}
-
-// Map in controller advice
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-    @ExceptionHandler(DeviceNotFound.class)
-    public ResponseEntity<ErrorResponse> handleDeviceNotFound(DeviceNotFound ex) {
-        return ResponseEntity.status(404).body(new ErrorResponse(ex.getMessage()));
-    }
-}
-```
+- Endpoint: `/ws/shooting` (SockJS fallback)
+- Topics: `/topic/...` (broadcast), `/queue/...` (per-user)
+- Application prefix: `/app`
+- Heartbeat: 25 s
+- Use `SessionWebSocketService` to push updates — do not use `SimpMessagingTemplate` directly in controllers
 
 ---
 
-## Data Validation
+## OpenAPI & REST Contracts
 
-### Validation Annotations
-```java
-@NullMarked
-public class CreateDeviceRequest {
-    @NotBlank(message = "Alias required")
-    private String alias;
-    
-    @NotNull
-    @Positive
-    private UUID smartBoxId;
-    
-    @Min(0)
-    @Max(28)
-    private int pinNumber;
-}
-```
+> **Mandatory rule: `openapi.yaml` is the single source of truth for every REST endpoint. Any change to the API — new endpoint, removed endpoint, changed path, changed request/response shape, added/removed field, changed status code — must be reflected in `openapi.yaml` before or at the same time as the implementation. No exceptions.**
 
-### Validation in Controller
-```java
-@PostMapping("/devices")
-public ResponseEntity<DeviceResponse> createDevice(
-    @RequestBody @Valid CreateDeviceRequest request
-) {
-    // request is guaranteed valid
-}
-```
+### Workflow
 
----
+1. **Edit `src/main/resources/static/openapi.yaml`** — define or update the endpoint
+2. **Regenerate**: `./mvnw generate-sources`
+   - Output: `target/generated-sources/openapi/ch/jp/smartground/api/`
+3. **Implement**: `@RestController class FooController implements FooApi`
 
-## Caching
+### What counts as an API change
 
-Use Caffeine for frequently-accessed data:
+| Change | Must update `openapi.yaml` |
+|---|---|
+| New endpoint | ✅ |
+| Removed endpoint | ✅ |
+| Renamed/moved path | ✅ |
+| New request body field | ✅ |
+| New response field | ✅ |
+| Removed or renamed field | ✅ |
+| Changed HTTP status code | ✅ |
+| New path/query parameter | ✅ |
+| New error response | ✅ |
 
-```java
-@Service
-@NullMarked
-public class FirmwareConfigService {
-    @Cacheable(value = "firmwareConfigs", key = "#version.concat('-').concat(#boxType)")
-    public FirmwareConfig getConfig(String version, String boxType) {
-        return repository.findByVersionAndBoxType(version, boxType)
-            .orElseThrow(() -> new ConfigNotFound(version, boxType));
-    }
-}
-```
+### Hard rules
 
----
+> ⛔ **Every controller must implement a generated interface. Every generated interface must have an entry in `openapi.yaml`. No exceptions.**
 
-## Building & Deployment
+- **No controller without an OpenAPI entry.** If a `@RestController` class exists, every HTTP method it exposes must be declared in `openapi.yaml`. A controller that handles a route not in the spec is forbidden — add the spec entry first.
+- **No controller that declares its own routing.** Controllers must implement the generated interface (e.g. `class FooController implements FooApi`). The interface owns all routing, path variables, and request/response types. Never add `@RequestMapping` on the class, and never add `@GetMapping` / `@PostMapping` / `@PutMapping` / `@PatchMapping` / `@DeleteMapping` on individual methods to bypass or supplement the spec.
+- Never modify generated files under `ch.jp.smartground.*`
 
-### Local Build
-```bash
-./mvnw clean package
-# Creates: target/smart-ground-backend-*.jar
-```
-
-### Docker Build
-```bash
-docker build -t smart-ground-backend:latest .
-docker run -e SPRING_PROFILES_ACTIVE=postgres -p 8080:8080 smart-ground-backend:latest
-```
-
-### Application Properties
-```properties
-# application-postgres.properties (production)
-spring.datasource.url=jdbc:postgresql://localhost:5432/smartground
-spring.datasource.username=${DB_USER}
-spring.datasource.password=${DB_PASSWORD}
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-
-# application-h2.properties (testing)
-spring.datasource.url=jdbc:h2:mem:testdb
-spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
-```
+**Practical checklist before committing a controller:**
+1. The endpoint is declared in `openapi.yaml` ✅
+2. `./mvnw generate-sources` has been run and the interface exists in `target/generated-sources/openapi/ch/jp/smartground/api/` ✅
+3. The controller class signature is `class FooController implements FooApi` ✅
+4. No Spring mapping annotations (`@GetMapping` etc.) appear anywhere in the controller class ✅
 
 ---
 
 ## Controllers Overview
 
-| Controller | Endpoints | Purpose |
+| Controller | Key Endpoints | Purpose |
 |---|---|---|
-| `AuthController` | POST /api/auth/login, POST /api/users | JWT authentication, user registration |
-| `DeviceController` | GET/POST/PATCH/DELETE /api/devices, /api/devices/{id}/command | Device CRUD and MQTT command routing |
-| `SmartBoxController` | GET /api/smart-boxes, PATCH /api/smart-boxes/{id}/alias, POST /api/smart-boxes/{id}/push-config | SmartBox registration and management |
-| `RangeController` | GET/POST/PATCH/DELETE /api/ranges, PATCH /api/ranges/{id}/locked | Shooting lane management |
-| `DeviceTypeController` | GET /api/device-types, GET /api/device-types/firmware-configs, POST /api/device-types/firmware-configs | Capability registry |
-| `SessionController` | GET/POST /api/sessions, GET /api/sessions/{id}, POST /api/sessions/{id}/groups | Session lifecycle |
-| `BracketController` | POST /api/sessions/{id}/bracket | Tournament initialization |
-| `CompetitionController` | GET /api/sessions/{id}/leaderboard, GET /api/sessions/{id}/results | Scoring and ranking |
-| `ResultsController` | POST /api/results, GET /api/results/{sessionId} | Player result tracking |
-| `UserController` | PATCH /api/users/{id}/role | User management |
+| `AuthController` | POST /api/auth/login | JWT login |
+| `UserController` | GET/POST/PATCH /api/users, PATCH /api/users/{id}/password | Full user profile management |
+| `RoleController` | GET /api/roles | List dynamic roles (ADMIN only) |
+| `GuestController` | GET/POST/DELETE /api/guests | Guest shooter management |
+| `SmartBoxController` | GET /api/smart-boxes, PATCH alias, POST push-config | SmartBox registration and management |
+| `DeviceController` | GET/POST/PATCH/DELETE /api/devices, POST /api/devices/{id}/command | Device CRUD and MQTT command routing |
+| `DeviceTypeController` | GET /api/device-types | Device type registry |
+| `DeviceTypeGroupController` | GET /api/device-type-groups | Device type group listing |
+| `FirmwareConfigController` | GET/POST /api/firmware-configs | Firmware capability registry |
+| `RangeController` | GET/POST/PATCH/DELETE /api/ranges, manage positions | Shooting lane + position management |
+| `ReservationController` | POST …/reserve, …/release, DELETE | Range reservation |
+| `SerieController` | CRUD /api/serien | Serie templates |
+| `PasseController` | CRUD /api/passen | Passe templates |
+| `TrainingController` | CRUD /api/trainings | Training templates |
+| `PlayInstanceController` | POST start, GET list/get, DELETE stop, POST start/complete block | Live play execution |
+| `PlayResultController` | Play result submission | Play result recording (stub) |
+| `SessionController` | GET/POST /api/sessions, groups, bracket, leaderboard, results | Competition session lifecycle |
+| `GroupController` | POST /api/sessions/{id}/groups | Group management within sessions |
+| `CompetitionController` | Competition-specific operations | Scoring and ranking |
 
 ---
 
@@ -615,81 +415,242 @@ spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
 
 | File | Purpose |
 |---|---|
-| `src/main/resources/static/openapi.yaml` | REST API contract (contract-first) — your source of truth |
-| `src/main/java/ch/jp/shooting/config/JwtAuthenticationFilter.java` | Token validation on every request |
-| `src/main/java/ch/jp/shooting/service/JwtService.java` | Token generation/validation logic |
-| `src/main/java/ch/jp/shooting/config/MqttConfig.java` | MQTT broker integration |
-| `src/main/java/ch/jp/shooting/config/mqtt/SmartBoxMqttRouter.java` | MQTT topic dispatcher |
-| `src/main/java/ch/jp/shooting/model/LiveSession.java` | Active competition entity |
-| `src/main/java/ch/jp/shooting/model/SessionTemplate.java` | Reusable competition blueprint |
-| `src/main/resources/db/changelog/01__init.xml` | Database schema (Liquibase) |
+| `src/main/resources/static/openapi.yaml` | REST API contract — source of truth for generated interfaces |
+| `config/SecurityConfig.java` | Stateless Spring Security filter chain |
+| `config/JwtAuthenticationFilter.java` | Per-request JWT validation |
+| `service/JwtService.java` | Token generation/validation |
+| `service/auth/AuthorizationService.java` | Resolves effective permissions for current user |
+| `config/MqttConfig.java` | MQTT broker integration |
+| `config/SmartBoxMqttRouter.java` | MQTT topic dispatcher |
+| `config/WebSocketConfig.java` | STOMP/SockJS config (endpoint: `/ws/shooting`) |
+| `service/SessionWebSocketService.java` | WebSocket push for live play/session updates |
+| `model/auth/User.java` | Full user profile entity |
+| `model/auth/Role.java` | Dynamic role entity |
+| `model/auth/Permission.java` | Permission enum |
+| `model/auth/ScopedAccess.java` | Scoped role grant entity |
+| `model/PlayInstance.java` | Live play execution entity |
+| `model/LiveSession.java` | Active competition entity |
+| `config/DataInitializer.java` / `RoleDataInitializer.java` | Seeds default roles/permissions on startup |
 | `pom.xml` | Maven dependencies & plugins |
 | `docker-compose.yml` | Local PostgreSQL + Mosquitto |
 
 ---
 
-## Implementation Status & Known Gaps
+## Error Responses (RFC 9457 ProblemDetail)
+
+All exceptions are mapped in `GlobalExceptionHandler` and return `ProblemDetail`:
+
+| Exception | Status | `type` URI |
+|---|---|---|
+| `DeviceNotFoundException` | 404 | `/errors/device-not-found` |
+| `DeviceTemplateNotFoundException` | 404 | `/errors/device-type-not-found` |
+| `RangeNotFoundException` | 404 | `/errors/range-not-found` |
+| `SmartBoxNotFoundException` | 404 | `/errors/smartbox-not-found` |
+| `SessionNotFoundException` | 404 | `/errors/session-not-found` |
+| `SerieNotFoundException` | 404 | `/errors/serie-not-found` |
+| `PasseNotFoundException` | 404 | `/errors/passe-not-found` |
+| `PlayInstanceNotFoundException` | 404 | `/errors/play-instance-not-found` |
+| `RangeNameAlreadyExistsException` | 409 | `/errors/range-name-exists` |
+| `DeviceAlreadyAssignedException` | 409 | `/errors/device-already-assigned` |
+| `RangeHasDevicesException` | 409 | `/errors/range-has-devices` |
+| `ConflictException` | 409 | `/errors/conflict` |
+| `ForbiddenException` | 403 | `/errors/forbidden` |
+
+When adding a new exception: create it in `ch.jp.shooting.exception`, register it in `GlobalExceptionHandler` with a `/errors/{slug}` type URI.
+
+---
+
+## Conventions
+
+### Java code
+- `@NullMarked` on all new classes; `@Nullable` on fields/params that can be null
+- UUID primary key: `@Id @GeneratedValue(strategy = GenerationType.UUID)`
+- Default fetch: `FetchType.LAZY`; `EAGER` only when data is always needed
+- German inline comments for business logic
+- New exceptions in `ch.jp.shooting.exception`, mapped in `GlobalExceptionHandler` (`@RestControllerAdvice`)
+- Controllers implement the generated OpenAPI interface (`class FooController implements FooApi`) — no `@RequestMapping` on the class, no `@GetMapping`/`@PostMapping` on methods; see **Hard rules** in the OpenAPI & REST Contracts section
+
+### Remove unused code eagerly
+Delete unused code rather than leaving it. If a method, field, class, or file is no longer called or referenced, remove it — do not comment it out, do not add `@Deprecated`, do not keep it "just in case." This applies to:
+- Unused service methods and repository query methods
+- Dead controller methods (not wired to a spec endpoint)
+- Orphaned DTOs, mapper methods, or exception classes
+- Entire files that have no remaining callers
+
+If deleting something would break a test, either fix the test or delete it too (a test for dead code is itself dead code). When in doubt, `git` has the history — removal is always recoverable.
+
+### Naming
+- Entities: singular PascalCase (`SmartBox`, `Device`, `Serie`, `Passe`)
+- Repositories: `SmartBoxRepository`, `SerieRepository`, `PasseRepository`
+- Services: `SmartBoxService`, `SerieService`, `PasseService`
+- DTOs: `CreateDeviceRequest`, `DeviceResponse`, or records in `dto/play/`
+
+---
+
+## Testing
+
+```bash
+./mvnw test                    # all tests (H2 in-memory)
+./mvnw test -Dtest=FooTest     # single test class
+./mvnw clean test jacoco:report # coverage report → target/site/jacoco/index.html
+```
+
+### Structure
+- **Unit tests** (`service/`): `@ExtendWith(MockitoExtension.class)`, mock MQTT and DB
+- **Integration tests** (`config/mqtt/`): `@SpringBootTest` + `@TestPropertySource`, H2 + embedded Mosquitto
+
+### Coverage target: ≥80% for new code
+
+---
+
+## Working with Superpowers
+
+This project uses the **Superpowers** agentic skills framework. When you ask Claude to build or fix something, Superpowers activates structured workflows automatically.
+
+### Development workflow
+
+1. **Brainstorm** — Claude asks clarifying questions, explores requirements and alternatives, and presents a design for review before writing any code.
+2. **Plan** — Claude breaks work into 2–5 minute tasks with exact file paths, test stubs, and expected outcomes. The plan is shown for approval before execution.
+3. **Build** — Claude executes via TDD: write failing test (RED) → implement (GREEN) → refactor. Commits after each green test.
+4. **Review** — Claude checks each task against the plan, reports issues by severity. Critical issues block the next task.
+5. **Finish** — Claude presents merge / PR / discard options when all tasks are done.
+
+### Recording decisions in this file
+
+**Any non-trivial architectural or design decision made during a session must be written back into this CLAUDE.md.** This includes:
+
+- Choosing a technology, library, or approach over alternatives (record the choice *and* the reason)
+- Deciding how a new domain concept maps to the data model
+- Agreeing on an API shape or endpoint contract before it is implemented
+- Constraints discovered during implementation that future work must respect
+
+Update the relevant section of this file (e.g. the domain section, DB schema, conventions). If no existing section fits, add a short **Decisions** callout at the end of the relevant section or at the bottom of the file.
+
+> **Rule:** If it was worth discussing, it is worth writing down here so the next session starts with full context.
+
+---
+
+## Code Review Checklist
+
+- [ ] All tests pass: `./mvnw clean test`
+- [ ] OpenAPI schema updated in `openapi.yaml` — every HTTP method in the controller has a spec entry
+- [ ] Controller class implements the generated interface (`implements FooApi`); no `@RequestMapping`, `@GetMapping`, etc. on the class or methods
+- [ ] Auth: new endpoints require appropriate `@PreAuthorize` or permission check
+- [ ] Session/PlayInstance state transitions validated
+- [ ] MQTT topics follow `smartboxes/{mac}/...` convention
+- [ ] `@NullMarked` on all new classes; `@Nullable` where appropriate
+- [ ] New entities use UUID PK with `GenerationType.UUID`
+- [ ] JSON columns use `TEXT` (not JSONB)
+- [ ] No hardcoded secrets (use `application.properties`)
+- [ ] New exceptions in `ch.jp.shooting.exception`, mapped in `GlobalExceptionHandler`
+- [ ] German inline comments for domain logic
+- [ ] No unused methods, fields, DTOs, exceptions, or files left behind — removed, not commented out
+- [ ] Any decisions made during this session recorded in `CLAUDE.md`
+
+## Definition of Done
+
+1. All tests pass locally
+2. OpenAPI schema updated; schema changes via JPA entity edits (pre-v1.0, no Liquibase changesets)
+3. Code review checklist 100% checked
+4. No warnings in `./mvnw clean package`
+5. Any design/architectural decisions from this session written back into `CLAUDE.md`
+6. Commit message: `[backend] short description`
+
+---
+
+## Implementation Status
 
 ### ✅ Implemented
-- JWT authentication (login, token validation)
-- User management (ADMIN/SHOOTER roles)
-- Device management (CRUD, commands, ranges)
-- Session/competition lifecycle (create, update, complete)
-- Bracket initialization with seeding strategies
-- Player groups and results tracking
-- MQTT integration for SmartBox communication
-- OpenAPI v3.0 contract documentation
-
-### 🔄 Partial/Needs Work
-- **SSE Events** (`/api/events`) — Documented in OpenAPI but **implementation pending**
-  - Planned: Real-time SmartBox status updates (ONLINE/OFFLINE/BLOCKED)
-  - Planned: Device health changes (healthy/blocked flag)
-  - Planned: Config sync acknowledgments
-  - Current: Use polling as workaround (GET endpoints with timestamps)
-
-- **Player Results/Scoring** — Schema exists but scoring logic needs finalization
-  - Planned: Detailed shot-by-shot tracking
-  - Current: Basic player result storage
-
-- **Leaderboard Calculation** — Needs implementation
-  - Planned: Real-time rank calculation with tiebreaker logic
-  - Current: Schema ready, logic pending
+- JWT auth (email + password → bearer token)
+- Dynamic RBAC: DB roles, `Permission` enum, `ScopedAccess` scoped grants
+- Full user profile management (personal info, shooting licence, soft delete)
+- Guest management
+- SmartBox/Device/Range/RangePosition/FirmwareConfig CRUD
+- MQTT integration (discovery, status, config push/ACK, commands)
+- Range reservations with auto-expiry cleanup
+- Serie / Passe / Training template CRUD
+- Live play execution via `PlayInstance` (start/step/complete/stop)
+- Competition session lifecycle (groups, bracket, leaderboard, results)
+- Bracket seeding strategies and tiebreaker logic
+- Career stats
+- WebSocket (STOMP/SockJS) at `/ws/shooting`
+- OpenAPI v3.0 contract (contract-first, generated interfaces)
 
 ### ❌ Not Yet Implemented
-- OTA (over-the-air) firmware updates
-- Multi-SmartBox device assignment (API not exposed)
+- OTA firmware update delivery
 - INPUT signal handling end-to-end (sensor → backend → trigger)
-- Session templates management endpoints
+- Multi-SmartBox device assignment (API not exposed)
+- Email / phone verification flows
+- Play result scoring logic (`PlayResultController` stub exists)
+
+---
+
+## Common Tasks
+
+**New REST endpoint:**
+1. Edit `src/main/resources/static/openapi.yaml`
+2. Run `./mvnw generate-sources` — new interface appears in `target/generated-sources/openapi/ch/jp/smartground/api/`
+3. Implement in `ch.jp.shooting.api/` controller
+4. Add exception(s) in `ch.jp.shooting.exception/` + register in `GlobalExceptionHandler`
+5. Add mapper logic in `EntityMappers` or a dedicated mapper class
+
+**New MQTT handler:**
+1. Create handler class in `ch.jp.shooting.config/`
+2. Register in `SmartBoxMqttRouter` — match on `topic.endsWith("/your-suffix")`
+3. Document the topic in the MQTT section above
+
+**New JPA entity (schema change):**
+1. Edit or create entity in `ch.jp.shooting.model/`
+2. Hibernate applies the diff on next startup (pre-v1.0 — `ddl-auto=update`)
+3. Use `@Column(name = "…")` explicitly — do not rely on Hibernate naming defaults
+4. Add repository in `ch.jp.shooting.repository/`
+
+**Send device command via MQTT:**
+```java
+String topic = "smartboxes/%s/command".formatted(device.getSmartBox().getMacAddress());
+mqttCommandPublisher.publishToTopic(topic, payload);
+```
+
+**Add a new `Permission` value:**
+1. Add to the `Permission` enum in `ch.jp.shooting.model.auth`
+2. Add a `PermissionEntity` seed in `RoleDataInitializer`
+3. Assign it to the appropriate roles in `DataInitializer`
 
 ---
 
 ## Troubleshooting
 
-### Tests fail with "MqttException"
-- Ensure Mosquitto is running: `docker compose up` in a separate terminal
-- Or use H2 profile: `./mvnw test -Dspring-boot.run.profiles=h2`
+**Tests fail with "MqttException"**
+- Ensure Mosquitto is running: `docker compose up`
+- Or use H2 profile only: tests don't require Mosquitto if using `test-application.properties`
 
-### Hibernate DDL errors
-- You're pre-v1.0, DDL is auto-managed. Edit JPA entities, restart server.
-- Check `application.properties` for `spring.jpa.hibernate.ddl-auto` setting.
+**Hibernate DDL errors**
+- Pre-v1.0: edit JPA entities, restart server — Hibernate applies the diff automatically
+- Check `spring.jpa.hibernate.ddl-auto` in the active profile's `application-*.properties`
 
-### "Connection refused" on PostgreSQL
-- Start Docker: `docker compose up`
-- Or switch to H2 profile: `./mvnw spring-boot:run -Dspring-boot.run.profiles=h2`
+**"Connection refused" on PostgreSQL**
+- `docker compose up`, or switch to H2: `./mvnw spring-boot:run -Dspring-boot.run.profiles=h2`
 
-### MQTT messages not processed
-- Check logs for topic in `SmartBoxMqttRouter`
-- Verify handler is registered (should print on startup)
-- Publish test message: `mosquitto_pub -t smartboxes/aabbccddeeff/status -m '...'`
+**MQTT messages not processed**
+- Check `SmartBoxMqttRouter` logs; verify handler is registered
+- Test: `mosquitto_pub -t smartboxes/aabbccddeeff/status -m '{...}'`
 
-### Authentication failed (401 Unauthorized)
-- Check `Authorization: Bearer <token>` header is set
-- Verify token not expired (JWT tokens have expiry)
-- Check user role has permission for endpoint (ADMIN vs SHOOTER)
-- Test login: `curl -X POST http://localhost:8080/api/auth/login -d '{"username":"admin","password":"password"}'`
+**401 Unauthorized**
+- Set `Authorization: Bearer <token>` header
+- Verify token not expired
+- Test login: `curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d '{"email":"admin@example.com","password":"password"}'`
 
-### Session won't transition to ACTIVE
-- Check all required fields filled (players, groups if needed)
-- Verify bracket initialized (if bracket format selected)
-- Check session status is SETUP (can't activate from other states)
+**Session won't transition to ACTIVE**
+- Verify session is in SETUP status
+- Check required players/groups are added
+- Verify bracket is initialized if the format requires it
 
+**500 on any POST/PUT/PATCH endpoint (especially ones with nullable fields)**
+
+Spring Boot 4 / Spring 7 uses Jackson 3.x (`tools.jackson`) as its default HTTP message converter. `jackson-databind-nullable` (`JsonNullable<T>`) is a Jackson 2.x library — Jackson 3.x cannot deserialize `JsonNullable<String>` or `JsonNullable<UUID>` fields without the module, causing a deserialization exception that falls through to the generic 500 handler.
+
+**Fix already applied** in `JacksonConfig.java`: the `configureMessageConverters(HttpMessageConverters.ServerBuilder)` override replaces Spring 7's default Jackson 3.x JSON converter with the Jackson 2.x `MappingJackson2HttpMessageConverter` (which has `JsonNullableModule` registered). **Do not remove this override** or all endpoints with `JsonNullable` fields in their request bodies will break.
+
+- `nullable: true` fields in `openapi.yaml` generate `JsonNullable<T>` in the Java model — this requires the Jackson 2.x converter to deserialize correctly.
+- If you ever see 500 on a new endpoint: check `GlobalExceptionHandler` logs (it now logs `log.error`) and verify the request body has no `JsonNullable` deserialization issue.
+- Do **not** set `openApiNullable=false` without also updating all service code that uses `.isPresent()` / `.get()` on `JsonNullable` fields.
