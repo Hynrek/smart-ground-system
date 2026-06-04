@@ -7,6 +7,7 @@ import ch.jp.smartground.model.ReservationResponse;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,8 +41,8 @@ public class ReservationController implements ReservationApi {
 
     @Override
     public ResponseEntity<Void> releaseRangeReservation(UUID id) {
-        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication()
-                .getAuthorities().stream()
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .anyMatch(a -> a.equals("ROLE_ADMIN"));
 
