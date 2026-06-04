@@ -1695,6 +1695,40 @@ paths:
         '404':
           description: Serie not found
 
+  /api/serien/{id}/published:
+    patch:
+      summary: Publish or unpublish a range-owned Serie
+      description: >
+        Sets the published flag on a Serie. Only ADMIN and GROUND_OWNER roles
+        may call this endpoint. When published=false, regular users cannot see
+        or access this Serie even if its ownership is 'range'.
+      operationId: updateSeriePublished
+      tags: [Serie]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSeriePublishedRequest'
+      responses:
+        '200':
+          description: Serie with updated published flag
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerieResponse'
+        '403':
+          description: Caller is not an admin or range owner
+        '404':
+          description: Serie not found
+
   # ─────────────────────────────────────────────────────────────────────────────
   # Passen (formerly Programme)
   # ─────────────────────────────────────────────────────────────────────────────
@@ -2328,6 +2362,9 @@ components:
         ownerUsername:
           type: string
           description: Username of the user who created this Serie
+        published:
+          type: boolean
+          description: Whether this range-owned Serie is visible to regular users
 
     CreateSerieRequest:
       type: object
@@ -2367,6 +2404,13 @@ components:
       properties:
         ownership:
           $ref: '#/components/schemas/SerieOwnership'
+
+    UpdateSeriePublishedRequest:
+      type: object
+      required: [published]
+      properties:
+        published:
+          type: boolean
 
     # ───── Passe ──────────────────────────────────────────────────────────────
 
