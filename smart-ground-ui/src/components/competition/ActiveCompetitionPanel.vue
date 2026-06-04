@@ -119,12 +119,12 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
 
 .stop-btn {
   display: flex; align-items: center; gap: 6px;
-  background: #fff5f5; border: 1px solid #fed7d7;
+  background: var(--sg-color-danger-bg, #fff5f5); border: 1px solid var(--sg-color-danger-border, #fed7d7);
   border-radius: 10px; padding: 8px 14px;
-  color: #c53030; font-size: 13px; font-weight: 600; font-family: inherit;
+  color: var(--sg-color-danger-text, #c53030); font-size: 13px; font-weight: 600; font-family: inherit;
   cursor: pointer; transition: all 0.15s;
 }
-.stop-btn:hover { background: #fed7d7; }
+.stop-btn:hover { background: var(--sg-color-danger-bg-hover, #fed7d7); }
 
 /* ── Passen stepper ── */
 .passen-stepper {
