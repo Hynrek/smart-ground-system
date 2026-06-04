@@ -168,7 +168,7 @@ Serie  ──────────────────────▶  st
         └─ Training  ────────▶  list of Passe snapshots (JSON)
 ```
 
-- **`Serie`** (formerly Ablauf): A shooting sequence. `ownership`: `user` (private) or `range` (visible to all on that range). Steps stored as JSON array.
+- **`Serie`** (formerly Ablauf): A shooting sequence. `ownership`: `user` (private) or `range` (visible to all on that range). Steps stored as JSON array. `published`: `false` by default; range-owned Serien are hidden from regular users until an admin sets `published = true` via `PATCH /api/serien/{id}/published`.
 - **`Passe`** (formerly Programm): Named collection of Serie snapshots. Owner-scoped.
 - **`Training`**: Named collection of Passe snapshots. Owner-scoped.
 
