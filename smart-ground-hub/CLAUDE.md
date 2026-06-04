@@ -257,7 +257,7 @@ guests            id, display_name, created_at
 ### Serie / Passe / Training / Play tables
 ```
 serien            id, name, ownership(user|range), range_id→ranges?, owner_id→users,
-                  steps_json TEXT, created_at
+                  steps_json TEXT, published boolean (default false), created_at
 passen            id, name, owner_id→users, serien_json TEXT, created_at
 trainings         id, name, owner_id→users, programmes_json TEXT, created_at
 play_instances    instanceId, type(passe|training), template_id UUID, template_name,
