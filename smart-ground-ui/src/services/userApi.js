@@ -24,17 +24,6 @@ export async function deleteUser(userId) {
   })
 }
 
-export async function getCurrentUser() {
-  return apiFetch('/users/me')
-}
-
-export async function changePassword(oldPassword, newPassword) {
-  return apiFetch('/users/me/password', {
-    method: 'POST',
-    body: JSON.stringify({ oldPassword, newPassword })
-  })
-}
-
 export async function updateUser(userId, data) {
   return apiFetch(`/users/${userId}`, {
     method: 'PATCH',

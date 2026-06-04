@@ -144,38 +144,15 @@
         </button>
       </div>
 
-      <!-- Grouped list -->
-      <div v-if="passeGroups.length > 0" class="range-groups">
+      <!-- Flat list in 2-column grid -->
+      <div v-if="savedGlobalPassen.length > 0" class="range-groups">
         <div
-          v-for="group in passeGroups"
-          :key="group.rangeId ?? '__none__'"
+          v-for="p in savedGlobalPassen"
+          :key="p.id"
           class="range-group"
         >
-          <!-- Group header -->
-          <button
-            class="range-group-header"
-            @click="togglePasseGroup(group.rangeId ?? '__none__')"
-          >
-            <Icons
-              icon="chevronRight"
-              :size="13"
-              color="var(--sg-text-faint)"
-              class="group-chevron"
-              :class="{ rotated: expandedPasseGroups.has(group.rangeId ?? '__none__') }"
-            />
-            <Icons icon="ranges" :size="13" color="var(--sg-accent)" />
-            <span class="range-group-name">{{ group.rangeName ?? 'Kein Platz' }}</span>
-            <span class="range-group-count">{{ group.passen.length }}</span>
-          </button>
-
-          <!-- Passe rows -->
-          <div
-            v-if="expandedPasseGroups.has(group.rangeId ?? '__none__')"
-            class="serie-list"
-          >
+          <div class="serie-list">
             <div
-              v-for="p in group.passen"
-              :key="p.id"
               class="serie-row passe-row"
               @click="openPasseEdit(p)"
             >
@@ -267,22 +244,6 @@ const rangeGroups = computed(() => {
 // ── Passen data ───────────────────────────────────────────────────────────────
 const savedGlobalPassen = computed(() => passeStore.savedGlobalPassen ?? []);
 
-// Passen werden nach dem Platz der ersten Serie gruppiert (Best-effort-Anzeige).
-// Passen mit Serien von mehreren Plätzen erscheinen unter dem Platz der ersten Serie.
-const passeGroups = computed(() => {
-  const map = new Map();
-  for (const p of savedGlobalPassen.value) {
-    const firstSerie = p.serien?.[0];
-    const rangeId = firstSerie?.rangeId ?? '__none__';
-    const rangeName = firstSerie?.rangeName ?? null;
-    if (!map.has(rangeId)) {
-      map.set(rangeId, { rangeId, rangeName, passen: [] });
-    }
-    map.get(rangeId).passen.push(p);
-  }
-  return Array.from(map.values());
-});
-
 // ── Group expand/collapse ─────────────────────────────────────────────────────
 const expandedGroups = ref(new Set());
 
@@ -299,25 +260,6 @@ watchEffect(() => {
     const key = g.rangeId ?? '__none__';
     if (!expandedGroups.value.has(key)) {
       expandedGroups.value = new Set([...expandedGroups.value, key]);
-    }
-  }
-});
-
-// ── Passe group expand/collapse ───────────────────────────────────────────────
-const expandedPasseGroups = ref(new Set());
-
-const togglePasseGroup = (key) => {
-  const next = new Set(expandedPasseGroups.value);
-  if (next.has(key)) next.delete(key);
-  else next.add(key);
-  expandedPasseGroups.value = next;
-};
-
-watchEffect(() => {
-  for (const g of passeGroups.value) {
-    const key = g.rangeId ?? '__none__';
-    if (!expandedPasseGroups.value.has(key)) {
-      expandedPasseGroups.value = new Set([...expandedPasseGroups.value, key]);
     }
   }
 });
@@ -462,9 +404,16 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 
 /* ── Range groups ───────────────────────────────────────────────────────── */
 .range-groups {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 12px;
+}
+
+@media (min-width: 1024px) {
+  .range-groups {
+    grid-template-columns: repeat(2, 1fr);
+    align-items: start;
+  }
 }
 
 .range-group {

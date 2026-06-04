@@ -3,7 +3,7 @@
     <div class="card-header">
       <div class="device-name">
         <div class="name">{{ device.alias }}</div>
-        <div class="box-id">{{ boxName }}</div>
+        <div class="box-id" :title="boxIdRaw || undefined">{{ boxName }}</div>
       </div>
       <StatusDot :status="getStatus(device)" />
     </div>
@@ -36,9 +36,13 @@ const props = defineProps({
 defineEmits(['fire']);
 
 const smartBoxStore = useSmartBoxStore();
+const boxIdRaw = computed(() => props.device.smartBoxId ?? props.device.boxId ?? null);
 const boxName = computed(() => {
-  const id = props.device.smartBoxId ?? props.device.boxId;
-  return smartBoxStore.smartboxes.find(b => b.id === id)?.alias ?? id ?? '–';
+  const id = boxIdRaw.value;
+  const alias = smartBoxStore.smartboxes.find(b => b.id === id)?.alias;
+  if (alias) return alias;
+  if (!id) return '–';
+  return id.length > 8 ? id.slice(0, 8) + '…' : id;
 });
 
 function getStatus(device) {

@@ -9,13 +9,14 @@ The Smart Ground UI is a Vue 3 single-page application that provides the web int
 ## Stack & Versions
 
 - **Vue**: 3 (Composition API)
-- **Build**: Vite 8
-- **State**: Pinia 2
-- **Router**: Vue Router 4
-- **Node**: 20+ (use nvm for version management)
+- **Build**: Vite 8.0.3
+- **State**: Pinia 3.0.4
+- **Router**: Vue Router 4.6.4
+- **Node**: 20.19+ (use nvm for version management)
 - **Package Manager**: npm
 - **Testing**: Vitest + @vue/test-utils
-- **Linting**: ESLint (flat config)
+- **Linting**: ESLint 9 (flat config)
+- **HTTP**: Native `fetch` via service modules
 
 ---
 
@@ -81,6 +82,17 @@ smart-ground-ui/
 │   ├── layouts/                              # Layout wrappers
 │   │   ├── MainLayout.vue                    # Primary admin/management layout
 │   │   └── ShooterLayout.vue                 # Shooter-specific interface
+│   ├── assets/                               # Global CSS and static assets
+│   │   ├── base.css                          # CSS resets and root variables
+│   │   └── main.css                          # App-wide styles, imports base.css
+│   ├── mappers/                              # Transform raw API responses into UI models
+│   │   ├── SmartBoxMapper.js
+│   │   ├── DeviceMapper.js
+│   │   ├── DeviceTemplateMapper.js
+│   │   ├── RangeMapper.js
+│   │   └── index.js                          # Re-exports all mappers
+│   ├── models/
+│   │   └── SmartBox.js                       # Client-side model/class definition
 │   ├── stores/                               # Pinia state management (15 stores)
 │   │   ├── appStore.js                       # App-level state (theme, etc)
 │   │   ├── authStore.js                      # JWT token, user roles, auth state
@@ -126,12 +138,37 @@ smart-ground-ui/
 │   ├── main.js                               # Entry point
 │   └── style.css                             # Global styles
 ├── public/                                   # Static assets
-├── vite.config.js                            # Vite configuration
+├── vite.config.js                            # Vite configuration (includes `@` → `src/` alias)
 ├── vitest.config.js                          # Vitest configuration
 ├── eslint.config.js                          # ESLint flat config
+├── Dockerfile                                # Production Docker image (Nginx)
+├── docker-compose.yml                        # Compose file for running UI + backend together
+├── nginx.conf                                # Nginx config for serving the SPA
 ├── package.json
 └── .env.example                              # Environment variables template
 ```
+
+---
+
+## Data Flow
+
+```
+Backend REST API  (or mock data when VITE_WORK_MODE=mock)
+      │
+      ▼
+  services/          ← Raw fetch calls, returns raw JSON
+      │
+      ▼
+  mappers/           ← Transforms API shape → UI model shape (pure functions)
+      │
+      ▼
+  stores/            ← Pinia state, holds mapped UI models
+      │
+      ▼
+  views/components   ← Read from stores, dispatch store actions
+```
+
+Never fetch from the API directly inside a component. Always go through the store → service → mapper chain.
 
 ---
 
@@ -164,6 +201,12 @@ npm run dev
 # Runs on http://localhost:5173 with hot module replacement
 ```
 
+### Linting
+```bash
+npm run lint        # Auto-fix issues
+npm run lint:check  # Check only (no writes — use in CI)
+```
+
 ### Build for Production
 ```bash
 npm run build
@@ -175,6 +218,14 @@ npm run build
 npm run preview
 # Serves dist/ locally for testing
 ```
+
+### Docker (Production)
+```bash
+docker build -t smartground-ui:latest .
+# or via Compose (starts UI + backend together):
+docker compose up
+```
+The Dockerfile builds the SPA and serves it via Nginx. All unmatched routes fall back to `index.html` (see `nginx.conf`).
 
 ---
 
@@ -417,12 +468,29 @@ Before merging any changes, ensure all items are checked:
 ### Naming
 - **Components**: PascalCase (e.g., `SmartBoxCard.vue`, `BracketVisualizer.vue`)
 - **Subdirectories**: kebab-case (e.g., `shooter-remote/`, `device-types/`)
-- **Variables/functions**: camelCase
+- **Variables/functions**: camelCase (English identifiers even when domain terms are German)
 - **Stores**: `xxxStore.js` (e.g., `authStore.js`, `competitionStore.js`)
 - **Services/APIs**: `xxxApi.js` for backend endpoints, `xxxService.js` for local logic (e.g., `competitionService.js` for bracket calculations)
 - **Routes**: kebab-case paths (e.g., `/smart-boxes`, `/competition-live`)
 - **Composables**: `use*` prefix (e.g., `useDeviceLoader`, `useDeviceTypeFilter`)
 - **Constants**: `SCREAMING_SNAKE_CASE` for enums (e.g., `SessionStatus.ACTIVE`)
+
+### General Rules
+- **`<script setup>` syntax** — always use for SFCs; do not use Options API (`data()`, `methods:`, etc.)
+- **`@` path alias** — use `@/` for all imports within `src/`; never chain `../` more than one level deep
+- **No direct API calls in components** — always go through the store → service → mapper chain
+- **`storeToRefs()`** — use when destructuring store state in components to preserve reactivity
+- **Prop drilling max 2 levels** — if data needs to go deeper, lift it to a store
+- **German display labels** — use German shooting-sport terminology in UI text (Platz, Werfer, Ablauf, etc.); JavaScript identifiers stay English
+- **Design tokens** — import color/spacing/animation values from `constants/werfertokens.js` in any Werfer-related component; do not hard-code raw values
+- **Remove unused code eagerly** — delete unused methods, components, stores, services, imports, and files rather than leaving them. Dead code is actively harmful: it misleads future readers, inflates bundle size, and creates false confidence that something is needed. If it isn't called and isn't planned, delete it.
+
+### Mappers
+Mappers (`src/mappers/`) decouple the API response shape from the UI model shape. If the backend renames a field, only the mapper needs updating.
+- One file per domain entity (e.g., `SmartBoxMapper.js`)
+- Mapper functions are pure: `apiResponse → uiModel`, no side effects
+- All mappers are re-exported from `mappers/index.js`
+- Stores call the service, then pipe the result through the mapper before setting state
 
 ### Component Structure (Composition API)
 ```vue
@@ -1149,6 +1217,9 @@ Create `.env.local` in the project root:
 # Backend API base URL
 VITE_API_BASE_URL=http://localhost:8080/api
 
+# Data source: 'mock' loads constants/mockData.js; 'api' hits the backend (default)
+VITE_WORK_MODE=api
+
 # Optional: for debugging
 VITE_DEBUG=false
 ```
@@ -1157,6 +1228,16 @@ These are accessible in code as:
 ```javascript
 const apiUrl = import.meta.env.VITE_API_BASE_URL
 ```
+
+### Mock Mode (`VITE_WORK_MODE`)
+
+Stores that support mock mode check `import.meta.env.VITE_WORK_MODE` at runtime. When set to `mock`, they load from `constants/mockData.js` instead of hitting the backend — useful for UI development without a running backend.
+
+`deviceTypeStore` is the reference implementation of this pattern (`isMockMode()` guard → `loadMockData()` / `loadApiData()`). `constants/mockData.js` is for development/mock mode only — never reference it in `VITE_WORK_MODE=api` code paths.
+
+### CORS
+
+The backend allows requests from `http://localhost:5173`. If you change the dev server port, update `cors.allowed-origins` in the backend's `application.properties`.
 
 ---
 
@@ -1499,6 +1580,34 @@ npm run build
 
 ---
 
+## Common Agent Tasks
+
+**Adding a new page/view:**
+1. Create the view component in `src/views/`
+2. Register the route in `router/index.js`
+3. Add a navigation link in `Sidebar.vue` if it should appear in nav
+4. Connect it to the appropriate Pinia store for data
+
+**Adding a new API call:**
+1. Add the function to the relevant file in `services/`
+2. Add/update a mapper in `mappers/` if the response shape needs transforming
+3. Add a store action that calls the service + mapper and updates state
+4. Call the store action from the view component
+
+**Adding a new store with mock/api mode support:**
+1. Check `import.meta.env.VITE_WORK_MODE` via an `isMockMode()` helper
+2. Implement `loadMockData()` using `constants/mockData.js`
+3. Implement `loadApiData()` calling the relevant `services/` function
+4. Call the appropriate branch from `initialize()`
+5. Use `deviceTypeStore.js` as the reference implementation
+
+**Adding a new device type:**
+1. Add backend seed data (in the backend repo)
+2. Update `constants/deviceTypes.js` with the new type's display metadata
+3. Update `TypeChip.vue` or `DeviceCard.vue` if the new type needs distinct visual treatment
+
+---
+
 ## Key Files
 
 | File | Purpose |
@@ -1519,6 +1628,7 @@ npm run build
 | `src/services/competitionService.js` | Competition-specific APIs |
 | `src/services/bracketService.js` | Bracket generation and seeding logic |
 | `src/composables/useDeviceLoader.js` | Auto-load devices for known boxes |
+| `src/mappers/index.js` | Re-exports all API → UI model mappers |
 | `src/components/BracketVisualizer.vue` | Tournament bracket visualization |
 | `src/components/scorer-remote/ShooterRemoteView.vue` | Main shooter kiosk interface |
 | `src/constants/playEnums.js` | Competition state enums |

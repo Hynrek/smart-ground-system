@@ -72,6 +72,7 @@ const iconPaths = {
   user: 'M8 7a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 14c0-2.5 2-4 5-4s5 1.5 5 4',
   smartground: 'M8 1C4.5 1 2 3.5 2 7c0 1.5.5 2.9 1.3 4L2 14h3.5l.9-1.5c.6.1 1.2.2 1.8.2 3.5 0 6-2.5 6-6S11.5 1 8 1zm0 10c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm1-5H7v2h2z',
   logout: 'M10 2H6a2 2 0 00-2 2v8a2 2 0 002 2h4M11 6l3-3m0 0l-3-3m3 3H7',
+  record: 'M8 4.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z',
 };
 
 const iconPath = computed(() => iconPaths[props.icon] || '');

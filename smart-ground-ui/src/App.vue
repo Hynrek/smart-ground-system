@@ -1,56 +1,14 @@
 ﻿<script setup>
-import { computed, onMounted, watch, onUnmounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import MainLayout from './layouts/MainLayout.vue';
 import ShooterLayout from './layouts/ShooterLayout.vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from './stores/appStore.js';
 import { useAuthStore } from './stores/authStore.js';
-import { useSmartBoxStore } from './stores/smartBoxStore.js';
-import { useDeviceStore } from './stores/deviceStore.js';
-import { subscribeToEvents } from './services/eventsApi.js';
-
 const route = useRoute();
 const router = useRouter();
 const appStore = useAppStore();
 const authStore = useAuthStore();
-const smartBoxStore = useSmartBoxStore();
-const deviceStore = useDeviceStore();
-
-let sseConnection = null;
-
-const startSSE = () => {
-  if (sseConnection) return;
-  sseConnection = subscribeToEvents(
-    (event) => {
-      smartBoxStore.applySmartBoxEvent(event);
-      deviceStore.applyDeviceEvent(event);
-    },
-    () => {
-      // Auto-reconnect after 5 seconds on error
-      sseConnection = null;
-      setTimeout(() => {
-        if (authStore.isAuthenticated()) startSSE();
-      }, 5000);
-    },
-  );
-};
-
-const stopSSE = () => {
-  sseConnection?.close();
-  sseConnection = null;
-};
-
-// Start SSE when authenticated, stop on logout
-watch(
-  () => authStore.isAuthenticated(),
-  (authenticated) => {
-    if (authenticated) startSSE();
-    else stopSSE();
-  },
-  { immediate: true },
-);
-
-onUnmounted(stopSSE);
 
 const navMap = {
   '/ranges': 'ranges',

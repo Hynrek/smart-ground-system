@@ -20,12 +20,12 @@
     </nav>
 
     <div class="sidebar-footer">
-      <router-link to="/profile" class="user-profile">
+      <div class="user-profile">
         <div class="user-avatar">{{ userAvatarLetter }}</div>
         <div class="user-info">
           <div class="user-name">{{ username }}</div>
         </div>
-      </router-link>
+      </div>
       <button class="logout-btn" title="Logout" @click="handleLogout">
         <Icons icon="logout" :size="15" />
       </button>
@@ -54,7 +54,6 @@ const allNavItems = [
   { id: 'competition', path: '/admin/wettkampf', label: 'Wettkampf', icon: 'award', requiredPermission: 'MANAGE_COMPETITIONS' },
   { id: 'passen', label: 'Passen', icon: 'program', requiredPermission: 'MANAGE_PASSE_TEMPLATES' },
   { id: 'users', label: 'Benutzer', icon: 'user', requiredPermission: 'MANAGE_USERS' },
-  { id: 'profile', label: 'Profil', icon: 'user' },
 ];
 
 const navItems = computed(() => {

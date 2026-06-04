@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
+  <div class="modal-overlay" @mousedown="onOverlayMouseDown" @click="onOverlayClick">
     <div class="modal-container">
       <div class="modal-header">
         <h2>{{ mode === 'create' ? 'Neuer Benutzer' : 'Benutzer bearbeiten' }}</h2>
@@ -257,6 +257,15 @@ const emit = defineEmits(['close', 'saved'])
 const userStore = useUserStore()
 const ROLE_LABELS = { ADMIN: 'Admin', SHOOTER: 'Schütze', OWNER: 'Bereichsleiter' }
 const activeTab = ref('base')
+
+let overlayMouseDownStarted = false
+function onOverlayMouseDown(e) {
+  overlayMouseDownStarted = e.target === e.currentTarget
+}
+function onOverlayClick(e) {
+  if (overlayMouseDownStarted && e.target === e.currentTarget) emit('close')
+  overlayMouseDownStarted = false
+}
 
 onMounted(() => {
   if (userStore.availableRoles.length === 0) {

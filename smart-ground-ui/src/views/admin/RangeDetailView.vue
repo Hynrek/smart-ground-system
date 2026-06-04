@@ -148,7 +148,10 @@
                 <Icons icon="grip" :size="13" />
                 <div class="device-item-info">
                   <div class="device-item-name">{{ device.alias }}</div>
-                  <div class="device-item-box">{{ device.smartBoxId || '–' }}</div>
+                  <div
+                    class="device-item-box"
+                    :title="device.smartBoxId || undefined"
+                  >{{ device.smartBoxId ? device.smartBoxId.slice(0, 8) + '…' : '–' }}</div>
                 </div>
                 <div class="device-item-actions">
                   <TypeChip :type="device.groupName ?? device.deviceType" />

@@ -105,7 +105,6 @@ router.beforeEach(async (to, from, next) => {
     guestStore.loadGuests().catch(console.error);
     passeStore.loadSerienFromStorage().catch(console.error);
     passeStore.loadPassenFromStorage().catch(console.error);
-    passeStore.loadTrainingsFromStorage().catch(console.error);
     activePasseStore.loadFromStorage().catch(console.error);
   }
 

@@ -30,23 +30,20 @@
         <!-- Mode toggle (Throwing / Recording) -->
         <div class="header-mode-toggle">
           <button
-            class="mode-toggle-btn"
-            :class="{ active: store.sessionMode === 'throwing' }"
-            title="Wurf-Modus"
-            @click="store.setSessionMode('throwing')"
+            class="erfassen-btn"
+            :class="{ 'is-recording': store.sessionMode === 'recording' }"
+            title="Erfassungs-Modus umschalten"
+            @click="toggleSessionMode"
           >
-            W
-          </button>
-          <button
-            class="mode-toggle-btn"
-            :class="{
-              active: store.sessionMode === 'recording',
-              'is-recording': store.recordingActive
-            }"
-            title="Erfassungs-Modus"
-            @click="store.setSessionMode('recording')"
-          >
-            E
+            <Icons
+              icon="record"
+              :size="12"
+              fill="currentColor"
+              color="transparent"
+              :stroke-width="0"
+              class="erfassen-icon"
+            />
+            Erfassen
           </button>
         </div>
 
@@ -201,6 +198,10 @@ onUnmounted(() => {
 watch(() => store.sessionMode, () => {
   store.setMode('solo');
 });
+
+const toggleSessionMode = () => {
+  store.setSessionMode(store.sessionMode === 'recording' ? 'throwing' : 'recording');
+};
 
 // ── Range & positions ──────────────────────────────
 const range = computed(() => rangeStore.ranges.find((r) => r.id === props.rangeId));
@@ -387,60 +388,50 @@ const chipLabel = (position) => {
 /* ── Header mode toggle ──────────────────────────── */
 .header-mode-toggle {
   display: flex;
-  gap: 2px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1.5px solid rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-  overflow: hidden;
-  padding: 4px;
+  align-items: center;
   height: 100%;
 }
 
-.mode-toggle-btn {
-  width: 36px;
-  height: 100%;
-  padding: 0;
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 14px;
-  font-weight: 800;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s;
+.erfassen-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 6px;
+  gap: 6px;
+  height: 100%;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
 }
 
-.mode-toggle-btn:hover {
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.05);
+.erfassen-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.75);
 }
 
-.mode-toggle-btn:active {
-  transform: scale(0.92);
+.erfassen-btn:active {
+  transform: scale(0.95);
 }
 
-.mode-toggle-btn.active {
-  background: color-mix(in srgb, var(--sg-accent) 25%, transparent);
-  border: 1px solid color-mix(in srgb, var(--sg-accent) 40%, transparent);
-  color: var(--sg-accent);
-  font-weight: 900;
+.erfassen-btn.is-recording {
+  background: rgba(252, 129, 129, 0.18);
+  border-color: rgba(252, 129, 129, 0.45);
+  color: #fc8181;
 }
 
-.mode-toggle-btn.is-recording {
-  background: rgba(252, 129, 129, 0.25);
-  border: 1px solid rgba(252, 129, 129, 0.4);
-  color: var(--sg-color-danger-bg);
-  animation: mode-record-pulse 1.5s ease-in-out infinite;
-  font-weight: 900;
+.erfassen-btn.is-recording .erfassen-icon {
+  animation: erfassen-pulse 1.2s ease-in-out infinite;
 }
 
-@keyframes mode-record-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+@keyframes erfassen-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.75); }
 }
 
 /* ── Header ──────────────────────────────────────── */

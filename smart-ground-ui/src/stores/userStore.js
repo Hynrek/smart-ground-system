@@ -6,7 +6,6 @@ export const useUserStore = defineStore('user', () => {
   const users = ref([])
   const selectedUser = ref(null)
   const userRolesMap = ref({})
-  const currentUser = ref(null)
   const isLoading = ref(false)
   const error = ref(null)
   const availableRoles = ref([])
@@ -84,21 +83,6 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function getCurrentUser() {
-    isLoading.value = true
-    error.value = null
-    try {
-      const data = await userApi.getCurrentUser()
-      currentUser.value = data
-      return data
-    } catch (err) {
-      error.value = err.message || 'Failed to load user profile'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
-  }
-
   async function toggleRole(userId, roleName) {
     isLoading.value = true
     error.value = null
@@ -113,19 +97,6 @@ export const useUserStore = defineStore('user', () => {
       userRolesMap.value[userId] = await userApi.fetchUserRoles(userId)
     } catch (err) {
       error.value = err.message || 'Failed to update role'
-      throw err
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  async function changePassword(oldPassword, newPassword) {
-    isLoading.value = true
-    error.value = null
-    try {
-      await userApi.changePassword(oldPassword, newPassword)
-    } catch (err) {
-      error.value = err.message || 'Failed to change password'
       throw err
     } finally {
       isLoading.value = false
@@ -148,7 +119,6 @@ export const useUserStore = defineStore('user', () => {
     users,
     selectedUser,
     userRolesMap,
-    currentUser,
     isLoading,
     error,
     availableRoles,
@@ -158,8 +128,6 @@ export const useUserStore = defineStore('user', () => {
     updateUser,
     deleteUser,
     toggleRole,
-    getCurrentUser,
-    changePassword,
     loadAvailableRoles,
   }
 })
