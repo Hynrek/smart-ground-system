@@ -49,6 +49,12 @@ public class SerieController implements SerieApi {
     }
 
     @Override
+    public ResponseEntity<SerieResponse> updateSeriePublished(UUID id,
+            UpdateSeriePublishedRequest updateSeriePublishedRequest) {
+        return ResponseEntity.ok(serieService.updateSeriePublished(id, updateSeriePublishedRequest));
+    }
+
+    @Override
     public ResponseEntity<Void> deleteSerie(UUID id) {
         serieService.deleteSerie(id);
         return ResponseEntity.noContent().build();
