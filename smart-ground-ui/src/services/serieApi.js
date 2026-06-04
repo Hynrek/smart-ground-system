@@ -31,6 +31,13 @@ export async function updateSerieOwnership(id, ownership) {
   })
 }
 
+export async function patchSeriePublished(id, published) {
+  return apiFetch(`/serien/${id}/published`, {
+    method: 'PATCH',
+    body: JSON.stringify({ published }),
+  })
+}
+
 export async function deleteSerie(id) {
   return apiFetch(`/serien/${id}`, { method: 'DELETE' })
 }
