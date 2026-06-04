@@ -52,6 +52,9 @@ public class Serie {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(nullable = false)
+    private boolean published = false;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public String getName() { return name; }
@@ -66,4 +69,6 @@ public class Serie {
     public void setStepsJson(String stepsJson) { this.stepsJson = stepsJson; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public boolean isPublished() { return published; }
+    public void setPublished(boolean published) { this.published = published; }
 }
