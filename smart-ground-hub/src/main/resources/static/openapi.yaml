@@ -1159,6 +1159,75 @@ paths:
           description: Range is reserved by another user
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # Reservations
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/ranges/{id}/reservation:
+    get:
+      summary: Get the active reservation for a range
+      operationId: getActiveRangeReservation
+      tags: [Reservation]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Active reservation found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '204':
+          description: No active reservation for this range
+        '404':
+          description: Range not found
+
+    post:
+      summary: Reserve a range for the current user
+      operationId: reserveRange
+      tags: [Reservation]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Reservation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '404':
+          description: Range not found
+        '409':
+          description: Range already reserved, or current user already holds a reservation
+
+    delete:
+      summary: Release the active reservation for a range
+      operationId: releaseRangeReservation
+      tags: [Reservation]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Reservation released
+        '403':
+          description: Caller is not the reservation owner and does not have admin rights
+        '404':
+          description: No active reservation found for this range
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Sessions (Competition Management)
   # ─────────────────────────────────────────────────────────────────────────────
   /api/sessions:
@@ -1846,119 +1915,7 @@ paths:
           description: Passe not found
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Trainings
-  # ─────────────────────────────────────────────────────────────────────────────
-  /api/trainings:
-    get:
-      summary: List Trainings owned by the current user
-      operationId: listTrainings
-      tags: [Training]
-      responses:
-        '200':
-          description: List of Trainings
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TrainingResponse'
-    post:
-      summary: Create a new Training from a list of Passen
-      description: >
-        Passen are snapshotted (with all their embedded Serien and steps)
-        at creation time. Provide passeIds in the desired execution order.
-      operationId: createTraining
-      tags: [Training]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTrainingRequest'
-      responses:
-        '201':
-          description: Training created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TrainingResponse'
-        '400':
-          description: Validation error
-        '404':
-          description: One or more Passe IDs not found
-
-  /api/trainings/{id}:
-    get:
-      summary: Get a Training by ID
-      operationId: getTraining
-      tags: [Training]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Training detail (full nested snapshot)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TrainingResponse'
-        '403':
-          description: Training belongs to another user
-        '404':
-          description: Training not found
-    put:
-      summary: Rename a Training
-      operationId: updateTraining
-      tags: [Training]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateTrainingRequest'
-      responses:
-        '200':
-          description: Training updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TrainingResponse'
-        '403':
-          description: Not the owner
-        '404':
-          description: Training not found
-    delete:
-      summary: Delete a Training
-      operationId: deleteTraining
-      tags: [Training]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '204':
-          description: Training deleted
-        '403':
-          description: Not the owner
-        '404':
-          description: Training not found
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Play Instances (live execution of a Passe or Training)
+  # Play Instances (live execution of a Passe)
   # ─────────────────────────────────────────────────────────────────────────────
   /api/play-instances/passe:
     post:
@@ -1984,32 +1941,6 @@ paths:
                 $ref: '#/components/schemas/PlayInstanceResponse'
         '404':
           description: Passe not found
-
-  /api/play-instances/training:
-    post:
-      summary: Start a Training play instance
-      description: >
-        Launches a new active run of a Training. The backend maps each
-        Passe in the Training to a phase, and each Serie to a block within
-        that phase. Only the first phase starts as 'active'; subsequent phases
-        unlock automatically when the previous phase completes.
-      operationId: startTrainingInstance
-      tags: [PlayInstance]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/StartTrainingInstanceRequest'
-      responses:
-        '201':
-          description: Play instance created and active
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlayInstanceResponse'
-        '404':
-          description: Training not found
 
   /api/play-instances:
     get:
@@ -2485,67 +2416,6 @@ components:
           type: string
           minLength: 1
 
-    # ───── Training ───────────────────────────────────────────────────────────
-
-    TrainingPasse:
-      type: object
-      description: Snapshot of one Passe phase within a Training.
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: References the source Passe
-        name:
-          type: string
-          description: Name at snapshot time
-        serien:
-          type: array
-          items:
-            $ref: '#/components/schemas/EmbeddedSerie'
-
-    TrainingResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        passen:
-          type: array
-          items:
-            $ref: '#/components/schemas/TrainingPasse'
-        createdAt:
-          type: string
-          format: date-time
-        ownerUsername:
-          type: string
-
-    CreateTrainingRequest:
-      type: object
-      required: [name, passeIds]
-      properties:
-        name:
-          type: string
-          minLength: 1
-        passeIds:
-          type: array
-          minItems: 1
-          items:
-            type: string
-            format: uuid
-          description: >
-            Ordered list of Passe IDs. Each becomes one phase in the
-            Training. Steps are snapshotted at creation time.
-
-    UpdateTrainingRequest:
-      type: object
-      required: [name]
-      properties:
-        name:
-          type: string
-          minLength: 1
-
     # ───── Play Instances ─────────────────────────────────────────────────────
 
     PlayerRef:
@@ -2655,28 +2525,6 @@ components:
           allOf:
             - $ref: '#/components/schemas/BlockResult'
 
-    PlayPhase:
-      type: object
-      description: >
-        One Passe execution slot within a Training play instance.
-        Phases run sequentially — the next phase becomes active only after
-        all blocks in the current phase are done.
-      properties:
-        phaseIndex:
-          type: integer
-        passeId:
-          type: string
-          format: uuid
-        passeName:
-          type: string
-        status:
-          type: string
-          enum: [pending, active, done]
-        blocks:
-          type: array
-          items:
-            $ref: '#/components/schemas/PlayBlock'
-
     PlayInstanceStatus:
       type: string
       enum: [active, completed, cancelled]
@@ -2689,11 +2537,11 @@ components:
           format: uuid
         type:
           type: string
-          enum: [passe, training]
+          enum: [passe]
         templateId:
           type: string
           format: uuid
-          description: ID of the Passe or Training template used
+          description: ID of the Passe template used
         templateName:
           type: string
         status:
@@ -2712,38 +2560,14 @@ components:
         blocks:
           type: array
           nullable: true
-          description: Populated for type=passe
           items:
             $ref: '#/components/schemas/PlayBlock'
-        phases:
-          type: array
-          nullable: true
-          description: Populated for type=training
-          items:
-            $ref: '#/components/schemas/PlayPhase'
-        currentPhaseIndex:
-          type: integer
-          nullable: true
-          description: Index of the currently active phase (training instances only)
 
     StartPasseInstanceRequest:
       type: object
       required: [passeId, players]
       properties:
         passeId:
-          type: string
-          format: uuid
-        players:
-          type: array
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/PlayerRef'
-
-    StartTrainingInstanceRequest:
-      type: object
-      required: [trainingId, players]
-      properties:
-        trainingId:
           type: string
           format: uuid
         players:
@@ -2773,7 +2597,7 @@ components:
           format: uuid
         type:
           type: string
-          enum: [passe, training]
+          enum: [passe]
         templateId:
           type: string
           format: uuid
@@ -2809,7 +2633,7 @@ components:
           format: uuid
         type:
           type: string
-          enum: [passe, training]
+          enum: [passe]
         templateId:
           type: string
           format: uuid
@@ -2828,15 +2652,8 @@ components:
         blocks:
           type: array
           nullable: true
-          description: Populated for passe results
           items:
             $ref: '#/components/schemas/PlayBlock'
-        phases:
-          type: array
-          nullable: true
-          description: Populated for training results
-          items:
-            $ref: '#/components/schemas/PlayPhase'
 
     # ───── SmartBox Status Enum ────────────────────────────────────────────────
 
@@ -3858,6 +3675,28 @@ components:
           type: string
           format: date-time
           nullable: true
+
+    ReservationResponse:
+      type: object
+      required: [id, rangeId, username, startedAt, lastActivityAt, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        rangeId:
+          type: string
+          format: uuid
+        username:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        lastActivityAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, RELEASED]
 
   securitySchemes:
     bearerAuth:
