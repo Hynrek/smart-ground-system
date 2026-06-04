@@ -3,7 +3,6 @@ import { ref, computed } from 'vue';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
 import * as serieApi from '@/services/serieApi.js';
 import * as passeApi from '@/services/passeApi.js';
-import * as trainingApi from '@/services/trainingApi.js';
 
 const generateUUID = () =>
   typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID
@@ -58,6 +57,7 @@ function toUiSerie(ablauf) {
     ownership: ablauf.ownership ?? 'user',
     createdAt: ablauf.createdAt ?? null,
     ownerUsername: ablauf.ownerUsername ?? null,
+    published: ablauf.published ?? false,
   };
 }
 
@@ -76,24 +76,6 @@ function toUiPasse(passe) {
   };
 }
 
-function toUiTraining(training) {
-  return {
-    id: training.id,
-    name: training.name,
-    passen: (training.passen ?? []).map((passe) => ({
-      id: passe.id,
-      name: passe.name,
-      serien: (passe.serien ?? []).map((s) => ({
-        id: s.id,
-        alias: s.alias,
-        rangeId: s.rangeId ?? null,
-        rangeName: s.rangeName ?? null,
-        steps: (s.steps ?? []).map(fromApiStep),
-      })),
-    })),
-    ownerUsername: training.ownerUsername ?? null,
-  };
-}
 
 export const usePasseStore = defineStore('passe', () => {
   // ── Capture state (in-memory only, no persistence) ────────────────────────
@@ -108,7 +90,6 @@ export const usePasseStore = defineStore('passe', () => {
   const savedSerien = ref([]);
   const savedPassen = ref([]);
   const savedGlobalPassen = computed(() => savedPassen.value);
-  const savedTrainings = ref([]);
   const pendingPasseId = ref(null);
 
   // ── Load from backend API ──────────────────────────────────────────────────
@@ -134,15 +115,6 @@ export const usePasseStore = defineStore('passe', () => {
   const loadGlobalPassenFromStorage = async () => {
     // Global passen are unified with savedPassen (both are Programmes on the backend).
     // No-op kept for API compatibility with existing callers.
-  };
-
-  const loadTrainingsFromStorage = async () => {
-    try {
-      const trainings = await trainingApi.fetchTrainings();
-      savedTrainings.value = trainings.map(toUiTraining);
-    } catch (e) {
-      console.error('Failed to load Trainings from API:', e);
-    }
   };
 
   // ── Capture lifecycle ──────────────────────────────────────────────────────
@@ -314,6 +286,18 @@ export const usePasseStore = defineStore('passe', () => {
     }
   };
 
+  const setSeriePublished = async (serieId, published) => {
+    const serie = savedSerien.value.find((s) => s.id === serieId);
+    if (!serie) return;
+    serie.published = published;
+    try {
+      await serieApi.patchSeriePublished(serieId, published);
+    } catch (e) {
+      serie.published = !published;
+      throw e;
+    }
+  };
+
   // ── Passe (Programme) persistence ─────────────────────────────────────────
 
   const createPasse = async (passeName, selectedSerien) => {
@@ -364,47 +348,6 @@ export const usePasseStore = defineStore('passe', () => {
   };
   const deleteGlobalPasse = (id) => deletePasse(id);
 
-  // ── Training persistence ───────────────────────────────────────────────────
-
-  const createTraining = async (trainingName, selectedPassen, _options = {}) => {
-    if (selectedPassen.length === 0) return;
-    const name = trainingName?.trim() || `Training ${savedTrainings.value.length + 1}`;
-    const passeIds = selectedPassen.map((p) => p.id);
-    try {
-      const created = await trainingApi.createTraining(name, passeIds);
-      savedTrainings.value = [...savedTrainings.value, toUiTraining(created)];
-    } catch (e) {
-      console.error('Failed to create Training:', e);
-      throw e;
-    }
-  };
-
-  const createCompetition = (name, selectedPassen, rottCountHint = null) => {
-    return createTraining(name, selectedPassen, { type: 'competition', rottCountHint });
-  };
-
-  const deleteTraining = async (trainingId) => {
-    try {
-      await trainingApi.deleteTraining(trainingId);
-      savedTrainings.value = savedTrainings.value.filter((t) => t.id !== trainingId);
-    } catch (e) {
-      console.error('Failed to delete Training:', e);
-      throw e;
-    }
-  };
-
-  const renameTraining = async (trainingId, newName) => {
-    try {
-      await trainingApi.updateTraining(trainingId, newName);
-      savedTrainings.value = savedTrainings.value.map((t) =>
-        t.id === trainingId ? { ...t, name: newName } : t,
-      );
-    } catch (e) {
-      console.error('Failed to rename Training:', e);
-      throw e;
-    }
-  };
-
   // ── Pending passe ──────────────────────────────────────────────────────────
 
   const setPendingPasse = (passeId) => { pendingPasseId.value = passeId; };
@@ -429,13 +372,13 @@ export const usePasseStore = defineStore('passe', () => {
     // Capture state
     recording, passeMode, pairPending, activeSerieIndex, editingId, editingSerie,
     // Persisted state
-    savedSerien, savedPassen, pendingPasseId, savedTrainings, savedGlobalPassen,
+    savedSerien, savedPassen, pendingPasseId, savedGlobalPassen,
     // Capture lifecycle
     resetCapture, startCapture, cancelCapture,
     // Step recording
     addStep, removeStep,
     // Serie actions
-    saveSerie, deleteSerie, renameSerie, createRangeSerie, updateSerie,
+    saveSerie, deleteSerie, renameSerie, createRangeSerie, updateSerie, setSeriePublished,
     loadSerienFromStorage,
     // Serie retrieval
     getUserSerien, getGlobalSerien, getSerienForRange, getUserSerienForRange,
@@ -444,8 +387,6 @@ export const usePasseStore = defineStore('passe', () => {
     loadPassenFromStorage,
     // Global Passe actions (aliases)
     createGlobalPasse, updateGlobalPasse, deleteGlobalPasse, loadGlobalPassenFromStorage,
-    // Training actions
-    loadTrainingsFromStorage, createTraining, createCompetition, deleteTraining, renameTraining,
     // Legacy
     savePasse,
   };
