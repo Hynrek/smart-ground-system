@@ -1702,6 +1702,7 @@ paths:
         Sets the published flag on a Serie. Only ADMIN and GROUND_OWNER roles
         may call this endpoint. When published=false, regular users cannot see
         or access this Serie even if its ownership is 'range'.
+        If the Serie is not range-owned (ownership='user'), the request is rejected with 400.
       operationId: updateSeriePublished
       tags: [Serie]
       parameters:
@@ -1724,6 +1725,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SerieResponse'
+        '400':
+          description: Serie is not range-owned; published flag only applies to range-owned Serien
         '403':
           description: Caller is not an admin or range owner
         '404':
