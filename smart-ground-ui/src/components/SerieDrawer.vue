@@ -44,6 +44,21 @@
             <span v-else class="field-readonly">{{ serie?.rangeName }}</span>
           </div>
 
+          <!-- Published toggle (edit only) -->
+          <div v-if="!isCreate" class="field field--row">
+            <label class="field-label" for="serie-published">Veröffentlicht</label>
+            <button
+              id="serie-published"
+              class="toggle-btn"
+              :class="{ 'toggle-btn--on': published }"
+              role="switch"
+              :aria-checked="published"
+              @click="published = !published; onPublishedChange()"
+            >
+              <span class="toggle-thumb" />
+            </button>
+          </div>
+
           <!-- Step type toggle -->
           <div v-if="rangePositions.length > 0" class="field">
             <label class="field-label">Schuss-Typ</label>
@@ -175,6 +190,7 @@ const stepMode = ref('solo');
 const steps = ref([]);
 const pairPending = ref(null);
 const confirmingDelete = ref(false);
+const published = ref(false);
 
 // Reset state when drawer opens
 watch(() => props.open, (open) => {
@@ -190,6 +206,7 @@ watch(() => props.open, (open) => {
     editingName.value = props.serie.name;
     selectedRangeId.value = props.serie.rangeId ?? '';
     steps.value = [...(props.serie.steps ?? [])];
+    published.value = props.serie.published ?? false;
     if (props.serie.rangeId) {
       rangeStore.loadPositions(props.serie.rangeId);
     }
@@ -250,6 +267,11 @@ const removeStep = (index) => {
   steps.value = s;
 };
 
+const onPublishedChange = async () => {
+  if (!props.serie) return;
+  await passeStore.setSeriePublished(props.serie.id, published.value);
+};
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const totalThrows = computed(() => {
   let count = 0;
@@ -299,7 +321,7 @@ const deleteAndClose = () => {
   }
 };
 
-defineExpose({ stepMode, pairPending });
+defineExpose({ stepMode, pairPending, published });
 </script>
 
 <style scoped>
@@ -629,4 +651,44 @@ defineExpose({ stepMode, pairPending });
 }
 
 .btn--danger:hover { background: rgba(229, 62, 62, 0.18); }
+
+/* ── Published toggle ─────────────────────────────────────────────── */
+.field--row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toggle-btn {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  border: none;
+  background: #cbd5e0;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.toggle-btn--on {
+  background: #4fc3f7;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.toggle-btn--on .toggle-thumb {
+  transform: translateX(18px);
+}
 </style>
