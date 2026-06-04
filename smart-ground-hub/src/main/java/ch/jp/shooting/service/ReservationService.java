@@ -2,6 +2,7 @@ package ch.jp.shooting.service;
 
 import ch.jp.shooting.dto.ReservationDTO;
 import ch.jp.shooting.exception.ConflictException;
+import ch.jp.shooting.exception.ForbiddenException;
 import ch.jp.shooting.exception.NotFoundException;
 import ch.jp.shooting.model.Range;
 import ch.jp.shooting.model.Reservation;
@@ -73,7 +74,7 @@ public class ReservationService {
 
         // Prüfe: Reservierung gehört dem Benutzer
         if (!reservation.getUsername().equals(username)) {
-            throw new ConflictException("You do not have a reservation on this range");
+            throw new ForbiddenException("You do not have a reservation on this range");
         }
 
         reservation.setStatus(ReservationStatus.RELEASED);
