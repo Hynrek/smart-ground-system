@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -62,6 +63,24 @@ public class Device {
     @Column(nullable = false)
     private boolean healthy = true;
 
+    /** Anzahl Befehle, die vom Backend an dieses Gerät gesendet wurden. */
+    @Column(name = "commands_sent", nullable = false)
+    private int commandsSent = 0;
+
+    /** Anzahl Befehle, die vom Gerät erfolgreich ausgeführt und bestätigt wurden. */
+    @Column(name = "commands_processed", nullable = false)
+    private int commandsProcessed = 0;
+
+    /** Zeitstempel des letzten gesendeten Befehls. */
+    @Column(name = "last_command_sent_at")
+    @Nullable
+    private Instant lastCommandSentAt;
+
+    /** Zeitstempel der letzten Befehlsbestätigung vom Gerät. */
+    @Column(name = "last_command_processed_at")
+    @Nullable
+    private Instant lastCommandProcessedAt;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public SmartBox getSmartBox() { return smartBox; }
@@ -88,4 +107,16 @@ public class Device {
     public void setBlocked(boolean blocked) { this.blocked = blocked; }
     public boolean isHealthy() { return healthy; }
     public void setHealthy(boolean healthy) { this.healthy = healthy; }
+
+    public int getCommandsSent() { return commandsSent; }
+    public void setCommandsSent(int commandsSent) { this.commandsSent = commandsSent; }
+
+    public int getCommandsProcessed() { return commandsProcessed; }
+    public void setCommandsProcessed(int commandsProcessed) { this.commandsProcessed = commandsProcessed; }
+
+    public @Nullable Instant getLastCommandSentAt() { return lastCommandSentAt; }
+    public void setLastCommandSentAt(@Nullable Instant lastCommandSentAt) { this.lastCommandSentAt = lastCommandSentAt; }
+
+    public @Nullable Instant getLastCommandProcessedAt() { return lastCommandProcessedAt; }
+    public void setLastCommandProcessedAt(@Nullable Instant lastCommandProcessedAt) { this.lastCommandProcessedAt = lastCommandProcessedAt; }
 }
