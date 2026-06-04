@@ -2,8 +2,8 @@
   <div class="competition-content">
 
     <!-- Passen stepper -->
-    <div class="passen-stepper">
-      <template v-for="(passe, i) in passenProgress" :key="i">
+    <div v-if="passenProgress.length > 0" class="passen-stepper">
+      <template v-for="(passe, i) in passenProgress" :key="passe.phaseIndex">
         <div class="passe-step" :class="`step-${passe.status}`">
           <span class="step-name">{{ passe.passeName }}</span>
           <span class="step-badge" :class="`badge-${passe.status}`">{{ passeStatusLabel(passe.status) }}</span>
@@ -33,8 +33,8 @@
     <!-- Serien tab -->
     <div v-if="activeTab === 'serien'" class="serien-view">
       <div
-        v-for="(card, i) in serieCards"
-        :key="i"
+        v-for="card in serieCards"
+        :key="card.serieAlias"
         class="serie-card"
       >
         <div class="serie-card-header">{{ card.serieAlias }}</div>
@@ -92,6 +92,8 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
   flex-direction: column;
   gap: 10px;
   padding: 10px 0;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 /* ── Passen stepper ───────────────────────────────── */
