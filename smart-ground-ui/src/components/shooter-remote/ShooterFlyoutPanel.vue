@@ -80,6 +80,14 @@
 
         <!-- Serie-centered view (when not recording) -->
         <template v-if="!isRecordingActive && isOpen">
+          <!-- Competition mode: full progress view -->
+          <CompetitionFlyoutContent
+            v-if="competitionInstance"
+            :instance="competitionInstance"
+          />
+
+          <!-- Normal mode: existing serien/passen/training content -->
+          <template v-else>
           <!-- Passen Blöcke -->
           <template v-if="passenBlocks.length > 0">
             <div class="section">
@@ -257,6 +265,7 @@
             <p>Keine Serien</p>
             <p class="empty-hint">Erstelle Serien in der Erfassungs-Ansicht</p>
           </div>
+          </template>
         </template>
       </div>
 
@@ -305,6 +314,7 @@ import { useRangeStore } from '@/stores/rangeStore.js';
 import { useAuthStore } from '@/stores/authStore.js';
 import { useActivePasseStore } from '@/stores/activePasseStore.js';
 import Icons from '@/components/Icons.vue';
+import CompetitionFlyoutContent from '@/components/shooter-remote/CompetitionFlyoutContent.vue';
 
 const router = useRouter();
 const store = useShooterRemoteStore();
@@ -320,6 +330,14 @@ const serieNameInput = ref('');
 const saveAsRange = ref(false);
 const nameInputRef = ref(null);
 const expandedSerieId = ref(null);
+
+const competitionInstance = computed(() => {
+  const ctxId = store.competitionContext?.instanceId
+  if (!ctxId) return null
+  return activePasseStore.activeInstances.find(
+    i => i.instanceId === ctxId && i.type === 'competition'
+  ) ?? null
+})
 
 const isRecordingActive = computed(
   () => store.sessionMode === 'recording' && store.recordingActive && passeStore.passeMode,
