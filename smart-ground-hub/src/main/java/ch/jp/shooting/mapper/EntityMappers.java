@@ -48,7 +48,15 @@ public final class EntityMappers {
             .signalDurationMs(deviceType != null ? deviceType.getSignalDurationMs() : null)
             .delaySignalDurationMs(device.getDelaySignalDurationMs())
             .pinConfig(device.getPinConfig() != null ? toPinConfig(parseJson(device.getPinConfig())) : null)
-            .rangeId(range != null ? range.getId() : null);
+            .rangeId(range != null ? range.getId() : null)
+            .commandsSent(device.getCommandsSent())
+            .commandsProcessed(device.getCommandsProcessed())
+            .lastCommandSentAt(device.getLastCommandSentAt() != null
+                ? java.time.OffsetDateTime.ofInstant(device.getLastCommandSentAt(), java.time.ZoneOffset.UTC)
+                : null)
+            .lastCommandProcessedAt(device.getLastCommandProcessedAt() != null
+                ? java.time.OffsetDateTime.ofInstant(device.getLastCommandProcessedAt(), java.time.ZoneOffset.UTC)
+                : null);
     }
 
     public static SmartBoxResponse toSmartBoxResponse(SmartBox smartBox) {
@@ -81,11 +89,13 @@ public final class EntityMappers {
             ? range.getPositions().stream().map(EntityMappers::toRangePositionResponse).toList()
             : List.of();
 
+        var assignedUser = range.getAssignedUser();
         return new RangeDetailResponse()
             .id(range.getId())
             .name(range.getName())
             .description(range.getDescription())
             .locked(range.isLocked())
+            .assignedUserId(assignedUser != null ? assignedUser.getId() : null)
             .devices(deviceResponses)
             .positions(positionResponses)
             .createdAt(range.getCreatedAt() != null

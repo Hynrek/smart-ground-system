@@ -1,6 +1,7 @@
 package ch.jp.shooting.api;
 
 import ch.jp.shooting.model.auth.User;
+import ch.jp.shooting.repository.RangeRepository;
 import ch.jp.shooting.repository.auth.UserRepository;
 import ch.jp.shooting.service.JwtService;
 import ch.jp.smartground.api.AuthApi;
@@ -31,13 +32,16 @@ public class AuthController implements AuthApi {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final RangeRepository rangeRepository;
 
     public AuthController(AuthenticationManager authenticationManager,
                           JwtService jwtService,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          RangeRepository rangeRepository) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userRepository = userRepository;
+        this.rangeRepository = rangeRepository;
     }
 
     @Override
@@ -68,13 +72,16 @@ public class AuthController implements AuthApi {
         User user = userRepository.findByEmailWithRoles(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 
-        // Alle Berechtigungen aus allen Rollen flach zusammenführen
         List<String> permissions = user.getUserRoles().stream()
                 .flatMap(ur -> ur.getRole().getPermissions().stream())
                 .map(p -> p.getAction().toUpperCase())
                 .distinct()
                 .sorted()
                 .toList();
+
+        java.util.UUID assignedRangeId = rangeRepository.findByAssignedUserId(user.getId())
+                .map(r -> r.getId())
+                .orElse(null);
 
         MeResponse response = new MeResponse()
                 .id(user.getId())
@@ -101,7 +108,8 @@ public class AuthController implements AuthApi {
                 .emailBestaetigt(user.getEmailBestaetigt())
                 .letzterLogin(user.getLetzterLogin() != null ? user.getLetzterLogin().atOffset(ZoneOffset.UTC) : null)
                 .erstelltAm(user.getErstelltAm().atOffset(ZoneOffset.UTC))
-                .permissions(permissions);
+                .permissions(permissions)
+                .assignedRangeId(assignedRangeId);
 
         return ResponseEntity.ok(response);
     }

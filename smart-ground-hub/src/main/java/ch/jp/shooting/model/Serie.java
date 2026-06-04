@@ -52,7 +52,7 @@ public class Serie {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean published = false;
 
     public UUID getId() { return id; }

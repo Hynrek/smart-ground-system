@@ -19,9 +19,6 @@ public class PlayInstance {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID instanceId;
 
-    /**
-     * 'programm' | 'training'
-     */
     @Column(nullable = false, length = 10)
     private String type;
 
@@ -47,19 +44,8 @@ public class PlayInstance {
     @Column(name = "players_json", columnDefinition = "TEXT", nullable = false)
     private String playersJson = "[]";
 
-    /**
-     * Für type='programm': Blöcke als JSON (PlayBlock[]).
-     * Für type='training': Phasen als JSON (PlayPhase[]).
-     */
     @Column(name = "state_json", columnDefinition = "TEXT", nullable = false)
     private String stateJson = "[]";
-
-    /**
-     * Nur für Training: Index der aktuell aktiven Phase
-     */
-    @Column(name = "current_phase_index")
-    @Nullable
-    private Integer currentPhaseIndex;
 
     @Column(name = "started_at", nullable = false)
     private Instant startedAt = Instant.now();
@@ -84,8 +70,6 @@ public class PlayInstance {
     public void setPlayersJson(String playersJson) { this.playersJson = playersJson; }
     public String getStateJson() { return stateJson; }
     public void setStateJson(String stateJson) { this.stateJson = stateJson; }
-    public @Nullable Integer getCurrentPhaseIndex() { return currentPhaseIndex; }
-    public void setCurrentPhaseIndex(@Nullable Integer currentPhaseIndex) { this.currentPhaseIndex = currentPhaseIndex; }
     public Instant getStartedAt() { return startedAt; }
     public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
     public @Nullable Instant getCompletedAt() { return completedAt; }

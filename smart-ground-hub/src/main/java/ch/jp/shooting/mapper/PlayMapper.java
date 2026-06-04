@@ -3,14 +3,11 @@ package ch.jp.shooting.mapper;
 import ch.jp.shooting.dto.play.BlockResultRecord;
 import ch.jp.shooting.dto.play.EmbeddedSerieRecord;
 import ch.jp.shooting.dto.play.PlayBlockRecord;
-import ch.jp.shooting.dto.play.PlayPhaseRecord;
 import ch.jp.shooting.dto.play.PlayerRefRecord;
 import ch.jp.shooting.dto.play.PlayerResultRecord;
-import ch.jp.shooting.dto.play.TrainingPasseRecord;
 import ch.jp.shooting.model.Passe;
 import ch.jp.shooting.model.PlayInstance;
 import ch.jp.shooting.model.Serie;
-import ch.jp.shooting.model.Training;
 import ch.jp.shooting.model.Guest;
 import ch.jp.smartground.model.BlockResult;
 import ch.jp.smartground.model.BlockStatus;
@@ -20,7 +17,6 @@ import ch.jp.smartground.model.PasseResponse;
 import ch.jp.smartground.model.PlayBlock;
 import ch.jp.smartground.model.PlayInstanceResponse;
 import ch.jp.smartground.model.PlayInstanceStatus;
-import ch.jp.smartground.model.PlayPhase;
 import ch.jp.smartground.model.PlayerRef;
 import ch.jp.smartground.model.PlayerResult;
 import ch.jp.smartground.model.SerieOwnership;
@@ -28,8 +24,6 @@ import ch.jp.smartground.model.SerieResponse;
 import ch.jp.smartground.model.Step;
 import ch.jp.smartground.model.StepState;
 import ch.jp.smartground.model.StepType;
-import ch.jp.smartground.model.TrainingPasse;
-import ch.jp.smartground.model.TrainingResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -89,19 +83,6 @@ public final class PlayMapper {
             .ownerUsername(passe.getOwner().getEmail());
     }
 
-    // ── Training ─────────────────────────────────────────────────────────────
-
-    public static TrainingResponse toTrainingResponse(Training training) {
-        return new TrainingResponse()
-            .id(training.getId())
-            .name(training.getName())
-            .passen(parseTrainingPassen(training.getProgrammesJson()).stream()
-                .map(PlayMapper::toTrainingPasse)
-                .toList())
-            .createdAt(OffsetDateTime.ofInstant(training.getCreatedAt(), ZoneOffset.UTC))
-            .ownerUsername(training.getOwner().getEmail());
-    }
-
     // ── PlayInstance ──────────────────────────────────────────────────────────
 
     public static PlayInstanceResponse toPlayInstanceResponse(PlayInstance instance) {
@@ -120,19 +101,9 @@ public final class PlayMapper {
             response.completedAt(OffsetDateTime.ofInstant(instance.getCompletedAt(), ZoneOffset.UTC));
         }
 
-        if (instance.getCurrentPhaseIndex() != null) {
-            response.currentPhaseIndex(instance.getCurrentPhaseIndex());
-        }
-
-        if ("passe".equals(instance.getType())) {
-            response.blocks(parseBlocks(instance.getStateJson()).stream()
-                .map(PlayMapper::toPlayBlock)
-                .toList());
-        } else {
-            response.phases(parsePhases(instance.getStateJson()).stream()
-                .map(PlayMapper::toPlayPhase)
-                .toList());
-        }
+        response.blocks(parseBlocks(instance.getStateJson()).stream()
+            .map(PlayMapper::toPlayBlock)
+            .toList());
         return response;
     }
 
@@ -154,14 +125,6 @@ public final class PlayMapper {
         return writeValue(serien);
     }
 
-    public static List<TrainingPasseRecord> parseTrainingPassen(String json) {
-        return parseList(json, new TypeReference<>() {});
-    }
-
-    public static String writeTrainingPassen(List<TrainingPasseRecord> passen) {
-        return writeValue(passen);
-    }
-
     public static List<PlayerRefRecord> parsePlayerRefs(String json) {
         return parseList(json, new TypeReference<>() {});
     }
@@ -178,22 +141,10 @@ public final class PlayMapper {
         return writeValue(blocks);
     }
 
-    public static List<PlayPhaseRecord> parsePhases(String json) {
-        return parseList(json, new TypeReference<>() {});
-    }
-
-    public static String writePhases(List<PlayPhaseRecord> phases) {
-        return writeValue(phases);
-    }
-
-    // ── Öffentliche Block/Phase-Konvertierung (für PlayResultResponse) ───────
+    // ── Öffentliche Block-Konvertierung (für PlayResultResponse) ─────────────
 
     public static PlayBlock toPlayBlockPublic(PlayBlockRecord r) {
         return toPlayBlock(r);
-    }
-
-    public static PlayPhase toPlayPhasePublic(PlayPhaseRecord r) {
-        return toPlayPhase(r);
     }
 
     // ── Private conversion helpers ───────────────────────────────────────────
@@ -218,13 +169,6 @@ public final class PlayMapper {
             .rangeId(r.rangeId())
             .rangeName(r.rangeName())
             .steps(r.steps().stream().map(PlayMapper::toStep).toList());
-    }
-
-    private static TrainingPasse toTrainingPasse(TrainingPasseRecord r) {
-        return new TrainingPasse()
-            .id(r.id())
-            .name(r.name())
-            .serien(r.serien().stream().map(PlayMapper::toEmbeddedSerie).toList());
     }
 
     private static PlayerRef toPlayerRef(PlayerRefRecord r) {
@@ -280,15 +224,6 @@ public final class PlayMapper {
             .pointValue(r.pointValue())
             .noBirds(r.noBirds())
             .pointsEarned(r.pointsEarned());
-    }
-
-    private static PlayPhase toPlayPhase(PlayPhaseRecord r) {
-        return new PlayPhase()
-            .phaseIndex(r.phaseIndex())
-            .passeId(r.passeId())
-            .passeName(r.passeName())
-            .status(PlayPhase.StatusEnum.fromValue(r.status()))
-            .blocks(r.blocks().stream().map(PlayMapper::toPlayBlock).toList());
     }
 
     // ── Low-level JSON helpers ───────────────────────────────────────────────

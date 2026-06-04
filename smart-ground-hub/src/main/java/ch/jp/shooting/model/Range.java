@@ -1,5 +1,6 @@
 package ch.jp.shooting.model;
 
+import ch.jp.shooting.model.auth.User;
 import jakarta.persistence.*;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -32,6 +33,11 @@ public class Range {
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_user_id")
+    @Nullable
+    private User assignedUser;
+
     @OneToMany(mappedBy = "range", fetch = FetchType.LAZY)
     private List<Device> devices = new ArrayList<>();
 
@@ -53,4 +59,6 @@ public class Range {
     public void setDevices(List<Device> devices) { this.devices = devices; }
     public List<RangePosition> getPositions() { return positions; }
     public void setPositions(List<RangePosition> positions) { this.positions = positions; }
+    public @Nullable User getAssignedUser() { return assignedUser; }
+    public void setAssignedUser(@Nullable User assignedUser) { this.assignedUser = assignedUser; }
 }

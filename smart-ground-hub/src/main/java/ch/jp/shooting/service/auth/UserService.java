@@ -1,6 +1,8 @@
 package ch.jp.shooting.service.auth;
 
 import ch.jp.shooting.dto.*;
+import ch.jp.shooting.exception.ConflictException;
+import ch.jp.shooting.exception.UserNotFoundException;
 import ch.jp.shooting.mapper.UserMapper;
 import ch.jp.shooting.model.auth.*;
 import ch.jp.shooting.repository.auth.*;
@@ -44,15 +46,13 @@ public class UserService {
      * Create a new user with initial profile data
      */
     public UserDTO createUser(CreateUserRequest request) {
-        // Validate email doesn't exist
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new IllegalArgumentException("Email already registered");
+            throw new ConflictException("Email already registered");
         }
 
-        // Validate membership number if provided
         if (request.getMitgliedsnummer() != null &&
             userRepository.findByMitgliedsnummer(request.getMitgliedsnummer()).isPresent()) {
-            throw new IllegalArgumentException("Membership number already exists");
+            throw new ConflictException("Membership number already exists");
         }
 
         // Create user entity
@@ -79,7 +79,7 @@ public class UserService {
      */
     public UserDTO getUserById(UUID userId) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            .orElseThrow(() -> new UserNotFoundException(userId));
         return userMapper.toDto(user);
     }
 
@@ -88,7 +88,7 @@ public class UserService {
      */
     public UserDTO getUserByEmail(String email) {
         User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            .orElseThrow(() -> new UserNotFoundException(email));
         return userMapper.toDto(user);
     }
 
@@ -97,7 +97,7 @@ public class UserService {
      */
     public UserDTO updateUser(UUID userId, UpdateUserRequest request) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            .orElseThrow(() -> new UserNotFoundException(userId));
 
         // Update fields if provided
         if (request.getEmail() != null) {
@@ -171,7 +171,7 @@ public class UserService {
      */
     public void deleteUser(UUID userId) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            .orElseThrow(() -> new UserNotFoundException(userId));
 
         user.setStatus(User.UserStatus.INACTIVE);
         user.setGeloeschtAm(java.time.Instant.now());
@@ -199,7 +199,7 @@ public class UserService {
      */
     public UserRoleDto assignRole(UUID userId, String roleName) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            .orElseThrow(() -> new UserNotFoundException(userId));
 
         Role role = roleRepository.findByName(roleName)
             .orElseThrow(() -> new IllegalArgumentException("Role not found: " + roleName));
@@ -222,7 +222,7 @@ public class UserService {
      */
     public UserRoleDto assignScopedRole(UUID userId, String roleName, String scopeType, UUID scopeId, @Nullable java.time.Instant expiresAt) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            .orElseThrow(() -> new UserNotFoundException(userId));
 
         Role role = roleRepository.findByName(roleName)
             .orElseThrow(() -> new IllegalArgumentException("Role not found: " + roleName));
@@ -255,7 +255,7 @@ public class UserService {
      */
     public void revokeRole(UUID userId, String roleName) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            .orElseThrow(() -> new UserNotFoundException(userId));
 
         ch.jp.shooting.model.auth.UserRoleEntity toRemove = user.getUserRoles().stream()
             .filter(ur -> ur.getRole().getName().equals(roleName))
@@ -281,7 +281,7 @@ public class UserService {
      */
     public List<UserRoleDto> getUserRoles(UUID userId) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            .orElseThrow(() -> new UserNotFoundException(userId));
 
         List<UserRoleDto> roles = new ArrayList<>();
 
@@ -315,7 +315,7 @@ public class UserService {
      */
     public void changePassword(UUID userId, String oldPassword, String newPassword) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            .orElseThrow(() -> new UserNotFoundException(userId));
 
         if (user.getPasswordHash() == null || !passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid current password");

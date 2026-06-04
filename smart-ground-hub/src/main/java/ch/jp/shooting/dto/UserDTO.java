@@ -61,6 +61,9 @@ public class UserDTO {
     private Instant erstelltAm;
     private Instant aktualisiertAm;
 
+    @Nullable
+    private UUID assignedRangeId;
+
     // ==================== CONSTRUCTORS ====================
     public UserDTO() {}
 
@@ -146,4 +149,8 @@ public class UserDTO {
 
     public Instant getAktualisiertAm() { return aktualisiertAm; }
     public void setAktualisiertAm(Instant aktualisiertAm) { this.aktualisiertAm = aktualisiertAm; }
+
+    @Nullable
+    public UUID getAssignedRangeId() { return assignedRangeId; }
+    public void setAssignedRangeId(@Nullable UUID assignedRangeId) { this.assignedRangeId = assignedRangeId; }
 }

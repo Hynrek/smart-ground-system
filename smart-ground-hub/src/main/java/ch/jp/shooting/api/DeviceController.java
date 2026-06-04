@@ -240,6 +240,11 @@ public class DeviceController implements DeviceApi {
 
         mqttCommandPublisher.publishToTopic(topic, command, id.toString(), signalDurationMs, delaySignalDurationMs);
 
+        // Statistik: gesendete Befehle hochzählen
+        device.setCommandsSent(device.getCommandsSent() + 1);
+        device.setLastCommandSentAt(java.time.Instant.now());
+        deviceRepository.save(device);
+
         return ResponseEntity.ok(new CommandResponse().status("accepted"));
     }
 

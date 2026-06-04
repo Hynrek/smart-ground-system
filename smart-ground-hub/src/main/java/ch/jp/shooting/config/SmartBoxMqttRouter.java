@@ -14,17 +14,20 @@ public class SmartBoxMqttRouter implements MessageHandler {
 
     private static final Logger log = LoggerFactory.getLogger(SmartBoxMqttRouter.class);
 
-    private final SmartBoxDiscoveryHandler discoveryHandler;
-    private final SmartBoxStatusHandler    statusHandler;
-    private final SmartBoxConfigAckHandler configAckHandler;
+    private final SmartBoxDiscoveryHandler      discoveryHandler;
+    private final SmartBoxStatusHandler         statusHandler;
+    private final SmartBoxConfigAckHandler      configAckHandler;
+    private final SmartBoxDeviceExecutedHandler deviceExecutedHandler;
 
     public SmartBoxMqttRouter(
             SmartBoxDiscoveryHandler discoveryHandler,
             SmartBoxStatusHandler statusHandler,
-            SmartBoxConfigAckHandler configAckHandler) {
-        this.discoveryHandler = discoveryHandler;
-        this.statusHandler    = statusHandler;
-        this.configAckHandler = configAckHandler;
+            SmartBoxConfigAckHandler configAckHandler,
+            SmartBoxDeviceExecutedHandler deviceExecutedHandler) {
+        this.discoveryHandler      = discoveryHandler;
+        this.statusHandler         = statusHandler;
+        this.configAckHandler      = configAckHandler;
+        this.deviceExecutedHandler = deviceExecutedHandler;
     }
 
     @Override
@@ -41,6 +44,8 @@ public class SmartBoxMqttRouter implements MessageHandler {
             statusHandler.handleMessage(message);
         } else if (topic.endsWith("/config/ack")) {
             configAckHandler.handleMessage(message);
+        } else if (topic.endsWith("/executed")) {
+            deviceExecutedHandler.handleMessage(message);
         } else {
             log.debug("Unbekanntes Topic: {}", topic);
         }

@@ -32,7 +32,7 @@ public class MqttConfig {
     static final String TOPIC_DISCOVERY  = "smartboxes/discovery";
     static final String TOPIC_STATUS     = "smartboxes/+/status";
     static final String TOPIC_CFG_ACK    = "smartboxes/+/config/ack";
-    static final String TOPIC_DEVICE_ACK = "smartboxes/+/devices/ack";
+    static final String TOPIC_DEVICE_EXECUTED = "smartboxes/+/device/+/executed";
 
     @Value("${mqtt.broker.url:tcp://mosquitto:1883}")
     private String brokerUrl;
@@ -115,11 +115,11 @@ public class MqttConfig {
             TOPIC_DISCOVERY,
             TOPIC_STATUS,
             TOPIC_CFG_ACK,
-            TOPIC_DEVICE_ACK
+            TOPIC_DEVICE_EXECUTED
         );
         adapter.setOutputChannel(mqttInboundChannel);
         log.info("MQTT Inbound Adapter gestartet – Topics: {}, {}, {}, {}",
-            TOPIC_DISCOVERY, TOPIC_STATUS, TOPIC_CFG_ACK, TOPIC_DEVICE_ACK);
+            TOPIC_DISCOVERY, TOPIC_STATUS, TOPIC_CFG_ACK, TOPIC_DEVICE_EXECUTED);
         return adapter;
     }
 

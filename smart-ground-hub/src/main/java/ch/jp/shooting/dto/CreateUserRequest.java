@@ -1,15 +1,21 @@
 package ch.jp.shooting.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import org.jspecify.annotations.Nullable;
 import java.time.LocalDate;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @org.jspecify.annotations.NullMarked
 public class CreateUserRequest {
+    @NotBlank @Email
     private String email;
+    @NotBlank
     private String password;
+    @NotBlank
     private String vorname;
+    @NotBlank
     private String nachname;
 
     @Nullable

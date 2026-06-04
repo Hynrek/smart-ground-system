@@ -7,12 +7,12 @@ import org.jspecify.annotations.Nullable;
 public record StepRecord(
     String id,
     String type,
-    /** Positions-Label der primären Position (z.B. "A"). */
     @Nullable String posId,
     @Nullable String alias,
-    /** Positions-Labels für Doppelwurf-Schritte. */
     @Nullable String posId1,
     @Nullable String posId2,
     @Nullable String alias1,
-    @Nullable String alias2
+    @Nullable String alias2,
+    /** Buchstabe der Schussposition (A, B, C …) für die Anzeige. */
+    @Nullable String letter
 ) {}

@@ -2855,6 +2855,22 @@ components:
           type: string
           format: uuid
           nullable: true
+        commandsSent:
+          type: integer
+          description: Total number of commands sent to this device from the backend
+        commandsProcessed:
+          type: integer
+          description: Total number of commands confirmed as executed by the device
+        lastCommandSentAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the last command sent to this device
+        lastCommandProcessedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the last command execution confirmed by the device
 
     CommandResponse:
       type: object

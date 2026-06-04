@@ -233,7 +233,9 @@ signal_types      id, firmware_config_id, communication_direction, device, comma
 device_type_groups id, name*
 device_types      id, name, signal_type_id, group_id, signal_duration_ms, delay_signal_duration_ms
 devices           id, smartbox_id→smart_boxes, range_id→ranges?, device_type_id,
-                  alias, pin_config TEXT, config_json TEXT, blocked, healthy
+                  alias, pin_config TEXT, config_json TEXT, blocked, healthy,
+                  commands_sent INT (default 0), commands_processed INT (default 0),
+                  last_command_sent_at TIMESTAMP?, last_command_processed_at TIMESTAMP?
 ranges            id, name*, description, locked, created_at
 range_positions   id, range_id→ranges, label, sort_order, device_id→devices? (unique)
 reservations      id, range_id→ranges, user_id→users, reserved_at, expires_at
@@ -295,11 +297,12 @@ When v1.0 is released:
 ### Topic convention
 
 ```
-smartboxes/discovery           # SmartBox → Backend: registration payload
-smartboxes/{mac}/status        # SmartBox → Backend: heartbeat / state
-smartboxes/{mac}/config        # Backend → SmartBox: full device/GPIO config
-smartboxes/{mac}/config/ack    # SmartBox → Backend: confirm config received
-smartboxes/{mac}/command       # Backend → SmartBox: fire a device
+smartboxes/discovery                        # SmartBox → Backend: registration payload
+smartboxes/{mac}/status                     # SmartBox → Backend: heartbeat / state
+smartboxes/{mac}/config                     # Backend → SmartBox: full device/GPIO config
+smartboxes/{mac}/config/ack                 # SmartBox → Backend: confirm config received
+smartboxes/{mac}/command                    # Backend → SmartBox: fire a device
+smartboxes/{mac}/device/{deviceId}/executed # SmartBox → Backend: command executed ACK
 ```
 
 Do not hardcode topic strings outside of `SmartBoxMqttRouter` and its handlers.
@@ -336,11 +339,16 @@ OK
 
 ## WebSocket (STOMP/SockJS)
 
+> **⚠️ NOT YET NEEDED — do not wire up until you are actively building live competition flow.**
+>
+> `SessionWebSocketService` exists with 9 publishing methods but is **never called from any service or controller**. The frontend has no STOMP client yet either. The prerequisite is to call `SessionWebSocketService.publish*()` from the relevant service methods (e.g. completing a play block, recording a result) — only then should the frontend subscription be implemented.
+
 - Endpoint: `/ws/shooting` (SockJS fallback)
 - Topics: `/topic/...` (broadcast), `/queue/...` (per-user)
 - Application prefix: `/app`
 - Heartbeat: 25 s
 - Use `SessionWebSocketService` to push updates — do not use `SimpMessagingTemplate` directly in controllers
+- **No SSE endpoint (`/api/events`) should ever be added.** STOMP over WebSocket/SockJS is the chosen real-time transport.
 
 ---
 
@@ -575,6 +583,19 @@ Update the relevant section of this file (e.g. the domain section, DB schema, co
 - Career stats
 - WebSocket (STOMP/SockJS) at `/ws/shooting`
 - OpenAPI v3.0 contract (contract-first, generated interfaces)
+
+### Device Stats (implemented 2026-06-04)
+
+Per-device lifetime counters tracked on the `Device` entity:
+- `commandsSent` — incremented in `DeviceController.sendDeviceCommand` after MQTT publish
+- `commandsProcessed` — incremented in `SmartBoxDeviceExecutedHandler` when the device ACKs via `smartboxes/{mac}/device/{deviceId}/executed`
+- `lastCommandSentAt` / `lastCommandProcessedAt` — nullable `Instant` timestamps set alongside the counters
+
+Design decisions:
+- Stats live on `Device` (not `SmartBox`) because commands target individual device UUIDs
+- Counters never reset — they are lifetime totals that survive reconfiguration and reassignment
+- No "commands rejected" counter — the firmware's debounce/rate-limit is intentional; undelivered commands are expected and not tracked
+- The MQTT ACK topic was previously misconfigured as `smartboxes/+/devices/ack`; corrected to `smartboxes/+/device/+/executed` to match what the firmware actually publishes
 
 ### ❌ Not Yet Implemented
 - OTA firmware update delivery
