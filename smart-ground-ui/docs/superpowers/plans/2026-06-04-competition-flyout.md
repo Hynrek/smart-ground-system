@@ -178,8 +178,8 @@ describe('useCompetitionProgress', () => {
     const instance = ref(inst)
     const { leaderboard } = useCompetitionProgress(instance)
     expect(leaderboard.value).toHaveLength(2)
-    expect(leaderboard.value[0]).toMatchObject({ displayName: 'Alice', totalPoints: 16, maxPoints: 24 })
-    expect(leaderboard.value[1]).toMatchObject({ displayName: 'Bob', totalPoints: 17, maxPoints: 24 })
+    expect(leaderboard.value[0]).toMatchObject({ displayName: 'Bob', totalPoints: 17, maxPoints: 24 })
+    expect(leaderboard.value[1]).toMatchObject({ displayName: 'Alice', totalPoints: 16, maxPoints: 24 })
   })
 
   it('leaderboard is sorted descending by totalPoints', () => {

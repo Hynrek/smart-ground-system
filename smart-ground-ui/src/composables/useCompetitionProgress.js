@@ -3,6 +3,7 @@ import { computed } from 'vue'
 export function useCompetitionProgress(instance) {
   const _rotten = computed(() => instance.value?.rotten ?? [])
 
+  // All rotten share the same phase structure; rotten[0] is used as the canonical template.
   const passenProgress = computed(() => {
     if (_rotten.value.length === 0) return []
     return (_rotten.value[0].phases ?? []).map((phase, i) => {
@@ -43,14 +44,15 @@ export function useCompetitionProgress(instance) {
         for (const block of (phase.blocks ?? [])) {
           if (block.status !== 'done' || !block.result?.playerResults) continue
           for (const pr of block.result.playerResults) {
-            const entry = totals.get(pr.displayName) ?? {
+            const entry = totals.get(pr.playerId) ?? {
+              playerId: pr.playerId,
               displayName: pr.displayName,
               totalPoints: 0,
               maxPoints: 0,
             }
             entry.totalPoints += pr.totalPoints
             entry.maxPoints += pr.maxPoints
-            totals.set(pr.displayName, entry)
+            totals.set(pr.playerId, entry)
           }
         }
       }
