@@ -3,8 +3,8 @@ import { setActivePinia, createPinia } from 'pinia'
 import { usePasseStore } from '../passeStore.js'
 import * as trainingApi from '@/services/trainingApi.js'
 
-vi.mock('@/services/ablaufApi.js')
-vi.mock('@/services/programmeApi.js')
+vi.mock('@/services/serieApi.js')
+vi.mock('@/services/passeApi.js')
 vi.mock('@/services/trainingApi.js')
 vi.mock('@/stores/shooterRemoteStore.js', () => ({
   useShooterRemoteStore: () => ({ isReserved: true, mode: 'solo', setMode: vi.fn() }),
@@ -19,11 +19,11 @@ describe('passeStore — Training layer', () => {
     vi.clearAllMocks()
   })
 
-  it('createTraining creates Training via API with programmeIds', async () => {
+  it('createTraining creates Training via API with passeIds', async () => {
     trainingApi.createTraining.mockResolvedValue({
       id: 't1',
       name: 'Training 1',
-      programmes: [],
+      passen: [],
       ownerUsername: 'user',
     })
     const store = usePasseStore()
@@ -67,11 +67,11 @@ describe('passeStore — Training layer', () => {
       {
         id: 't1',
         name: 'Training A',
-        programmes: [
+        passen: [
           {
             id: 'p1',
-            name: 'Prog 1',
-            ablaeufe: [
+            name: 'Passe 1',
+            serien: [
               { id: 'ab1', alias: 'Serie 1', rangeId: null, rangeName: null, steps: [] },
             ],
           },
@@ -91,7 +91,7 @@ describe('passeStore — Training layer', () => {
     trainingApi.createTraining.mockResolvedValue({
       id: 't2',
       name: 'Wettkampf 1',
-      programmes: [],
+      passen: [],
       ownerUsername: 'user',
     })
     const store = usePasseStore()

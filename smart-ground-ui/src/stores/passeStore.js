@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
-import * as ablaufApi from '@/services/ablaufApi.js';
-import * as programmeApi from '@/services/programmeApi.js';
+import * as serieApi from '@/services/serieApi.js';
+import * as passeApi from '@/services/passeApi.js';
 import * as trainingApi from '@/services/trainingApi.js';
 
 const generateUUID = () =>
@@ -61,18 +61,18 @@ function toUiSerie(ablauf) {
   };
 }
 
-function toUiPasse(programme) {
+function toUiPasse(passe) {
   return {
-    id: programme.id,
-    name: programme.name,
-    serien: (programme.ablaeufe ?? []).map((a) => ({
-      id: a.id,
-      alias: a.alias,
-      rangeId: a.rangeId ?? null,
-      rangeName: a.rangeName ?? null,
-      steps: (a.steps ?? []).map(fromApiStep),
+    id: passe.id,
+    name: passe.name,
+    serien: (passe.serien ?? []).map((s) => ({
+      id: s.id,
+      alias: s.alias,
+      rangeId: s.rangeId ?? null,
+      rangeName: s.rangeName ?? null,
+      steps: (s.steps ?? []).map(fromApiStep),
     })),
-    ownerUsername: programme.ownerUsername ?? null,
+    ownerUsername: passe.ownerUsername ?? null,
   };
 }
 
@@ -80,15 +80,15 @@ function toUiTraining(training) {
   return {
     id: training.id,
     name: training.name,
-    passen: (training.programmes ?? []).map((prog) => ({
-      id: prog.id,
-      name: prog.name,
-      serien: (prog.ablaeufe ?? []).map((a) => ({
-        id: a.id,
-        alias: a.alias,
-        rangeId: a.rangeId ?? null,
-        rangeName: a.rangeName ?? null,
-        steps: (a.steps ?? []).map(fromApiStep),
+    passen: (training.passen ?? []).map((passe) => ({
+      id: passe.id,
+      name: passe.name,
+      serien: (passe.serien ?? []).map((s) => ({
+        id: s.id,
+        alias: s.alias,
+        rangeId: s.rangeId ?? null,
+        rangeName: s.rangeName ?? null,
+        steps: (s.steps ?? []).map(fromApiStep),
       })),
     })),
     ownerUsername: training.ownerUsername ?? null,
@@ -107,7 +107,7 @@ export const usePasseStore = defineStore('passe', () => {
   // ── Persisted state (backed by backend API) ────────────────────────────────
   const savedSerien = ref([]);
   const savedPassen = ref([]);
-  const savedGlobalPassen = ref([]);
+  const savedGlobalPassen = computed(() => savedPassen.value);
   const savedTrainings = ref([]);
   const pendingPasseId = ref(null);
 
@@ -115,20 +115,19 @@ export const usePasseStore = defineStore('passe', () => {
 
   const loadSerienFromStorage = async () => {
     try {
-      const ablaeufe = await ablaufApi.fetchAblaeufe();
-      savedSerien.value = ablaeufe.map(toUiSerie);
+      const serien = await serieApi.fetchSerien();
+      savedSerien.value = serien.map(toUiSerie);
     } catch (e) {
-      console.error('Failed to load Abläufe from API:', e);
+      console.error('Failed to load Serien from API:', e);
     }
   };
 
   const loadPassenFromStorage = async () => {
     try {
-      const programmes = await programmeApi.fetchProgrammes();
-      savedPassen.value = programmes.map(toUiPasse);
-      savedGlobalPassen.value = [];
+      const passen = await passeApi.fetchPassen();
+      savedPassen.value = passen.map(toUiPasse);
     } catch (e) {
-      console.error('Failed to load Programmes from API:', e);
+      console.error('Failed to load Passen from API:', e);
     }
   };
 
@@ -251,7 +250,7 @@ export const usePasseStore = defineStore('passe', () => {
     const name = serieName?.trim() || `Serie ${savedSerien.value.length + 1}`;
     const apiSteps = steps.map(toApiStep);
     try {
-      const created = await ablaufApi.createAblauf(name, apiSteps, rangeId, ownership);
+      const created = await serieApi.createSerie(name, apiSteps, rangeId, ownership);
       savedSerien.value = [...savedSerien.value, toUiSerie({ ...created, rangeName })];
       cancelCapture();
     } catch (e) {
@@ -262,7 +261,7 @@ export const usePasseStore = defineStore('passe', () => {
 
   const deleteSerie = async (serieId) => {
     try {
-      await ablaufApi.deleteAblauf(serieId);
+      await serieApi.deleteSerie(serieId);
       savedSerien.value = savedSerien.value.filter((s) => s.id !== serieId);
     } catch (e) {
       console.error('Failed to delete Serie:', e);
@@ -274,7 +273,7 @@ export const usePasseStore = defineStore('passe', () => {
     const serie = savedSerien.value.find((s) => s.id === serieId);
     if (!serie) return;
     try {
-      await ablaufApi.updateAblauf(serieId, newName, serie.rangeId ?? null);
+      await serieApi.updateSerie(serieId, newName, serie.rangeId ?? null);
       serie.name = newName;
     } catch (e) {
       console.error('Failed to rename Serie:', e);
@@ -287,7 +286,7 @@ export const usePasseStore = defineStore('passe', () => {
     const trimmedName = name?.trim() || `Serie ${savedSerien.value.length + 1}`;
     const apiSteps = steps.map(toApiStep);
     try {
-      const created = await ablaufApi.createAblauf(trimmedName, apiSteps, rangeId, 'range');
+      const created = await serieApi.createSerie(trimmedName, apiSteps, rangeId, 'range');
       savedSerien.value = [...savedSerien.value, toUiSerie({ ...created, rangeName })];
     } catch (e) {
       console.error('Failed to create range Serie:', e);
@@ -300,14 +299,14 @@ export const usePasseStore = defineStore('passe', () => {
     if (!serie) return;
     // Backend PUT only accepts name/rangeId — replace via delete+create to persist steps
     try {
-      await ablaufApi.deleteAblauf(serieId);
+      await serieApi.deleteSerie(serieId);
       const apiSteps = (newSteps ?? []).map(toApiStep);
-      const created = await ablaufApi.createAblauf(newName, apiSteps, serie.rangeId ?? null, serie.ownership ?? 'user');
+      const created = await serieApi.createSerie(newName, apiSteps, serie.rangeId ?? null, serie.ownership ?? 'user');
       savedSerien.value = savedSerien.value.map((s) =>
         s.id === serieId ? toUiSerie({ ...created, rangeName: serie.rangeName }) : s,
       );
-      // Ablauf ID changed — reload Passen to repair any Programme references
-      console.warn('[passeStore] updateSerie: Ablauf ID changed from', serieId, 'to', created.id, '— reloading Passen.');
+      // Serie ID changed — reload Passen to repair any Passe references
+      console.warn('[passeStore] updateSerie: Serie ID changed from', serieId, 'to', created.id, '— reloading Passen.');
       loadPassenFromStorage().catch(console.error);
     } catch (e) {
       console.error('Failed to update Serie:', e);
@@ -320,9 +319,9 @@ export const usePasseStore = defineStore('passe', () => {
   const createPasse = async (passeName, selectedSerien) => {
     if (selectedSerien.length === 0) return;
     const name = passeName?.trim() || `Passe ${savedPassen.value.length + 1}`;
-    const ablaufIds = selectedSerien.map((s) => s.id);
+    const serieIds = selectedSerien.map((s) => s.id);
     try {
-      const created = await programmeApi.createProgramme(name, ablaufIds);
+      const created = await passeApi.createPasse(name, serieIds);
       savedPassen.value = [...savedPassen.value, toUiPasse(created)];
     } catch (e) {
       console.error('Failed to create Passe:', e);
@@ -332,7 +331,7 @@ export const usePasseStore = defineStore('passe', () => {
 
   const deletePasse = async (passeId) => {
     try {
-      await programmeApi.deleteProgramme(passeId);
+      await passeApi.deletePasse(passeId);
       savedPassen.value = savedPassen.value.filter((p) => p.id !== passeId);
       if (pendingPasseId.value === passeId) pendingPasseId.value = null;
     } catch (e) {
@@ -343,7 +342,7 @@ export const usePasseStore = defineStore('passe', () => {
 
   const renamePasse = async (passeId, newName) => {
     try {
-      await programmeApi.updateProgramme(passeId, newName);
+      await passeApi.updatePasse(passeId, newName);
       savedPassen.value = savedPassen.value.map((p) =>
         p.id === passeId ? { ...p, name: newName } : p,
       );
@@ -356,10 +355,10 @@ export const usePasseStore = defineStore('passe', () => {
   // Global passen merged into savedPassen — these are aliases for backward compat
   const createGlobalPasse = (name, selectedSerien) => createPasse(name, selectedSerien);
   const updateGlobalPasse = async (id, newName, _selectedSerien) => {
-    // Note: backend PUT /api/programmes/{id} only supports renaming.
-    // Updating Ablauf membership requires a backend API extension.
+    // Note: backend PUT /api/passen/{id} only supports renaming.
+    // Updating Serie membership requires a backend API extension.
     if (_selectedSerien !== undefined) {
-      console.warn('updateGlobalPasse: updating Ablauf membership is not yet supported by the backend API. Only the name will be saved.');
+      console.warn('updateGlobalPasse: updating Serie membership is not yet supported by the backend API. Only the name will be saved.');
     }
     return renamePasse(id, newName);
   };
@@ -370,9 +369,9 @@ export const usePasseStore = defineStore('passe', () => {
   const createTraining = async (trainingName, selectedPassen, _options = {}) => {
     if (selectedPassen.length === 0) return;
     const name = trainingName?.trim() || `Training ${savedTrainings.value.length + 1}`;
-    const programmeIds = selectedPassen.map((p) => p.id);
+    const passeIds = selectedPassen.map((p) => p.id);
     try {
-      const created = await trainingApi.createTraining(name, programmeIds);
+      const created = await trainingApi.createTraining(name, passeIds);
       savedTrainings.value = [...savedTrainings.value, toUiTraining(created)];
     } catch (e) {
       console.error('Failed to create Training:', e);

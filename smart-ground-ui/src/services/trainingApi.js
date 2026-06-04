@@ -8,10 +8,10 @@ export async function getTraining(id) {
   return apiFetch(`/trainings/${id}`)
 }
 
-export async function createTraining(name, programmeIds) {
+export async function createTraining(name, passeIds) {
   return apiFetch('/trainings', {
     method: 'POST',
-    body: JSON.stringify({ name, programmeIds }),
+    body: JSON.stringify({ name, passeIds }),
   })
 }
 

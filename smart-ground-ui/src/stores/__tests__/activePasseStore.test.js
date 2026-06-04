@@ -5,17 +5,17 @@ import * as playInstanceApi from '@/services/playInstanceApi.js'
 
 vi.mock('@/services/playInstanceApi.js')
 
-const mockProgrammeInstance = {
+const mockPasseInstance = {
   instanceId: 'inst-1',
-  type: 'programm',
-  templateId: 'prog-1',
-  templateName: 'Test Prog',
+  type: 'passe',
+  templateId: 'passe-1',
+  templateName: 'Test Passe',
   status: 'active',
   players: [{ id: 'p1', type: 'user', displayName: 'Alice' }],
   startedAt: '2025-01-01T00:00:00Z',
   completedAt: null,
   blocks: [
-    { blockId: 'blk-1', ablaufId: 'ab1', ablaufAlias: 'Serie A', rangeId: 'r1', rangeName: 'Platz 1', steps: [], status: 'pending', completedAt: null, result: null },
+    { blockId: 'blk-1', serieId: 'ab1', serieAlias: 'Serie A', rangeId: 'r1', rangeName: 'Platz 1', steps: [], status: 'pending', completedAt: null, result: null },
   ],
   phases: null,
 }
@@ -27,12 +27,12 @@ describe('activePasseStore', () => {
   })
 
   it('startPasse calls API and stores instance', async () => {
-    playInstanceApi.startProgrammeInstance.mockResolvedValue(mockProgrammeInstance)
+    playInstanceApi.startPasseInstance.mockResolvedValue(mockPasseInstance)
     const store = useActivePasseStore()
-    const template = { id: 'prog-1', name: 'Test Prog', serien: [] }
+    const template = { id: 'passe-1', name: 'Test Passe', serien: [] }
     const players = [{ id: 'p1', type: 'user', displayName: 'Alice' }]
     await store.startPasse(template, players)
-    expect(playInstanceApi.startProgrammeInstance).toHaveBeenCalledWith('prog-1', players)
+    expect(playInstanceApi.startPasseInstance).toHaveBeenCalledWith('passe-1', players)
     expect(store.activeInstances).toHaveLength(1)
     expect(store.activeInstances[0].instanceId).toBe('inst-1')
   })
@@ -40,7 +40,7 @@ describe('activePasseStore', () => {
   it('stopInstance calls DELETE and removes from list', async () => {
     playInstanceApi.stopPlayInstance.mockResolvedValue(null)
     const store = useActivePasseStore()
-    store.activeInstances = [{ ...mockProgrammeInstance }]
+    store.activeInstances = [{ ...mockPasseInstance }]
     await store.stopInstance('inst-1')
     expect(playInstanceApi.stopPlayInstance).toHaveBeenCalledWith('inst-1')
     expect(store.activeInstances).toHaveLength(0)
@@ -48,25 +48,25 @@ describe('activePasseStore', () => {
 
   it('markBlockInProgress calls start block API', async () => {
     playInstanceApi.startBlock.mockResolvedValue({
-      ...mockProgrammeInstance,
-      blocks: [{ ...mockProgrammeInstance.blocks[0], status: 'in_progress' }],
+      ...mockPasseInstance,
+      blocks: [{ ...mockPasseInstance.blocks[0], status: 'in_progress' }],
     })
     const store = useActivePasseStore()
-    store.activeInstances = [{ ...mockProgrammeInstance }]
+    store.activeInstances = [{ ...mockPasseInstance }]
     await store.markBlockInProgress('inst-1', 'blk-1')
     expect(playInstanceApi.startBlock).toHaveBeenCalledWith('inst-1', 'blk-1')
   })
 
   it('markBlockDone calls complete block API', async () => {
     const completedInstance = {
-      ...mockProgrammeInstance,
+      ...mockPasseInstance,
       status: 'completed',
       completedAt: '2025-01-02T00:00:00Z',
-      blocks: [{ ...mockProgrammeInstance.blocks[0], status: 'done' }],
+      blocks: [{ ...mockPasseInstance.blocks[0], status: 'done' }],
     }
     playInstanceApi.completeBlock.mockResolvedValue(completedInstance)
     const store = useActivePasseStore()
-    store.activeInstances = [{ ...mockProgrammeInstance }]
+    store.activeInstances = [{ ...mockPasseInstance }]
     const results = [{ playerId: 'p1', displayName: 'Alice', totalPoints: 10, maxPoints: 10, stepStates: [] }]
     await store.markBlockDone('inst-1', 'blk-1', results)
     expect(playInstanceApi.completeBlock).toHaveBeenCalledWith('inst-1', 'blk-1', results)
@@ -74,7 +74,7 @@ describe('activePasseStore', () => {
 
   it('getBlocksForRange returns pending/in-progress blocks for a range', () => {
     const store = useActivePasseStore()
-    store.activeInstances = [{ ...mockProgrammeInstance }]
+    store.activeInstances = [{ ...mockPasseInstance }]
     const blocks = store.getBlocksForRange('r1')
     expect(blocks).toHaveLength(1)
     expect(blocks[0].blockId).toBe('blk-1')

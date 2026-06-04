@@ -1,10 +1,10 @@
 /* global URLSearchParams */
 import { apiFetch } from './apiClient.js';
 
-export async function startProgrammeInstance(programmeId, players) {
-  return apiFetch('/play-instances/programme', {
+export async function startPasseInstance(passeId, players) {
+  return apiFetch('/play-instances/passe', {
     method: 'POST',
-    body: JSON.stringify({ programmeId, players }),
+    body: JSON.stringify({ passeId, players }),
   });
 }
 

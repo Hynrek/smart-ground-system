@@ -31,7 +31,7 @@ export const useActivePasseStore = defineStore('activePasse', () => {
 
   const startPasse = async (template, players) => {
     try {
-      const instance = await playInstanceApi.startProgrammeInstance(template.id, players)
+      const instance = await playInstanceApi.startPasseInstance(template.id, players)
       activeInstances.value.push(instance)
       return instance
     } catch (e) {
@@ -200,7 +200,7 @@ export const useActivePasseStore = defineStore('activePasse', () => {
           }
         }
       } else {
-        // Programme instance — blocks are at the top level
+        // Passe instance — blocks are at the top level
         for (const block of (inst.blocks ?? [])) {
           if (block.rangeId === rangeId && block.status !== 'done') {
             result.push({ ...block, instanceId: inst.instanceId, templateName: inst.templateName, players: inst.players, instanceType: 'passe' })
