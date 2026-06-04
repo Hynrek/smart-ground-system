@@ -12,6 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.Instant;
 import java.util.List;
@@ -22,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class SerieServiceTest {
 
     @Mock SerieRepository serieRepository;
@@ -50,5 +53,19 @@ class SerieServiceTest {
         serie.setCreatedAt(Instant.now());
         serie.setOwner(user);
         return serie;
+    }
+
+    @Test
+    void toSerieResponse_mapsPublishedField() {
+        var serie = rangeOwnedSerie(true);
+        var response = ch.jp.shooting.mapper.PlayMapper.toSerieResponse(serie);
+        assertThat(response.getPublished()).isTrue();
+    }
+
+    @Test
+    void toSerieResponse_mapsUnpublishedField() {
+        var serie = rangeOwnedSerie(false);
+        var response = ch.jp.shooting.mapper.PlayMapper.toSerieResponse(serie);
+        assertThat(response.getPublished()).isFalse();
     }
 }

@@ -72,7 +72,8 @@ public final class PlayMapper {
                 .map(PlayMapper::toStep)
                 .toList())
             .createdAt(OffsetDateTime.ofInstant(serie.getCreatedAt(), ZoneOffset.UTC))
-            .ownerUsername(serie.getOwner().getEmail());
+            .ownerUsername(serie.getOwner().getEmail())
+            .published(serie.isPublished());
     }
 
     // ── Passe ─────────────────────────────────────────────────────────────────
