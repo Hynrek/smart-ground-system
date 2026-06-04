@@ -184,6 +184,10 @@ public class SerieService {
         if (!securityHelper.isAdminOrOwner()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
+        if (!"range".equals(serie.getOwnership())) {
+            // published-Flag ist nur für Platz-Serien sinnvoll
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        }
         serie.setPublished(request.getPublished());
         return PlayMapper.toSerieResponse(serieRepository.save(serie));
     }

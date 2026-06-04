@@ -146,4 +146,46 @@ class SerieServiceTest {
             () -> serieService.updateSeriePublished(serie.getId(), request)
         );
     }
+
+    @Test
+    void getSerie_regularUser_otherUserPrivateSerie_throws404() {
+        var otherUser = new User();
+        otherUser.setId(UUID.randomUUID());
+        var privateSerie = new Serie();
+        privateSerie.setId(UUID.randomUUID());
+        privateSerie.setName("Private");
+        privateSerie.setOwnership("user");
+        privateSerie.setPublished(false);
+        privateSerie.setStepsJson("[]");
+        privateSerie.setCreatedAt(java.time.Instant.now());
+        privateSerie.setOwner(otherUser);
+        when(serieRepository.findById(privateSerie.getId())).thenReturn(Optional.of(privateSerie));
+        when(securityHelper.isAdminOrOwner()).thenReturn(false);
+
+        assertThrows(
+            ch.jp.shooting.exception.SerieNotFoundException.class,
+            () -> serieService.getSerie(privateSerie.getId())
+        );
+    }
+
+    @Test
+    void updateSeriePublished_userOwnedSerie_throws400() {
+        var serie = new Serie();
+        serie.setId(UUID.randomUUID());
+        serie.setName("Private");
+        serie.setOwnership("user");
+        serie.setPublished(false);
+        serie.setStepsJson("[]");
+        serie.setCreatedAt(java.time.Instant.now());
+        serie.setOwner(user);
+        when(securityHelper.isAdminOrOwner()).thenReturn(true);
+        when(serieRepository.findById(serie.getId())).thenReturn(Optional.of(serie));
+
+        var request = new ch.jp.smartground.model.UpdateSeriePublishedRequest().published(true);
+        var ex = assertThrows(
+            org.springframework.web.server.ResponseStatusException.class,
+            () -> serieService.updateSeriePublished(serie.getId(), request)
+        );
+        assertThat(ex.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+    }
 }
