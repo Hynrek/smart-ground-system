@@ -3,14 +3,6 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import * as playInstanceApi from '@/services/playInstanceApi.js'
 
-const generateUUID = () =>
-  typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID
-    ? globalThis.crypto.randomUUID()
-    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0
-        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
-      })
-
 export const useActivePasseStore = defineStore('activePasse', () => {
   const activeInstances = ref([])
   const completedInstances = ref([])
@@ -51,50 +43,6 @@ export const useActivePasseStore = defineStore('activePasse', () => {
     }
   }
 
-  // Competition instances remain in-memory only (no backend endpoint for rotten-based competitions)
-  const startCompetition = (template, rotten) => {
-    const buildPhases = (passen) =>
-      passen.map((passe, phaseIndex) => ({
-        phaseIndex,
-        passeId: passe.id,
-        passeName: passe.name,
-        status: phaseIndex === 0 ? 'active' : 'pending',
-        blocks: (passe.serien ?? []).map((serie) => ({
-          blockId: generateUUID(),
-          serieId: serie.id,
-          serieAlias: serie.name ?? serie.alias ?? serie.id,
-          rangeId: serie.rangeId ?? null,
-          rangeName: serie.rangeName ?? null,
-          steps: serie.steps ?? [],
-          status: 'pending',
-          completedAt: null,
-          result: null,
-        })),
-      }))
-
-    const instance = {
-      instanceId: generateUUID(),
-      type: 'competition',
-      templateId: template.id,
-      templateName: template.name,
-      name: template.name,
-      passen: template.passen,
-      rotten: rotten.map((r) => ({
-        rotteId: r.rotteId,
-        name: r.name,
-        players: [...r.players],
-        status: 'waiting',
-        assignedRangeId: null,
-        currentPhaseIndex: 0,
-        phases: buildPhases(template.passen),
-      })),
-      startedAt: Date.now(),
-      completedAt: null,
-    }
-    activeInstances.value.push(instance)
-    return instance
-  }
-
   // ── Block lifecycle ───────────────────────────────────────────────────────
 
   const markBlockInProgress = async (instanceId, blockId, rotteId) => {
@@ -123,7 +71,9 @@ export const useActivePasseStore = defineStore('activePasse', () => {
     if (!inst) return
 
     if (inst.type === 'competition') {
-      // Competition blocks are managed in-memory only
+      const { completeSerie } = await import('@/services/wettkampfApi.js')
+      const passeIndex = inst.rotten?.find((r) => r.rotteId === rotteId)?.currentPhaseIndex ?? 0
+      await completeSerie(inst.sessionId, rotteId, blockId, passeIndex, null, playerResults).catch(console.error)
       _completeCompetitionBlock(inst, blockId, playerResults, rotteId)
       return
     }
@@ -154,7 +104,14 @@ export const useActivePasseStore = defineStore('activePasse', () => {
     activeInstances.value = activeInstances.value.filter((i) => i.instanceId !== instanceId)
   }
 
-  const stopCompetition = (instanceId) => stopInstance(instanceId)
+  const stopCompetition = async (instanceId) => {
+    const inst = activeInstances.value.find((i) => i.instanceId === instanceId)
+    if (inst?.type === 'competition' && inst.sessionId) {
+      const { patchStatus } = await import('@/services/wettkampfApi.js')
+      await patchStatus(inst.sessionId, 'abandoned').catch(console.error)
+    }
+    activeInstances.value = activeInstances.value.filter((i) => i.instanceId !== instanceId)
+  }
 
   // ── Competition-specific (in-memory only) ─────────────────────────────────
 
@@ -269,7 +226,6 @@ export const useActivePasseStore = defineStore('activePasse', () => {
     loadFromStorage,
     startPasse,
     startTraining,
-    startCompetition,
     getBlocksForRange,
     getActiveCompetitionRotten,
     markBlockInProgress,

@@ -114,22 +114,24 @@ describe('ShooterFlyoutPanel — competition Rotten', () => {
     const remoteStore = useShooterRemoteStore();
     const passeStore = usePasseStore();
 
-    // Seed a competition with 2 rotten
-    const template = {
-      id: 'c1',
+    // Seed a competition instance directly
+    activePasseStore.activeInstances = [{
+      instanceId: 'inst-c1',
+      type: 'competition',
+      sessionId: null,
+      templateId: 'c1',
+      templateName: 'Frühjahrspokal',
       name: 'Frühjahrspokal',
-      passen: [
-        {
-          id: 'p1',
-          name: 'Passe 1',
-          serien: [{ id: 's1', name: 'A', alias: 'A', steps: [], rangeId: 'range-1', rangeName: 'Platz 1' }],
-        },
+      rotten: [
+        { rotteId: 'r1', name: 'Rotte 1', players: [{ id: 'u1', displayName: 'Max' }], status: 'waiting', assignedRangeId: null, currentPhaseIndex: 0,
+          phases: [{ phaseIndex: 0, passeId: 'p1', passeName: 'Passe 1', status: 'active',
+            blocks: [{ blockId: 'blk-1', serieId: 's1', serieAlias: 'A', rangeId: 'range-1', rangeName: 'Platz 1', steps: [], status: 'pending', completedAt: null, result: null }] }] },
+        { rotteId: 'r2', name: 'Rotte 2', players: [{ id: 'u2', displayName: 'Lisa' }], status: 'waiting', assignedRangeId: null, currentPhaseIndex: 0,
+          phases: [{ phaseIndex: 0, passeId: 'p1', passeName: 'Passe 1', status: 'active',
+            blocks: [{ blockId: 'blk-2', serieId: 's1', serieAlias: 'A', rangeId: 'range-1', rangeName: 'Platz 1', steps: [], status: 'pending', completedAt: null, result: null }] }] },
       ],
-    };
-    activePasseStore.startCompetition(template, [
-      { rotteId: 'r1', name: 'Rotte 1', players: [{ id: 'u1', displayName: 'Max' }] },
-      { rotteId: 'r2', name: 'Rotte 2', players: [{ id: 'u2', displayName: 'Lisa' }] },
-    ]);
+      startedAt: Date.now(), completedAt: null,
+    }];
 
     remoteStore.selectedRangeId = 'range-1';
     passeStore.passeMode = false;
@@ -157,15 +159,19 @@ describe('ShooterFlyoutPanel — competition Rotten', () => {
     useShooterRemoteStore().selectedRangeId = 'range-1';
     usePasseStore().passeMode = false;
 
-    const template = {
-      id: 'c2',
+    activePasseStore.activeInstances = [{
+      instanceId: 'inst-c2',
+      type: 'competition',
+      sessionId: null,
+      templateId: 'c2',
+      templateName: 'Cup',
       name: 'Cup',
-      passen: [{ id: 'p1', name: 'P1', serien: [{ id: 's1', name: 'A', alias: 'A', steps: [], rangeId: null, rangeName: null }] }],
-    };
-    activePasseStore.startCompetition(template, [
-      { rotteId: 'r1', name: 'Rotte 1', players: [] },
-    ]);
-    activePasseStore.activeInstances[0].rotten[0].status = 'done';
+      rotten: [
+        { rotteId: 'r1', name: 'Rotte 1', players: [], status: 'done', assignedRangeId: null, currentPhaseIndex: 0,
+          phases: [{ phaseIndex: 0, passeId: 'p1', passeName: 'P1', status: 'active', blocks: [] }] },
+      ],
+      startedAt: Date.now(), completedAt: null,
+    }];
 
     const wrapper = mount(ShooterFlyoutPanel, {
       global: { stubs: { Icons: true, RouterLink: true } },
