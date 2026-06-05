@@ -32,6 +32,14 @@ public class CreateSessionRequest {
     @Nullable
     public List<GroupCreateRequest> groups; // Gruppen mit Spielern
 
+    @JsonProperty("name")
+    @Nullable
+    public String name;
+
+    @JsonProperty("passen")
+    @Nullable
+    public List<PasseSnapshot> passen;
+
     public CreateSessionRequest() {
     }
 }

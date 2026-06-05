@@ -57,6 +57,10 @@ public class SessionService {
         session.setType(SessionType.valueOf(req.type.toUpperCase()));
         session.setStatus(SessionStatus.SETUP);
 
+        if (req.name != null && !req.name.isBlank()) {
+            session.setName(req.name);
+        }
+
         // Template laden falls vorhanden
         if (req.templateId != null) {
             SessionTemplate template = templateRepository.findById(req.templateId)
@@ -74,6 +78,14 @@ public class SessionService {
         // Programme als JSON speichern
         if (req.programs != null) {
             session.setProgramSnapshots(objectMapper.writeValueAsString(req.programs));
+        }
+
+        if (req.passen != null) {
+            try {
+                session.setProgramSnapshots(objectMapper.writeValueAsString(req.passen));
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                throw new RuntimeException("Failed to serialize passen", e);
+            }
         }
 
         // Bereichs-Segment-Zuordnung speichern
