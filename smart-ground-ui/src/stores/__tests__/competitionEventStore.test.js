@@ -6,6 +6,7 @@ vi.mock('@/services/wettkampfApi.js', () => ({
   createSession: vi.fn(),
   listSessions:  vi.fn(),
   patchStatus:   vi.fn(),
+  getSession:    vi.fn(),
   deleteSession: vi.fn(),
   createGroup:   vi.fn(),
   updateGroup:   vi.fn(),
@@ -13,6 +14,8 @@ vi.mock('@/services/wettkampfApi.js', () => ({
   addMember:     vi.fn(),
   removeMember:  vi.fn(),
   patchMember:   vi.fn(),
+  addPasse:      vi.fn(),
+  removePasse:   vi.fn(),
 }))
 
 import * as api from '@/services/wettkampfApi.js'
@@ -37,6 +40,7 @@ describe('useCompetitionEventStore', () => {
 
   it('createEvent calls API and returns new id', async () => {
     api.createSession.mockResolvedValue(mkSession({ id: 'new-1' }))
+    api.getSession.mockResolvedValue(mkSession({ id: 'new-1' }))
     const store = useCompetitionEventStore()
     const id = await store.createEvent('Frühjahrspokal', [{ id: 'p1', serieIds: [] }], [])
     expect(api.createSession).toHaveBeenCalledWith('Frühjahrspokal', [{ id: 'p1', serieIds: [] }], [])
@@ -46,6 +50,7 @@ describe('useCompetitionEventStore', () => {
 
   it('openEvent patches status to open and updates local event', async () => {
     api.patchStatus.mockResolvedValue(mkSession({ status: 'OPEN' }))
+    api.getSession.mockResolvedValue(mkSession({ status: 'OPEN' }))
     const store = useCompetitionEventStore()
     store.events = [mkSession()]
     await store.openEvent('s1')
@@ -55,6 +60,7 @@ describe('useCompetitionEventStore', () => {
 
   it('startEvent patches status to active', async () => {
     api.patchStatus.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
+    api.getSession.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
     const store = useCompetitionEventStore()
     store.events = [mkSession({ status: 'OPEN' })]
     await store.startEvent('s1')
@@ -64,6 +70,7 @@ describe('useCompetitionEventStore', () => {
 
   it('stopEvent patches status to abandoned', async () => {
     api.patchStatus.mockResolvedValue(mkSession({ status: 'ABANDONED' }))
+    api.getSession.mockResolvedValue(mkSession({ status: 'ABANDONED' }))
     const store = useCompetitionEventStore()
     store.events = [mkSession({ status: 'ACTIVE' })]
     await store.stopEvent('s1')
@@ -122,5 +129,24 @@ describe('useCompetitionEventStore', () => {
     const store = useCompetitionEventStore()
     store.events = [mkSession({ id: 's1', status: 'COMPLETED' }), mkSession({ id: 's2', status: 'ABANDONED' })]
     expect(store.completedEvents).toHaveLength(1)
+  })
+
+  it('addPasseToEvent calls addPasse API and appends to event.passen', async () => {
+    const mockPasse = { id: 'p1', name: 'Passe 1', serien: [] }
+    api.addPasse.mockResolvedValue(mockPasse)
+    const store = useCompetitionEventStore()
+    store.events = [mkSession({ passen: [] })]
+    await store.addPasseToEvent('s1', 'p1')
+    expect(api.addPasse).toHaveBeenCalledWith('s1', 'p1')
+    expect(store.events[0].passen).toEqual([mockPasse])
+  })
+
+  it('removePasseFromEvent calls removePasse API and removes from event.passen', async () => {
+    api.removePasse.mockResolvedValue(undefined)
+    const store = useCompetitionEventStore()
+    store.events = [mkSession({ passen: [{ id: 'p1', name: 'Passe 1', serien: [] }] })]
+    await store.removePasseFromEvent('s1', 'p1')
+    expect(api.removePasse).toHaveBeenCalledWith('s1', 'p1')
+    expect(store.events[0].passen).toEqual([])
   })
 })
