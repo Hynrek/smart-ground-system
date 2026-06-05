@@ -119,7 +119,7 @@ smart-ground-ui/
 │   │   ├── deviceApi.js                      # Device CRUD
 │   │   ├── deviceTypeApi.js                  # Device type CRUD
 │   │   ├── deviceTypeGroupApi.js             # Device type group CRUD
-│   │   ├── eventsApi.js                      # SSE real-time events (status, syncs)
+│   │   ├── eventsApi.js                      # Placeholder for STOMP WebSocket client (not yet implemented)
 │   │   ├── rangeApi.js                       # Range CRUD
 │   │   ├── reservationApi.js                 # Reservation management
 │   │   ├── smartBoxApi.js                    # SmartBox CRUD and commands
@@ -406,7 +406,7 @@ Before merging any changes, ensure all items are checked:
 - [ ] Feature matches approved design (if applicable)
 - [ ] No hardcoded API URLs (use `VITE_API_BASE_URL`)
 - [ ] Error states handled (loading, error, empty)
-- [ ] Unsubscribe from SSE events on component unmount (if using `eventsApi`)
+- [ ] Unsubscribe from WebSocket (STOMP) topics on component unmount (call `subscription.unsubscribe()`)
 - [ ] Auth token is injected for all protected API calls
 
 ### Code Quality
@@ -772,13 +772,13 @@ Dedicated state for the ShooterLayout and remote shooting experience.
 - `currentShooter` — Shooter identity (USER or GUEST)
 - `nextUp` — Queue of upcoming shooters
 - `shooterDisplay` — Display state (score, timer, instructions)
-- `connectionStatus` — SSE event stream status (connected/disconnected)
+- `connectionStatus` — WebSocket (STOMP) connection status (connected/disconnected) — not yet wired
 
 **Actions:**
 - `startRemote(shooterId)` — Activate remote interface
 - `endRemote()` — Exit remote mode
 - `registerShot(score)` — Log shot from remote
-- `subscribeToEvents()` — Connect SSE for live updates
+- `subscribeToEvents()` — Connect to STOMP WebSocket for live updates (not yet implemented)
 
 #### 12. **guestStore** — Guest Player Management
 Handles temporary players (non-registered) in competitions.
@@ -990,7 +990,7 @@ The `leaderboardStore` ranks players using:
 4. **Win Ratio** — Bracket matches won (if applicable)
 5. **Custom Tiebreaker** — Last-shot head-to-head or other rules
 
-Leaderboard updates via SSE events (real-time score pushes from backend).
+Leaderboard will update via STOMP WebSocket pushes from the backend — not yet wired (see Real-Time Events section).
 
 ---
 
@@ -1017,7 +1017,7 @@ Managed by `shooterRemoteStore`:
 - Track current shooter identity (USER or GUEST)
 - Queue of upcoming shooters
 - Display mode (score, timer, next-player notification)
-- SSE connection status (connected/reconnecting/disconnected)
+- WebSocket (STOMP) connection status (connected/reconnecting/disconnected) — not yet wired
 
 ### Shot Logging
 When a shooter fires in `ShooterRemoteView`:
@@ -1025,7 +1025,7 @@ When a shooter fires in `ShooterRemoteView`:
 2. Optional manual score entry or automatic sensor result
 3. `shooterRemoteStore.registerShot(score)` posts result
 4. `playSessionStore` is updated with new score
-5. Leaderboard refreshes via SSE
+5. Leaderboard will refresh via STOMP WebSocket push (not yet wired)
 6. UI advances to next shooter or end-of-round screen
 
 ---
@@ -1045,7 +1045,7 @@ All API communication goes through a service layer in `src/services/`. Each serv
 | `competitionService.js` | Competition CRUD | GET /sessions, POST /sessions, PUT /sessions/{id} |
 | `bracketService.js` | Bracket logic & seeding | (calculates locally or calls backend) |
 | `userApi.js` | User management | GET /users, POST /users, DELETE /users/{id} |
-| `eventsApi.js` | SSE event stream | GET /events (streaming) |
+| `eventsApi.js` | Placeholder for future STOMP WebSocket client — **not yet implemented, not yet needed** | — |
 | `reservationApi.js` | Range reservations | GET /reservations, POST /reservations |
 
 Example service:
@@ -1128,35 +1128,15 @@ export const getAuthHeader = (token) => {
 }
 ```
 
-### Real-Time Events (SSE)
-The `eventsApi.js` establishes a streaming connection to `/api/events` and broadcasts SmartBox status changes:
+### Real-Time Events (WebSocket / STOMP)
 
-```javascript
-// src/services/eventsApi.js
-export const subscribeToEvents = (onEvent, onError) => {
-  const eventSource = new EventSource(`${API_BASE_URL}/events`, {
-    headers: getAuthHeader(token),
-  })
+> **⚠️ NOT YET NEEDED — do not implement until the backend service layer calls `SessionWebSocketService`.**
+>
+> The backend has a fully configured STOMP WebSocket at `/ws/shooting` (SockJS fallback) and a `SessionWebSocketService` with publishing methods for session, bracket, leaderboard, and range updates. However, none of those methods are currently called from any backend service or controller. Wiring up the frontend before the backend emits events would result in a connected client that never receives anything.
+>
+> When the time comes, add `@stomp/stompjs` + `sockjs-client`, implement `realtimeService.js` (replacing the placeholder `eventsApi.js`), and subscribe to the relevant `/topic/sessions/{id}/...` topics from Pinia stores.
 
-  eventSource.addEventListener('smartbox.status', (e) => {
-    onEvent({ type: 'smartbox.status', data: JSON.parse(e.data) })
-  })
-
-  eventSource.addEventListener('smartbox.synced', (e) => {
-    onEvent({ type: 'smartbox.synced', data: JSON.parse(e.data) })
-  })
-
-  eventSource.addEventListener('device.health', (e) => {
-    onEvent({ type: 'device.health', data: JSON.parse(e.data) })
-  })
-
-  eventSource.addEventListener('error', () => onError())
-
-  return eventSource  // Return for cleanup via eventSource.close()
-}
-```
-
-The `shooterRemoteStore` subscribes to events in `ShooterRemoteView` to update the live scoreboard in real-time.
+**Do not use SSE (`EventSource`) or add a `/api/events` endpoint.** The chosen transport is STOMP over WebSocket/SockJS — that decision is final. See the backend `CLAUDE.md` for the WebSocket configuration details.
 
 ---
 
@@ -1486,11 +1466,8 @@ npm run test
   await fetchSessions()  // Must await
   ```
 
-### SSE Events Not Connecting
-- **Cause**: EventSource blocked by CORS or auth header not sent
-- **Fix**: Check browser console for CORS errors
-- Ensure `eventsApi.js` includes `Authorization` header with token
-- Verify `/api/events` endpoint is running on backend
+### WebSocket / STOMP Not Yet Wired
+Real-time updates via STOMP are not yet implemented. The backend `SessionWebSocketService` exists but its publish methods are never called. Do not attempt to connect a STOMP client until the backend service layer emits events — see the Real-Time Events section for the prerequisite steps.
 
 ### ESLint Errors After Update
 ```bash
@@ -1534,8 +1511,8 @@ npm run lint -- --fix
 - ✅ Router guards for role-based access
 
 ### Partially Implemented / Pending
-- 🟡 **Real-Time Events (SSE)**: Backend returns event stream; frontend `eventsApi.js` is stubbed but not fully integrated into stores
-- 🟡 **Leaderboard live updates**: Leaderboard displays current state; SSE-driven updates not yet wired
+- 🟡 **Real-Time Events (WebSocket/STOMP)**: Backend has STOMP configured at `/ws/shooting` but `SessionWebSocketService` is never called from any service/controller. Frontend `eventsApi.js` is an empty placeholder. **Do not wire the frontend until the backend emits events** — see Real-Time Events section.
+- 🟡 **Leaderboard live updates**: Leaderboard displays current state; STOMP-driven updates not yet wired
 - 🟡 **Bracket result recording**: Bracket visualization complete; recording match results and advancing rounds needs backend integration
 - 🟡 **Guest player CRUD**: Guest store exists; UI for adding/removing guests in competition setup incomplete
 - 🟡 **Program snapshot capture**: Program selection during competition setup doesn't yet snapshot program state to session
@@ -1624,7 +1601,7 @@ npm run build
 | `src/stores/deviceStore.js` | Physical device catalog |
 | `src/services/apiClient.js` | Core fetch wrapper with auth header injection |
 | `src/services/authApi.js` | Login and user creation endpoints |
-| `src/services/eventsApi.js` | SSE event stream subscription |
+| `src/services/eventsApi.js` | Placeholder for STOMP WebSocket client — not yet implemented |
 | `src/services/competitionService.js` | Competition-specific APIs |
 | `src/services/bracketService.js` | Bracket generation and seeding logic |
 | `src/composables/useDeviceLoader.js` | Auto-load devices for known boxes |
