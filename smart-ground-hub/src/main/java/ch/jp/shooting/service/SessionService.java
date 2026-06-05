@@ -80,6 +80,8 @@ public class SessionService {
             session.setProgramSnapshots(objectMapper.writeValueAsString(req.programs));
         }
 
+        // Wettkampf-Sessions verwenden passen (typisiert); andere Sessions verwenden programs.
+        // Beide nutzen programSnapshots als Storage — sie schließen sich gegenseitig aus.
         if (req.passen != null) {
             try {
                 session.setProgramSnapshots(objectMapper.writeValueAsString(req.passen));
