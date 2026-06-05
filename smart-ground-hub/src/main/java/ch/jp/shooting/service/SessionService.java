@@ -225,16 +225,18 @@ public class SessionService {
     // ── Hilfsmethoden ──
 
     private void validateStatusTransition(SessionStatus from, SessionStatus to) {
-        // SETUP → ACTIVE
-        // ACTIVE → PAUSED, COMPLETED, ABANDONED
-        // PAUSED → ACTIVE, COMPLETED, ABANDONED
-        // COMPLETED, ABANDONED → keine Übergänge
-        if (to == SessionStatus.COMPLETED || to == SessionStatus.ABANDONED) {
-            return; // Alle statuse können zu Completed/Abandoned übergehen
-        }
+        if (to == SessionStatus.ABANDONED) return; // any status can be abandoned
         if (from == SessionStatus.COMPLETED || from == SessionStatus.ABANDONED) {
-            throw new IllegalStateException("Cannot transition from terminal status");
+            throw new IllegalStateException("Cannot transition from terminal status " + from);
         }
+        boolean valid = switch (from) {
+            case SETUP -> to == SessionStatus.OPEN;
+            case OPEN  -> to == SessionStatus.ACTIVE;
+            case ACTIVE -> to == SessionStatus.PRE_COMPLETE;
+            case PRE_COMPLETE -> to == SessionStatus.COMPLETED;
+            default -> false;
+        };
+        if (!valid) throw new IllegalStateException("Invalid transition: " + from + " → " + to);
     }
 
     private SessionResponse mapSessionToResponse(LiveSession session) {

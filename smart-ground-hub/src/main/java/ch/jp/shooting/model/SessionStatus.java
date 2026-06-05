@@ -1,5 +1,5 @@
 package ch.jp.shooting.model;
 
 public enum SessionStatus {
-    SETUP, ACTIVE, PAUSED, COMPLETED, ABANDONED
+    SETUP, OPEN, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED
 }
