@@ -20,7 +20,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await wettkampfApi.listSessions('competition')
+      const res = await wettkampfApi.listSessions('COMPETITION')
       events.value = res.content ?? res ?? []
     } catch (e) {
       error.value = e.message
@@ -33,13 +33,14 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
 
   const createEvent = async (name, passen, groups = []) => {
     const created = await wettkampfApi.createSession(name, passen, groups)
-    events.value = [...events.value, created]
-    return created.id
+    const full = await wettkampfApi.getSession(created.id)
+    events.value = [...events.value, full]
+    return full.id
   }
 
-  const openEvent  = async (id) => _replaceEvent(await wettkampfApi.patchStatus(id, 'open'))
-  const startEvent = async (id) => _replaceEvent(await wettkampfApi.patchStatus(id, 'active'))
-  const stopEvent  = async (id) => _replaceEvent(await wettkampfApi.patchStatus(id, 'abandoned'))
+  const openEvent  = async (id) => { await wettkampfApi.patchStatus(id, 'open');      _replaceEvent(await wettkampfApi.getSession(id)) }
+  const startEvent = async (id) => { await wettkampfApi.patchStatus(id, 'active');    _replaceEvent(await wettkampfApi.getSession(id)) }
+  const stopEvent  = async (id) => { await wettkampfApi.patchStatus(id, 'abandoned'); _replaceEvent(await wettkampfApi.getSession(id)) }
 
   const deleteEvent = async (id) => {
     await wettkampfApi.deleteSession(id)
@@ -99,6 +100,21 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     member.paid = updated.paid
   }
 
+  // ── Passe management ──────────────────────────────────────────────────────
+
+  const addPasseToEvent = async (eventId, passeId) => {
+    const ev = getEvent(eventId)
+    if (!ev) return
+    const passe = await wettkampfApi.addPasse(eventId, passeId)
+    ev.passen = [...(ev.passen ?? []), passe]
+  }
+
+  const removePasseFromEvent = async (eventId, passeId) => {
+    await wettkampfApi.removePasse(eventId, passeId)
+    const ev = getEvent(eventId)
+    if (ev) ev.passen = (ev.passen ?? []).filter(p => p.id !== passeId)
+  }
+
   // ── Private ───────────────────────────────────────────────────────────────
 
   const _replaceEvent = (updated) => {
@@ -112,5 +128,6 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     createEvent, openEvent, startEvent, stopEvent, deleteEvent,
     addRotte, removeRotte, renameRotte,
     addPlayer, removePlayer, togglePlayerPaid,
+    addPasseToEvent, removePasseFromEvent,
   }
 })
