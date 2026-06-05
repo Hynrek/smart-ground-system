@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -68,7 +69,7 @@ public class CompetitionProgressService {
 
         upsertPlayerResults(session, group, request.passeIndex, serieId, request.results);
 
-        if (isAllPassenDoneForAllGroups(session)) {
+        if (session.getStatus() == SessionStatus.ACTIVE && isAllPassenDoneForAllGroups(session)) {
             session.setStatus(SessionStatus.PRE_COMPLETE);
             sessionRepository.save(session);
         }
@@ -115,13 +116,17 @@ public class CompetitionProgressService {
         List<ShooterGroup> groups = groupRepository.findBySessionId(session.getId());
         if (groups.isEmpty()) return false;
 
+        // Load all CSR rows for this session in one query, then check in-memory
+        List<CompetitionSerieResult> allCompleted = csrRepository.findBySessionId(session.getId());
+        Set<String> completedKeys = allCompleted.stream()
+            .map(c -> c.getGroup().getId() + ":" + c.getPasseIndex() + ":" + c.getSerieId())
+            .collect(java.util.stream.Collectors.toSet());
+
         for (ShooterGroup group : groups) {
             for (int pi = 0; pi < passen.length; pi++) {
                 for (String serieIdStr : passen[pi].serieIds) {
-                    if (!csrRepository.existsBySessionIdAndGroupIdAndPasseIndexAndSerieId(
-                            session.getId(), group.getId(), pi, UUID.fromString(serieIdStr))) {
-                        return false;
-                    }
+                    String key = group.getId() + ":" + pi + ":" + serieIdStr;
+                    if (!completedKeys.contains(key)) return false;
                 }
             }
         }
