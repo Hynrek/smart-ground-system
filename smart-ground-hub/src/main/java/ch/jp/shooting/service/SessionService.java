@@ -149,10 +149,10 @@ public class SessionService {
     }
 
     /**
-     * Erstellt eine Gruppe in einer Session (nur im SETUP-Status).
+     * Erstellt eine Gruppe in einer Session (SETUP oder OPEN).
      */
     public GroupResponse createGroup(LiveSession session, GroupCreateRequest req) {
-        if (session.getStatus() != SessionStatus.SETUP) {
+        if (session.getStatus() != SessionStatus.SETUP && session.getStatus() != SessionStatus.OPEN) {
             throw new IllegalStateException("Cannot add groups after session started");
         }
 
@@ -199,13 +199,14 @@ public class SessionService {
     }
 
     /**
-     * Aktualisiert eine Gruppe (nur im SETUP-Status).
+     * Aktualisiert eine Gruppe (SETUP oder OPEN).
      */
     public GroupResponse updateGroup(UUID sessionId, UUID groupId, GroupCreateRequest req) {
         ShooterGroup group = groupRepository.findByIdAndSessionId(groupId, sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Group not found"));
 
-        if (group.getSession().getStatus() != SessionStatus.SETUP) {
+        SessionStatus st = group.getSession().getStatus();
+        if (st != SessionStatus.SETUP && st != SessionStatus.OPEN) {
             throw new IllegalStateException("Cannot update group after session started");
         }
 
@@ -215,13 +216,14 @@ public class SessionService {
     }
 
     /**
-     * Löscht eine Gruppe (nur im SETUP-Status).
+     * Löscht eine Gruppe (SETUP oder OPEN).
      */
     public void deleteGroup(UUID sessionId, UUID groupId) {
         ShooterGroup group = groupRepository.findByIdAndSessionId(groupId, sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Group not found"));
 
-        if (group.getSession().getStatus() != SessionStatus.SETUP) {
+        SessionStatus st = group.getSession().getStatus();
+        if (st != SessionStatus.SETUP && st != SessionStatus.OPEN) {
             throw new IllegalStateException("Cannot delete group after session started");
         }
 
@@ -235,6 +237,77 @@ public class SessionService {
         return groupRepository.findBySessionId(sessionId).stream()
                 .map(this::mapGroupToResponse)
                 .collect(Collectors.toList());
+    }
+
+    // ── Neue Methoden für WettkampfController ──
+
+    /**
+     * Löscht eine Session (nur im SETUP-Status).
+     */
+    public void deleteSession(UUID sessionId) {
+        LiveSession session = sessionRepository.findById(sessionId)
+            .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+        if (session.getStatus() != SessionStatus.SETUP) {
+            throw new IllegalStateException("Can only delete sessions in SETUP status");
+        }
+        sessionRepository.delete(session);
+    }
+
+    /**
+     * Gibt die Session-Entität zurück (für Controller, die die Entität brauchen).
+     */
+    public LiveSession getSessionEntity(UUID sessionId) {
+        return sessionRepository.findById(sessionId)
+            .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+    }
+
+    /**
+     * Fügt ein Mitglied zu einer Gruppe hinzu (SETUP oder OPEN).
+     */
+    public SessionPlayerResponse addMember(UUID sessionId, UUID groupId, SessionPlayerCreateRequest req) {
+        ShooterGroup group = groupRepository.findByIdAndSessionId(groupId, sessionId)
+            .orElseThrow(() -> new IllegalArgumentException("Group not found: " + groupId));
+        SessionStatus st = group.getSession().getStatus();
+        if (st != SessionStatus.SETUP && st != SessionStatus.OPEN) {
+            throw new IllegalStateException("Cannot add members after session started");
+        }
+        SessionPlayer player = new SessionPlayer();
+        player.setGroup(group);
+        player.setType(PlayerType.valueOf(req.type.toUpperCase()));
+        player.setDisplayName(req.displayName);
+        player.setPaid(req.paid);
+        if (req.userId != null) {
+            userRepository.findById(req.userId).ifPresent(player::setUser);
+        }
+        player = playerRepository.save(player);
+        return mapPlayerToResponse(player);
+    }
+
+    /**
+     * Entfernt ein Mitglied aus einer Gruppe (SETUP oder OPEN).
+     */
+    public void removeMember(UUID sessionId, UUID groupId, UUID memberId) {
+        ShooterGroup group = groupRepository.findByIdAndSessionId(groupId, sessionId)
+            .orElseThrow(() -> new IllegalArgumentException("Group not found: " + groupId));
+        SessionStatus st = group.getSession().getStatus();
+        if (st != SessionStatus.SETUP && st != SessionStatus.OPEN) {
+            throw new IllegalStateException("Cannot remove members after session started");
+        }
+        playerRepository.deleteById(memberId);
+    }
+
+    /**
+     * Aktualisiert ein Mitglied (z.B. paid-Status) in einer Gruppe.
+     */
+    public SessionPlayerResponse patchMember(UUID sessionId, UUID groupId, UUID memberId, PatchMemberRequest req) {
+        ShooterGroup group = groupRepository.findByIdAndSessionId(groupId, sessionId)
+            .orElseThrow(() -> new IllegalArgumentException("Group not found: " + groupId));
+        SessionPlayer player = group.getMembers().stream()
+            .filter(p -> p.getId().equals(memberId))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("Member not found: " + memberId));
+        player.setPaid(req.paid);
+        return mapPlayerToResponse(playerRepository.save(player));
     }
 
     // ── Hilfsmethoden ──
