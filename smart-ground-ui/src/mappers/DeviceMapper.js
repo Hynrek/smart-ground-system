@@ -12,6 +12,8 @@ export function toDevice(data) {
     pin: data.pin ?? null,
     status: data.status ?? 'offline',
     rangeId: data.rangeId ?? null,
+    commandsProcessed: data.commandsProcessed ?? null,
+    lastCommandProcessedAt: data.lastCommandProcessedAt ?? null,
     fireDelayMs: data.fireDelayMs ?? 0,
     templateId: data.templateId ?? null,
     pinConfig: data.pinConfig ?? null,

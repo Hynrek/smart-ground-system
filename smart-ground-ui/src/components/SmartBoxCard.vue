@@ -50,6 +50,8 @@
             <th>Name</th>
             <th class="typ-col">Typ</th>
             <th>Schiessplatz</th>
+            <th class="stat-col">Befehle</th>
+            <th class="stat-col">Letzter Befehl</th>
             <th v-if="actionMode">Aktion</th>
             <th />
           </tr>
@@ -73,6 +75,12 @@
                     {{ r.name }}
                   </option>
                 </select>
+              </td>
+              <td class="stat-col stat-num">
+                {{ device.commandsProcessed ?? '–' }}
+              </td>
+              <td class="stat-col">
+                {{ formatCommandTime(device.lastCommandProcessedAt) }}
               </td>
               <td v-if="actionMode">
                 <button
@@ -112,7 +120,7 @@
 
             <!-- Inline edit row -->
             <tr v-if="editingId === device.id" class="edit-row">
-              <td :colspan="actionMode ? 5 : 4">
+              <td :colspan="actionMode ? 7 : 6">
                 <div class="edit-form">
                   <div class="form-group">
                     <label>Name</label>
@@ -329,6 +337,19 @@ const resetNewDeviceForm = () => {
     groupId: '',
     deviceTypeId: '',
   };
+};
+
+const formatCommandTime = (iso) => {
+  if (!iso) return '–';
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  const hm = d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+  if (sameDay) return hm;
+  return `${d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit' })} ${hm}`;
 };
 
 const getRangeName = (rangeId) => {
@@ -903,6 +924,19 @@ const deleteDevice = (deviceId) => {
   border-top: 1px dashed #e2e8f0;
 }
 
+.stat-col {
+  color: #718096;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.stat-num {
+  font-variant-numeric: tabular-nums;
+  font-family: monospace;
+  font-size: 13px;
+  color: #4a5568;
+}
+
 .range-select {
   font-size: 13px;
   padding: 6px 10px;
@@ -949,8 +983,9 @@ const deleteDevice = (deviceId) => {
     width: 130px;
   }
 
-  /* Hide Typ column; surface type as name subtext instead */
-  .typ-col {
+  /* Hide Typ and stat columns; surface type as name subtext instead */
+  .typ-col,
+  .stat-col {
     display: none;
   }
 
