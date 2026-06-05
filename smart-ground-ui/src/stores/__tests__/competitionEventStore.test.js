@@ -1,228 +1,126 @@
-// src/stores/__tests__/competitionEventStore.test.js
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useCompetitionEventStore } from '../competitionEventStore.js'
 
-const mockStartCompetition = vi.fn(() => ({ instanceId: 'inst-abc' }))
-const mockStopInstance = vi.fn()
-let mockCompletedInstances = []
-
-vi.mock('../activePasseStore.js', () => ({
-  useActivePasseStore: vi.fn(() => ({
-    startCompetition: mockStartCompetition,
-    stopInstance: mockStopInstance,
-    get completedInstances() { return mockCompletedInstances },
-  }))
+vi.mock('@/services/wettkampfApi.js', () => ({
+  createSession: vi.fn(),
+  listSessions:  vi.fn(),
+  patchStatus:   vi.fn(),
+  deleteSession: vi.fn(),
+  createGroup:   vi.fn(),
+  updateGroup:   vi.fn(),
+  deleteGroup:   vi.fn(),
+  addMember:     vi.fn(),
+  removeMember:  vi.fn(),
+  patchMember:   vi.fn(),
 }))
 
-const mockPassen = [{ id: 'p1', name: 'Passe 1', serien: [] }]
+import * as api from '@/services/wettkampfApi.js'
+
+const mkSession = (o = {}) => ({
+  id: 's1', name: 'Frühjahrspokal', status: 'SETUP', groups: [], createdAt: '2026-06-05T00:00:00Z', ...o,
+})
 
 describe('useCompetitionEventStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    localStorage.clear()
-    mockCompletedInstances = []
     vi.clearAllMocks()
   })
 
-  it('starts empty', () => {
+  it('loadEvents populates events from API', async () => {
+    api.listSessions.mockResolvedValue({ content: [mkSession()] })
     const store = useCompetitionEventStore()
+    await store.loadEvents()
+    expect(store.events).toHaveLength(1)
+    expect(store.events[0].name).toBe('Frühjahrspokal')
+  })
+
+  it('createEvent calls API and returns new id', async () => {
+    api.createSession.mockResolvedValue(mkSession({ id: 'new-1' }))
+    const store = useCompetitionEventStore()
+    const id = await store.createEvent('Frühjahrspokal', [{ id: 'p1', serieIds: [] }], [])
+    expect(api.createSession).toHaveBeenCalledWith('Frühjahrspokal', [{ id: 'p1', serieIds: [] }], [])
+    expect(id).toBe('new-1')
+    expect(store.events).toHaveLength(1)
+  })
+
+  it('openEvent patches status to open and updates local event', async () => {
+    api.patchStatus.mockResolvedValue(mkSession({ status: 'OPEN' }))
+    const store = useCompetitionEventStore()
+    store.events = [mkSession()]
+    await store.openEvent('s1')
+    expect(api.patchStatus).toHaveBeenCalledWith('s1', 'open')
+    expect(store.events[0].status).toBe('OPEN')
+  })
+
+  it('startEvent patches status to active', async () => {
+    api.patchStatus.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
+    const store = useCompetitionEventStore()
+    store.events = [mkSession({ status: 'OPEN' })]
+    await store.startEvent('s1')
+    expect(api.patchStatus).toHaveBeenCalledWith('s1', 'active')
+    expect(store.events[0].status).toBe('ACTIVE')
+  })
+
+  it('stopEvent patches status to abandoned', async () => {
+    api.patchStatus.mockResolvedValue(mkSession({ status: 'ABANDONED' }))
+    const store = useCompetitionEventStore()
+    store.events = [mkSession({ status: 'ACTIVE' })]
+    await store.stopEvent('s1')
+    expect(api.patchStatus).toHaveBeenCalledWith('s1', 'abandoned')
+  })
+
+  it('deleteEvent calls API and removes from store', async () => {
+    api.deleteSession.mockResolvedValue(undefined)
+    const store = useCompetitionEventStore()
+    store.events = [mkSession()]
+    await store.deleteEvent('s1')
+    expect(api.deleteSession).toHaveBeenCalledWith('s1')
     expect(store.events).toHaveLength(0)
   })
 
-  it('creates a PLANNING event and returns its id', () => {
+  it('addRotte calls createGroup and appends to event', async () => {
+    api.createGroup.mockResolvedValue({ id: 'g1', name: 'Rotte A', members: [] })
     const store = useCompetitionEventStore()
-    const id = store.createEvent('Frühjahrspokal', mockPassen)
-    expect(store.planningEvents).toHaveLength(1)
-    expect(store.planningEvents[0].name).toBe('Frühjahrspokal')
-    expect(store.planningEvents[0].status).toBe('PLANNING')
-    expect(store.planningEvents[0].id).toBe(id)
-    expect(store.planningEvents[0].passen).toEqual(mockPassen)
+    store.events = [mkSession()]
+    await store.addRotte('s1')
+    expect(api.createGroup).toHaveBeenCalledWith('s1', expect.stringContaining('Rotte'))
+    expect(store.events[0].groups).toHaveLength(1)
   })
 
-  it('updates event name while in PLANNING', () => {
+  it('addPlayer calls addMember API', async () => {
+    api.addMember.mockResolvedValue({ id: 'm1', displayName: 'Max', paid: false })
     const store = useCompetitionEventStore()
-    const id = store.createEvent('Old Name', mockPassen)
-    store.updateEventName(id, 'New Name')
-    expect(store.getEvent(id).name).toBe('New Name')
+    store.events = [mkSession({ groups: [{ id: 'g1', name: 'Rotte A', members: [] }] })]
+    await store.addPlayer('s1', 'g1', { id: 'u1', displayName: 'Max' })
+    expect(api.addMember).toHaveBeenCalledWith('s1', 'g1', expect.objectContaining({ displayName: 'Max' }))
+    expect(store.events[0].groups[0].members).toHaveLength(1)
   })
 
-  it('does not update name when ACTIVE', () => {
+  it('togglePlayerPaid calls patchMember with flipped paid value', async () => {
+    api.patchMember.mockResolvedValue({ id: 'm1', paid: true })
     const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.startEvent(id)
-    store.updateEventName(id, 'Should Not Apply')
-    expect(store.getEvent(id).name).toBe('Test')
+    store.events = [mkSession({ groups: [{ id: 'g1', name: 'Rotte A', members: [{ id: 'm1', displayName: 'Max', paid: false }] }] })]
+    await store.togglePlayerPaid('s1', 'g1', 'm1')
+    expect(api.patchMember).toHaveBeenCalledWith('s1', 'g1', 'm1', true)
+    expect(store.events[0].groups[0].members[0].paid).toBe(true)
   })
 
-  it('adds Rotten with auto-generated names A, B, C', () => {
+  it('planningEvents returns SETUP and OPEN', () => {
     const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.addRotte(id)
-    store.addRotte(id)
-    store.addRotte(id)
-    const rotten = store.getEvent(id).rotten
-    expect(rotten).toHaveLength(3)
-    expect(rotten[0].name).toBe('Rotte A')
-    expect(rotten[1].name).toBe('Rotte B')
-    expect(rotten[2].name).toBe('Rotte C')
+    store.events = [mkSession({ id: 's1', status: 'SETUP' }), mkSession({ id: 's2', status: 'OPEN' }), mkSession({ id: 's3', status: 'ACTIVE' })]
+    expect(store.planningEvents).toHaveLength(2)
   })
 
-  it('renames a Rotte', () => {
+  it('activeEvents returns ACTIVE and PRE_COMPLETE', () => {
     const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.addRotte(id)
-    const rotteId = store.getEvent(id).rotten[0].rotteId
-    store.renameRotte(id, rotteId, 'Spezialrotte')
-    expect(store.getEvent(id).rotten[0].name).toBe('Spezialrotte')
+    store.events = [mkSession({ id: 's1', status: 'ACTIVE' }), mkSession({ id: 's2', status: 'PRE_COMPLETE' }), mkSession({ id: 's3', status: 'COMPLETED' })]
+    expect(store.activeEvents).toHaveLength(2)
   })
 
-  it('removes a Rotte', () => {
+  it('completedEvents returns only COMPLETED', () => {
     const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.addRotte(id)
-    const rotteId = store.getEvent(id).rotten[0].rotteId
-    store.removeRotte(id, rotteId)
-    expect(store.getEvent(id).rotten).toHaveLength(0)
-  })
-
-  it('addPlayer stores userId and displayName from user object', () => {
-    const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.addRotte(id)
-    const rotte = store.getEvent(id).rotten[0]
-    const user = { id: 'user-uuid-1', displayName: 'Anna Müller' }
-
-    store.addPlayer(id, rotte.rotteId, user)
-
-    const player = store.getEvent(id).rotten[0].players[0]
-    expect(player.userId).toBe('user-uuid-1')
-    expect(player.displayName).toBe('Anna Müller')
-    expect(player.paid).toBe(false)
-    expect(player.id).toBeDefined()
-  })
-
-  it('does not expose updatePlayerName', () => {
-    const store = useCompetitionEventStore()
-    expect(store.updatePlayerName).toBeUndefined()
-  })
-
-  it('does not add a player when user is missing or malformed', () => {
-    const store = useCompetitionEventStore()
-    const eventId = store.createEvent('Test', [])
-    store.addRotte(eventId)
-    const rotte = store.getEvent(eventId).rotten[0]
-
-    store.addPlayer(eventId, rotte.rotteId, null)
-    store.addPlayer(eventId, rotte.rotteId, undefined)
-    store.addPlayer(eventId, rotte.rotteId, {})
-    store.addPlayer(eventId, rotte.rotteId, { id: 'x' })
-
-    expect(store.getEvent(eventId).rotten[0].players).toHaveLength(0)
-  })
-
-  it('toggles player paid status', () => {
-    const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.addRotte(id)
-    const rotteId = store.getEvent(id).rotten[0].rotteId
-    store.addPlayer(id, rotteId, { id: 'u1', displayName: 'Test User' })
-    const playerId = store.getEvent(id).rotten[0].players[0].id
-    expect(store.getEvent(id).rotten[0].players[0].paid).toBe(false)
-    store.togglePlayerPaid(id, rotteId, playerId)
-    expect(store.getEvent(id).rotten[0].players[0].paid).toBe(true)
-    store.togglePlayerPaid(id, rotteId, playerId)
-    expect(store.getEvent(id).rotten[0].players[0].paid).toBe(false)
-  })
-
-  it('removes a player', () => {
-    const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.addRotte(id)
-    const rotteId = store.getEvent(id).rotten[0].rotteId
-    store.addPlayer(id, rotteId, { id: 'u1', displayName: 'Player One' })
-    store.addPlayer(id, rotteId, { id: 'u2', displayName: 'Player Two' })
-    const playerId = store.getEvent(id).rotten[0].players[0].id
-    store.removePlayer(id, rotteId, playerId)
-    expect(store.getEvent(id).rotten[0].players).toHaveLength(1)
-  })
-
-  it('starts an event: sets ACTIVE, stores activeInstanceId', () => {
-    const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.startEvent(id)
-    const ev = store.getEvent(id)
-    expect(ev.status).toBe('ACTIVE')
-    expect(ev.activeInstanceId).toBe('inst-abc')
-    expect(mockStartCompetition).toHaveBeenCalledOnce()
-    expect(store.activeEvents).toHaveLength(1)
-    expect(store.planningEvents).toHaveLength(0)
-  })
-
-  it('stops an event: sets CANCELLED, clears activeInstanceId', () => {
-    const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.startEvent(id)
-    store.stopEvent(id)
-    const ev = store.getEvent(id)
-    expect(ev.status).toBe('CANCELLED')
-    expect(ev.activeInstanceId).toBeNull()
-    expect(mockStopInstance).toHaveBeenCalledWith('inst-abc')
-  })
-
-  it('checkAndCompleteEvent transitions to COMPLETED when instance is done', () => {
-    const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.startEvent(id)
-    mockCompletedInstances = [{ instanceId: 'inst-abc' }]
-    store.checkAndCompleteEvent(id)
-    const ev = store.getEvent(id)
-    expect(ev.status).toBe('COMPLETED')
-    expect(ev.completedAt).not.toBeNull()
-    expect(ev.activeInstanceId).toBeNull()
+    store.events = [mkSession({ id: 's1', status: 'COMPLETED' }), mkSession({ id: 's2', status: 'ABANDONED' })]
     expect(store.completedEvents).toHaveLength(1)
-  })
-
-  it('checkAndCompleteEvent does nothing when instance not yet done', () => {
-    const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.startEvent(id)
-    mockCompletedInstances = []
-    store.checkAndCompleteEvent(id)
-    expect(store.getEvent(id).status).toBe('ACTIVE')
-  })
-
-  it('deletes a PLANNING event', () => {
-    const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.deleteEvent(id)
-    expect(store.events).toHaveLength(0)
-  })
-
-  it('does not delete an ACTIVE event', () => {
-    const store = useCompetitionEventStore()
-    const id = store.createEvent('Test', mockPassen)
-    store.startEvent(id)
-    store.deleteEvent(id)
-    expect(store.events).toHaveLength(1)
-  })
-
-  it('persists events to localStorage on every mutation', () => {
-    const store = useCompetitionEventStore()
-    store.createEvent('Persist Test', mockPassen)
-    const raw = localStorage.getItem('sg_competition_events')
-    const parsed = JSON.parse(raw)
-    expect(parsed).toHaveLength(1)
-    expect(parsed[0].name).toBe('Persist Test')
-  })
-
-  it('loads events from localStorage on init', () => {
-    localStorage.setItem('sg_competition_events', JSON.stringify([{
-      id: 'restored-id', name: 'Restored', passen: [], status: 'PLANNING',
-      rotten: [], activeInstanceId: null, createdAt: 0, startedAt: null, completedAt: null,
-    }]))
-    const store = useCompetitionEventStore()
-    expect(store.events).toHaveLength(1)
-    expect(store.events[0].name).toBe('Restored')
   })
 })

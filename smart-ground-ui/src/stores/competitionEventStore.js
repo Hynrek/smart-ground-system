@@ -1,172 +1,116 @@
-// src/stores/competitionEventStore.js
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { useActivePasseStore } from './activePasseStore.js'
-
-const STORAGE_KEY = 'sg_competition_events'
-
-const uuid = () =>
-  typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID
-    ? globalThis.crypto.randomUUID()
-    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = (Math.random() * 16) | 0
-        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
-      })
+import * as wettkampfApi from '@/services/wettkampfApi.js'
 
 export const useCompetitionEventStore = defineStore('competitionEvent', () => {
-  const events = ref([])
+  const events  = ref([])
+  const loading = ref(false)
+  const error   = ref(null)
 
-  const _save = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(events.value))
+  // ── Computed ──────────────────────────────────────────────────────────────
 
-  const loadFromStorage = () => {
+  const planningEvents  = computed(() => events.value.filter(e => ['SETUP', 'OPEN'].includes(e.status?.toUpperCase())))
+  const activeEvents    = computed(() => events.value.filter(e => ['ACTIVE', 'PRE_COMPLETE'].includes(e.status?.toUpperCase())))
+  const completedEvents = computed(() => events.value.filter(e => e.status?.toUpperCase() === 'COMPLETED'))
+  const getEvent        = (id) => events.value.find(e => e.id === id) ?? null
+
+  // ── Load ──────────────────────────────────────────────────────────────────
+
+  const loadEvents = async () => {
+    loading.value = true
+    error.value = null
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) events.value = JSON.parse(raw)
-    } catch { /* ignore malformed data */ }
-  }
-
-  const planningEvents = computed(() => events.value.filter(e => e.status === 'PLANNING'))
-  const activeEvents = computed(() => events.value.filter(e => e.status === 'ACTIVE'))
-  const completedEvents = computed(() => events.value.filter(e => e.status === 'COMPLETED'))
-
-  const getEvent = (id) => events.value.find(e => e.id === id) ?? null
-
-  const createEvent = (name, passen) => {
-    const id = uuid()
-    events.value.push({
-      id,
-      name,
-      passen: [...passen],
-      status: 'PLANNING',
-      rotten: [],
-      activeInstanceId: null,
-      createdAt: Date.now(),
-      startedAt: null,
-      completedAt: null,
-    })
-    _save()
-    return id
-  }
-
-  const updateEventName = (id, name) => {
-    const ev = getEvent(id)
-    if (!ev || ev.status !== 'PLANNING') return
-    ev.name = name
-    _save()
-  }
-
-  const addRotte = (id) => {
-    const ev = getEvent(id)
-    if (!ev || ev.status !== 'PLANNING') return
-    const letters = 'ABCDEFGH'
-    const name = `Rotte ${letters[ev.rotten.length] ?? ev.rotten.length + 1}`
-    ev.rotten.push({ rotteId: uuid(), name, players: [] })
-    _save()
-  }
-
-  const removeRotte = (id, rotteId) => {
-    const ev = getEvent(id)
-    if (!ev || ev.status !== 'PLANNING') return
-    ev.rotten = ev.rotten.filter(r => r.rotteId !== rotteId)
-    _save()
-  }
-
-  const renameRotte = (id, rotteId, name) => {
-    const ev = getEvent(id)
-    if (!ev || ev.status !== 'PLANNING') return
-    const rotte = ev.rotten.find(r => r.rotteId === rotteId)
-    if (rotte) { rotte.name = name; _save() }
-  }
-
-  const addPlayer = (id, rotteId, user) => {
-    const ev = getEvent(id)
-    if (!ev || ev.status !== 'PLANNING') return
-    const rotte = ev.rotten.find(r => r.rotteId === rotteId)
-    if (!rotte) return
-    if (!user?.id || !user?.displayName) return
-    rotte.players.push({ id: uuid(), userId: user.id, displayName: user.displayName, paid: false })
-    _save()
-  }
-
-  const removePlayer = (id, rotteId, playerId) => {
-    const ev = getEvent(id)
-    if (!ev || ev.status !== 'PLANNING') return
-    const rotte = ev.rotten.find(r => r.rotteId === rotteId)
-    if (!rotte) return
-    rotte.players = rotte.players.filter(p => p.id !== playerId)
-    _save()
-  }
-
-  const togglePlayerPaid = (id, rotteId, playerId) => {
-    const ev = getEvent(id)
-    if (!ev || ev.status !== 'PLANNING') return
-    const rotte = ev.rotten.find(r => r.rotteId === rotteId)
-    const player = rotte?.players.find(p => p.id === playerId)
-    if (player) { player.paid = !player.paid; _save() }
-  }
-
-  const startEvent = (id) => {
-    const ev = getEvent(id)
-    if (!ev || ev.status !== 'PLANNING') return
-    const activePasseStore = useActivePasseStore()
-    const instance = activePasseStore.startCompetition(ev, ev.rotten)
-    ev.activeInstanceId = instance.instanceId
-    ev.status = 'ACTIVE'
-    ev.startedAt = Date.now()
-    _save()
-  }
-
-  const stopEvent = (id) => {
-    const ev = getEvent(id)
-    if (!ev || ev.status !== 'ACTIVE') return
-    const activePasseStore = useActivePasseStore()
-    activePasseStore.stopInstance(ev.activeInstanceId)
-    ev.status = 'CANCELLED'
-    ev.activeInstanceId = null
-    _save()
-  }
-
-  const checkAndCompleteEvent = (id) => {
-    const ev = getEvent(id)
-    if (!ev || ev.status !== 'ACTIVE') return
-    const activePasseStore = useActivePasseStore()
-    const done = activePasseStore.completedInstances.find(
-      i => i.instanceId === ev.activeInstanceId
-    )
-    if (done) {
-      ev.status = 'COMPLETED'
-      ev.completedAt = Date.now()
-      ev.activeInstanceId = null
-      _save()
+      const res = await wettkampfApi.listSessions('competition')
+      events.value = res.content ?? res ?? []
+    } catch (e) {
+      error.value = e.message
+    } finally {
+      loading.value = false
     }
   }
 
-  const deleteEvent = (id) => {
-    const ev = getEvent(id)
-    if (!ev || ev.status !== 'PLANNING') return
-    events.value = events.value.filter(e => e.id !== id)
-    _save()
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+  const createEvent = async (name, passen, groups = []) => {
+    const created = await wettkampfApi.createSession(name, passen, groups)
+    events.value = [...events.value, created]
+    return created.id
   }
 
-  loadFromStorage()
+  const openEvent  = async (id) => _replaceEvent(await wettkampfApi.patchStatus(id, 'open'))
+  const startEvent = async (id) => _replaceEvent(await wettkampfApi.patchStatus(id, 'active'))
+  const stopEvent  = async (id) => _replaceEvent(await wettkampfApi.patchStatus(id, 'abandoned'))
+
+  const deleteEvent = async (id) => {
+    await wettkampfApi.deleteSession(id)
+    events.value = events.value.filter(e => e.id !== id)
+  }
+
+  // ── Rotte management ──────────────────────────────────────────────────────
+
+  const addRotte = async (eventId) => {
+    const ev = getEvent(eventId)
+    if (!ev) return
+    const letters = 'ABCDEFGH'
+    const name = `Rotte ${letters[(ev.groups ?? []).length] ?? (ev.groups ?? []).length + 1}`
+    const group = await wettkampfApi.createGroup(eventId, name)
+    ev.groups = [...(ev.groups ?? []), group]
+  }
+
+  const removeRotte = async (eventId, groupId) => {
+    await wettkampfApi.deleteGroup(eventId, groupId)
+    const ev = getEvent(eventId)
+    if (ev) ev.groups = (ev.groups ?? []).filter(g => g.id !== groupId)
+  }
+
+  const renameRotte = async (eventId, groupId, name) => {
+    const updated = await wettkampfApi.updateGroup(eventId, groupId, name)
+    const ev = getEvent(eventId)
+    if (ev) ev.groups = (ev.groups ?? []).map(g => g.id === groupId ? { ...g, ...updated } : g)
+  }
+
+  // ── Player management ─────────────────────────────────────────────────────
+
+  const addPlayer = async (eventId, groupId, user) => {
+    if (!user?.displayName) return
+    const member = await wettkampfApi.addMember(eventId, groupId, {
+      displayName: user.displayName,
+      userId: user.id ?? null,
+      type: user.id ? 'USER' : 'GUEST',
+      paid: false,
+    })
+    const ev = getEvent(eventId)
+    const group = ev?.groups?.find(g => g.id === groupId)
+    if (group) group.members = [...(group.members ?? []), member]
+  }
+
+  const removePlayer = async (eventId, groupId, memberId) => {
+    await wettkampfApi.removeMember(eventId, groupId, memberId)
+    const ev = getEvent(eventId)
+    const group = ev?.groups?.find(g => g.id === groupId)
+    if (group) group.members = (group.members ?? []).filter(m => m.id !== memberId)
+  }
+
+  const togglePlayerPaid = async (eventId, groupId, memberId) => {
+    const ev = getEvent(eventId)
+    const member = ev?.groups?.find(g => g.id === groupId)?.members?.find(m => m.id === memberId)
+    if (!member) return
+    const updated = await wettkampfApi.patchMember(eventId, groupId, memberId, !member.paid)
+    member.paid = updated.paid
+  }
+
+  // ── Private ───────────────────────────────────────────────────────────────
+
+  const _replaceEvent = (updated) => {
+    events.value = events.value.map(e => e.id === updated.id ? updated : e)
+  }
 
   return {
-    events,
-    planningEvents,
-    activeEvents,
-    completedEvents,
-    getEvent,
-    createEvent,
-    updateEventName,
-    addRotte,
-    removeRotte,
-    renameRotte,
-    addPlayer,
-    removePlayer,
-    togglePlayerPaid,
-    startEvent,
-    stopEvent,
-    checkAndCompleteEvent,
-    deleteEvent,
+    events, loading, error,
+    planningEvents, activeEvents, completedEvents, getEvent,
+    loadEvents,
+    createEvent, openEvent, startEvent, stopEvent, deleteEvent,
+    addRotte, removeRotte, renameRotte,
+    addPlayer, removePlayer, togglePlayerPaid,
   }
 })
