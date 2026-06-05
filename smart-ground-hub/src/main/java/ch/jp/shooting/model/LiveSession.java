@@ -40,7 +40,7 @@ public class LiveSession {
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
-    private SessionStatus status; // SETUP, ACTIVE, PAUSED, COMPLETED, ABANDONED
+    private SessionStatus status; // SETUP, OPEN, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED
 
     /**
      * Programmkonfiguration als JSON-Snapshot beim Start (immutable während Spiel).
