@@ -4,7 +4,7 @@ import { apiFetch } from './apiClient.js'
 export const createSession = (name, passen, groups) =>
   apiFetch('/sessions', {
     method: 'POST',
-    body: JSON.stringify({ type: 'competition', name, passen, groups }),
+    body: JSON.stringify({ type: 'COMPETITION', name, passen, groups }),
   })
 
 export const listSessions = (type, status) => {
@@ -66,3 +66,12 @@ export const completeSerie = (sessionId, groupId, serieId, passeIndex, playInsta
 
 export const getProgress = (sessionId) =>
   apiFetch(`/sessions/${sessionId}/progress`)
+
+export const addPasse = (sessionId, passeId) =>
+  apiFetch(`/sessions/${sessionId}/passen`, {
+    method: 'POST',
+    body: JSON.stringify({ passeId }),
+  })
+
+export const removePasse = (sessionId, passeId) =>
+  apiFetch(`/sessions/${sessionId}/passen/${passeId}`, { method: 'DELETE' })
