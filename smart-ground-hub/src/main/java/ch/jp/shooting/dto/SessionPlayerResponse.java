@@ -28,6 +28,9 @@ public class SessionPlayerResponse {
     @JsonProperty("createdAt")
     public Instant createdAt;
 
+    @JsonProperty("paid")
+    public boolean paid;
+
     public SessionPlayerResponse() {
     }
 }

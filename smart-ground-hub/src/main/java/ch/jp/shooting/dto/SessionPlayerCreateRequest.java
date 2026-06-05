@@ -21,6 +21,9 @@ public class SessionPlayerCreateRequest {
     @Nullable
     public UUID userId; // null für Gäste
 
+    @JsonProperty("paid")
+    public boolean paid = false;
+
     public SessionPlayerCreateRequest() {
     }
 

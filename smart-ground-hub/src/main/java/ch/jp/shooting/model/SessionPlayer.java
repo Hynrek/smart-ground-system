@@ -39,6 +39,9 @@ public class SessionPlayer {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(nullable = false)
+    private boolean paid = false;
+
     // ── Constructors ──
     public SessionPlayer() {
     }
@@ -104,5 +107,13 @@ public class SessionPlayer {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public boolean isPaid() {
+        return paid;
+    }
+
+    public void setPaid(boolean paid) {
+        this.paid = paid;
     }
 }

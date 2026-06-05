@@ -17,6 +17,10 @@ public class SessionResponse {
     @JsonProperty("id")
     public UUID id;
 
+    @JsonProperty("name")
+    @Nullable
+    public String name;
+
     @JsonProperty("type")
     public String type;
 

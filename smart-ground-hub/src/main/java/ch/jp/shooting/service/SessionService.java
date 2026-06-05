@@ -172,6 +172,7 @@ public class SessionService {
         player.setGroup(group);
         player.setType(PlayerType.valueOf(req.type.toUpperCase()));
         player.setDisplayName(req.displayName);
+        player.setPaid(req.paid);
 
         if (req.userId != null && req.type.equalsIgnoreCase("USER")) {
             User user = userRepository.findById(req.userId)
@@ -242,6 +243,7 @@ public class SessionService {
     private SessionResponse mapSessionToResponse(LiveSession session) {
         SessionResponse resp = new SessionResponse();
         resp.id = session.getId();
+        resp.name = session.getName();
         resp.type = session.getType().name().toLowerCase();
         resp.status = session.getStatus().name().toLowerCase();
         resp.templateId = session.getTemplate() != null ? session.getTemplate().getId() : null;
@@ -285,6 +287,7 @@ public class SessionService {
         resp.displayName = player.getDisplayName();
         resp.userId = player.getUser() != null ? player.getUser().getId() : null;
         resp.createdAt = player.getCreatedAt();
+        resp.paid = player.isPaid();
         return resp;
     }
 
