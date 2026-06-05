@@ -36,8 +36,8 @@
         </div>
 
         <div class="tab-row">
-          <button class="tab-btn" :class="{ active: setupTab === 'rotten' }" @click="setupTab = 'rotten'">Rotten</button>
-          <button class="tab-btn" :class="{ active: setupTab === 'passen' }" @click="setupTab = 'passen'">Passen</button>
+          <button class="tab-btn" :class="{ active: setupTab === 'rotten' }" @click="setupTab = 'rotten'; showPassePicker = false">Rotten</button>
+          <button class="tab-btn" :class="{ active: setupTab === 'passen' }" @click="setupTab = 'passen'; showPassePicker = false">Passen</button>
         </div>
 
         <!-- Rotten tab -->

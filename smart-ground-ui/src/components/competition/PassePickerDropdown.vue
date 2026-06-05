@@ -20,7 +20,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 
 defineOptions({ name: 'PassePickerDropdown' })
 
-const props = defineProps({
+defineProps({
   passen: { type: Array, required: true },
 })
 const emit = defineEmits(['select', 'close'])

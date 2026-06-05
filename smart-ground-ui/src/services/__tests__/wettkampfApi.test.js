@@ -16,15 +16,15 @@ describe('wettkampfApi', () => {
     await api.createSession('Frühjahrspokal', [{ id: 'p1', serieIds: [] }], [])
     expect(mockApiFetch).toHaveBeenCalledWith('/sessions', expect.objectContaining({ method: 'POST' }))
     const body = JSON.parse(mockApiFetch.mock.calls[0][1].body)
-    expect(body.type).toBe('competition')
+    expect(body.type).toBe('COMPETITION')
     expect(body.name).toBe('Frühjahrspokal')
   })
 
   it('listSessions appends type query param', async () => {
     mockApiFetch.mockResolvedValue({ content: [] })
-    await api.listSessions('competition')
+    await api.listSessions('COMPETITION')
     expect(mockApiFetch).toHaveBeenCalledWith(
-      expect.stringContaining('type=competition')
+      expect.stringContaining('type=COMPETITION')
     )
   })
 
