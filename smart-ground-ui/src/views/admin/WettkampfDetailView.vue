@@ -34,7 +34,14 @@
           <Icons icon="alert" :size="14" color="rgba(246,173,85,0.9)" />
           {{ unpaidPlayers.length }} Schützen haben noch nicht bezahlt
         </div>
-        <section class="section">
+
+        <div class="tab-row">
+          <button class="tab-btn" :class="{ active: setupTab === 'rotten' }" @click="setupTab = 'rotten'">Rotten</button>
+          <button class="tab-btn" :class="{ active: setupTab === 'passen' }" @click="setupTab = 'passen'">Passen</button>
+        </div>
+
+        <!-- Rotten tab -->
+        <section v-if="setupTab === 'rotten'" class="section">
           <div class="section-header">
             <h2 class="section-title">Rotten</h2>
             <button class="add-rotte-btn" :disabled="(event.groups ?? []).length >= 8" @click="store.addRotte(eventId)">
@@ -58,11 +65,48 @@
             />
           </div>
         </section>
+
+        <!-- Passen tab -->
+        <section v-else-if="setupTab === 'passen'" class="section">
+          <div class="section-header">
+            <h2 class="section-title">Passen</h2>
+            <div class="add-passe-wrap">
+              <button
+                class="add-rotte-btn"
+                :disabled="availablePassen.length === 0"
+                @click="showPassePicker = !showPassePicker"
+              >
+                <Icons icon="plus" :size="13" /> Passe hinzufügen
+              </button>
+              <PassePickerDropdown
+                v-if="showPassePicker"
+                :passen="availablePassen"
+                @select="handleAddPasse"
+                @close="showPassePicker = false"
+              />
+            </div>
+          </div>
+          <div v-if="(event.passen ?? []).length === 0" class="empty-rotten">
+            <p>Noch keine Passen. Füge mindestens eine Passe hinzu.</p>
+          </div>
+          <div v-else class="passen-list">
+            <div v-for="passe in (event.passen ?? [])" :key="passe.id" class="passe-row">
+              <div class="passe-info">
+                <span class="passe-name">{{ passe.name }}</span>
+                <span class="passe-meta">{{ passe.serien?.length ?? 0 }} Serien</span>
+              </div>
+              <button class="remove-btn" @click="store.removePasseFromEvent(eventId, passe.id)">
+                <Icons icon="x" :size="12" color="var(--sg-text-faint)" />
+              </button>
+            </div>
+          </div>
+        </section>
+
         <div class="start-section">
           <div class="payment-total">{{ paidPlayers.length }}/{{ totalPlayers }} Schützen bezahlt</div>
           <button class="start-btn" :disabled="(event.groups ?? []).length === 0" @click="handleOpen">
             <Icons icon="play" :size="15" color="#fff" />
-            Veröffentlichen
+            Wettkampf starten
           </button>
         </div>
       </div>
@@ -149,8 +193,10 @@ import { useRouter } from 'vue-router'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 import { useActivePasseStore } from '@/stores/activePasseStore.js'
 import { useUserStore } from '@/stores/userStore.js'
+import { usePasseStore } from '@/stores/passeStore.js'
 import Icons from '@/components/Icons.vue'
 import RotteEditorCard from '@/components/competition/RotteEditorCard.vue'
+import PassePickerDropdown from '@/components/competition/PassePickerDropdown.vue'
 import ActiveCompetitionPanel from '@/components/competition/ActiveCompetitionPanel.vue'
 import CompletedResultsPanel from '@/components/competition/CompletedResultsPanel.vue'
 
@@ -222,6 +268,23 @@ const availableUsers = computed(() =>
     .map(u => ({ id: u.id, displayName: u.fullName || u.username || u.email || u.id }))
 )
 
+const passeStore = usePasseStore()
+const setupTab = ref('rotten')
+const showPassePicker = ref(false)
+
+const assignedPasseIds = computed(() =>
+  new Set((event.value?.passen ?? []).map(p => p.id))
+)
+
+const availablePassen = computed(() =>
+  passeStore.savedGlobalPassen.filter(p => !assignedPasseIds.value.has(p.id))
+)
+
+const handleAddPasse = async (passe) => {
+  showPassePicker.value = false
+  await store.addPasseToEvent(eventId.value, passe.id)
+}
+
 // ── Rotte removal ──────────────────────────────────────────────────────────
 const confirmRemoveRotte = (group) => {
   const count = group.members?.length ?? group.players?.length ?? 0
@@ -261,6 +324,7 @@ const handleStop = () => {
 onMounted(async () => {
   try { await userStore.loadUsers() } catch { /* error handled by userStore */ }
   if (store.events.length === 0) await store.loadEvents()
+  if (passeStore.savedPassen.length === 0) await passeStore.loadPassenFromStorage()
 })
 </script>
 
@@ -399,5 +463,79 @@ onMounted(async () => {
 
 .not-found, .cancelled-note {
   padding: 40px 28px; text-align: center; color: var(--sg-text-faint); font-size: 14px;
+}
+
+/* ── Tabs ── */
+.tab-row {
+  display: flex;
+  border-bottom: 1px solid var(--sg-border);
+}
+
+.tab-btn {
+  padding: 9px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--sg-text-faint);
+  cursor: pointer;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab-btn.active {
+  color: var(--sg-brand);
+  border-bottom-color: var(--sg-accent);
+}
+
+.tab-btn:hover:not(.active) { color: var(--sg-text-muted); }
+
+/* ── Passen tab ── */
+.add-passe-wrap { position: relative; }
+
+.passen-list { display: flex; flex-direction: column; gap: 8px; }
+
+.passe-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--sg-bg-card);
+  border: 1px solid var(--sg-border);
+  border-radius: 12px;
+}
+
+.passe-info { display: flex; flex-direction: column; gap: 2px; }
+
+.passe-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sg-brand);
+}
+
+.passe-meta {
+  font-size: 12px;
+  color: var(--sg-text-faint);
+}
+
+.remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.remove-btn:hover {
+  background: rgba(229, 62, 62, 0.08);
+  border-color: #e53e3e;
 }
 </style>
