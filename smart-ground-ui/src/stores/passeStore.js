@@ -269,13 +269,17 @@ export const usePasseStore = defineStore('passe', () => {
   const updateSerie = async (serieId, newName, newSteps) => {
     const serie = savedSerien.value.find((s) => s.id === serieId);
     if (!serie) return;
+    const wasPublished = serie.published ?? false;
     // Backend PUT only accepts name/rangeId — replace via delete+create to persist steps
     try {
       await serieApi.deleteSerie(serieId);
       const apiSteps = (newSteps ?? []).map(toApiStep);
       const created = await serieApi.createSerie(newName, apiSteps, serie.rangeId ?? null, serie.ownership ?? 'user');
+      if (wasPublished) {
+        await serieApi.patchSeriePublished(created.id, true);
+      }
       savedSerien.value = savedSerien.value.map((s) =>
-        s.id === serieId ? toUiSerie({ ...created, rangeName: serie.rangeName }) : s,
+        s.id === serieId ? toUiSerie({ ...created, rangeName: serie.rangeName, published: wasPublished }) : s,
       );
       // Serie ID changed — reload Passen to repair any Passe references
       console.warn('[passeStore] updateSerie: Serie ID changed from', serieId, 'to', created.id, '— reloading Passen.');
