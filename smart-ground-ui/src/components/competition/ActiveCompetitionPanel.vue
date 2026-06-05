@@ -80,10 +80,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import Icons from '@/components/Icons.vue'
 import { useActivePasseStore } from '@/stores/activePasseStore.js'
 import { useCompetitionProgress } from '@/composables/useCompetitionProgress.js'
+import { getProgress } from '@/services/wettkampfApi.js'
 
 const props = defineProps({ event: { type: Object, required: true } })
 const emit = defineEmits(['stop'])
@@ -97,6 +98,25 @@ const liveInstance = computed(() =>
 const { passenProgress, serieCards, leaderboard } = useCompetitionProgress(liveInstance)
 
 const activeTab = ref('serien')
+
+const progressData = ref(null)
+let pollInterval = null
+
+const fetchProgress = async () => {
+  if (!props.event?.id) return
+  try {
+    progressData.value = await getProgress(props.event.id)
+  } catch (e) {
+    console.error('[ActiveCompetitionPanel] progress poll failed:', e)
+  }
+}
+
+onMounted(() => {
+  fetchProgress()
+  pollInterval = setInterval(fetchProgress, 4000)
+})
+
+onUnmounted(() => clearInterval(pollInterval))
 
 const passeStatusLabel = (status) => ({ fertig: 'Fertig', aktiv: 'Aktiv', offen: 'Offen' }[status] ?? status)
 const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Aktiv', pending: '○ Offen' }[status] ?? status)

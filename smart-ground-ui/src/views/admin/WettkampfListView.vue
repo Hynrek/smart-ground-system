@@ -37,9 +37,9 @@
               <div class="ec-info">
                 <span class="ec-name">{{ ev.name }}</span>
                 <div class="ec-meta-row">
-                  <span class="ec-meta">{{ ev.passen.length }} Passen</span>
+                  <span class="ec-meta">{{ ev.passen?.length ?? 0 }} Passen</span>
                   <span class="ec-dot">·</span>
-                  <span class="ec-meta">{{ ev.rotten.length }} Rotten</span>
+                  <span class="ec-meta">{{ (ev.groups ?? []).length }} Rotten</span>
                   <span class="ec-dot">·</span>
                   <span class="ec-meta">{{ totalPlayers(ev) }} Schützen</span>
                   <template v-if="unpaidCount(ev) > 0">
@@ -124,7 +124,7 @@
               <div class="ec-info">
                 <span class="ec-name">{{ ev.name }}</span>
                 <div class="ec-meta-row">
-                  <span class="ec-meta">{{ ev.rotten.length }} Rotten</span>
+                  <span class="ec-meta">{{ (ev.groups ?? []).length }} Rotten</span>
                   <span class="ec-dot">·</span>
                   <span class="ec-meta">{{ totalPlayers(ev) }} Schützen</span>
                 </div>
@@ -171,7 +171,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 import { usePasseStore } from '@/stores/passeStore.js'
@@ -212,24 +212,30 @@ const cancelCreate = () => {
   selectedPassen.value = []
 }
 
-const confirmCreate = () => {
+const confirmCreate = async () => {
   if (!newName.value.trim() || selectedPassen.value.length === 0) return
-  const id = store.createEvent(newName.value.trim(), selectedPassen.value)
+  const passenSnapshots = selectedPassen.value.map(p => ({
+    id: p.id,
+    name: p.name,
+    serieIds: (p.serien ?? []).map(s => s.id),
+  }))
+  const id = await store.createEvent(newName.value.trim(), passenSnapshots, [])
   cancelCreate()
   router.push('/admin/wettkampf/' + id)
 }
 
 // ── Delete ─────────────────────────────────────────────────────────────────
-const handleDelete = (ev) => {
-  if (confirm(`"${ev.name}" löschen?`)) {
-    store.deleteEvent(ev.id)
-  }
+const handleDelete = async (ev) => {
+  if (confirm(`"${ev.name}" löschen?`)) await store.deleteEvent(ev.id)
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-const totalPlayers = (ev) => ev.rotten.reduce((s, r) => s + r.players.length, 0)
+const totalPlayers = (ev) => (ev.groups ?? []).reduce((s, g) => s + (g.members?.length ?? 0), 0)
 
-const unpaidCount = (ev) => ev.rotten.reduce((s, r) => s + r.players.filter(p => !p.paid).length, 0)
+const unpaidCount = (ev) => (ev.groups ?? []).reduce((s, g) => s + (g.members ?? []).filter(m => !m.paid).length, 0)
+
+// ── Load on mount ──────────────────────────────────────────────────────────
+onMounted(() => store.loadEvents())
 </script>
 
 <style scoped>

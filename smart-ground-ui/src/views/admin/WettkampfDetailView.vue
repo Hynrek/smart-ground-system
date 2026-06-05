@@ -22,63 +22,90 @@
       <p>Wettkampf nicht gefunden.</p>
     </div>
 
-    <!-- ══ PLANNING ══ -->
-    <template v-else-if="event.status === 'PLANNING'">
+    <!-- ══ SETUP (Planung) ══ -->
+    <template v-else-if="event.status?.toUpperCase() === 'SETUP'">
       <div class="content">
-
-        <!-- Info bar -->
         <div class="info-bar">
-          <span class="info-chip">{{ event.passen.length }} Passen</span>
+          <span class="info-chip">{{ (event.passen?.length ?? 0) }} Passen</span>
           <span class="info-chip">{{ totalThrows }} Würfe</span>
           <span class="info-chip">{{ totalPlayers }} Schützen</span>
         </div>
-
-        <!-- Payment summary warning -->
         <div v-if="unpaidPlayers.length > 0" class="payment-warning">
           <Icons icon="alert" :size="14" color="rgba(246,173,85,0.9)" />
           {{ unpaidPlayers.length }} Schützen haben noch nicht bezahlt
         </div>
-
-        <!-- Rotten -->
         <section class="section">
           <div class="section-header">
             <h2 class="section-title">Rotten</h2>
-            <button
-              class="add-rotte-btn"
-              :disabled="event.rotten.length >= 8"
-              @click="store.addRotte(eventId)"
-            >
-              <Icons icon="plus" :size="13" />
-              Rotte hinzufügen
+            <button class="add-rotte-btn" :disabled="(event.groups ?? []).length >= 8" @click="store.addRotte(eventId)">
+              <Icons icon="plus" :size="13" /> Rotte hinzufügen
             </button>
           </div>
-
-          <div v-if="event.rotten.length === 0" class="empty-rotten">
+          <div v-if="(event.groups ?? []).length === 0" class="empty-rotten">
             <p>Noch keine Rotten. Füge mindestens eine Rotte hinzu.</p>
           </div>
-
           <div class="rotten-grid">
             <RotteEditorCard
-              v-for="rotte in event.rotten"
-              :key="rotte.rotteId"
-              :rotte="rotte"
+              v-for="group in (event.groups ?? [])"
+              :key="group.id"
+              :rotte="toRotteShape(group)"
               :available-users="availableUsers"
-              @rename="(name) => store.renameRotte(eventId, rotte.rotteId, name)"
-              @remove="confirmRemoveRotte(rotte)"
-              @add-player="(user) => store.addPlayer(eventId, rotte.rotteId, user)"
-              @remove-player="(pid) => store.removePlayer(eventId, rotte.rotteId, pid)"
-              @toggle-paid="(pid) => store.togglePlayerPaid(eventId, rotte.rotteId, pid)"
+              @rename="(name) => store.renameRotte(eventId, group.id, name)"
+              @remove="confirmRemoveRotte(group)"
+              @add-player="(user) => store.addPlayer(eventId, group.id, user)"
+              @remove-player="(pid) => store.removePlayer(eventId, group.id, pid)"
+              @toggle-paid="(pid) => store.togglePlayerPaid(eventId, group.id, pid)"
             />
           </div>
         </section>
+        <div class="start-section">
+          <div class="payment-total">{{ paidPlayers.length }}/{{ totalPlayers }} Schützen bezahlt</div>
+          <button class="start-btn" :disabled="(event.groups ?? []).length === 0" @click="handleOpen">
+            <Icons icon="play" :size="15" color="#fff" />
+            Veröffentlichen
+          </button>
+        </div>
+      </div>
+    </template>
 
-        <!-- Payment warning modal -->
+    <!-- ══ OPEN ══ -->
+    <template v-else-if="event.status?.toUpperCase() === 'OPEN'">
+      <div class="content">
+        <div class="info-bar">
+          <span class="info-chip">{{ totalThrows }} Würfe</span>
+          <span class="info-chip">{{ totalPlayers }} Schützen</span>
+        </div>
+        <div v-if="unpaidPlayers.length > 0" class="payment-warning">
+          <Icons icon="alert" :size="14" color="rgba(246,173,85,0.9)" />
+          {{ unpaidPlayers.length }} Schützen haben noch nicht bezahlt
+        </div>
+        <section class="section">
+          <div class="section-header">
+            <h2 class="section-title">Rotten</h2>
+            <button class="add-rotte-btn" :disabled="(event.groups ?? []).length >= 8" @click="store.addRotte(eventId)">
+              <Icons icon="plus" :size="13" /> Rotte hinzufügen
+            </button>
+          </div>
+          <div class="rotten-grid">
+            <RotteEditorCard
+              v-for="group in (event.groups ?? [])"
+              :key="group.id"
+              :rotte="toRotteShape(group)"
+              :available-users="availableUsers"
+              @rename="(name) => store.renameRotte(eventId, group.id, name)"
+              @remove="confirmRemoveRotte(group)"
+              @add-player="(user) => store.addPlayer(eventId, group.id, user)"
+              @remove-player="(pid) => store.removePlayer(eventId, group.id, pid)"
+              @toggle-paid="(pid) => store.togglePlayerPaid(eventId, group.id, pid)"
+            />
+          </div>
+        </section>
         <div v-if="showPaymentWarning" class="modal-overlay" @click.self="showPaymentWarning = false">
           <div class="warning-modal">
             <h3 class="modal-title">Nicht alle haben bezahlt</h3>
             <p class="modal-desc">Folgende Schützen haben noch nicht bezahlt:</p>
             <ul class="unpaid-list">
-              <li v-for="p in unpaidPlayers" :key="p.id">{{ p.displayName || '(Kein Name)' }}</li>
+              <li v-for="p in unpaidPlayers" :key="p.id">{{ p.displayName }}</li>
             </ul>
             <div class="modal-actions">
               <button class="action-btn action-btn--cancel" @click="showPaymentWarning = false">Zurück</button>
@@ -86,39 +113,27 @@
             </div>
           </div>
         </div>
-
-        <!-- Start button -->
         <div class="start-section">
-          <div class="payment-total">
-            {{ paidPlayers.length }}/{{ totalPlayers }} Schützen bezahlt
-          </div>
-          <button
-            class="start-btn"
-            :disabled="event.rotten.length === 0"
-            @click="handleStart"
-          >
+          <div class="payment-total">{{ paidPlayers.length }}/{{ totalPlayers }} bezahlt</div>
+          <button class="start-btn" @click="handleStart">
             <Icons icon="play" :size="15" color="#fff" />
             Wettkampf starten
           </button>
         </div>
-
       </div>
     </template>
 
-    <!-- ══ ACTIVE ══ -->
-    <template v-else-if="event.status === 'ACTIVE'">
-      <ActiveCompetitionPanel
-        :event="event"
-        @stop="handleStop"
-      />
+    <!-- ══ ACTIVE / PRE_COMPLETE ══ -->
+    <template v-else-if="['ACTIVE', 'PRE_COMPLETE'].includes(event.status?.toUpperCase())">
+      <ActiveCompetitionPanel :event="event" @stop="handleStop" />
     </template>
 
     <!-- ══ COMPLETED ══ -->
-    <template v-else-if="event.status === 'COMPLETED'">
+    <template v-else-if="event.status?.toUpperCase() === 'COMPLETED'">
       <CompletedResultsPanel :event="event" />
     </template>
 
-    <!-- ══ CANCELLED ══ -->
+    <!-- ══ ABANDONED / fallback ══ -->
     <template v-else>
       <div class="content">
         <p class="cancelled-note">Dieser Wettkampf wurde abgebrochen.</p>
@@ -129,7 +144,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 import { useActivePasseStore } from '@/stores/activePasseStore.js'
@@ -149,8 +164,11 @@ const eventId = computed(() => props.id)
 const event = computed(() => store.getEvent(eventId.value))
 
 const statusLabel = computed(() => {
-  const map = { PLANNING: 'Planung', ACTIVE: 'Aktiv', COMPLETED: 'Abgeschlossen', CANCELLED: 'Abgebrochen' }
-  return map[event.value?.status] ?? '–'
+  const map = {
+    SETUP: 'Planung', OPEN: 'Offen', ACTIVE: 'Aktiv',
+    PRE_COMPLETE: 'Auswertung', COMPLETED: 'Abgeschlossen', ABANDONED: 'Abgebrochen',
+  }
+  return map[event.value?.status?.toUpperCase()] ?? '–'
 })
 
 const stepCount = (steps) => {
@@ -168,24 +186,35 @@ const totalThrows = computed(() =>
 )
 
 const totalPlayers = computed(() =>
-  (event.value?.rotten ?? []).reduce((sum, r) => sum + r.players.length, 0)
+  (event.value?.groups ?? []).reduce((sum, g) => sum + (g.members?.length ?? 0), 0)
 )
 
 const unpaidPlayers = computed(() =>
-  (event.value?.rotten ?? []).flatMap(r => r.players.filter(p => !p.paid))
+  (event.value?.groups ?? []).flatMap(g => (g.members ?? []).filter(m => !m.paid))
 )
 
 const paidPlayers = computed(() =>
-  (event.value?.rotten ?? []).flatMap(r => r.players.filter(p => p.paid))
+  (event.value?.groups ?? []).flatMap(g => (g.members ?? []).filter(m => m.paid))
 )
 
 const assignedUserIds = computed(() =>
   new Set(
-    (event.value?.rotten ?? [])
-      .flatMap(r => r.players.map(p => p.userId))
+    (event.value?.groups ?? [])
+      .flatMap(g => (g.members ?? []).map(m => m.userId))
       .filter(Boolean)
   )
 )
+
+const toRotteShape = (group) => ({
+  rotteId: group.id,
+  name: group.name,
+  players: (group.members ?? []).map(m => ({
+    id: m.id,
+    userId: m.userId ?? null,
+    displayName: m.displayName,
+    paid: m.paid ?? false,
+  })),
+})
 
 const availableUsers = computed(() =>
   userStore.users
@@ -194,14 +223,19 @@ const availableUsers = computed(() =>
 )
 
 // ── Rotte removal ──────────────────────────────────────────────────────────
-const confirmRemoveRotte = (rotte) => {
-  if (rotte.players.length > 0) {
-    if (!confirm(`Rotte "${rotte.name}" mit ${rotte.players.length} Schützen löschen?`)) return
+const confirmRemoveRotte = (group) => {
+  const count = group.members?.length ?? group.players?.length ?? 0
+  const name = group.name
+  if (count > 0) {
+    if (!confirm(`Rotte "${name}" mit ${count} Schützen löschen?`)) return
   }
-  store.removeRotte(eventId.value, rotte.rotteId)
+  store.removeRotte(eventId.value, group.id ?? group.rotteId)
 }
 
-// ── Start flow ─────────────────────────────────────────────────────────────
+// ── Open (SETUP → OPEN) ────────────────────────────────────────────────────
+const handleOpen = () => store.openEvent(eventId.value)
+
+// ── Start (OPEN → ACTIVE) ──────────────────────────────────────────────────
 const showPaymentWarning = ref(false)
 
 const handleStart = () => {
@@ -224,24 +258,10 @@ const handleStop = () => {
   }
 }
 
-// ── Auto-complete watch ────────────────────────────────────────────────────
-let completionInterval = null
-
 onMounted(async () => {
-  try {
-    await userStore.loadUsers()
-  } catch {
-    // Benutzer konnten nicht geladen werden; availableUsers bleibt leer.
-    // userStore.error wird für Banner-UI gesetzt.
-  }
-  completionInterval = setInterval(() => {
-    if (event.value?.status === 'ACTIVE') {
-      store.checkAndCompleteEvent(eventId.value)
-    }
-  }, 2000)
+  try { await userStore.loadUsers() } catch { /* error handled by userStore */ }
+  if (store.events.length === 0) await store.loadEvents()
 })
-
-onUnmounted(() => clearInterval(completionInterval))
 </script>
 
 <style scoped>
@@ -271,10 +291,12 @@ onUnmounted(() => clearInterval(completionInterval))
 .status-badge {
   font-size: 11px; font-weight: 700; border-radius: 8px; padding: 3px 10px;
 }
-.badge-planning { background: var(--sg-accent-tint); color: var(--sg-color-info-text); border: 1px solid var(--sg-color-info-bg); }
+.badge-setup { background: var(--sg-accent-tint); color: var(--sg-color-info-text); border: 1px solid var(--sg-color-info-bg); }
+.badge-open { background: var(--sg-color-info-bg); color: var(--sg-color-info-text); border: 1px solid var(--sg-accent); }
 .badge-active { background: var(--sg-color-warning-bg); color: var(--sg-color-warning-text); border: 1px solid color-mix(in srgb, var(--sg-color-warning) 40%, transparent); }
+.badge-pre_complete { background: var(--sg-color-warning-bg); color: var(--sg-color-warning-text); border: 1px solid color-mix(in srgb, var(--sg-color-warning) 40%, transparent); }
 .badge-completed { background: var(--sg-color-success-bg); color: var(--sg-color-success-text); border: 1px solid color-mix(in srgb, var(--sg-color-success) 40%, transparent); }
-.badge-cancelled { background: var(--sg-bg-panel); color: var(--sg-text-faint); border: 1px solid var(--sg-border); }
+.badge-abandoned { background: var(--sg-bg-panel); color: var(--sg-text-faint); border: 1px solid var(--sg-border); }
 
 .content { flex: 1; overflow-y: auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 20px; }
 

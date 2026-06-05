@@ -1,3 +1,4 @@
+/* global URLSearchParams */
 import { apiFetch } from './apiClient.js'
 
 export const createSession = (name, passen, groups) =>
