@@ -457,7 +457,9 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     playLastDeviceStep.value = null;
   };
 
+  // Uses direct find (not findStepState) because corrections can target any player, not just currentPlayer
   const correctStep = (playerId, serieIdx, stepIdx, newState) => {
+    if (newState === StepState.PENDING) return   // PENDING is not a valid correction target
     const stepState = playScore.value.stepStates.find(
       (s) => s.playerId === playerId && s.serieIndex === serieIdx && s.stepIndex === stepIdx
     )

@@ -71,6 +71,23 @@ describe('correctStep', () => {
     expect(store.playScore.totalPoints).toBe(2)
   })
 
+  it('does nothing when newState is PENDING', () => {
+    const store = usePlaySessionStore()
+    store.playScore.stepStates = [
+      {
+        playerId: 'p1', serieIndex: 0, stepIndex: 0,
+        state: StepState.DONE, pointValue: 1, pointsEarned: 1,
+        noBirds: 0, corrected: false, originalState: null,
+      },
+    ]
+    store.playScore.totalPoints = 1
+
+    store.correctStep('p1', 0, 0, StepState.PENDING)
+
+    expect(store.playScore.stepStates[0].corrected).toBe(false)
+    expect(store.playScore.totalPoints).toBe(1)
+  })
+
   it('does nothing when playerId/index does not match', () => {
     const store = usePlaySessionStore()
     store.playScore.stepStates = []
