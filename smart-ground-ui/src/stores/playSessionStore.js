@@ -271,6 +271,8 @@ export const usePlaySessionStore = defineStore('playSession', () => {
             pointValue: getPointValueForStep(step),
             noBirds: 0,
             pointsEarned: 0,
+            corrected: false,
+            originalState: null,
           });
         });
       });
@@ -314,12 +316,19 @@ export const usePlaySessionStore = defineStore('playSession', () => {
             pointValue: getPointValueForStep(step),
             noBirds: 0,
             pointsEarned: 0,
+            corrected: false,
+            originalState: null,
           });
         });
       });
     });
     playScore.value = { totalPoints: 0, stepStates };
   };
+
+  // Resolve position ID supporting both UI format (positionId) and API format (posId).
+  const _posId  = (step) => step.positionId  ?? step.posId  ?? null;
+  const _posId1 = (step) => step.positionId1 ?? step.posId1 ?? null;
+  const _posId2 = (step) => step.positionId2 ?? step.posId2 ?? null;
 
   const advancePlayStep = async () => {
     if (!playProg.value) return;
@@ -329,26 +338,26 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
     try {
       if (step.type === StepType.SOLO) {
-        await sendPositionCommand(rangeId, step.positionId);
+        await sendPositionCommand(rangeId, _posId(step));
         markStepDone();
       } else if (step.type === StepType.PAIR) {
         await Promise.all([
-          sendPositionCommand(rangeId, step.positionId1),
-          sendPositionCommand(rangeId, step.positionId2),
+          sendPositionCommand(rangeId, _posId1(step)),
+          sendPositionCommand(rangeId, _posId2(step)),
         ]);
         markStepDone();
       } else if (step.type === StepType.A_SCHUSS) {
         if (playPartialStep.value === null) {
-          await sendPositionCommand(rangeId, step.positionId1);
+          await sendPositionCommand(rangeId, _posId1(step));
           playPartialStep.value = PartialStep.FIRST;
         } else if (playPartialStep.value === PartialStep.FIRST) {
-          await sendPositionCommand(rangeId, step.positionId2);
+          await sendPositionCommand(rangeId, _posId2(step));
           playPartialStep.value = null;
           markStepDone();
         }
       } else if (step.type === StepType.RAFFALE) {
         if (!playRaffaleStarted.value) {
-          await sendPositionCommand(rangeId, step.positionId);
+          await sendPositionCommand(rangeId, _posId(step));
           playRaffaleStarted.value = true;
         }
       }
@@ -361,7 +370,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     const step = currentStep.value;
     if (step?.type !== StepType.RAFFALE) return;
     try {
-      await sendPositionCommand(currentRangeId.value, step.positionId);
+      await sendPositionCommand(currentRangeId.value, _posId(step));
     } catch (err) {
       console.error('Failed to send second raffale command:', err);
     }
@@ -448,20 +457,37 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     playLastDeviceStep.value = null;
   };
 
+  const correctStep = (playerId, serieIdx, stepIdx, newState) => {
+    const stepState = playScore.value.stepStates.find(
+      (s) => s.playerId === playerId && s.serieIndex === serieIdx && s.stepIndex === stepIdx
+    )
+    if (!stepState) return
+    if (!stepState.corrected) {
+      stepState.originalState = stepState.state
+    }
+    stepState.corrected = true
+    playScore.value.totalPoints -= stepState.pointsEarned
+    stepState.state = newState
+    stepState.pointsEarned = Math.max(0, stepState.pointValue - getPointDeduction(newState))
+    playScore.value.totalPoints += stepState.pointsEarned
+  }
+
   // Called by the UI when the user confirms the program is finished
   // (clicking Fertig or using a fail button at program end).
   const confirmComplete = async () => {
     playComplete.value = true;
-    // Notify active passe store if playing a block instance
+    // Notify the correct store when a block instance completes
     if (activeBlockContext.value) {
-      const { useActivePasseStore } = await import('@/stores/activePasseStore.js');
-      useActivePasseStore().markBlockDone(
-        activeBlockContext.value.instanceId,
-        activeBlockContext.value.blockId,
-        buildPlayerResults(),
-        activeBlockContext.value.rotteId ?? undefined,
-      );
-      activeBlockContext.value = null;
+      const ctx = activeBlockContext.value
+      const results = buildPlayerResults()
+      if (ctx.instanceType === 'competition') {
+        const { useCompetitionEventStore } = await import('@/stores/competitionEventStore.js')
+        useCompetitionEventStore().markBlockDone(ctx.instanceId, ctx.blockId, results, ctx.rotteId ?? null)
+      } else {
+        const { useActivePasseStore } = await import('@/stores/activePasseStore.js')
+        useActivePasseStore().markBlockDone(ctx.instanceId, ctx.blockId, results)
+      }
+      activeBlockContext.value = null
     }
     // Remove legacy session from active sessions
     if (currentSessionId.value) {
@@ -499,7 +525,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     pendingGroupSerien.value = null;
   };
 
-  const startGroupPlay = async (players, rangeId = null, rangeName = null, instanceId = null, blockId = null, rotteId = null) => {
+  const startGroupPlay = async (players, rangeId = null, rangeName = null, instanceId = null, blockId = null, rotteId = null, instanceType = null) => {
     if (!pendingGroupSerien.value) return;
     const serien = pendingGroupSerien.value;
 
@@ -528,6 +554,8 @@ export const usePlaySessionStore = defineStore('playSession', () => {
             pointValue: getPointValueForStep(step),
             noBirds: 0,
             pointsEarned: 0,
+            corrected: false,
+            originalState: null,
           });
         });
       });
@@ -558,13 +586,18 @@ export const usePlaySessionStore = defineStore('playSession', () => {
       _pendingPasseId.value = null;  // Clear after session is created
     }
 
-    // Set block context when playing from an active passe instance
+    // Set block context when playing from an active passe/competition instance
     if (instanceId && blockId) {
-      activeBlockContext.value = { instanceId, blockId, rotteId: rotteId ?? null };
-      const { useActivePasseStore } = await import('@/stores/activePasseStore.js');
-      useActivePasseStore().markBlockInProgress(instanceId, blockId, rotteId ?? undefined);
+      activeBlockContext.value = { instanceId, blockId, rotteId: rotteId ?? null, instanceType: instanceType ?? null }
+      if (instanceType === 'competition') {
+        const { useCompetitionEventStore } = await import('@/stores/competitionEventStore.js')
+        useCompetitionEventStore().markBlockInProgress(instanceId, blockId, rotteId ?? null)
+      } else {
+        const { useActivePasseStore } = await import('@/stores/activePasseStore.js')
+        useActivePasseStore().markBlockInProgress(instanceId, blockId)
+      }
     } else {
-      activeBlockContext.value = null;
+      activeBlockContext.value = null
     }
 
     showGroupSetup.value = false;
@@ -684,6 +717,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     markStepDone,
     failStep,
     retryStep,
+    correctStep,
     confirmComplete,
     closePlayback,
     buildPlayerResults,
