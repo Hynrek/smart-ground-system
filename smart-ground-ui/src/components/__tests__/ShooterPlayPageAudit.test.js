@@ -147,4 +147,18 @@ describe('ShooterPlayPage — correction picker', () => {
     expect(wrapper.find('.correction-overlay').exists()).toBe(false)
     expect(store.correctStep).not.toHaveBeenCalled()
   })
+
+  it('clicking a picker button calls store.correctStep and closes the picker', async () => {
+    const { wrapper, store } = await mountFinalScreen()
+    store.correctStep = vi.fn()
+    const scoreTable = wrapper.findComponent({ name: 'ScoreTable' })
+    await scoreTable.vm.$emit('correct-step', {
+      playerId: 'p1', serieIndex: 0, stepIndex: 0, currentState: StepState.FAILED_BOTH,
+    })
+    await nextTick()
+    await wrapper.find('.picker-btn.btn-getroffen').trigger('click')
+    await nextTick()
+    expect(store.correctStep).toHaveBeenCalledWith('p1', 0, 0, StepState.DONE)
+    expect(wrapper.find('.correction-overlay').exists()).toBe(false)
+  })
 })
