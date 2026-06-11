@@ -84,6 +84,40 @@ const mountFinalScreen = async () => {
   return { wrapper, store }
 }
 
+describe('ShooterPlayPage — audit checkboxes', () => {
+  it('audit section is visible in competition mode on final screen', async () => {
+    const { wrapper } = await mountFinalScreen()
+    expect(wrapper.find('.audit-section').exists()).toBe(true)
+  })
+
+  it('Beenden button is disabled when playerConfirmations has an unconfirmed player', async () => {
+    const { wrapper } = await mountFinalScreen()
+    // store.allPlayersConfirmed is false (p1 not confirmed) so Beenden should be disabled
+    const beenden = wrapper.findAll('button').find((b) => b.text() === 'Beenden')
+    expect(beenden.attributes('disabled')).toBeDefined()
+  })
+
+  it('ticking a checkbox calls store.confirmPlayer with the player id', async () => {
+    const { wrapper, store } = await mountFinalScreen()
+    store.confirmPlayer = vi.fn()
+    const checkbox = wrapper.find('.audit-checkbox')
+    // Simulate checking the checkbox
+    await checkbox.setValue(true)
+    expect(store.confirmPlayer).toHaveBeenCalledWith('p1')
+  })
+
+  it('unticking a checkbox calls store.unconfirmPlayer with the player id', async () => {
+    const { wrapper, store } = await mountFinalScreen()
+    // Start with confirmed
+    store.playerConfirmations = new Map([['p1', true]])
+    store.unconfirmPlayer = vi.fn()
+    await nextTick()
+    const checkbox = wrapper.find('.audit-checkbox')
+    await checkbox.setValue(false)
+    expect(store.unconfirmPlayer).toHaveBeenCalledWith('p1')
+  })
+})
+
 describe('ShooterPlayPage — correction picker', () => {
   it('correction picker is hidden by default on final screen', async () => {
     const { wrapper } = await mountFinalScreen()

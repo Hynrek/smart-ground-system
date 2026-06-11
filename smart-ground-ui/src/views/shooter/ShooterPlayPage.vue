@@ -158,7 +158,27 @@
             :editable="true"
             @correct-step="handleCorrectStep"
           />
-          <button class="btn btn-primary" @click="goBack">
+          <!-- Audit confirmations (competition mode only) -->
+          <div v-if="_isCompetitionMode" class="audit-section">
+            <div class="audit-title">Bestätigung</div>
+            <div v-for="ps in playerFinalScores" :key="ps.player.id" class="audit-row">
+              <label class="audit-label">
+                <input
+                  type="checkbox"
+                  class="audit-checkbox"
+                  :checked="store.playerConfirmations.get(ps.player.id) ?? false"
+                  @change="(e) => e.target.checked ? store.confirmPlayer(ps.player.id) : store.unconfirmPlayer(ps.player.id)"
+                />
+                <span class="audit-player-name">{{ ps.player.displayName }}</span>
+                <span class="audit-score">{{ ps.earnedPts }}/{{ ps.maxPts }}</span>
+              </label>
+            </div>
+          </div>
+          <button
+            class="btn btn-primary"
+            :disabled="_isCompetitionMode && !store.allPlayersConfirmed"
+            @click="goBack"
+          >
             Beenden
           </button>
         </div>
@@ -190,7 +210,27 @@
             :editable="true"
             @correct-step="handleCorrectStep"
           />
-          <button class="btn btn-primary" @click="goBack">
+          <!-- Audit confirmations (competition mode only) -->
+          <div v-if="_isCompetitionMode" class="audit-section">
+            <div class="audit-title">Bestätigung</div>
+            <div v-for="ps in playerFinalScores" :key="ps.player.id" class="audit-row">
+              <label class="audit-label">
+                <input
+                  type="checkbox"
+                  class="audit-checkbox"
+                  :checked="store.playerConfirmations.get(ps.player.id) ?? false"
+                  @change="(e) => e.target.checked ? store.confirmPlayer(ps.player.id) : store.unconfirmPlayer(ps.player.id)"
+                />
+                <span class="audit-player-name">{{ ps.player.displayName }}</span>
+                <span class="audit-score">{{ ps.earnedPts }}/{{ ps.maxPts }}</span>
+              </label>
+            </div>
+          </div>
+          <button
+            class="btn btn-primary"
+            :disabled="_isCompetitionMode && !store.allPlayersConfirmed"
+            @click="goBack"
+          >
             Beenden
           </button>
         </div>
@@ -1473,6 +1513,67 @@ watch(
 .correction-fade-enter-from,
 .correction-fade-leave-to {
   opacity: 0;
+}
+
+/* ── Audit confirmations ─────────────────────────── */
+.audit-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.audit-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.audit-row {
+  display: flex;
+}
+
+.audit-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.audit-label:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.audit-checkbox {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--sg-accent);
+}
+
+.audit-player-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.audit-score {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--sg-color-success);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ── Score card adjustments for ScoreTable ──────────────────────── */
