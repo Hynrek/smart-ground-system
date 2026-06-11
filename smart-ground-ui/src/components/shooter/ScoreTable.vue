@@ -9,12 +9,18 @@
 
       <!-- Steps table -->
       <div class="steps-list">
-        <div v-for="step in getPlayerSteps(player.id)" :key="`${step.serieIndex}-${step.stepIndex}`"
-          class="step-row" :class="getStepRowClass(step)">
+        <div
+          v-for="step in getPlayerSteps(player.id)"
+          :key="`${step.serieIndex}-${step.stepIndex}`"
+          class="step-row"
+          :class="[getStepRowClass(step), { 'is-editable': props.editable }]"
+          @click="props.editable && emit('correct-step', { playerId: player.id, serieIndex: step.serieIndex, stepIndex: step.stepIndex, currentState: step.state })"
+        >
           <span class="step-letters">{{ getLetters(step) }}</span>
           <span class="step-type">{{ getTypeLabel(getActualStep(step)) }}</span>
           <span class="step-status">{{ getStateLabel(step.state, getActualStep(step)) }}</span>
           <span class="step-points">{{ getPointsDisplay(step) }}</span>
+          <span v-if="props.editable" class="corrected-badge">{{ step.corrected ? '✏' : '' }}</span>
         </div>
       </div>
     </div>
@@ -38,7 +44,13 @@ const props = defineProps({
     type: Array,
     required: true, // Array of player objects
   },
+  editable: {
+    type: Boolean,
+    default: false,
+  },
 });
+
+const emit = defineEmits(['correct-step']);
 
 // Get step state for a specific player and step location
 const findStepState = (playerId, serieIdx, stepIdx) => {
@@ -234,6 +246,22 @@ const getStepRowClass = (stepState) => {
 .step-points {
   text-align: right;
   font-weight: 600;
+}
+
+.step-row.is-editable {
+  grid-template-columns: 40px 1fr auto auto 16px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.step-row.is-editable:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.corrected-badge {
+  text-align: right;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .player-section + .player-section {
