@@ -1,0 +1,116 @@
+import { describe, it, expect, vi } from 'vitest'
+import { nextTick } from 'vue'
+import { mount } from '@vue/test-utils'
+import { setActivePinia, createPinia } from 'pinia'
+import { createRouter, createMemoryHistory } from 'vue-router'
+import ShooterPlayPage from '@/views/shooter/ShooterPlayPage.vue'
+import { usePlaySessionStore } from '@/stores/playSessionStore.js'
+import { StepState, StepType } from '@/constants/playEnums.js'
+
+vi.mock('@/stores/passeStore.js', () => ({
+  usePasseStore: () => ({
+    savedPassen: [{ id: 'passe-1', name: 'Test', serien: [{ steps: [] }] }],
+  }),
+}))
+vi.mock('@/services/rangePositionApi.js', () => ({
+  sendPositionCommand: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('@/components/Icons.vue', () => ({
+  default: { name: 'Icons', props: ['icon', 'size', 'color'], template: '<span />' },
+}))
+// Stub ScoreTable so we can emit correct-step directly from the component instance
+vi.mock('@/components/shooter/ScoreTable.vue', () => ({
+  default: {
+    name: 'ScoreTable',
+    props: ['stepStates', 'program', 'players', 'editable'],
+    emits: ['correct-step'],
+    template: '<div class="score-table-stub" />',
+  },
+}))
+
+const mockProgram = [{ steps: [{ type: StepType.SOLO, letter: 'A', positionId: 'pos-1' }] }]
+const mockPlayers = [{ id: 'p1', displayName: 'Alice' }]
+const mockStepStates = [
+  { playerId: 'p1', serieIndex: 0, stepIndex: 0, state: StepState.DONE,
+    pointValue: 1, pointsEarned: 1, noBirds: 0, corrected: false, originalState: null },
+]
+
+const makeRouter = () =>
+  createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }],
+  })
+
+// Mounts ShooterPlayPage showing the final score screen in competition mode.
+// pendingPasseInfo with instanceType 'competition' sets _blockContext (_isCompetitionMode = true)
+// during script setup. After mount we force playComplete = true to show the final screen.
+const mountFinalScreen = async () => {
+  const router = makeRouter()
+  await router.push('/remote/r1/play')
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  const store = usePlaySessionStore()
+
+  // Pre-set playProg so the redirect guard at top of setup does NOT fire
+  store.playProg = mockProgram
+
+  // pendingPasseInfo sets _blockContext (instanceType: 'competition') during setup
+  store.pendingPasseInfo = {
+    passeId: 'passe-1',
+    rangeId: 'r1',
+    instanceId: 'inst-1',
+    blockId: 'blk-1',
+    rotteId: null,
+    instanceType: 'competition',
+    rotteName: 'Rotte 1',
+    serieName: 'Serie A',
+    serie: { steps: [] },
+    players: mockPlayers,
+  }
+
+  const wrapper = mount(ShooterPlayPage, {
+    props: { rangeId: 'r1' },
+    global: { plugins: [router, pinia] },
+  })
+
+  // Script setup has now consumed pendingPasseInfo; force the final screen state
+  store.showGroupSetup = false
+  store.playComplete = true
+  store.sessionPlayers = mockPlayers
+  store.playScore = { totalPoints: 1, stepStates: mockStepStates }
+  store.playerConfirmations = new Map([['p1', false]])
+  await nextTick()
+
+  return { wrapper, store }
+}
+
+describe('ShooterPlayPage — correction picker', () => {
+  it('correction picker is hidden by default on final screen', async () => {
+    const { wrapper } = await mountFinalScreen()
+    expect(wrapper.find('.correction-overlay').exists()).toBe(false)
+  })
+
+  it('picker appears after ScoreTable emits correct-step', async () => {
+    const { wrapper } = await mountFinalScreen()
+    const scoreTable = wrapper.findComponent({ name: 'ScoreTable' })
+    await scoreTable.vm.$emit('correct-step', {
+      playerId: 'p1', serieIndex: 0, stepIndex: 0, currentState: StepState.DONE,
+    })
+    await nextTick()
+    expect(wrapper.find('.correction-overlay').exists()).toBe(true)
+  })
+
+  it('clicking the backdrop dismisses picker and does not call correctStep', async () => {
+    const { wrapper, store } = await mountFinalScreen()
+    store.correctStep = vi.fn()
+    const scoreTable = wrapper.findComponent({ name: 'ScoreTable' })
+    await scoreTable.vm.$emit('correct-step', {
+      playerId: 'p1', serieIndex: 0, stepIndex: 0, currentState: StepState.DONE,
+    })
+    await nextTick()
+    await wrapper.find('.correction-overlay').trigger('click')
+    await nextTick()
+    expect(wrapper.find('.correction-overlay').exists()).toBe(false)
+    expect(store.correctStep).not.toHaveBeenCalled()
+  })
+})

@@ -3,14 +3,15 @@
   <div v-if="store.showGroupSetup" class="play-page group-setup-page">
     <div class="group-modal-overlay">
       <div class="group-modal">
-        <h2 class="modal-title">Gruppe einrichten</h2>
+        <h2 class="modal-title">{{ _isCompetitionMode ? (_rotteName ?? 'Rotte') : 'Gruppe einrichten' }}</h2>
+        <p v-if="_isCompetitionMode && _serieName" class="modal-serie-name">{{ _serieName }}</p>
 
         <div class="player-list">
           <div v-for="(player, i) in groupPlayers" :key="player.id" class="player-row">
             <span class="player-number">{{ i + 1 }}:</span>
             <span class="player-display-name">{{ player.displayName }}</span>
             <button
-              v-if="groupPlayers.length > 1"
+              v-if="!_isCompetitionMode && groupPlayers.length > 1"
               class="player-remove-btn"
               @click="removePlayer(i)"
             >
@@ -19,7 +20,7 @@
           </div>
         </div>
 
-        <button class="add-player-btn" @click="addPlayer">
+        <button v-if="!_isCompetitionMode" class="add-player-btn" @click="addPlayer">
           + Schütze hinzufügen
         </button>
 
@@ -154,6 +155,8 @@
             :step-states="store.playScore.stepStates"
             :program="store.playProg"
             :players="store.sessionPlayers"
+            :editable="true"
+            @correct-step="handleCorrectStep"
           />
           <button class="btn btn-primary" @click="goBack">
             Beenden
@@ -184,12 +187,36 @@
             :step-states="store.playScore.stepStates"
             :program="store.playProg"
             :players="store.sessionPlayers"
+            :editable="true"
+            @correct-step="handleCorrectStep"
           />
           <button class="btn btn-primary" @click="goBack">
             Beenden
           </button>
         </div>
       </div>
+
+      <!-- Correction picker overlay -->
+      <Transition name="correction-fade">
+        <div v-if="correctionTarget" class="correction-overlay" @click.self="correctionTarget = null">
+          <div class="correction-picker">
+            <div class="picker-title">Schritt korrigieren</div>
+            <div class="picker-buttons">
+              <button class="picker-btn btn-getroffen" @click="applyCorrectionStep(StepState.DONE)">
+                Getroffen
+              </button>
+              <template v-if="correctionTargetIsDouble">
+                <button class="picker-btn btn-fail" @click="applyCorrectionStep(StepState.FAILED_A)">Fail A</button>
+                <button class="picker-btn btn-fail" @click="applyCorrectionStep(StepState.FAILED_B)">Fail B</button>
+                <button class="picker-btn btn-fail" @click="applyCorrectionStep(StepState.FAILED_BOTH)">Fail Beide</button>
+              </template>
+              <template v-else>
+                <button class="picker-btn btn-fail" @click="applyCorrectionStep(StepState.FAILED_BOTH)">Fail</button>
+              </template>
+            </div>
+          </div>
+        </div>
+      </Transition>
     </div>
 
     <!-- Action buttons at bottom (always visible) -->
@@ -269,6 +296,27 @@ const store = usePlaySessionStore();
 const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
 
+// ── Correction picker ─────────────────────────────────────────────────────────
+const correctionTarget = ref(null);
+
+const correctionTargetIsDouble = computed(() => {
+  if (!correctionTarget.value) return false;
+  const { serieIndex, stepIndex } = correctionTarget.value;
+  const step = store.playProg?.[serieIndex]?.steps[stepIndex];
+  return step ? [StepType.PAIR, StepType.A_SCHUSS, StepType.RAFFALE].includes(step.type) : false;
+});
+
+const handleCorrectStep = (payload) => {
+  correctionTarget.value = payload;
+};
+
+const applyCorrectionStep = (newState) => {
+  const t = correctionTarget.value;
+  if (!t) return;
+  store.correctStep(t.playerId, t.serieIndex, t.stepIndex, newState);
+  correctionTarget.value = null;
+};
+
 if (!store.playProg && !store.showGroupSetup && !store.pendingPasseInfo) {
   router.push(`/remote/${props.rangeId}`);
 }
@@ -279,11 +327,20 @@ const groupPlayers = ref([{ id: `gp-${_nextPlayerId++}`, displayName: 'Schütze 
 
 // Capture block context and stage the serie before clearing pendingPasseInfo
 const _blockContext = ref(null);
+const _rotteName = ref(null);
+const _serieName = ref(null);
+const _isCompetitionMode = computed(() => _blockContext.value?.instanceType === 'competition');
 if (store.pendingPasseInfo) {
   const info = store.pendingPasseInfo;
   store.setPendingGroupSerien([info.serie]);
   if (info.instanceId && info.blockId) {
-    _blockContext.value = { instanceId: info.instanceId, blockId: info.blockId, rotteId: info.rotteId ?? null };
+    _blockContext.value = { instanceId: info.instanceId, blockId: info.blockId, rotteId: info.rotteId ?? null, instanceType: info.instanceType ?? null };
+  }
+  if (info.rotteName) {
+    _rotteName.value = info.rotteName;
+  }
+  if (info.serieName) {
+    _serieName.value = info.serieName;
   }
   if (info.players?.length) {
     groupPlayers.value = info.players.map((p, i) => ({
@@ -311,6 +368,7 @@ const beginGroupPlay = () => {
     _blockContext.value?.instanceId ?? null,
     _blockContext.value?.blockId ?? null,
     _blockContext.value?.rotteId ?? null,
+    _blockContext.value?.instanceType ?? null,
   );
 };
 
@@ -628,6 +686,14 @@ watch(
   color: #ffffff;
   margin: 0;
   text-align: center;
+}
+
+.modal-serie-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  margin: -12px 0 0;
 }
 
 .player-list {
@@ -1330,6 +1396,83 @@ watch(
 .dot--pending {
   width: 6px;
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Correction picker ───────────────────────────── */
+.correction-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.correction-picker {
+  background: rgba(24, 24, 40, 0.98);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 24px 20px;
+  width: min(320px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.picker-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: center;
+}
+
+.picker-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.picker-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.picker-btn.btn-getroffen {
+  background: rgba(72, 187, 120, 0.2);
+  color: var(--sg-color-success);
+  border: 1px solid rgba(72, 187, 120, 0.35);
+}
+
+.picker-btn.btn-getroffen:hover {
+  background: rgba(72, 187, 120, 0.28);
+}
+
+.picker-btn.btn-fail {
+  background: rgba(252, 129, 129, 0.15);
+  color: var(--sg-color-danger-bg);
+  border: 1px solid rgba(252, 129, 129, 0.3);
+}
+
+.picker-btn.btn-fail:hover {
+  background: rgba(252, 129, 129, 0.22);
+}
+
+.correction-fade-enter-active,
+.correction-fade-leave-active {
+  transition: opacity 0.15s;
+}
+
+.correction-fade-enter-from,
+.correction-fade-leave-to {
+  opacity: 0;
 }
 
 /* ── Score card adjustments for ScoreTable ──────────────────────── */
