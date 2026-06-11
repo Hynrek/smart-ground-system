@@ -98,3 +98,59 @@ describe('correctStep', () => {
     expect(store.playScore.totalPoints).toBe(0)
   })
 })
+
+describe('playerConfirmations', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('confirmPlayer marks the player as confirmed', () => {
+    const store = usePlaySessionStore()
+    store.sessionPlayers = [{ id: 'p1', displayName: 'Alice' }]
+    store.playerConfirmations = new Map([['p1', false]])
+
+    store.confirmPlayer('p1')
+
+    expect(store.playerConfirmations.get('p1')).toBe(true)
+  })
+
+  it('unconfirmPlayer marks the player as not confirmed', () => {
+    const store = usePlaySessionStore()
+    store.sessionPlayers = [{ id: 'p1', displayName: 'Alice' }]
+    store.playerConfirmations = new Map([['p1', true]])
+
+    store.unconfirmPlayer('p1')
+
+    expect(store.playerConfirmations.get('p1')).toBe(false)
+  })
+
+  it('allPlayersConfirmed is false when any player is unconfirmed', () => {
+    const store = usePlaySessionStore()
+    store.sessionPlayers = [
+      { id: 'p1', displayName: 'Alice' },
+      { id: 'p2', displayName: 'Bob' },
+    ]
+    store.playerConfirmations = new Map([['p1', true], ['p2', false]])
+
+    expect(store.allPlayersConfirmed).toBe(false)
+  })
+
+  it('allPlayersConfirmed is true when every player is confirmed', () => {
+    const store = usePlaySessionStore()
+    store.sessionPlayers = [
+      { id: 'p1', displayName: 'Alice' },
+      { id: 'p2', displayName: 'Bob' },
+    ]
+    store.playerConfirmations = new Map([['p1', true], ['p2', true]])
+
+    expect(store.allPlayersConfirmed).toBe(true)
+  })
+
+  it('allPlayersConfirmed is false when sessionPlayers is empty', () => {
+    const store = usePlaySessionStore()
+    store.sessionPlayers = []
+    store.playerConfirmations = new Map()
+
+    expect(store.allPlayersConfirmed).toBe(false)
+  })
+})

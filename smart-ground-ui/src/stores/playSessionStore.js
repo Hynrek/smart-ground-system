@@ -40,6 +40,9 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   const roundStartIndex = ref(0);
   const completedPlayerCount = ref(0);
 
+  // ── Audit confirmation state ─────────────────────────────────────────────────
+  const playerConfirmations = ref(new Map()); // playerId → boolean
+
   // ── Group setup state ────────────────────────────────────────────────────────
   const pendingGroupSerien = ref(null);
   const showGroupSetup = ref(false);
@@ -474,6 +477,23 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     playScore.value.totalPoints += stepState.pointsEarned
   }
 
+  const confirmPlayer = (playerId) => {
+    const map = new Map(playerConfirmations.value)
+    map.set(playerId, true)
+    playerConfirmations.value = map
+  }
+
+  const unconfirmPlayer = (playerId) => {
+    const map = new Map(playerConfirmations.value)
+    map.set(playerId, false)
+    playerConfirmations.value = map
+  }
+
+  const allPlayersConfirmed = computed(() =>
+    sessionPlayers.value.length > 0 &&
+    sessionPlayers.value.every((p) => playerConfirmations.value.get(p.id) === true)
+  )
+
   // Called by the UI when the user confirms the program is finished
   // (clicking Fertig or using a fail button at program end).
   const confirmComplete = async () => {
@@ -515,6 +535,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     showGroupSetup.value = false;
     pendingGroupSerien.value = null;
     currentRangeId.value = null;
+    playerConfirmations.value = new Map();
   };
 
   const setPendingGroupSerien = (serien) => {
@@ -533,6 +554,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
     currentRangeId.value = rangeId;
     setupPlayers(players);
+    playerConfirmations.value = new Map(players.map((p) => [p.id, false]));
     completedPlayerCount.value = 0;
 
     playProg.value = serien;
@@ -676,6 +698,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
   return {
     // State
+    playerConfirmations,
     playProg,
     currentSerieIndex,
     currentStepIndex,
@@ -712,6 +735,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     canRetry,
     playerScores,
     playerScoresSorted,
+    allPlayersConfirmed,
     // Actions
     playPasseWithScore,
     advancePlayStep,
@@ -720,6 +744,8 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     failStep,
     retryStep,
     correctStep,
+    confirmPlayer,
+    unconfirmPlayer,
     confirmComplete,
     closePlayback,
     buildPlayerResults,
