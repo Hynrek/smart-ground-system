@@ -131,7 +131,10 @@
       "Bash(cmd.exe /c \"mvnw.cmd test -Dtest=ReservationServiceTest -q\")",
       "Bash(./mvnw.cmd test *)",
       "Bash(ls pom.xml)",
-      "Bash(cmd /c \"mvnw.cmd test -Dtest=ReservationServiceTest\")"
+      "Bash(cmd /c \"mvnw.cmd test -Dtest=ReservationServiceTest\")",
+      "Bash(Remove-Item \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\\\\src\\\\main\\\\java\\\\ch\\\\jp\\\\shooting\\\\service\\\\BracketService.java\")",
+      "Bash(Remove-Item \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\\\\src\\\\main\\\\java\\\\ch\\\\jp\\\\shooting\\\\service\\\\LeaderboardService.java\")",
+      "Bash(Remove-Item \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\\\\src\\\\main\\\\java\\\\ch\\\\jp\\\\shooting\\\\service\\\\ResultsService.java\")"
     ]
   }
 }

@@ -1,6 +1,7 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.dto.*;
+import ch.jp.shooting.mapper.PlayMapper;
 import ch.jp.shooting.model.*;
 import ch.jp.shooting.model.auth.User;
 import ch.jp.shooting.repository.*;
@@ -30,6 +31,7 @@ public class SessionService {
     private final PlayerResultRepository resultRepository;
     private final SessionTemplateRepository templateRepository;
     private final UserRepository userRepository;
+    private final PasseRepository passeRepository;
     private final ObjectMapper objectMapper;
 
     public SessionService(
@@ -39,6 +41,7 @@ public class SessionService {
             PlayerResultRepository resultRepository,
             SessionTemplateRepository templateRepository,
             UserRepository userRepository,
+            PasseRepository passeRepository,
             ObjectMapper objectMapper) {
         this.sessionRepository = sessionRepository;
         this.groupRepository = groupRepository;
@@ -46,6 +49,7 @@ public class SessionService {
         this.resultRepository = resultRepository;
         this.templateRepository = templateRepository;
         this.userRepository = userRepository;
+        this.passeRepository = passeRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -432,15 +436,29 @@ public class SessionService {
 
     public ch.jp.smartground.model.SessionResponse createSession(ch.jp.smartground.model.CreateSessionRequest req) {
         LiveSession session = new LiveSession();
-        if (req.getName() != null) {
-            session.setName(req.getName());
-        }
-        if (req.getDescription() != null && req.getDescription().get() != null) {
-            session.setDescription(req.getDescription().get());
-        }
-        session.setType(SessionType.valueOf(req.getSessionType().name()));
+        session.setName(req.getName());
+        session.setType(SessionType.valueOf(req.getType().name()));
         session.setStatus(SessionStatus.SETUP);
         session.setCreatedAt(Instant.now());
+
+        if (req.getPassen() != null && !req.getPassen().isEmpty()) {
+            try {
+                List<PasseSnapshot> snapshots = req.getPassen().stream()
+                        .map(p -> {
+                            PasseSnapshot s = new PasseSnapshot();
+                            s.id = p.getId().toString();
+                            s.name = p.getName();
+                            s.serieIds = p.getSerieIds() != null
+                                    ? p.getSerieIds().stream().map(UUID::toString).collect(Collectors.toList())
+                                    : new ArrayList<>();
+                            return s;
+                        })
+                        .collect(Collectors.toList());
+                session.setProgramSnapshots(objectMapper.writeValueAsString(snapshots));
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                throw new RuntimeException("Failed to serialize passen", e);
+            }
+        }
 
         session = sessionRepository.save(session);
         return mapToApiSessionResponse(session);
@@ -452,9 +470,21 @@ public class SessionService {
         return mapToApiSessionResponse(session);
     }
 
-    public ch.jp.smartground.model.SessionPageResponse listSessions(Integer page, Integer size) {
+    public ch.jp.smartground.model.SessionPageResponse listSessions(
+            @Nullable String type, @Nullable String status, Integer page, Integer size) {
         Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
-        Page<LiveSession> sessions = sessionRepository.findAll(pageable);
+        Page<LiveSession> sessions;
+        SessionType typeFilter = type != null ? SessionType.valueOf(type.toUpperCase()) : null;
+        SessionStatus statusFilter = status != null ? SessionStatus.valueOf(status.toUpperCase()) : null;
+        if (typeFilter != null && statusFilter != null) {
+            sessions = sessionRepository.findByTypeAndStatus(typeFilter, statusFilter, pageable);
+        } else if (typeFilter != null) {
+            sessions = sessionRepository.findByType(typeFilter, pageable);
+        } else if (statusFilter != null) {
+            sessions = sessionRepository.findByStatus(statusFilter, pageable);
+        } else {
+            sessions = sessionRepository.findAll(pageable);
+        }
 
         ch.jp.smartground.model.SessionPageResponse response = new ch.jp.smartground.model.SessionPageResponse();
         response.setContent(sessions.getContent().stream()
@@ -471,20 +501,77 @@ public class SessionService {
         return response;
     }
 
+    public ch.jp.smartground.model.SessionResponse patchSessionStatus(
+            UUID sessionId, ch.jp.smartground.model.UpdateSessionStatusRequest req) {
+        LiveSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+        SessionStatus newStatus = SessionStatus.valueOf(req.getStatus().toUpperCase());
+        validateStatusTransition(session.getStatus(), newStatus);
+        session.setStatus(newStatus);
+        if (newStatus == SessionStatus.ACTIVE) {
+            session.setStartedAt(Instant.now());
+        } else if (newStatus == SessionStatus.COMPLETED) {
+            session.setCompletedAt(Instant.now());
+        }
+        session = sessionRepository.save(session);
+        return mapToApiSessionResponse(session);
+    }
+
+    public ch.jp.smartground.model.GroupResponse updateGroupApi(
+            UUID sessionId, UUID groupId, ch.jp.smartground.model.UpdateGroupRequest req) {
+        ShooterGroup group = groupRepository.findByIdAndSessionId(groupId, sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Group not found"));
+        SessionStatus st = group.getSession().getStatus();
+        if (st != SessionStatus.SETUP && st != SessionStatus.OPEN) {
+            throw new IllegalStateException("Cannot update group after session started");
+        }
+        group.setName(req.getName());
+        group = groupRepository.save(group);
+        return mapGroupToApiResponse(group);
+    }
+
+    public ch.jp.smartground.model.SessionPlayerResponse addMemberApi(
+            UUID sessionId, UUID groupId, ch.jp.smartground.model.SessionPlayerCreateRequest req) {
+        ShooterGroup group = groupRepository.findByIdAndSessionId(groupId, sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Group not found: " + groupId));
+        SessionStatus st = group.getSession().getStatus();
+        if (st != SessionStatus.SETUP && st != SessionStatus.OPEN) {
+            throw new IllegalStateException("Cannot add members after session started");
+        }
+        SessionPlayer player = new SessionPlayer();
+        player.setGroup(group);
+        player.setType(PlayerType.valueOf(req.getType().name()));
+        player.setDisplayName(req.getDisplayName());
+        boolean paid = req.getPaid() != null && req.getPaid();
+        player.setPaid(paid);
+        if (req.getUserId() != null && req.getUserId().isPresent() && req.getUserId().get() != null) {
+            userRepository.findById(req.getUserId().get()).ifPresent(player::setUser);
+        }
+        player = playerRepository.save(player);
+        return mapPlayerToApiResponse(player);
+    }
+
+    public ch.jp.smartground.model.SessionPlayerResponse patchMemberApi(
+            UUID sessionId, UUID groupId, UUID memberId, ch.jp.smartground.model.PatchMemberRequest req) {
+        ShooterGroup group = groupRepository.findByIdAndSessionId(groupId, sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Group not found: " + groupId));
+        SessionPlayer player = group.getMembers().stream()
+                .filter(p -> p.getId().equals(memberId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Member not found: " + memberId));
+        player.setPaid(req.getPaid() != null && req.getPaid());
+        return mapPlayerToApiResponse(playerRepository.save(player));
+    }
+
     private ch.jp.smartground.model.SessionResponse mapToApiSessionResponse(LiveSession session) {
         ch.jp.smartground.model.SessionResponse response = new ch.jp.smartground.model.SessionResponse();
         response.setId(session.getId());
-        if (session.getName() != null) {
-            response.name(session.getName());
-        }
-        if (session.getDescription() != null) {
-            response.description(session.getDescription());
-        }
-        response.setStatus(ch.jp.smartground.model.SessionResponse.StatusEnum.fromValue(session.getStatus().name()));
-        response.setSessionType(ch.jp.smartground.model.SessionResponse.SessionTypeEnum.fromValue(session.getType().name()));
+        response.setName(session.getName());
+        response.setStatus(ch.jp.smartground.model.SessionStatus.fromValue(session.getStatus().name()));
+        response.setType(ch.jp.smartground.model.SessionType.fromValue(session.getType().name()));
 
         if (session.getCreatedAt() != null) {
-            response.createdAt(java.time.OffsetDateTime.ofInstant(session.getCreatedAt(), java.time.ZoneOffset.UTC));
+            response.setCreatedAt(java.time.OffsetDateTime.ofInstant(session.getCreatedAt(), java.time.ZoneOffset.UTC));
         }
         if (session.getStartedAt() != null) {
             response.startedAt(java.time.OffsetDateTime.ofInstant(session.getStartedAt(), java.time.ZoneOffset.UTC));
@@ -493,6 +580,65 @@ public class SessionService {
             response.completedAt(java.time.OffsetDateTime.ofInstant(session.getCompletedAt(), java.time.ZoneOffset.UTC));
         }
 
+        List<ch.jp.smartground.model.GroupResponse> groups = session.getGroups().stream()
+                .map(this::mapGroupToApiResponse)
+                .collect(Collectors.toList());
+        response.setGroups(groups);
+
+        String snapshots = session.getProgramSnapshots();
+        if (snapshots != null && !snapshots.isBlank()) {
+            try {
+                PasseSnapshot[] passeSnapshots = objectMapper.readValue(snapshots, PasseSnapshot[].class);
+                List<ch.jp.smartground.model.PasseReference> passeRefs = Arrays.stream(passeSnapshots)
+                        .map(p -> {
+                            ch.jp.smartground.model.PasseReference ref = new ch.jp.smartground.model.PasseReference();
+                            if (p.id != null) ref.setId(UUID.fromString(p.id));
+                            ref.setName(p.name);
+                            if (p.id != null) {
+                                passeRepository.findById(UUID.fromString(p.id)).ifPresent(passe -> {
+                                    List<ch.jp.smartground.model.EmbeddedSerie> serien =
+                                        PlayMapper.parseEmbeddedSerien(passe.getSerienJson()).stream()
+                                            .map(PlayMapper::toEmbeddedSerie)
+                                            .collect(Collectors.toList());
+                                    ref.setSerien(serien);
+                                });
+                            }
+                            return ref;
+                        })
+                        .collect(Collectors.toList());
+                response.setPassen(passeRefs);
+            } catch (Exception e) {
+                // programSnapshots holds programs (training), not passen — skip
+            }
+        }
+
         return response;
+    }
+
+    private ch.jp.smartground.model.GroupResponse mapGroupToApiResponse(ShooterGroup group) {
+        ch.jp.smartground.model.GroupResponse resp = new ch.jp.smartground.model.GroupResponse();
+        resp.setId(group.getId());
+        resp.setName(group.getName());
+        resp.setSessionId(group.getSession().getId());
+        if (group.getCreatedAt() != null) {
+            resp.setCreatedAt(java.time.OffsetDateTime.ofInstant(group.getCreatedAt(), java.time.ZoneOffset.UTC));
+        }
+        List<ch.jp.smartground.model.SessionPlayerResponse> members = group.getMembers().stream()
+                .map(this::mapPlayerToApiResponse)
+                .collect(Collectors.toList());
+        resp.setMembers(members);
+        return resp;
+    }
+
+    private ch.jp.smartground.model.SessionPlayerResponse mapPlayerToApiResponse(SessionPlayer player) {
+        ch.jp.smartground.model.SessionPlayerResponse resp = new ch.jp.smartground.model.SessionPlayerResponse();
+        resp.setId(player.getId());
+        resp.setType(ch.jp.smartground.model.SessionPlayerResponse.TypeEnum.fromValue(player.getType().name()));
+        resp.setDisplayName(player.getDisplayName());
+        resp.setPaid(player.isPaid());
+        if (player.getUser() != null) {
+            resp.setUserId(org.openapitools.jackson.nullable.JsonNullable.of(player.getUser().getId()));
+        }
+        return resp;
     }
 }

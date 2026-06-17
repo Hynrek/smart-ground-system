@@ -1,10 +1,10 @@
 package ch.jp.shooting.service;
 
-import ch.jp.shooting.dto.CompleteSerieRequest;
-import ch.jp.shooting.dto.CompetitionProgressResponse;
 import ch.jp.shooting.dto.PasseSnapshot;
 import ch.jp.shooting.model.*;
 import ch.jp.shooting.repository.*;
+import ch.jp.smartground.model.CompleteSerieRequest;
+import ch.jp.smartground.model.SessionProgressResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +39,6 @@ class CompetitionProgressServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         objectMapper.findAndRegisterModules();
-        // inject real ObjectMapper (not a @Mock)
         Field f = CompetitionProgressService.class.getDeclaredField("objectMapper");
         f.setAccessible(true);
         f.set(progressService, objectMapper);
@@ -69,9 +68,10 @@ class CompetitionProgressServiceTest {
             any(), any(), anyInt(), any())).thenReturn(false);
         when(csrRepository.save(any())).thenAnswer(i -> i.getArgument(0));
         when(groupRepository.findBySessionId(any())).thenReturn(List.of(group));
+        when(csrRepository.findBySessionIdAndGroupId(any(), any())).thenReturn(List.of());
 
         CompleteSerieRequest req = new CompleteSerieRequest();
-        req.passeIndex = 0;
+        req.setPasseIndex(org.openapitools.jackson.nullable.JsonNullable.of(0));
 
         progressService.completeSerie(sessionId, groupId, serieId, req);
 
@@ -88,22 +88,41 @@ class CompetitionProgressServiceTest {
             any(), any(), anyInt(), any())).thenReturn(true);
 
         CompleteSerieRequest req = new CompleteSerieRequest();
-        req.passeIndex = 0;
+        req.setPasseIndex(org.openapitools.jackson.nullable.JsonNullable.of(0));
 
         assertThrows(IllegalStateException.class,
             () -> progressService.completeSerie(sessionId, groupId, serieId, req));
     }
 
     @Test
-    void getProgress_returnsGroupWithCurrentPasseIndexZero() throws Exception {
+    void getProgress_returnsGroupWithNoCompletions() throws Exception {
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
         when(groupRepository.findBySessionId(sessionId)).thenReturn(List.of(group));
         when(csrRepository.findBySessionIdAndGroupId(any(), any())).thenReturn(List.of());
 
-        CompetitionProgressResponse resp = progressService.getProgress(sessionId);
+        SessionProgressResponse resp = progressService.getProgress(sessionId);
 
-        assertEquals(1, resp.groups.size());
-        assertEquals("Rotte A", resp.groups.get(0).groupName);
-        assertEquals(0, resp.groups.get(0).currentPasseIndex);
+        assertEquals(1, resp.getGroups().size());
+        assertEquals("Rotte A", resp.getGroups().get(0).getGroupName());
+        assertEquals(0, resp.getGroups().get(0).getPassenCompleted());
+        assertEquals(1, resp.getGroups().get(0).getPassenTotal());
+        assertTrue(resp.getGroups().get(0).getCompletedSerien().isEmpty());
+    }
+
+    @Test
+    void getProgress_exposesCompletedSerienPerGroup() throws Exception {
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(groupRepository.findBySessionId(sessionId)).thenReturn(List.of(group));
+        var csr = new CompetitionSerieResult(session, group, 0, serieId);
+        when(csrRepository.findBySessionIdAndGroupId(any(), any())).thenReturn(List.of(csr));
+
+        SessionProgressResponse resp = progressService.getProgress(sessionId);
+
+        var gp = resp.getGroups().get(0);
+        assertEquals(1, gp.getCompletedSerien().size());
+        assertEquals(0, gp.getCompletedSerien().get(0).getPasseIndex());
+        assertEquals(serieId, gp.getCompletedSerien().get(0).getSerieId());
+        // the only Serie of Passe 0 is done → the Passe counts as completed
+        assertEquals(1, gp.getPassenCompleted());
     }
 }

@@ -70,16 +70,17 @@ public class CompetitionService {
                     1  // Rang wird später gesetzt
                 ));
 
-            // Parse ProgramResult[] aus JSON
-            ProgramResult[] programResults = parseProgramResults(result.getProgramResults());
+            // Summiere die pro Serie gespeicherten Punkte. CompetitionProgressService
+            // schreibt programResults als flache Liste
+            // [{passeIndex, serieId, totalPoints, maxPoints, completedAt}].
             int playerTotal = 0;
             int playerMax = 0;
-            for (ProgramResult prog : programResults) {
-                for (SegmentResult seg : prog.getSegmentResults()) {
-                    for (StepResult step : seg.getStepResults()) {
-                        playerTotal += step.getPointsEarned();
-                        playerMax += step.getPointValue();
-                    }
+            String raw = result.getProgramResults();
+            var node = objectMapper.readTree(raw == null || raw.isBlank() ? "[]" : raw);
+            if (node.isArray()) {
+                for (var serie : node) {
+                    playerTotal += serie.path("totalPoints").asInt(0);
+                    playerMax   += serie.path("maxPoints").asInt(0);
                 }
             }
 
@@ -164,12 +165,4 @@ public class CompetitionService {
             .map(careerStatsMapper::toCareerStatsResponse);
     }
 
-    // ── Hilfsmetoden ──
-
-    private ProgramResult[] parseProgramResults(String json) throws Exception {
-        if (json == null || json.isBlank()) {
-            return new ProgramResult[0];
-        }
-        return objectMapper.readValue(json, ProgramResult[].class);
-    }
 }

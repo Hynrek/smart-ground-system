@@ -1228,14 +1228,28 @@ paths:
           description: No active reservation found for this range
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Sessions (Competition Management)
+  # Sessions (Wettkampf / Training)
   # ─────────────────────────────────────────────────────────────────────────────
   /api/sessions:
     get:
-      summary: List all sessions
+      summary: List sessions
       operationId: listSessions
       tags: [Session]
       parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [COMPETITION, TRAINING]
+          description: Filter by session type
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [SETUP, OPEN, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED]
+          description: Filter by status
         - name: page
           in: query
           required: false
@@ -1295,17 +1309,69 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Session found
+          description: Session found (includes embedded groups and passe references)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SessionResponse'
         '404':
           description: Session not found
+    delete:
+      summary: Delete a session (SETUP or OPEN status only)
+      operationId: deleteSession
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Session deleted
+        '400':
+          description: Cannot delete an active or completed session
+        '404':
+          description: Session not found
+
+  /api/sessions/{sessionId}/status:
+    patch:
+      summary: Advance or revert session status
+      description: >
+        Allowed transitions: SETUP → OPEN, OPEN → ACTIVE, ACTIVE → ABANDONED,
+        ACTIVE → PRE_COMPLETE, PRE_COMPLETE → COMPLETED.
+        Pass the target status as a case-insensitive string (e.g. "open", "active").
+      operationId: patchSessionStatus
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSessionStatusRequest'
+      responses:
+        '200':
+          description: Status updated; full session returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: Illegal status transition
+        '404':
+          description: Session not found
 
   /api/sessions/{sessionId}/groups:
     get:
-      summary: List groups in a session
+      summary: List Rotten (groups) in a session
       operationId: listGroups
       tags: [Session]
       parameters:
@@ -1317,7 +1383,7 @@ paths:
             format: uuid
       responses:
         '200':
-          description: List of groups
+          description: List of groups with members
           content:
             application/json:
               schema:
@@ -1326,7 +1392,7 @@ paths:
                   $ref: '#/components/schemas/GroupResponse'
 
     post:
-      summary: Create a group in a session
+      summary: Create a Rotte in a session
       operationId: createGroup
       tags: [Session]
       parameters:
@@ -1350,13 +1416,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/GroupResponse'
 
-  /api/sessions/{sessionId}/bracket:
-    post:
-      summary: Initialize bracket tournament
-      operationId: initializeBracket
+  /api/sessions/{sessionId}/groups/{groupId}:
+    put:
+      summary: Rename a Rotte
+      operationId: updateGroup
       tags: [Session]
       parameters:
         - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
           in: path
           required: true
           schema:
@@ -1367,17 +1439,191 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/InitializeBracketRequest'
+              $ref: '#/components/schemas/UpdateGroupRequest'
       responses:
         '200':
-          description: Bracket initialized
+          description: Group renamed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
         '404':
-          description: Session not found
+          description: Session or group not found
+    delete:
+      summary: Delete a Rotte and all its members
+      operationId: deleteGroup
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Group deleted
+        '404':
+          description: Session or group not found
 
-  /api/sessions/{sessionId}/leaderboard:
+  /api/sessions/{sessionId}/groups/{groupId}/members:
+    post:
+      summary: Add a player to a Rotte
+      operationId: addMember
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionPlayerCreateRequest'
+      responses:
+        '201':
+          description: Member added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPlayerResponse'
+        '404':
+          description: Session or group not found
+
+  /api/sessions/{sessionId}/groups/{groupId}/members/{memberId}:
+    delete:
+      summary: Remove a player from a Rotte
+      operationId: removeMember
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Member removed
+        '404':
+          description: Session, group, or member not found
+    patch:
+      summary: Update a player's paid status
+      operationId: patchMember
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchMemberRequest'
+      responses:
+        '200':
+          description: Member updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPlayerResponse'
+        '404':
+          description: Session, group, or member not found
+
+  /api/sessions/{sessionId}/groups/{groupId}/serien/{serieId}/complete:
+    post:
+      summary: Record completion of a Serie for a Rotte
+      description: >
+        Stores per-player results for one Serie execution within a competition group.
+        serieId references the source Serie in the session's Passe snapshot.
+      operationId: completeSerie
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: serieId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteSerieRequest'
+      responses:
+        '200':
+          description: Serie result recorded; updated session progress returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionProgressResponse'
+        '404':
+          description: Session, group, or serie not found
+
+  /api/sessions/{sessionId}/progress:
     get:
-      summary: Get session leaderboard
-      operationId: getLeaderboard
+      summary: Get per-group progress for a session
+      description: >
+        Returns how many Passen each Rotte has completed vs. total,
+        and per-Passe completion status. Used by the active competition live view.
+      operationId: getSessionProgress
       tags: [Session]
       parameters:
         - name: sessionId
@@ -1388,35 +1634,13 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Leaderboard data
+          description: Progress data
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SessionLeaderboardResponse'
+                $ref: '#/components/schemas/SessionProgressResponse'
         '404':
           description: Session not found
-
-  /api/sessions/{sessionId}/results:
-    get:
-      summary: Get competition results
-      operationId: getCompetitionResults
-      tags: [Session]
-      parameters:
-        - name: sessionId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Competition results
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PlayerResultResponse'
 
   # ─────────────────────────────────────────────────────────────────────────────
   # SmartBox
@@ -2257,7 +2481,13 @@ components:
           nullable: true
         letter:
           type: string
-          description: Position letter label (A, B, C …) for display purposes
+          description: Position letter label (A, B, C …) for solo/raffale steps
+        letter1:
+          type: string
+          description: Primary position letter label for pair/a_schuss steps
+        letter2:
+          type: string
+          description: Secondary position letter label for pair/a_schuss steps
 
     # ───── Serie ──────────────────────────────────────────────────────────────
 
@@ -3275,6 +3505,29 @@ components:
 
     # ───── Session/Competition ──────────────────────────────────────────────────
 
+    SessionType:
+      type: string
+      enum: [COMPETITION, TRAINING]
+
+    SessionStatus:
+      type: string
+      enum: [SETUP, OPEN, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED]
+
+    PasseReference:
+      type: object
+      description: Passe embedded in a session, including the serien snapshot needed to run the competition.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        serien:
+          type: array
+          description: Serien snapshot at the time the Passe was created (immutable).
+          items:
+            $ref: '#/components/schemas/EmbeddedSerie'
+
     SessionResponse:
       type: object
       properties:
@@ -3283,17 +3536,20 @@ components:
           format: uuid
         name:
           type: string
-        description:
-          type: string
-          nullable: true
+        type:
+          $ref: '#/components/schemas/SessionType'
         status:
-          type: string
-          enum: [SETUP, ACTIVE, COMPLETED, CANCELLED]
-          description: Current session status
-        sessionType:
-          type: string
-          enum: [LEAGUE, BRACKET, KNOCKOUT]
-          description: Session competition type
+          $ref: '#/components/schemas/SessionStatus'
+        passen:
+          type: array
+          description: Ordered Passe references for this session (id + name only)
+          items:
+            $ref: '#/components/schemas/PasseReference'
+        groups:
+          type: array
+          description: Rotten with their members
+          items:
+            $ref: '#/components/schemas/GroupResponse'
         createdAt:
           type: string
           format: date-time
@@ -3308,18 +3564,52 @@ components:
 
     CreateSessionRequest:
       type: object
-      required: [name, sessionType]
+      required: [name, type, passen]
       properties:
         name:
           type: string
-          description: Session name
-        description:
+          minLength: 1
+        type:
+          $ref: '#/components/schemas/SessionType'
+        passen:
+          type: array
+          minItems: 1
+          description: >
+            Ordered Passen to associate with this session.
+            Each entry references a Passe by ID; the backend resolves the name at creation time.
+            serieIds optionally overrides the Passe's own ordering.
+          items:
+            type: object
+            required: [id]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+                description: Optional name hint; resolved from the Passe record if omitted
+              serieIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+                description: Explicit Serie ordering; Passe's own ordering is used if omitted
+        groups:
+          type: array
+          description: Optional initial Rotten to create
+          items:
+            $ref: '#/components/schemas/GroupCreateRequest'
+
+    UpdateSessionStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
           type: string
-          nullable: true
-        sessionType:
-          type: string
-          enum: [LEAGUE, BRACKET, KNOCKOUT]
-          description: Competition format
+          description: >
+            Target status (case-insensitive).
+            Allowed transitions: SETUP → OPEN, OPEN → ACTIVE,
+            ACTIVE → PRE_COMPLETE, ACTIVE → ABANDONED, PRE_COMPLETE → COMPLETED.
 
     SessionPageResponse:
       type: object
@@ -3356,12 +3646,20 @@ components:
       properties:
         name:
           type: string
-          description: Group name (e.g. Gruppe 1, Group A)
+          description: Group name (e.g. Rotte A)
         members:
           type: array
           description: Optional list of players to add to the group
           items:
             $ref: '#/components/schemas/SessionPlayerCreateRequest'
+
+    UpdateGroupRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
 
     SessionPlayerResponse:
       type: object
@@ -3378,6 +3676,10 @@ components:
           type: string
           format: uuid
           nullable: true
+        paid:
+          type: boolean
+          description: Whether this player has paid their entry fee
+          default: false
 
     SessionPlayerCreateRequest:
       type: object
@@ -3392,74 +3694,91 @@ components:
           type: string
           format: uuid
           nullable: true
+        paid:
+          type: boolean
+          default: false
 
-    InitializeBracketRequest:
+    PatchMemberRequest:
       type: object
-      required: [bracketType, seedingStrategy]
+      required: [paid]
       properties:
-        bracketType:
-          type: string
-          enum: [SINGLE_ELIMINATION, DOUBLE_ELIMINATION]
-          description: Bracket tournament type
-        seedingStrategy:
-          type: string
-          enum: [BY_REGISTRATION_ORDER, BY_SCORE_RANKING, BY_TIEBREAKER]
-          description: How to seed players
-        tiebreakers:
-          type: array
+        paid:
+          type: boolean
+
+    CompleteSerieRequest:
+      type: object
+      required: [results]
+      properties:
+        passeIndex:
+          type: integer
           nullable: true
+          description: Zero-based index of the Passe within the session
+        playInstanceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional reference to the PlayInstance that was executed for this Serie
+        results:
+          type: array
+          minItems: 1
+          description: Per-player results for this Serie run
           items:
-            type: string
-            enum: [TOTAL_SCORE, WIN_RATIO, HEADTOHEAD]
+            $ref: '#/components/schemas/PlayerResult'
 
-    SessionLeaderboardResponse:
+    SessionProgressResponse:
       type: object
       properties:
         sessionId:
           type: string
           format: uuid
-        standings:
+        groups:
           type: array
           items:
-            $ref: '#/components/schemas/LeaderboardEntry'
+            $ref: '#/components/schemas/GroupProgressResponse'
 
-    LeaderboardEntry:
+    GroupProgressResponse:
       type: object
       properties:
-        rank:
+        groupId:
+          type: string
+          format: uuid
+        groupName:
+          type: string
+        passenCompleted:
           type: integer
-        playerId:
-          type: string
-          format: uuid
-        displayName:
-          type: string
-        totalScore:
+          description: Number of Passen for which all Serien have been completed by this group
+        passenTotal:
           type: integer
-        maxScore:
-          type: integer
-        accuracy:
-          type: number
-          format: float
-          description: Percentage of successful shots
-
-    PlayerResultResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        playerId:
-          type: string
-          format: uuid
-        sessionId:
-          type: string
-          format: uuid
-        programResults:
-          type: string
-          description: JSON array of program results
-        createdAt:
-          type: string
-          format: date-time
+          description: Total number of Passen in this session
+        completions:
+          type: array
+          description: Per-Passe completion details
+          items:
+            type: object
+            properties:
+              passeIndex:
+                type: integer
+              passeName:
+                type: string
+              completed:
+                type: boolean
+              completedAt:
+                type: string
+                format: date-time
+                nullable: true
+        completedSerien:
+          type: array
+          description: >
+            Individual completed Serien for this group, finer-grained than the
+            per-Passe completions. Lets clients resume mid-Passe after a reload.
+          items:
+            type: object
+            properties:
+              passeIndex:
+                type: integer
+              serieId:
+                type: string
+                format: uuid
 
     UpdateUserRequest:
       type: object

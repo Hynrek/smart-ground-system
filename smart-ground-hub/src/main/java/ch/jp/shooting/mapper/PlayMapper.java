@@ -159,10 +159,12 @@ public final class PlayMapper {
             .posId2(r.posId2())
             .alias1(r.alias1())
             .alias2(r.alias2())
-            .letter(r.letter());
+            .letter(r.letter())
+            .letter1(r.letter1())
+            .letter2(r.letter2());
     }
 
-    private static EmbeddedSerie toEmbeddedSerie(EmbeddedSerieRecord r) {
+    public static EmbeddedSerie toEmbeddedSerie(EmbeddedSerieRecord r) {
         return new EmbeddedSerie()
             .id(r.id())
             .alias(r.alias())

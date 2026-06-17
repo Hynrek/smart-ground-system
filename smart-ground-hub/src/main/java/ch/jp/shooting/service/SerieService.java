@@ -100,7 +100,9 @@ public class SerieService {
                                 stringOrNull(step.getPosId2()),
                                 stringOrNull(step.getAlias1()),
                                 stringOrNull(step.getAlias2()),
-                                step.getLetter()
+                                step.getLetter(),
+                                step.getLetter1(),
+                                step.getLetter2()
                         ))
                         .toList()
         ));

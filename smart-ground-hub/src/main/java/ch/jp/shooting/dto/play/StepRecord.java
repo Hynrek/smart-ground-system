@@ -13,6 +13,10 @@ public record StepRecord(
     @Nullable String posId2,
     @Nullable String alias1,
     @Nullable String alias2,
-    /** Buchstabe der Schussposition (A, B, C …) für die Anzeige. */
-    @Nullable String letter
+    /** Buchstabe der Schussposition (A, B, C …) für Solo/Raffale-Schritte. */
+    @Nullable String letter,
+    /** Buchstabe der ersten Schussposition für Pair/a-Schuss-Schritte. */
+    @Nullable String letter1,
+    /** Buchstabe der zweiten Schussposition für Pair/a-Schuss-Schritte. */
+    @Nullable String letter2
 ) {}

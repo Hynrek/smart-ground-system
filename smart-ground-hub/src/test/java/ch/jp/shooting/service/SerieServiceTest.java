@@ -169,6 +169,29 @@ class SerieServiceTest {
     }
 
     @Test
+    void createSerie_pairStep_preservesLetter1AndLetter2RoundTrip() {
+        when(serieRepository.save(org.mockito.ArgumentMatchers.any(Serie.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
+
+        var pairStep = new ch.jp.smartground.model.Step()
+            .id("1")
+            .type(ch.jp.smartground.model.StepType.PAIR)
+            .posId1("p1").posId2("p2")
+            .alias1("Werfer 1").alias2("Werfer 2")
+            .letter1("A").letter2("B");
+        var request = new ch.jp.smartground.model.CreateSerieRequest()
+            .name("Pair Serie")
+            .steps(List.of(pairStep));
+
+        var response = serieService.createSerie(request);
+
+        // letter1/letter2 must survive the Step -> StepRecord(JSON) -> Step round-trip
+        assertThat(response.getSteps()).hasSize(1);
+        assertThat(response.getSteps().get(0).getLetter1()).isEqualTo("A");
+        assertThat(response.getSteps().get(0).getLetter2()).isEqualTo("B");
+    }
+
+    @Test
     void updateSeriePublished_userOwnedSerie_throws400() {
         var serie = new Serie();
         serie.setId(UUID.randomUUID());

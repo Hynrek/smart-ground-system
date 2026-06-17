@@ -64,11 +64,11 @@ public class Device {
     private boolean healthy = true;
 
     /** Anzahl Befehle, die vom Backend an dieses Gerät gesendet wurden. */
-    @Column(name = "commands_sent", nullable = false)
+    @Column(name = "commands_sent", nullable = false, columnDefinition = "integer not null default 0")
     private int commandsSent = 0;
 
     /** Anzahl Befehle, die vom Gerät erfolgreich ausgeführt und bestätigt wurden. */
-    @Column(name = "commands_processed", nullable = false)
+    @Column(name = "commands_processed", nullable = false, columnDefinition = "integer not null default 0")
     private int commandsProcessed = 0;
 
     /** Zeitstempel des letzten gesendeten Befehls. */
