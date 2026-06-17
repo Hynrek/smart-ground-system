@@ -1368,6 +1368,90 @@ paths:
           description: Illegal status transition
         '404':
           description: Session not found
+        '409':
+          description: Unresolved decisive ties (finish requires force=true)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnresolvedTiesError'
+
+  /api/sessions/{sessionId}/ties:
+    get:
+      summary: List tied blocks in the current standings
+      description: >
+        Returns every group of players sharing an identical total score, with any
+        Stechen rounds already run and whether the tie is resolved. Drives the admin
+        Stechen UI. Available while the session is PRE_COMPLETE.
+      operationId: getSessionTies
+      tags: [Session]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Tied blocks
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionTiesResponse' }
+        '404': { description: Session not found }
+
+  /api/sessions/{sessionId}/tiebreakers:
+    get:
+      summary: List all Stechen rounds for a session
+      operationId: listTiebreakers
+      tags: [Session]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Tiebreaker rounds
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TiebreakerResponse' }
+        '404': { description: Session not found }
+    post:
+      summary: Start a Stechen round for a tied block
+      description: Allowed only while the session is PRE_COMPLETE. Creates a restricted PlayInstance.
+      operationId: startTiebreaker
+      tags: [Session]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StartTiebreakerRequest' }
+      responses:
+        '201':
+          description: Stechen round created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TiebreakerResponse' }
+        '404': { description: Session not found }
+        '409': { description: Session not in PRE_COMPLETE, or invalid participants }
+
+  /api/sessions/{sessionId}/tiebreakers/{tiebreakerId}/results:
+    post:
+      summary: Submit or correct Stechen results for a round
+      operationId: submitTiebreakerResults
+      tags: [Session]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: tiebreakerId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SubmitTiebreakerResultsRequest' }
+      responses:
+        '200':
+          description: Results recorded; updated ties view returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionTiesResponse' }
+        '404': { description: Session or tiebreaker not found }
+        '409': { description: Round already completed }
 
   /api/sessions/{sessionId}/groups:
     get:
@@ -3610,6 +3694,89 @@ components:
             Target status (case-insensitive).
             Allowed transitions: SETUP → OPEN, OPEN → ACTIVE,
             ACTIVE → PRE_COMPLETE, ACTIVE → ABANDONED, PRE_COMPLETE → COMPLETED.
+        force: { type: boolean, description: When true, finishing proceeds despite unresolved decisive ties. }
+
+    StartTiebreakerRequest:
+      type: object
+      required: [playerIds, templateType, templateId]
+      properties:
+        playerIds:
+          type: array
+          items: { type: string, format: uuid }
+        templateType: { type: string, enum: [serie, passe] }
+        templateId: { type: string, format: uuid }
+        tiePosition: { type: integer, description: Standings position the tie is for (1 = first) }
+
+    SubmitTiebreakerResultsRequest:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/TiebreakerPlayerScore' }
+
+    TiebreakerPlayerScore:
+      type: object
+      required: [playerId, totalPoints, maxPoints]
+      properties:
+        playerId: { type: string, format: uuid }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+
+    TiebreakerResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        tieGroupId: { type: string, format: uuid }
+        roundNumber: { type: integer }
+        tiePosition: { type: integer }
+        status: { type: string, enum: [PENDING, ACTIVE, COMPLETED] }
+        templateType: { type: string }
+        templateId: { type: string, format: uuid }
+        templateName: { type: string }
+        playInstanceId: { type: string, format: uuid, nullable: true }
+        participants:
+          type: array
+          items: { $ref: '#/components/schemas/TiebreakerParticipant' }
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/TiebreakerPlayerScore' }
+
+    TiebreakerParticipant:
+      type: object
+      properties:
+        playerId: { type: string, format: uuid }
+        displayName: { type: string }
+
+    SessionTiesResponse:
+      type: object
+      properties:
+        sessionId: { type: string, format: uuid }
+        tiedBlocks:
+          type: array
+          items: { $ref: '#/components/schemas/TiedBlock' }
+
+    TiedBlock:
+      type: object
+      properties:
+        tiePosition: { type: integer }
+        sharedScore: { type: integer }
+        resolved: { type: boolean, description: true when Stechen has fully ordered the block }
+        players:
+          type: array
+          items: { $ref: '#/components/schemas/TiebreakerParticipant' }
+        rounds:
+          type: array
+          items: { $ref: '#/components/schemas/TiebreakerResponse' }
+
+    UnresolvedTiesError:
+      type: object
+      properties:
+        message: { type: string }
+        unresolvedTies:
+          type: array
+          items: { $ref: '#/components/schemas/TiedBlock' }
 
     SessionPageResponse:
       type: object
