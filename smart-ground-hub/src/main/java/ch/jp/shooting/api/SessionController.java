@@ -4,6 +4,7 @@ import ch.jp.shooting.service.CompetitionProgressService;
 import ch.jp.shooting.service.CompetitionService;
 import ch.jp.shooting.service.GroupService;
 import ch.jp.shooting.service.SessionService;
+import ch.jp.shooting.service.TiebreakerService;
 import ch.jp.smartground.api.SessionApi;
 import ch.jp.smartground.model.CompleteSerieRequest;
 import ch.jp.smartground.model.CreateSessionRequest;
@@ -15,6 +16,10 @@ import ch.jp.smartground.model.SessionPlayerCreateRequest;
 import ch.jp.smartground.model.SessionPlayerResponse;
 import ch.jp.smartground.model.SessionProgressResponse;
 import ch.jp.smartground.model.SessionResponse;
+import ch.jp.smartground.model.SessionTiesResponse;
+import ch.jp.smartground.model.StartTiebreakerRequest;
+import ch.jp.smartground.model.SubmitTiebreakerResultsRequest;
+import ch.jp.smartground.model.TiebreakerResponse;
 import ch.jp.smartground.model.UpdateGroupRequest;
 import ch.jp.smartground.model.UpdateSessionStatusRequest;
 import org.jspecify.annotations.NullMarked;
@@ -32,16 +37,19 @@ public class SessionController implements SessionApi {
     private final GroupService groupService;
     private final CompetitionProgressService progressService;
     private final CompetitionService competitionService;
+    private final TiebreakerService tiebreakerService;
 
     public SessionController(
             SessionService sessionService,
             GroupService groupService,
             CompetitionProgressService progressService,
-            CompetitionService competitionService) {
+            CompetitionService competitionService,
+            TiebreakerService tiebreakerService) {
         this.sessionService = sessionService;
         this.groupService = groupService;
         this.progressService = progressService;
         this.competitionService = competitionService;
+        this.tiebreakerService = tiebreakerService;
     }
 
     @Override
@@ -139,6 +147,56 @@ public class SessionController implements SessionApi {
     public ResponseEntity<SessionProgressResponse> getSessionProgress(UUID sessionId) {
         try {
             return ResponseEntity.ok(progressService.getProgress(sessionId));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // ── Stechen (Tiebreaker) ──
+
+    @Override
+    public ResponseEntity<SessionTiesResponse> getSessionTies(UUID sessionId) {
+        try {
+            return ResponseEntity.ok(tiebreakerService.listTies(sessionId));
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public ResponseEntity<List<TiebreakerResponse>> listTiebreakers(UUID sessionId) {
+        try {
+            return ResponseEntity.ok(tiebreakerService.listTiebreakers(sessionId));
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public ResponseEntity<TiebreakerResponse> startTiebreaker(
+            UUID sessionId, StartTiebreakerRequest startTiebreakerRequest) {
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(tiebreakerService.startTiebreaker(sessionId, startTiebreakerRequest));
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public ResponseEntity<SessionTiesResponse> submitTiebreakerResults(
+            UUID sessionId, UUID tiebreakerId, SubmitTiebreakerResultsRequest submitTiebreakerResultsRequest) {
+        try {
+            return ResponseEntity.ok(
+                    tiebreakerService.submitResults(sessionId, tiebreakerId, submitTiebreakerResultsRequest));
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

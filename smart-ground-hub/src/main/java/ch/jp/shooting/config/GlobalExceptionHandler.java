@@ -141,6 +141,15 @@ public class GlobalExceptionHandler {
         return detail;
     }
 
+    @ExceptionHandler(UnresolvedTiesException.class)
+    org.springframework.http.ResponseEntity<ch.jp.smartground.model.UnresolvedTiesError> handleUnresolvedTies(
+            UnresolvedTiesException ex) {
+        var body = new ch.jp.smartground.model.UnresolvedTiesError()
+                .message(ex.getMessage())
+                .unresolvedTies(ex.getUnresolvedTies());
+        return org.springframework.http.ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     // ── Authentication Exceptions ──
 
     @ExceptionHandler(AuthenticationException.class)

@@ -33,6 +33,7 @@ public class SessionService {
     private final UserRepository userRepository;
     private final PasseRepository passeRepository;
     private final ObjectMapper objectMapper;
+    private final TiebreakerService tiebreakerService;
 
     public SessionService(
             LiveSessionRepository sessionRepository,
@@ -42,7 +43,8 @@ public class SessionService {
             SessionTemplateRepository templateRepository,
             UserRepository userRepository,
             PasseRepository passeRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            TiebreakerService tiebreakerService) {
         this.sessionRepository = sessionRepository;
         this.groupRepository = groupRepository;
         this.playerRepository = playerRepository;
@@ -51,6 +53,7 @@ public class SessionService {
         this.userRepository = userRepository;
         this.passeRepository = passeRepository;
         this.objectMapper = objectMapper;
+        this.tiebreakerService = tiebreakerService;
     }
 
     /**
@@ -507,6 +510,19 @@ public class SessionService {
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
         SessionStatus newStatus = SessionStatus.valueOf(req.getStatus().toUpperCase());
         validateStatusTransition(session.getStatus(), newStatus);
+
+        // Finish-Guard: PRE_COMPLETE → COMPLETED nur erlauben, wenn keine entscheidenden
+        // (Stechen-Position 1) Gleichstände offen sind — es sei denn force=true erzwingt es.
+        if (session.getStatus() == SessionStatus.PRE_COMPLETE && newStatus == SessionStatus.COMPLETED) {
+            boolean force = Boolean.TRUE.equals(req.getForce());
+            if (!force) {
+                List<ch.jp.smartground.model.TiedBlock> unresolved = decisiveUnresolvedTies(sessionId);
+                if (!unresolved.isEmpty()) {
+                    throw new ch.jp.shooting.exception.UnresolvedTiesException(unresolved);
+                }
+            }
+        }
+
         session.setStatus(newStatus);
         if (newStatus == SessionStatus.ACTIVE) {
             session.setStartedAt(Instant.now());
@@ -515,6 +531,25 @@ public class SessionService {
         }
         session = sessionRepository.save(session);
         return mapToApiSessionResponse(session);
+    }
+
+    /**
+     * Ermittelt offene entscheidende Gleichstände (Stechen-Position 1, nicht aufgelöst).
+     * Nur diese blockieren den Abschluss ohne force.
+     */
+    private List<ch.jp.smartground.model.TiedBlock> decisiveUnresolvedTies(UUID sessionId) {
+        ch.jp.smartground.model.SessionTiesResponse ties;
+        try {
+            ties = tiebreakerService.listTies(sessionId);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        List<ch.jp.smartground.model.TiedBlock> blocks =
+                ties.getTiedBlocks() != null ? ties.getTiedBlocks() : List.of();
+        return blocks.stream()
+                .filter(b -> Integer.valueOf(1).equals(b.getTiePosition())
+                        && !Boolean.TRUE.equals(b.getResolved()))
+                .collect(Collectors.toList());
     }
 
     public ch.jp.smartground.model.GroupResponse updateGroupApi(
