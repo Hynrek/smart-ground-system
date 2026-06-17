@@ -371,7 +371,9 @@ const globalSerien = computed(() => {
     }));
 });
 
-const competitionSerien = computed(() => competitionEventStore.getActiveCompetitionRotten());
+const competitionSerien = computed(() =>
+  competitionEventStore.getActiveCompetitionRotten(currentRangeId.value),
+);
 
 const trainingBlocks = computed(() =>
   activePasseStore.getBlocksForRange(currentRangeId.value)

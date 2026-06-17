@@ -318,7 +318,11 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
 
   // ── Runtime: queries ──────────────────────────────────────────────────────
 
-  const getActiveCompetitionRotten = () => {
+  // When a rangeId is given, a Wettkampf-Passe is locked to its range: only the
+  // Serien bound to that range surface there (the same way training/Passen blocks
+  // are range-scoped via getBlocksForRange). Omitting rangeId returns every open
+  // Serie regardless of range.
+  const getActiveCompetitionRotten = (rangeId = null) => {
     const result = []
     for (const inst of competitionInstances.value) {
       for (const rotte of (inst.rotten ?? [])) {
@@ -326,8 +330,10 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
         const phase = rotte.phases[rotte.currentPhaseIndex]
         if (!phase) continue
         // Only surface Serien that still need shooting — completed ones must not
-        // reappear in the flyout.
-        const blocks = phase.blocks.filter(b => b.status !== 'done')
+        // reappear in the flyout — and, when scoped, only those on this range.
+        const blocks = phase.blocks.filter(
+          b => b.status !== 'done' && (rangeId == null || b.rangeId === rangeId),
+        )
         if (blocks.length === 0) continue
         result.push({
           instanceId: inst.instanceId,

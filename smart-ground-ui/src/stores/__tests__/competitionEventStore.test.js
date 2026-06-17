@@ -236,4 +236,46 @@ describe('useCompetitionEventStore', () => {
     }]
     expect(store.getActiveCompetitionRotten()).toHaveLength(0)
   })
+
+  it('getActiveCompetitionRotten locks a Wettkampf-Passe to its range when a rangeId is given', () => {
+    const store = useCompetitionEventStore()
+    store.competitionInstances = [{
+      instanceId: 'i1', sessionId: 'i1', templateName: 'X',
+      rotten: [{
+        rotteId: 'g1', name: 'Rotte A', players: [], status: 'active', currentPhaseIndex: 0,
+        phases: [{
+          phaseIndex: 0, passeName: 'Passe 1', status: 'active', blocks: [
+            { blockId: 'b1', serieId: 'se1', rangeId: 'r1', status: 'pending' },
+            { blockId: 'b2', serieId: 'se2', rangeId: 'r2', status: 'pending' },
+          ],
+        }],
+      }],
+    }]
+    // On r1 only the r1-bound Serie surfaces…
+    const onR1 = store.getActiveCompetitionRotten('r1')
+    expect(onR1).toHaveLength(1)
+    expect(onR1[0].blocks.map(b => b.blockId)).toEqual(['b1'])
+    // …on r2 only the r2-bound Serie…
+    const onR2 = store.getActiveCompetitionRotten('r2')
+    expect(onR2[0].blocks.map(b => b.blockId)).toEqual(['b2'])
+    // …and a range with no bound Serien shows nothing.
+    expect(store.getActiveCompetitionRotten('r3')).toHaveLength(0)
+  })
+
+  it('getActiveCompetitionRotten without a rangeId still returns all open Serien', () => {
+    const store = useCompetitionEventStore()
+    store.competitionInstances = [{
+      instanceId: 'i1', sessionId: 'i1', templateName: 'X',
+      rotten: [{
+        rotteId: 'g1', name: 'Rotte A', players: [], status: 'active', currentPhaseIndex: 0,
+        phases: [{
+          phaseIndex: 0, passeName: 'Passe 1', status: 'active', blocks: [
+            { blockId: 'b1', serieId: 'se1', rangeId: 'r1', status: 'pending' },
+            { blockId: 'b2', serieId: 'se2', rangeId: 'r2', status: 'pending' },
+          ],
+        }],
+      }],
+    }]
+    expect(store.getActiveCompetitionRotten()[0].blocks.map(b => b.blockId)).toEqual(['b1', 'b2'])
+  })
 })
