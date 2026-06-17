@@ -315,6 +315,20 @@
         :class="getDotClass(flatIdx)"
       />
     </div>
+
+    <!-- Next-shooter overlay -->
+    <Transition name="next-shooter-fade">
+      <div v-if="showNextShooterOverlay" class="next-shooter-overlay">
+        <div class="next-shooter-card">
+          <span class="next-shooter-label">Nächster Schütze</span>
+          <span class="next-shooter-name">{{ store.nextPlayer?.displayName }}</span>
+          <span class="next-shooter-hint">Bitte schießbereit machen</span>
+          <button class="next-shooter-start-btn" @click="confirmNextShooter">
+            Starten →
+          </button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -335,6 +349,14 @@ const props = defineProps({
 const store = usePlaySessionStore();
 const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
+
+// ── Next-shooter overlay ──────────────────────────────────────────────────────
+const showNextShooterOverlay = ref(false);
+
+const confirmNextShooter = () => {
+  showNextShooterOverlay.value = false;
+  store.advanceToNextPlayer();
+};
 
 // ── Correction picker ─────────────────────────────────────────────────────────
 const correctionTarget = ref(null);
@@ -651,7 +673,9 @@ const handleNextStepClick = () => {
 };
 
 const handlePlayerComplete = () => {
-  if (store.isMultiPlayer) {
+  if (store.isMultiPlayer && store.nextPlayer) {
+    showNextShooterOverlay.value = true;
+  } else if (store.isMultiPlayer) {
     store.advanceToNextPlayer();
   } else {
     store.confirmComplete();
@@ -1603,5 +1627,79 @@ watch(
   gap: 16px;
   max-height: 80vh;
   overflow-y: auto;
+}
+
+/* ── Next-shooter overlay ──────────────────────────────── */
+.next-shooter-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 18, 0.97);
+  backdrop-filter: blur(24px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.next-shooter-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 32px;
+  text-align: center;
+}
+
+.next-shooter-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.next-shooter-name {
+  font-size: 36px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.15;
+}
+
+.next-shooter-hint {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.next-shooter-start-btn {
+  margin-top: 16px;
+  padding: 14px 40px;
+  background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 35%, transparent);
+  border-radius: 14px;
+  color: var(--sg-accent);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.next-shooter-start-btn:hover {
+  background: color-mix(in srgb, var(--sg-accent) 28%, transparent);
+}
+
+.next-shooter-start-btn:active {
+  transform: scale(0.97);
+}
+
+.next-shooter-fade-enter-active,
+.next-shooter-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.next-shooter-fade-enter-from,
+.next-shooter-fade-leave-to {
+  opacity: 0;
+  transform: translateY(12px);
 }
 </style>
