@@ -207,6 +207,19 @@ Created when a user starts running a Passe or Training:
 - `BY_SCORE_RANKING` — seed by previous scores (tiebreaker-aware)
 - `BY_TIEBREAKER` — custom tiebreakers: TOTAL_SCORE, WIN_RATIO, HEADTOHEAD
 
+### Stechen (Tiebreaker)
+
+When players share a main score, a **Stechen** (shoot-off) breaks the tie. The `CompetitionTiebreaker` entity (table `competition_tiebreakers`) records each shoot-off round as a live Passe run.
+
+- **Results never touch `PlayerResult`.** Stechen scores only *order* a tied block; main competition points stay untouched. Results are stored in `CompetitionTiebreaker.resultsJson`, not in `PlayerResult`.
+- **`tieGroupId` + round resolution.** Each tie group carries a `tieGroupId`; multiple rounds (`roundNumber`) can stack under it. `TieResolver` resolves a block by the **earliest decisive round** — the first round whose scores fully separate the tied players wins the ordering.
+- **4 endpoints on `SessionApi`** (implemented in `SessionController`, delegating to `TiebreakerService`):
+  - `GET /api/sessions/{id}/ties` → `getSessionTies` — list tied blocks + their rounds
+  - `GET /api/sessions/{id}/tiebreakers` → `listTiebreakers` — list all shoot-off rounds
+  - `POST /api/sessions/{id}/tiebreakers` → `startTiebreaker` (201) — start a new round (only in `PRE_COMPLETE`, Passe templates only)
+  - `POST /api/sessions/{id}/tiebreakers/{tiebreakerId}/results` → `submitTiebreakerResults` — record/correct round results
+- **Warn-don't-block finish guard.** `SessionService.patchSessionStatus` on `PRE_COMPLETE → COMPLETED` checks for *decisive* unresolved ties (tie-position 1, not yet resolved). If any exist and `force != true`, it throws `UnresolvedTiesException` → **HTTP 409** with an `UnresolvedTiesError` body (`message` + `unresolvedTies[]`). Sending `force=true` in `UpdateSessionStatusRequest` overrides the guard and finishes the session. Non-decisive ties never block.
+
 ---
 
 ## Domain: Range & Reservations
@@ -463,8 +476,12 @@ All exceptions are mapped in `GlobalExceptionHandler` and return `ProblemDetail`
 | `RangeHasDevicesException` | 409 | `/errors/range-has-devices` |
 | `ConflictException` | 409 | `/errors/conflict` |
 | `ForbiddenException` | 403 | `/errors/forbidden` |
+| `TiebreakerNotFoundException` | 404 | `/errors/tiebreaker-not-found` |
+| `InvalidTiebreakerStateException` | 409 | `/errors/invalid-tiebreaker-state` |
 
 When adding a new exception: create it in `ch.jp.shooting.exception`, register it in `GlobalExceptionHandler` with a `/errors/{slug}` type URI.
+
+> **Exception:** `UnresolvedTiesException` (PRE_COMPLETE finish guard) does **not** return a `ProblemDetail` — it returns the generated `UnresolvedTiesError` body (`message` + `unresolvedTies[]`) with HTTP 409, because the OpenAPI 409 schema for the finish endpoint is `UnresolvedTiesError`.
 
 ---
 
