@@ -17,10 +17,10 @@ export const listSessions = (type, status) => {
 
 export const getSession = (id) => apiFetch(`/sessions/${id}`)
 
-export const patchStatus = (id, status) =>
+export const patchStatus = (id, status, extra = {}) =>
   apiFetch(`/sessions/${id}/status`, {
     method: 'PATCH',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, ...extra }),
   })
 
 export const deleteSession = (id) =>
