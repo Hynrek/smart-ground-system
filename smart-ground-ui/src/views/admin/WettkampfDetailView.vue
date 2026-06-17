@@ -167,9 +167,52 @@
       </div>
     </template>
 
-    <!-- ══ ACTIVE / PRE_COMPLETE ══ -->
-    <template v-else-if="['ACTIVE', 'PRE_COMPLETE'].includes(event.status?.toUpperCase())">
+    <!-- ══ ACTIVE ══ -->
+    <template v-else-if="event.status?.toUpperCase() === 'ACTIVE'">
       <ActiveCompetitionPanel :event="event" @stop="handleStop" />
+    </template>
+
+    <!-- ══ PRE_COMPLETE (Auswertung + Stechen) ══ -->
+    <template v-else-if="event.status?.toUpperCase() === 'PRE_COMPLETE'">
+      <div class="content">
+        <ActiveCompetitionPanel :event="event" :tied-blocks="tiedBlocks" @stop="handleStop" />
+
+        <StechenPanel :session-id="eventId" />
+
+        <div class="start-section">
+          <div class="payment-total">
+            {{ unresolvedTieBlocks.length > 0
+              ? `${unresolvedTieBlocks.length} offene Gleichstände`
+              : 'Keine offenen Gleichstände' }}
+          </div>
+          <button class="start-btn" :disabled="finishing" @click="handleFinish">
+            <Icons icon="play" :size="15" color="#fff" />
+            Wettkampf abschliessen
+          </button>
+        </div>
+      </div>
+
+      <!-- Finish-guard dialog: unresolved decisive ties -->
+      <div v-if="showFinishGuard" class="modal-overlay" @click.self="cancelFinish">
+        <div class="warning-modal" role="dialog" aria-modal="true" aria-labelledby="finish-guard-title">
+          <h3 id="finish-guard-title" class="modal-title">Ungelöste Gleichstände</h3>
+          <p class="modal-desc">
+            Es gibt noch ungelöste Gleichstände auf den vordersten Plätzen.
+          </p>
+          <ul class="unpaid-list">
+            <li v-for="block in finishGuardTies" :key="block.tiePosition">
+              Platz {{ block.tiePosition }} —
+              {{ (block.players ?? []).map(p => p.displayName).join(', ') }}
+            </li>
+          </ul>
+          <div class="modal-actions">
+            <button class="action-btn action-btn--cancel" @click="cancelFinish">Zurück</button>
+            <button class="action-btn action-btn--start" :disabled="finishing" @click="forceFinish">
+              Trotzdem abschliessen
+            </button>
+          </div>
+        </div>
+      </div>
     </template>
 
     <!-- ══ COMPLETED ══ -->
@@ -188,8 +231,9 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 import { useUserStore } from '@/stores/userStore.js'
 import { usePasseStore } from '@/stores/passeStore.js'
@@ -198,6 +242,7 @@ import RotteEditorCard from '@/components/competition/RotteEditorCard.vue'
 import PassePickerDropdown from '@/components/competition/PassePickerDropdown.vue'
 import ActiveCompetitionPanel from '@/components/competition/ActiveCompetitionPanel.vue'
 import CompletedResultsPanel from '@/components/competition/CompletedResultsPanel.vue'
+import StechenPanel from '@/components/competition/StechenPanel.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
@@ -318,6 +363,64 @@ const handleStop = async () => {
     await store.stopEvent(eventId.value)
     router.push('/admin/wettkampf?tab=active')
   }
+}
+
+// ── Stechen (tiebreaker) ─────────────────────────────────────────────────────
+const { tiesBySession } = storeToRefs(store)
+
+const tiedBlocks = computed(() => tiesBySession.value[eventId.value]?.tiedBlocks ?? [])
+const unresolvedTieBlocks = computed(() => tiedBlocks.value.filter(b => !b.resolved))
+
+const isPreComplete = computed(() => event.value?.status?.toUpperCase() === 'PRE_COMPLETE')
+
+// Load ties whenever this view is showing a PRE_COMPLETE competition. Re-runs if
+// the session reaches PRE_COMPLETE while the view is mounted.
+watch(isPreComplete, (pre) => {
+  if (pre) store.loadTies(eventId.value).catch(e => console.error('[WettkampfDetailView] loadTies failed:', e))
+}, { immediate: true })
+
+// ── Finish guard ─────────────────────────────────────────────────────────────
+const finishing = ref(false)
+const showFinishGuard = ref(false)
+const finishGuardTies = ref([])
+
+const handleFinish = async () => {
+  if (finishing.value) return
+  finishing.value = true
+  try {
+    const res = await store.finishEvent(eventId.value, false)
+    if (res.completed) {
+      router.push('/admin/wettkampf?tab=active')
+    } else {
+      finishGuardTies.value = res.unresolvedTies ?? []
+      showFinishGuard.value = true
+    }
+  } catch (e) {
+    console.error('[WettkampfDetailView] finish failed:', e)
+  } finally {
+    finishing.value = false
+  }
+}
+
+const forceFinish = async () => {
+  if (finishing.value) return
+  finishing.value = true
+  try {
+    const res = await store.finishEvent(eventId.value, true)
+    if (res.completed) {
+      showFinishGuard.value = false
+      router.push('/admin/wettkampf?tab=active')
+    }
+  } catch (e) {
+    console.error('[WettkampfDetailView] force finish failed:', e)
+  } finally {
+    finishing.value = false
+  }
+}
+
+const cancelFinish = () => {
+  showFinishGuard.value = false
+  finishGuardTies.value = []
 }
 
 onMounted(async () => {

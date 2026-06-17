@@ -69,7 +69,7 @@
       >
         <div class="rotte-ov-header">
           <span class="rotte-ov-name">{{ rotte.name }}</span>
-          <span class="rotte-ov-passe" v-if="rotte.currentPasse">{{ rotte.currentPasse }}</span>
+          <span v-if="rotte.currentPasse" class="rotte-ov-passe">{{ rotte.currentPasse }}</span>
           <span class="rotte-ov-chip" :class="`chip-${rotte.status}`">{{ rotteStatusLabel(rotte.status) }}</span>
         </div>
         <div class="rotte-ov-members">
@@ -115,6 +115,7 @@
       >
         <span class="rank">{{ i + 1 }}</span>
         <span class="player-name">{{ entry.displayName }}</span>
+        <span v-if="tiedPlayerIds.has(entry.playerId)" class="tie-flag">Gleichstand</span>
         <span class="score">{{ entry.totalPoints }} / {{ entry.maxPoints }}</span>
       </div>
       <div v-if="leaderboard.length === 0" class="empty-state">Noch keine Ergebnisse</div>
@@ -129,8 +130,22 @@ import Icons from '@/components/Icons.vue'
 import { usePasseStore } from '@/stores/passeStore.js'
 import { getProgress, getLeaderboard } from '@/services/wettkampfApi.js'
 
-const props = defineProps({ event: { type: Object, required: true } })
+const props = defineProps({
+  event: { type: Object, required: true },
+  // Tied blocks from the Stechen ties view; used to flag tied rows in the leaderboard.
+  tiedBlocks: { type: Array, default: () => [] },
+})
 const emit = defineEmits(['stop'])
+
+// Set of player ids that share a rank in an unresolved tied block.
+const tiedPlayerIds = computed(() => {
+  const ids = new Set()
+  for (const block of props.tiedBlocks) {
+    if (block.resolved) continue
+    for (const player of block.players ?? []) ids.add(player.playerId)
+  }
+  return ids
+})
 
 const passeStore = usePasseStore()
 const activeTab = ref('rotten')
@@ -525,6 +540,16 @@ const rotteStatusLabel = (status) => ({ active: 'Aktiv', done: 'Fertig', paused:
   color: var(--sg-brand);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tie-flag {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--sg-color-warning-bg);
+  color: var(--sg-color-warning-text);
   white-space: nowrap;
 }
 
