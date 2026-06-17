@@ -127,6 +127,20 @@ public class GlobalExceptionHandler {
         return detail;
     }
 
+    @ExceptionHandler(TiebreakerNotFoundException.class)
+    ProblemDetail handleTiebreakerNotFound(TiebreakerNotFoundException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        detail.setType(URI.create("/errors/tiebreaker-not-found"));
+        return detail;
+    }
+
+    @ExceptionHandler(InvalidTiebreakerStateException.class)
+    ProblemDetail handleInvalidTiebreakerState(InvalidTiebreakerStateException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        detail.setType(URI.create("/errors/invalid-tiebreaker-state"));
+        return detail;
+    }
+
     // ── Authentication Exceptions ──
 
     @ExceptionHandler(AuthenticationException.class)
