@@ -5,7 +5,7 @@
     <!-- Header -->
     <div class="view-header">
       <div class="header-left">
-        <button class="back-btn" @click="router.push('/admin/wettkampf')">
+        <button class="back-btn" @click="router.push('/admin/wettkampf?tab=active')">
           <Icons icon="chevronLeft" :size="16" color="var(--sg-text-muted)" />
           Zurück
         </button>
@@ -191,7 +191,6 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
-import { useActivePasseStore } from '@/stores/activePasseStore.js'
 import { useUserStore } from '@/stores/userStore.js'
 import { usePasseStore } from '@/stores/passeStore.js'
 import Icons from '@/components/Icons.vue'
@@ -203,7 +202,6 @@ import CompletedResultsPanel from '@/components/competition/CompletedResultsPane
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
 const store = useCompetitionEventStore()
-const activePasseStore = useActivePasseStore()
 const userStore = useUserStore()
 
 const eventId = computed(() => props.id)
@@ -315,9 +313,10 @@ const confirmStart = () => {
 }
 
 // ── Stop ───────────────────────────────────────────────────────────────────
-const handleStop = () => {
-  if (confirm('Wettkampf wirklich abbrechen?')) {
-    store.stopEvent(eventId.value)
+const handleStop = async () => {
+  if (confirm('Wettkampf wirklich abbrechen? Der Wettkampf wird gelöscht.')) {
+    await store.stopEvent(eventId.value)
+    router.push('/admin/wettkampf?tab=active')
   }
 }
 

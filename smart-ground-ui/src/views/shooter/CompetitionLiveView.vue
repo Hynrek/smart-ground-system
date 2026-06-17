@@ -54,7 +54,7 @@ import { useRouter } from 'vue-router'
 import Icons from '@/components/Icons.vue'
 import RangePanelCard from '@/components/competition/RangePanelCard.vue'
 import LocalScoreboard from '@/components/competition/LocalScoreboard.vue'
-import { useActivePasseStore } from '@/stores/activePasseStore.js'
+import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 import { useRangeStore } from '@/stores/rangeStore.js'
 
 const props = defineProps({
@@ -65,12 +65,12 @@ const props = defineProps({
 })
 
 const router = useRouter()
-const activePasseStore = useActivePasseStore()
+const competitionEventStore = useCompetitionEventStore()
 const rangeStore = useRangeStore()
 
 // ── Computed: current competition instance ────────────────────────────────
 const instance = computed(() =>
-  activePasseStore.activeInstances.find((i) => i.instanceId === props.instanceId) ?? null,
+  props.instanceId ? competitionEventStore.getCompetitionInstance(props.instanceId) : null,
 )
 
 // ── Redirect if instance disappears ──────────────────────────────────────
@@ -99,7 +99,7 @@ function goBack() {
 function handleStop() {
   if (!props.instanceId) return
   if (confirm('Wettkampf wirklich beenden?')) {
-    activePasseStore.stopCompetition(props.instanceId)
+    competitionEventStore.stopCompetition(props.instanceId)
     router.push('/wettkampf')
   }
 }

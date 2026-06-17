@@ -1,10 +1,9 @@
-// src/stores/activePasseStore.js
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import * as playInstanceApi from '@/services/playInstanceApi.js'
 
 export const useActivePasseStore = defineStore('activePasse', () => {
-  const activeInstances = ref([])
+  const activeInstances    = ref([])
   const completedInstances = ref([])
 
   // ── Instance loading ──────────────────────────────────────────────────────
@@ -45,19 +44,7 @@ export const useActivePasseStore = defineStore('activePasse', () => {
 
   // ── Block lifecycle ───────────────────────────────────────────────────────
 
-  const markBlockInProgress = async (instanceId, blockId, rotteId) => {
-    const inst = activeInstances.value.find((i) => i.instanceId === instanceId)
-    if (!inst) return
-
-    if (inst.type === 'competition') {
-      // Competition blocks are managed in-memory only
-      const rotte = inst.rotten?.find((r) => r.rotteId === rotteId)
-      const phase = rotte?.phases[rotte.currentPhaseIndex]
-      const block = phase?.blocks.find((b) => b.blockId === blockId)
-      if (block && block.status === 'pending') block.status = 'in_progress'
-      return
-    }
-
+  const markBlockInProgress = async (instanceId, blockId) => {
     try {
       const updated = await playInstanceApi.startBlock(instanceId, blockId)
       _mergeInstance(updated)
@@ -66,18 +53,7 @@ export const useActivePasseStore = defineStore('activePasse', () => {
     }
   }
 
-  const markBlockDone = async (instanceId, blockId, playerResults, rotteId) => {
-    const inst = activeInstances.value.find((i) => i.instanceId === instanceId)
-    if (!inst) return
-
-    if (inst.type === 'competition') {
-      const { completeSerie } = await import('@/services/wettkampfApi.js')
-      const passeIndex = inst.rotten?.find((r) => r.rotteId === rotteId)?.currentPhaseIndex ?? 0
-      await completeSerie(inst.sessionId, rotteId, blockId, passeIndex, null, playerResults).catch(console.error)
-      _completeCompetitionBlock(inst, blockId, playerResults, rotteId)
-      return
-    }
-
+  const markBlockDone = async (instanceId, blockId, playerResults) => {
     try {
       const updated = await playInstanceApi.completeBlock(instanceId, blockId, playerResults)
       _mergeInstance(updated)
@@ -91,46 +67,12 @@ export const useActivePasseStore = defineStore('activePasse', () => {
   }
 
   const stopInstance = async (instanceId) => {
-    const inst = activeInstances.value.find((i) => i.instanceId === instanceId)
-    if (inst?.type === 'competition') {
-      activeInstances.value = activeInstances.value.filter((i) => i.instanceId !== instanceId)
-      return
-    }
     try {
       await playInstanceApi.stopPlayInstance(instanceId)
     } catch (e) {
       console.error('Failed to stop play instance:', e)
     }
     activeInstances.value = activeInstances.value.filter((i) => i.instanceId !== instanceId)
-  }
-
-  const stopCompetition = async (instanceId) => {
-    const inst = activeInstances.value.find((i) => i.instanceId === instanceId)
-    if (inst?.type === 'competition' && inst.sessionId) {
-      const { patchStatus } = await import('@/services/wettkampfApi.js')
-      await patchStatus(inst.sessionId, 'abandoned').catch(console.error)
-    }
-    activeInstances.value = activeInstances.value.filter((i) => i.instanceId !== instanceId)
-  }
-
-  // ── Competition-specific (in-memory only) ─────────────────────────────────
-
-  const assignRotteToRange = (instanceId, rotteId, rangeId) => {
-    const inst = activeInstances.value.find((i) => i.instanceId === instanceId)
-    if (!inst || inst.type !== 'competition') return
-    const rotte = inst.rotten.find((r) => r.rotteId === rotteId)
-    if (!rotte) return
-    rotte.assignedRangeId = rangeId
-    rotte.status = 'active'
-  }
-
-  const unassignRotte = (instanceId, rotteId) => {
-    const inst = activeInstances.value.find((i) => i.instanceId === instanceId)
-    if (!inst || inst.type !== 'competition') return
-    const rotte = inst.rotten.find((r) => r.rotteId === rotteId)
-    if (!rotte) return
-    rotte.assignedRangeId = null
-    rotte.status = 'paused'
   }
 
   // ── Queries ───────────────────────────────────────────────────────────────
@@ -145,38 +87,13 @@ export const useActivePasseStore = defineStore('activePasse', () => {
             result.push({ ...block, instanceId: inst.instanceId, templateName: inst.templateName, players: inst.players, instanceType: 'training' })
           }
         }
-      } else if (inst.type === 'competition') {
-        for (const rotte of (inst.rotten ?? [])) {
-          if (rotte.assignedRangeId !== rangeId || rotte.status !== 'active') continue
-          const phase = rotte.phases[rotte.currentPhaseIndex]
-          if (!phase) continue
-          for (const block of phase.blocks) {
-            if (block.rangeId === rangeId && block.status !== 'done') {
-              result.push({ ...block, instanceId: inst.instanceId, templateName: inst.templateName, players: rotte.players, instanceType: 'competition', rotteName: rotte.name, rotteId: rotte.rotteId })
-            }
-          }
-        }
       } else {
-        // Passe instance — blocks are at the top level
+        // Passe instance — blocks at top level
         for (const block of (inst.blocks ?? [])) {
           if (block.rangeId === rangeId && block.status !== 'done') {
             result.push({ ...block, instanceId: inst.instanceId, templateName: inst.templateName, players: inst.players, instanceType: 'passe' })
           }
         }
-      }
-    }
-    return result
-  }
-
-  const getActiveCompetitionRotten = () => {
-    const result = []
-    for (const inst of activeInstances.value) {
-      if (inst.type !== 'competition') continue
-      for (const rotte of (inst.rotten ?? [])) {
-        if (rotte.status === 'done') continue
-        const phase = rotte.phases[rotte.currentPhaseIndex]
-        if (!phase) continue
-        result.push({ instanceId: inst.instanceId, instanceName: inst.templateName, rotteId: rotte.rotteId, rotteName: rotte.name, passeName: phase.passeName, players: rotte.players, blocks: phase.blocks })
       }
     }
     return result
@@ -193,33 +110,6 @@ export const useActivePasseStore = defineStore('activePasse', () => {
     activeInstances.value[idx] = updated
   }
 
-  function _completeCompetitionBlock(inst, blockId, playerResults, rotteId) {
-    const rotte = inst.rotten?.find((r) => r.rotteId === rotteId)
-    if (!rotte) return
-    const phase = rotte.phases[rotte.currentPhaseIndex]
-    if (!phase) return
-    const block = phase.blocks.find((b) => b.blockId === blockId)
-    if (!block) return
-    block.status = 'done'
-    block.completedAt = Date.now()
-    block.result = { playerResults }
-
-    if (phase.blocks.every((b) => b.status === 'done')) {
-      phase.status = 'done'
-      const nextIndex = rotte.currentPhaseIndex + 1
-      if (nextIndex < rotte.phases.length) {
-        rotte.currentPhaseIndex = nextIndex
-        rotte.phases[nextIndex].status = 'active'
-      } else {
-        rotte.status = 'done'
-        if (inst.rotten.every((r) => r.status === 'done')) {
-          completedInstances.value.push({ ...inst, completedAt: Date.now() })
-          activeInstances.value = activeInstances.value.filter((i) => i.instanceId !== inst.instanceId)
-        }
-      }
-    }
-  }
-
   return {
     activeInstances,
     completedInstances,
@@ -227,12 +117,8 @@ export const useActivePasseStore = defineStore('activePasse', () => {
     startPasse,
     startTraining,
     getBlocksForRange,
-    getActiveCompetitionRotten,
     markBlockInProgress,
     markBlockDone,
     stopInstance,
-    stopCompetition,
-    assignRotteToRange,
-    unassignRotte,
   }
 })

@@ -470,11 +470,17 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     if (!stepState.corrected) {
       stepState.originalState = stepState.state
     }
-    stepState.corrected = true
     playScore.value.totalPoints -= stepState.pointsEarned
     stepState.state = newState
     stepState.pointsEarned = Math.max(0, stepState.pointValue - getPointDeduction(newState))
     playScore.value.totalPoints += stepState.pointsEarned
+    // Edited back to the original value → no longer a correction
+    if (newState === stepState.originalState) {
+      stepState.corrected = false
+      stepState.originalState = null
+    } else {
+      stepState.corrected = true
+    }
   }
 
   const confirmPlayer = (playerId) => {

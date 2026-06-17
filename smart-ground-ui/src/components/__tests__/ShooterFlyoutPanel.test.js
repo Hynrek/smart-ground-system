@@ -106,22 +106,20 @@ describe('ShooterFlyoutPanel — competition Rotten', () => {
   });
 
   it('renders one card per active competition Rotte', async () => {
-    const { useActivePasseStore } = await import('@/stores/activePasseStore.js');
+    const { useCompetitionEventStore } = await import('@/stores/competitionEventStore.js');
     const { useShooterRemoteStore } = await import('@/stores/shooterRemoteStore.js');
     const { usePasseStore } = await import('@/stores/passeStore.js');
 
-    const activePasseStore = useActivePasseStore();
+    const competitionEventStore = useCompetitionEventStore();
     const remoteStore = useShooterRemoteStore();
     const passeStore = usePasseStore();
 
-    // Seed a competition instance directly
-    activePasseStore.activeInstances = [{
+    // Seed competition instances directly into runtime state
+    competitionEventStore.competitionInstances = [{
       instanceId: 'inst-c1',
-      type: 'competition',
       sessionId: null,
-      templateId: 'c1',
+      type: 'competition',
       templateName: 'Frühjahrspokal',
-      name: 'Frühjahrspokal',
       rotten: [
         { rotteId: 'r1', name: 'Rotte 1', players: [{ id: 'u1', displayName: 'Max' }], status: 'waiting', assignedRangeId: null, currentPhaseIndex: 0,
           phases: [{ phaseIndex: 0, passeId: 'p1', passeName: 'Passe 1', status: 'active',
@@ -130,7 +128,6 @@ describe('ShooterFlyoutPanel — competition Rotten', () => {
           phases: [{ phaseIndex: 0, passeId: 'p1', passeName: 'Passe 1', status: 'active',
             blocks: [{ blockId: 'blk-2', serieId: 's1', serieAlias: 'A', rangeId: 'range-1', rangeName: 'Platz 1', steps: [], status: 'pending', completedAt: null, result: null }] }] },
       ],
-      startedAt: Date.now(), completedAt: null,
     }];
 
     remoteStore.selectedRangeId = 'range-1';
@@ -151,26 +148,23 @@ describe('ShooterFlyoutPanel — competition Rotten', () => {
   });
 
   it('does not show done rotten', async () => {
-    const { useActivePasseStore } = await import('@/stores/activePasseStore.js');
+    const { useCompetitionEventStore } = await import('@/stores/competitionEventStore.js');
     const { useShooterRemoteStore } = await import('@/stores/shooterRemoteStore.js');
     const { usePasseStore } = await import('@/stores/passeStore.js');
 
-    const activePasseStore = useActivePasseStore();
+    const competitionEventStore = useCompetitionEventStore();
     useShooterRemoteStore().selectedRangeId = 'range-1';
     usePasseStore().passeMode = false;
 
-    activePasseStore.activeInstances = [{
+    competitionEventStore.competitionInstances = [{
       instanceId: 'inst-c2',
-      type: 'competition',
       sessionId: null,
-      templateId: 'c2',
+      type: 'competition',
       templateName: 'Cup',
-      name: 'Cup',
       rotten: [
         { rotteId: 'r1', name: 'Rotte 1', players: [], status: 'done', assignedRangeId: null, currentPhaseIndex: 0,
           phases: [{ phaseIndex: 0, passeId: 'p1', passeName: 'P1', status: 'active', blocks: [] }] },
       ],
-      startedAt: Date.now(), completedAt: null,
     }];
 
     const wrapper = mount(ShooterFlyoutPanel, {

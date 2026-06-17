@@ -132,6 +132,10 @@
                     <div class="block-info">
                       <span class="rotte-instance-name">{{ item.instanceName }}</span>
                       <span class="serie-name">{{ item.rotteName }} · {{ item.passeName }}</span>
+                      <span
+                        v-if="item.blocks.find(b => b.status !== 'done')?.serieAlias"
+                        class="serie-alias-chip"
+                      >{{ item.blocks.find(b => b.status !== 'done')?.serieAlias }}</span>
                     </div>
                     <Icons icon="play" :size="12" color="rgba(79,195,247,0.6)" />
                   </button>
@@ -313,6 +317,7 @@ import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useAuthStore } from '@/stores/authStore.js';
 import { useActivePasseStore } from '@/stores/activePasseStore.js';
+import { useCompetitionEventStore } from '@/stores/competitionEventStore.js';
 import Icons from '@/components/Icons.vue';
 import CompetitionFlyoutContent from '@/components/shooter-remote/CompetitionFlyoutContent.vue';
 
@@ -323,6 +328,7 @@ const playStore = usePlaySessionStore();
 const rangeStore = useRangeStore();
 const authStore = useAuthStore();
 const activePasseStore = useActivePasseStore();
+const competitionEventStore = useCompetitionEventStore();
 
 const isOpen = ref(false);
 const namingMode = ref(false);
@@ -334,9 +340,7 @@ const expandedSerieId = ref(null);
 const competitionInstance = computed(() => {
   const ctxId = store.competitionContext?.instanceId
   if (!ctxId) return null
-  return activePasseStore.activeInstances.find(
-    i => i.instanceId === ctxId && i.type === 'competition'
-  ) ?? null
+  return competitionEventStore.getCompetitionInstance(ctxId)
 })
 
 const isRecordingActive = computed(
@@ -367,7 +371,7 @@ const globalSerien = computed(() => {
     }));
 });
 
-const competitionSerien = computed(() => activePasseStore.getActiveCompetitionRotten());
+const competitionSerien = computed(() => competitionEventStore.getActiveCompetitionRotten());
 
 const trainingBlocks = computed(() =>
   activePasseStore.getBlocksForRange(currentRangeId.value)
@@ -380,8 +384,6 @@ const passenBlocks = computed(() =>
 );
 
 const playBlock = (block) => {
-  // Include rotteId from competition context when the block belongs to a competition rotte
-  const rotteId = block.rotteId ?? store.competitionContext?.rotteId ?? null;
   playStore.pendingPasseInfo = {
     serie: {
       id: block.serieId,
@@ -395,14 +397,15 @@ const playBlock = (block) => {
     instanceId: block.instanceId,
     blockId: block.blockId,
     players: block.players,
-    rotteId,
+    rotteId: block.rotteId ?? null,
+    instanceType: block.instanceType ?? null,
   };
   isOpen.value = false;
   router.push(`/remote/${currentRangeId.value}/play`);
 };
 
 const playCompetitionRotte = (item) => {
-  activePasseStore.assignRotteToRange(item.instanceId, item.rotteId, currentRangeId.value);
+  competitionEventStore.assignRotteToRange(item.instanceId, item.rotteId, currentRangeId.value);
   const firstBlock = item.blocks.find(b => b.status !== 'done');
   if (!firstBlock) return;
   playStore.pendingPasseInfo = {
@@ -419,6 +422,9 @@ const playCompetitionRotte = (item) => {
     blockId: firstBlock.blockId,
     players: item.players,
     rotteId: item.rotteId,
+    rotteName: item.rotteName,
+    serieName: firstBlock.serieAlias ?? null,
+    instanceType: 'competition',
   };
   isOpen.value = false;
   router.push(`/remote/${currentRangeId.value}/play`);
@@ -1122,6 +1128,19 @@ const getStepTooltip = (step) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.serie-alias-chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 1px 6px;
+  margin-top: 2px;
+  align-self: flex-start;
 }
 
 .rotte-instance-name {

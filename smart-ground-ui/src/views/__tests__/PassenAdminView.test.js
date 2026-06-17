@@ -154,11 +154,14 @@ describe('PassenAdminView — Passen tab', () => {
     expect(wrapper.text()).toContain('2')
   })
 
-  it('groups Passen by range', async () => {
+  // Passen are cross-range global templates, so the Passen tab lists them flat
+  // (range grouping is a Serien-tab feature, covered separately). Each row shows
+  // how many Serien the template contains.
+  it('shows the serie count for each Passe', async () => {
     const wrapper = mount(PassenAdminView, { global: { plugins: [router] } })
     await switchToPassen(wrapper)
-    expect(wrapper.text()).toContain('Platz 1')
-    expect(wrapper.text()).toContain('Platz 2')
+    expect(wrapper.findAll('.passe-row')).toHaveLength(2)
+    expect(wrapper.text()).toContain('1 Serien')
   })
 
   it('shows Passen names in list', async () => {

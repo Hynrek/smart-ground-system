@@ -1,9 +1,9 @@
 import { computed } from 'vue'
-import { useActivePasseStore } from '@/stores/activePasseStore.js'
+import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 
 export function useCompetitionScoreboard(instanceId) {
   // instanceId can be a ref or a plain string
-  const activePasseStore = useActivePasseStore()
+  const competitionEventStore = useCompetitionEventStore()
 
   const rankedPlayers = computed(() => {
     const id = instanceId == null
@@ -15,8 +15,8 @@ export function useCompetitionScoreboard(instanceId) {
     if (!id) return []
 
     const inst =
-      activePasseStore.activeInstances.find((i) => i.instanceId === id) ??
-      activePasseStore.completedInstances.find((i) => i.instanceId === id)
+      competitionEventStore.competitionInstances.find((i) => i.instanceId === id) ??
+      competitionEventStore.completedCompetitionInstances.find((i) => i.instanceId === id)
 
     if (!inst || inst.type !== 'competition') return []
 

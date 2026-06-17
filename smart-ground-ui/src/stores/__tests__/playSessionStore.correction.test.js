@@ -71,6 +71,27 @@ describe('correctStep', () => {
     expect(store.playScore.totalPoints).toBe(2)
   })
 
+  it('clears corrected flag and originalState when edited back to the original value', () => {
+    const store = usePlaySessionStore()
+    store.playScore.stepStates = [
+      {
+        playerId: 'p1', serieIndex: 0, stepIndex: 0,
+        state: StepState.FAILED_A, pointValue: 2, pointsEarned: 1,
+        noBirds: 0, corrected: true, originalState: StepState.DONE,
+      },
+    ]
+    store.playScore.totalPoints = 1
+
+    store.correctStep('p1', 0, 0, StepState.DONE)
+
+    const s = store.playScore.stepStates[0]
+    expect(s.state).toBe(StepState.DONE)
+    expect(s.corrected).toBe(false)
+    expect(s.originalState).toBe(null)
+    expect(s.pointsEarned).toBe(2)
+    expect(store.playScore.totalPoints).toBe(2)
+  })
+
   it('does nothing when newState is PENDING', () => {
     const store = usePlaySessionStore()
     store.playScore.stepStates = [

@@ -7,6 +7,7 @@ vi.mock('@/services/wettkampfApi.js', () => ({
   listSessions:  vi.fn(),
   patchStatus:   vi.fn(),
   getSession:    vi.fn(),
+  getProgress:   vi.fn(),
   deleteSession: vi.fn(),
   createGroup:   vi.fn(),
   updateGroup:   vi.fn(),
@@ -68,13 +69,14 @@ describe('useCompetitionEventStore', () => {
     expect(store.events[0].status).toBe('ACTIVE')
   })
 
-  it('stopEvent patches status to abandoned', async () => {
-    api.patchStatus.mockResolvedValue(mkSession({ status: 'ABANDONED' }))
-    api.getSession.mockResolvedValue(mkSession({ status: 'ABANDONED' }))
+  it('stopEvent deletes the abandoned competition instead of archiving it', async () => {
+    api.deleteSession.mockResolvedValue(undefined)
     const store = useCompetitionEventStore()
     store.events = [mkSession({ status: 'ACTIVE' })]
     await store.stopEvent('s1')
-    expect(api.patchStatus).toHaveBeenCalledWith('s1', 'abandoned')
+    expect(api.deleteSession).toHaveBeenCalledWith('s1')
+    expect(api.patchStatus).not.toHaveBeenCalled()
+    expect(store.events).toHaveLength(0)
   })
 
   it('deleteEvent calls API and removes from store', async () => {
@@ -148,5 +150,90 @@ describe('useCompetitionEventStore', () => {
     await store.removePasseFromEvent('s1', 'p1')
     expect(api.removePasse).toHaveBeenCalledWith('s1', 'p1')
     expect(store.events[0].passen).toEqual([])
+  })
+
+  it('loadEvents hydrates persisted progress so completed Passen advance', async () => {
+    const ev = mkSession({
+      id: 's1', status: 'ACTIVE',
+      groups: [{ id: 'g1', name: 'Rotte A', members: [{ id: 'm1', displayName: 'Max' }] }],
+      passen: [
+        { id: 'p1', name: 'Passe 1', serien: [{ id: 'se1', alias: 'A', rangeId: 'r1', steps: [] }] },
+        { id: 'p2', name: 'Passe 2', serien: [{ id: 'se2', alias: 'B', rangeId: 'r1', steps: [] }] },
+      ],
+    })
+    api.listSessions.mockResolvedValue({ content: [ev] })
+    api.getProgress.mockResolvedValue({
+      groups: [{ groupId: 'g1', completions: [{ passeIndex: 0, completed: true }, { passeIndex: 1, completed: false }] }],
+    })
+    const store = useCompetitionEventStore()
+    await store.loadEvents()
+
+    const rotten = store.getActiveCompetitionRotten()
+    expect(rotten).toHaveLength(1)
+    expect(rotten[0].passeName).toBe('Passe 2')
+    expect(rotten[0].blocks.map(b => b.serieId)).toEqual(['se2'])
+  })
+
+  it('loadEvents hydrates per-Serie completion so a reload resumes mid-Passe', async () => {
+    const ev = mkSession({
+      id: 's1', status: 'ACTIVE',
+      groups: [{ id: 'g1', name: 'Rotte A', members: [{ id: 'm1', displayName: 'Max' }] }],
+      passen: [
+        { id: 'p1', name: 'Passe 1', serien: [
+          { id: 'se1', alias: 'A', rangeId: 'r1', steps: [] },
+          { id: 'se2', alias: 'B', rangeId: 'r1', steps: [] },
+        ] },
+      ],
+    })
+    api.listSessions.mockResolvedValue({ content: [ev] })
+    api.getProgress.mockResolvedValue({
+      groups: [{
+        groupId: 'g1',
+        completions: [{ passeIndex: 0, completed: false }],
+        completedSerien: [{ passeIndex: 0, serieId: 'se1' }],
+      }],
+    })
+    const store = useCompetitionEventStore()
+    await store.loadEvents()
+
+    const rotten = store.getActiveCompetitionRotten()
+    expect(rotten).toHaveLength(1)
+    expect(rotten[0].passeName).toBe('Passe 1')
+    // se1 already done → only se2 remains to be shot
+    expect(rotten[0].blocks.map(b => b.serieId)).toEqual(['se2'])
+  })
+
+  it('getActiveCompetitionRotten hides completed Serien within the active Passe', () => {
+    const store = useCompetitionEventStore()
+    store.competitionInstances = [{
+      instanceId: 'i1', sessionId: 'i1', templateName: 'X',
+      rotten: [{
+        rotteId: 'g1', name: 'Rotte A', players: [], status: 'active', currentPhaseIndex: 0,
+        phases: [{
+          phaseIndex: 0, passeName: 'Passe 1', status: 'active', blocks: [
+            { blockId: 'b1', serieId: 'se1', status: 'done' },
+            { blockId: 'b2', serieId: 'se2', status: 'pending' },
+          ],
+        }],
+      }],
+    }]
+    const rotten = store.getActiveCompetitionRotten()
+    expect(rotten[0].blocks.map(b => b.blockId)).toEqual(['b2'])
+  })
+
+  it('getActiveCompetitionRotten omits a rotte whose active Passe is fully done', () => {
+    const store = useCompetitionEventStore()
+    store.competitionInstances = [{
+      instanceId: 'i1', sessionId: 'i1', templateName: 'X',
+      rotten: [{
+        rotteId: 'g1', name: 'Rotte A', players: [], status: 'active', currentPhaseIndex: 0,
+        phases: [{
+          phaseIndex: 0, passeName: 'Passe 1', status: 'active', blocks: [
+            { blockId: 'b1', serieId: 'se1', status: 'done' },
+          ],
+        }],
+      }],
+    }]
+    expect(store.getActiveCompetitionRotten()).toHaveLength(0)
   })
 })

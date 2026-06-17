@@ -5,8 +5,9 @@ import * as serieApi from '@/services/serieApi.js'
 
 vi.mock('@/services/serieApi.js')
 vi.mock('@/services/passeApi.js')
+const remoteMock = vi.hoisted(() => ({ isReserved: true, mode: 'solo', setMode: vi.fn() }))
 vi.mock('@/stores/shooterRemoteStore.js', () => ({
-  useShooterRemoteStore: () => ({ isReserved: true, mode: 'solo', setMode: vi.fn() }),
+  useShooterRemoteStore: () => remoteMock,
 }))
 vi.mock('@/stores/authStore.js', () => ({
   useAuthStore: () => ({ profile: { email: 'test@test.com' } }),
@@ -48,6 +49,32 @@ describe('passeStore — Serie layer', () => {
     await store.deleteSerie('ab1')
     expect(serieApi.deleteSerie).toHaveBeenCalledWith('ab1')
     expect(store.savedSerien).toHaveLength(0)
+  })
+})
+
+describe('passeStore — step recording', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+    remoteMock.mode = 'solo'
+  })
+
+  it('addStep records letter1/letter2 for a pair step', () => {
+    remoteMock.mode = 'pair'
+    const store = usePasseStore()
+    store.editingSerie = [{ id: 's1', alias: null, steps: [] }]
+
+    store.addStep('p1', { label: 'A', device: { alias: 'Werfer 1' } }, 'A')
+    store.addStep('p2', { label: 'B', device: { alias: 'Werfer 2' } }, 'B')
+
+    const step = store.editingSerie[0].steps[0]
+    expect(step).toMatchObject({
+      type: 'pair',
+      alias1: 'Werfer 1',
+      alias2: 'Werfer 2',
+      letter1: 'A',
+      letter2: 'B',
+    })
   })
 })
 

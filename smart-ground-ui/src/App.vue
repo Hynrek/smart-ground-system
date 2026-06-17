@@ -1,14 +1,11 @@
 ﻿<script setup>
-import { computed, onMounted } from 'vue';
+import { computed } from 'vue';
 import MainLayout from './layouts/MainLayout.vue';
 import ShooterLayout from './layouts/ShooterLayout.vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useAppStore } from './stores/appStore.js';
-import { useAuthStore } from './stores/authStore.js';
+
 const route = useRoute();
 const router = useRouter();
-const appStore = useAppStore();
-const authStore = useAuthStore();
 
 const navMap = {
   '/ranges': 'ranges',
@@ -37,12 +34,6 @@ const handleNav = (navId) => {
   };
   router.push(routeMap[navId] || '/ranges');
 };
-
-onMounted(() => {
-  if (authStore.isAuthenticated()) {
-    appStore.initializeStore();
-  }
-});
 </script>
 
 <template>

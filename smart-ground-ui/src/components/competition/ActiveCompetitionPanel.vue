@@ -11,25 +11,45 @@
       </button>
     </div>
 
-    <!-- Passen stepper -->
-    <div v-if="passenProgress.length > 0" class="passen-stepper">
-      <template v-for="(passe, i) in passenProgress" :key="passe.phaseIndex">
-        <div class="passe-step">
-          <span class="step-name">{{ passe.passeName }}</span>
-          <span class="step-badge" :class="`badge-${passe.status}`">{{ passeStatusLabel(passe.status) }}</span>
-        </div>
-        <span v-if="i < passenProgress.length - 1" class="step-arrow">→</span>
-      </template>
+    <!-- Passen progress bar -->
+    <div v-if="passenProgress.length > 0" class="passen-progress">
+      <div class="progress-header">
+        <span class="progress-title">Passen</span>
+        <span class="progress-count">{{ passenDoneCount }} / {{ passenProgress.length }} abgeschlossen</span>
+      </div>
+      <div class="progress-track">
+        <div
+          v-for="passe in passenProgress"
+          :key="passe.phaseIndex"
+          class="progress-segment"
+          :class="`seg-${passe.status}`"
+        />
+      </div>
+      <div class="progress-labels">
+        <span
+          v-for="passe in passenProgress"
+          :key="passe.phaseIndex"
+          class="progress-name"
+          :class="`pname-${passe.status}`"
+        >{{ passe.passeName }}</span>
+      </div>
     </div>
 
     <!-- Tabs -->
     <div class="tab-bar">
       <button
         class="tab-btn"
+        :class="{ active: activeTab === 'rotten' }"
+        @click="activeTab = 'rotten'"
+      >
+        Rotten
+      </button>
+      <button
+        class="tab-btn"
         :class="{ active: activeTab === 'serien' }"
         @click="activeTab = 'serien'"
       >
-        Serien
+        Fortschritt
       </button>
       <button
         class="tab-btn"
@@ -38,6 +58,30 @@
       >
         Rangliste
       </button>
+    </div>
+
+    <!-- Rotten tab -->
+    <div v-if="activeTab === 'rotten'" class="rotten-overview">
+      <div
+        v-for="rotte in rottenRows"
+        :key="rotte.id"
+        class="rotte-overview-card"
+      >
+        <div class="rotte-ov-header">
+          <span class="rotte-ov-name">{{ rotte.name }}</span>
+          <span class="rotte-ov-passe" v-if="rotte.currentPasse">{{ rotte.currentPasse }}</span>
+          <span class="rotte-ov-chip" :class="`chip-${rotte.status}`">{{ rotteStatusLabel(rotte.status) }}</span>
+        </div>
+        <div class="rotte-ov-members">
+          <span
+            v-for="member in rotte.members"
+            :key="member.id"
+            class="member-chip"
+          >{{ member.displayName }}</span>
+          <span v-if="rotte.members.length === 0" class="member-empty">Keine Schützen</span>
+        </div>
+      </div>
+      <div v-if="rottenRows.length === 0" class="empty-state">Keine Rotten vorhanden</div>
     </div>
 
     <!-- Serien tab -->
@@ -82,44 +126,135 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import Icons from '@/components/Icons.vue'
-import { useActivePasseStore } from '@/stores/activePasseStore.js'
-import { useCompetitionProgress } from '@/composables/useCompetitionProgress.js'
-import { getProgress } from '@/services/wettkampfApi.js'
+import { usePasseStore } from '@/stores/passeStore.js'
+import { getProgress, getLeaderboard } from '@/services/wettkampfApi.js'
 
 const props = defineProps({ event: { type: Object, required: true } })
 const emit = defineEmits(['stop'])
 
-const activePasseStore = useActivePasseStore()
-
-const liveInstance = computed(() =>
-  activePasseStore.activeInstances.find(i => i.instanceId === props.event.activeInstanceId) ?? null
-)
-
-const { passenProgress, serieCards, leaderboard } = useCompetitionProgress(liveInstance)
-
-const activeTab = ref('serien')
+const passeStore = usePasseStore()
+const activeTab = ref('rotten')
 
 const progressData = ref(null)
+const leaderboardData = ref(null)
 let pollInterval = null
 
-const fetchProgress = async () => {
+const refresh = async () => {
   if (!props.event?.id) return
   try {
-    progressData.value = await getProgress(props.event.id)
+    const [progress, leaderboard] = await Promise.all([
+      getProgress(props.event.id),
+      getLeaderboard(props.event.id),
+    ])
+    progressData.value = progress
+    leaderboardData.value = leaderboard
   } catch (e) {
-    console.error('[ActiveCompetitionPanel] progress poll failed:', e)
+    console.error('[ActiveCompetitionPanel] poll failed:', e)
   }
 }
 
-onMounted(() => {
-  fetchProgress()
-  pollInterval = setInterval(fetchProgress, 4000)
+onMounted(async () => {
+  refresh()
+  pollInterval = setInterval(refresh, 4000)
+  if (passeStore.savedGlobalPassen.length === 0) {
+    await passeStore.loadPassenFromStorage()
+  }
 })
 
 onUnmounted(() => clearInterval(pollInterval))
 
-const passeStatusLabel = (status) => ({ fertig: 'Fertig', aktiv: 'Aktiv', offen: 'Offen' }[status] ?? status)
+// ── Passen progress ────────────────────────────────────────────────────────────
+
+const passenProgress = computed(() => {
+  const passen = props.event.passen ?? []
+  if (passen.length === 0) return []
+  const groups = progressData.value?.groups ?? []
+  let foundActive = false
+  return passen.map((passe, idx) => {
+    const allDone = groups.length > 0 && groups.every(g => g.completions?.[idx]?.completed === true)
+    let status
+    if (allDone) {
+      status = 'fertig'
+    } else if (!foundActive) {
+      status = 'aktiv'
+      foundActive = true
+    } else {
+      status = 'offen'
+    }
+    return { phaseIndex: idx, passeName: passe.name, status }
+  })
+})
+
+const passenDoneCount = computed(() => passenProgress.value.filter(p => p.status === 'fertig').length)
+
+const activePasseIndex = computed(() => {
+  const idx = passenProgress.value.findIndex(p => p.status === 'aktiv')
+  return idx >= 0 ? idx : 0
+})
+
+// ── Rotten overview ────────────────────────────────────────────────────────────
+
+const rottenRows = computed(() => {
+  const progressGroups = progressData.value?.groups ?? []
+  return (props.event.groups ?? []).map(group => {
+    const prog = progressGroups.find(g => g.groupId === group.id)
+    const activeCompletion = prog?.completions?.find(c => !c.completed)
+    const fallbackPasse = props.event.passen?.[0]?.name ?? null
+    return {
+      id: group.id,
+      name: group.name,
+      members: group.members ?? [],
+      currentPasse: activeCompletion?.passeName ?? fallbackPasse,
+      status: (prog?.passenCompleted ?? 0) === (prog?.passenTotal ?? 0) && (prog?.passenTotal ?? 0) > 0 ? 'done' : 'active',
+    }
+  })
+})
+
+// ── Serie cards for active passe ───────────────────────────────────────────────
+
+const serieCards = computed(() => {
+  const passen = props.event.passen ?? []
+  if (passen.length === 0) return []
+  const idx = activePasseIndex.value
+  const activePasse = passen[idx]
+  if (!activePasse) return []
+
+  const fullPasse = passeStore.savedGlobalPassen.find(p => p.id === activePasse.id)
+  const serien = fullPasse?.serien ?? []
+  if (serien.length === 0) return []
+
+  const progressGroups = progressData.value?.groups ?? []
+
+  return serien.map(serie => ({
+    serieAlias: serie.alias ?? serie.name ?? '?',
+    rotteRows: (props.event.groups ?? []).map(group => {
+      const prog = progressGroups.find(g => g.groupId === group.id)
+      const passeCompletion = prog?.completions?.[idx]
+      return {
+        rotteId: group.id,
+        rotteName: group.name,
+        status: passeCompletion?.completed ? 'done' : 'pending',
+      }
+    }),
+  }))
+})
+
+// ── Leaderboard ────────────────────────────────────────────────────────────────
+// Live player ranking from the session leaderboard endpoint (polled above).
+
+const leaderboard = computed(() =>
+  (leaderboardData.value?.playerScores ?? []).map(p => ({
+    playerId: p.playerId,
+    displayName: p.displayName,
+    totalPoints: p.totalScore,
+    maxPoints: p.maxScore,
+  }))
+)
+
+// ── Labels ─────────────────────────────────────────────────────────────────────
+
 const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Aktiv', pending: '○ Offen' }[status] ?? status)
+const rotteStatusLabel = (status) => ({ active: 'Aktiv', done: 'Fertig', paused: 'Pausiert' }[status] ?? status)
 </script>
 
 <style scoped>
@@ -146,50 +281,72 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
 }
 .stop-btn:hover { background: var(--sg-color-danger-bg-hover, #fed7d7); }
 
-/* ── Passen stepper ── */
-.passen-stepper {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
+/* ── Passen progress bar ── */
+.passen-progress {
   padding: 14px 16px;
   background: var(--sg-bg-card);
   border: 1px solid var(--sg-border);
   border-radius: 12px;
   box-shadow: var(--sg-shadow-sm);
-}
-
-.passe-step {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
-.step-name {
+.progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.progress-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sg-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.progress-count {
   font-size: 11px;
   font-weight: 600;
-  color: var(--sg-text-muted);
+  color: var(--sg-text-faint);
+}
+
+.progress-track {
+  display: flex;
+  gap: 3px;
+  height: 8px;
+}
+
+.progress-segment {
+  flex: 1;
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+.seg-fertig { background: var(--sg-color-success-text); }
+.seg-aktiv  { background: var(--sg-color-warning); }
+.seg-offen  { background: var(--sg-border-input); opacity: 0.4; }
+
+.progress-labels {
+  display: flex;
+  gap: 3px;
+}
+
+.progress-name {
+  flex: 1;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.step-badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.badge-fertig { background: var(--sg-color-success-bg); color: var(--sg-color-success-text); }
-.badge-aktiv  { background: var(--sg-color-warning-bg); color: var(--sg-color-warning-text); }
-.badge-offen  { background: var(--sg-bg-panel); color: var(--sg-text-faint); }
-
-.step-arrow {
-  font-size: 12px;
-  color: var(--sg-border-input);
-  padding: 0 4px;
-  align-self: center;
-}
+.pname-fertig { color: var(--sg-color-success-text); }
+.pname-aktiv  { color: var(--sg-color-warning-text); }
+.pname-offen  { color: var(--sg-text-faint); }
 
 /* ── Tab bar ── */
 .tab-bar {
@@ -218,6 +375,71 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
 }
 
 .tab-btn:hover:not(.active) { color: var(--sg-text-muted); }
+
+/* ── Rotten overview ── */
+.rotten-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rotte-overview-card {
+  background: var(--sg-bg-card);
+  border: 1px solid var(--sg-border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--sg-shadow-sm);
+}
+
+.rotte-ov-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--sg-border);
+}
+
+.rotte-ov-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--sg-brand);
+  flex: 1;
+}
+
+.rotte-ov-passe {
+  font-size: 11px;
+  color: var(--sg-text-faint);
+}
+
+.rotte-ov-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 10px;
+}
+
+.rotte-ov-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px;
+}
+
+.member-chip {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  background: var(--sg-bg-panel);
+  border: 1px solid var(--sg-border);
+  border-radius: 20px;
+  color: var(--sg-text-muted);
+}
+
+.member-empty {
+  font-size: 12px;
+  color: var(--sg-text-faint);
+  font-style: italic;
+}
 
 /* ── Serien view ── */
 .serien-view {
@@ -267,6 +489,8 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
 .chip-done        { background: var(--sg-color-success-bg); color: var(--sg-color-success-text); }
 .chip-in_progress { background: var(--sg-color-warning-bg); color: var(--sg-color-warning-text); }
 .chip-pending     { background: var(--sg-bg-panel); color: var(--sg-text-faint); }
+.chip-active      { background: var(--sg-color-warning-bg); color: var(--sg-color-warning-text); }
+.chip-paused      { background: var(--sg-bg-panel); color: var(--sg-text-faint); }
 
 /* ── Rangliste view ── */
 .rangliste-view {

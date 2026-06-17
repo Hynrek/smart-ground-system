@@ -15,7 +15,7 @@
         :key="tab.id"
         class="tab-btn"
         :class="{ active: activeTab === tab.id }"
-        @click="activeTab = tab.id"
+        @click="setTab(tab.id)"
       >
         {{ tab.label }}
         <span class="tab-count">{{ tab.count }}</span>
@@ -172,16 +172,19 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 import { usePasseStore } from '@/stores/passeStore.js'
 import Icons from '@/components/Icons.vue'
 
 const router = useRouter()
+const route = useRoute()
 const store = useCompetitionEventStore()
 const passeStore = usePasseStore()
 
-const activeTab = ref('planning')
+const VALID_TABS = ['planning', 'active', 'completed']
+const activeTab = computed(() => VALID_TABS.includes(route.query.tab) ? route.query.tab : 'planning')
+const setTab = (id) => router.replace({ query: { tab: id } })
 
 const tabs = computed(() => [
   { id: 'planning', label: 'Planung', count: store.planningEvents.length },
@@ -235,7 +238,10 @@ const totalPlayers = (ev) => (ev.groups ?? []).reduce((s, g) => s + (g.members?.
 const unpaidCount = (ev) => (ev.groups ?? []).reduce((s, g) => s + (g.members ?? []).filter(m => !m.paid).length, 0)
 
 // ── Load on mount ──────────────────────────────────────────────────────────
-onMounted(() => store.loadEvents())
+onMounted(() => {
+  store.loadEvents()
+  passeStore.loadPassenFromStorage()
+})
 </script>
 
 <style scoped>

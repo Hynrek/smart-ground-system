@@ -94,18 +94,24 @@ router.beforeEach(async (to, from, next) => {
   // Lazy-initialize API-backed stores on first authenticated navigation
   if (authenticated && !_storesInitialized && to.path !== '/login' && to.path !== '/no-access') {
     _storesInitialized = true
+    const { useAppStore } = await import('@/stores/appStore.js');
     const { useGuestStore } = await import('@/stores/guestStore.js');
     const { usePasseStore } = await import('@/stores/passeStore.js');
     const { useActivePasseStore } = await import('@/stores/activePasseStore.js');
+    const { useCompetitionEventStore } = await import('@/stores/competitionEventStore.js');
 
+    const appStore = useAppStore();
     const guestStore = useGuestStore();
     const passeStore = usePasseStore();
     const activePasseStore = useActivePasseStore();
+    const competitionEventStore = useCompetitionEventStore();
 
+    appStore.initializeStore().catch(console.error);
     guestStore.loadGuests().catch(console.error);
     passeStore.loadSerienFromStorage().catch(console.error);
     passeStore.loadPassenFromStorage().catch(console.error);
     activePasseStore.loadFromStorage().catch(console.error);
+    competitionEventStore.loadEvents().catch(console.error);
   }
 
   next();

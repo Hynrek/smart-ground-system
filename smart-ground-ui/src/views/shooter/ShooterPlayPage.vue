@@ -246,12 +246,12 @@
                 Getroffen
               </button>
               <template v-if="correctionTargetIsDouble">
-                <button class="picker-btn btn-fail" @click="applyCorrectionStep(StepState.FAILED_A)">Fail A</button>
-                <button class="picker-btn btn-fail" @click="applyCorrectionStep(StepState.FAILED_B)">Fail B</button>
-                <button class="picker-btn btn-fail" @click="applyCorrectionStep(StepState.FAILED_BOTH)">Fail Beide</button>
+                <button class="picker-btn btn-fail" @click="applyCorrectionStep(StepState.FAILED_A)">{{ correctionFailLabelA }}</button>
+                <button class="picker-btn btn-fail" @click="applyCorrectionStep(StepState.FAILED_B)">{{ correctionFailLabelB }}</button>
+                <button class="picker-btn btn-fail" @click="applyCorrectionStep(StepState.FAILED_BOTH)">{{ correctionFailLabelBoth }}</button>
               </template>
               <template v-else>
-                <button class="picker-btn btn-fail" @click="applyCorrectionStep(StepState.FAILED_BOTH)">Fail</button>
+                <button class="picker-btn btn-fail" @click="applyCorrectionStep(StepState.FAILED_BOTH)">{{ correctionFailLabelA }}</button>
               </template>
             </div>
           </div>
@@ -339,10 +339,14 @@ const raffaleDelayStart = ref(null);
 // ── Correction picker ─────────────────────────────────────────────────────────
 const correctionTarget = ref(null);
 
-const correctionTargetIsDouble = computed(() => {
-  if (!correctionTarget.value) return false;
+const correctionTargetStep = computed(() => {
+  if (!correctionTarget.value) return null;
   const { serieIndex, stepIndex } = correctionTarget.value;
-  const step = store.playProg?.[serieIndex]?.steps[stepIndex];
+  return store.playProg?.[serieIndex]?.steps[stepIndex] ?? null;
+});
+
+const correctionTargetIsDouble = computed(() => {
+  const step = correctionTargetStep.value;
   return step ? [StepType.PAIR, StepType.A_SCHUSS, StepType.RAFFALE].includes(step.type) : false;
 });
 
@@ -530,27 +534,35 @@ const lastFiredStep = computed(() => {
   return store.playProg?.[serieIdx]?.steps[stepIdx] ?? null;
 });
 
-const failLabelA = computed(() => {
-  const s = lastFiredStep.value;
+// Fail-button label builders — shared by the action bar (last fired step) and
+// the score-correction picker (the step being corrected).
+const failLabelAFor = (s) => {
   if (!s) return 'Fail 1';
   if (s.type === StepType.SOLO) return `Fail ${s.letter ?? '1'}`;
   if (s.type === StepType.RAFFALE) return `Fail ${s.letter ?? '1'} 1.`;
   return `Fail ${s.letter1 ?? '1'}`;
-});
+};
 
-const failLabelB = computed(() => {
-  const s = lastFiredStep.value;
+const failLabelBFor = (s) => {
   if (!s) return 'Fail 2';
   if (s.type === StepType.RAFFALE) return `Fail ${s.letter ?? '1'} 2.`;
   return `Fail ${s.letter2 ?? '2'}`;
-});
+};
 
-const failLabelBoth = computed(() => {
-  const s = lastFiredStep.value;
+const failLabelBothFor = (s) => {
   if (!s) return 'Fail 1/2';
   if (s.type === StepType.RAFFALE) return `Fail ${s.letter ?? '1'}/2`;
   return `Fail ${s.letter1 ?? '1'}/${s.letter2 ?? '2'}`;
-});
+};
+
+const failLabelA = computed(() => failLabelAFor(lastFiredStep.value));
+const failLabelB = computed(() => failLabelBFor(lastFiredStep.value));
+const failLabelBoth = computed(() => failLabelBothFor(lastFiredStep.value));
+
+// Same labels, but for the step targeted by the score-correction picker
+const correctionFailLabelA = computed(() => failLabelAFor(correctionTargetStep.value));
+const correctionFailLabelB = computed(() => failLabelBFor(correctionTargetStep.value));
+const correctionFailLabelBoth = computed(() => failLabelBothFor(correctionTargetStep.value));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const getTypeLabel = (type) => ({

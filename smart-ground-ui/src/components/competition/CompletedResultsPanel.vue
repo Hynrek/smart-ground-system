@@ -34,19 +34,16 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useActivePasseStore } from '@/stores/activePasseStore.js'
+import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 
 const props = defineProps({ event: { type: Object, required: true } })
-const activePasseStore = useActivePasseStore()
+const competitionEventStore = useCompetitionEventStore()
 
 const completedInstance = computed(() =>
-  activePasseStore.completedInstances.find(i => i.instanceId === props.event.activeInstanceId)
-    ?? activePasseStore.completedInstances.findLast?.(i =>
-        props.event.rotten.some(r => r.rotteId === i.rotten?.[0]?.rotteId)
-      )
+  competitionEventStore.completedCompetitionInstances.find(i => i.instanceId === props.event.id)
 )
 
-const completedRotten = computed(() => completedInstance.value?.rotten ?? props.event.rotten)
+const completedRotten = computed(() => completedInstance.value?.rotten ?? [])
 
 const phasePoints = (phase, playerId) => {
   let pts = 0

@@ -100,7 +100,18 @@
       "PowerShell($env:JAVA_HOME = \\(Get-Command java -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source | Split-Path -Parent | Split-Path -Parent\\); Push-Location \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\"; cmd /c '\"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\\\\mvnw.cmd\" test -Dtest=CompetitionProgressServiceTest 2>&1' | Select-Object -Last 30; Pop-Location)",
       "Bash(cmd.exe /c \"mvnw.cmd compile 2>&1\")",
       "PowerShell($result = & \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\\\\mvnw.cmd\" --% compile \"-f\" \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\\\\pom.xml\" 2>&1; $result | Select-Object -Last 30)",
-      "Bash(xargs ls -la)"
+      "Bash(xargs ls -la)",
+      "Bash(Copy-Item \"C:/Users/hynre/IdeaProjects/Smart Ground/smart-ground-backend/src/main/resources/static/openapi.yaml\" \"C:/Users/hynre/IdeaProjects/Smart Ground/smart-ground-backend/target/classes/static/openapi.yaml\" -Force)",
+      "Bash(cp \"C:/Users/hynre/IdeaProjects/Smart Ground/smart-ground-backend/src/main/resources/static/openapi.yaml\" \"C:/Users/hynre/IdeaProjects/Smart Ground/smart-ground-backend/target/classes/static/openapi.yaml\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(e['text']\\) for e in data if 'sessions' in e.get\\('text',''\\) and 'localhost:8080' in e.get\\('text',''\\)]\")",
+      "Bash(python -c ' *)",
+      "Bash(xargs grep -l \"Passe\")",
+      "Bash(mvn generate-sources *)",
+      "Bash(xargs grep -l \"sendPositionCommand\\\\|positionCommand\\\\|/command\")",
+      "Bash(xargs grep -l \"playerConfirmations\\\\|allPlayersConfirmed\")",
+      "Bash(./mvnw.cmd -q -DskipTests compile)",
+      "PowerShell($mvn = Get-Command mvn -ErrorAction SilentlyContinue; if \\($mvn\\) { \"mvn: $\\($mvn.Source\\)\" } else { \"no global mvn\" }; $j = Get-Command java -ErrorAction SilentlyContinue; if \\($j\\) { \"java: $\\($j.Source\\)\"; & java -version 2>&1 | Select-Object -First 1 } else { \"no java\" }; \"JAVA_HOME=$env:JAVA_HOME\")",
+      "PowerShell(Set-Location \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\"; & mvn -q -DskipTests -Dspotless.check.skip=true compile | Select-Object -Last 50; \"EXITCODE=$LASTEXITCODE\")"
     ]
   }
 }

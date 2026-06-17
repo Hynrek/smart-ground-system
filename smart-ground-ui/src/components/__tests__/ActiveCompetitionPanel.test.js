@@ -1,43 +1,25 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { useActivePasseStore } from '@/stores/activePasseStore.js'
+import { usePasseStore } from '@/stores/passeStore.js'
 import ActiveCompetitionPanel from '../competition/ActiveCompetitionPanel.vue'
 
 vi.mock('@/components/Icons.vue', () => ({ default: { template: '<span />' } }))
 
-const makeInstance = () => ({
-  instanceId: 'inst-1',
-  type: 'competition',
-  rotten: [
-    {
-      rotteId: 'r1',
-      name: 'Rotte A',
-      currentPhaseIndex: 0,
-      phases: [
-        {
-          phaseIndex: 0,
-          passeName: 'Passe 1',
-          status: 'active',
-          blocks: [
-            { blockId: 'b1', serieAlias: 'Morgenserie', status: 'done', result: {
-              playerResults: [{ playerId: 'p1', displayName: 'Alice', totalPoints: 8, maxPoints: 10 }]
-            }},
-            { blockId: 'b2', serieAlias: 'Abendserie', status: 'pending', result: null },
-          ],
-        },
-      ],
-    },
-  ],
-})
+// The panel polls progress + leaderboard; resolve both empty by default.
+vi.mock('@/services/wettkampfApi.js', () => ({
+  getProgress: vi.fn().mockResolvedValue({ groups: [] }),
+  getLeaderboard: vi.fn().mockResolvedValue({ playerScores: [] }),
+}))
 
-const makeEvent = (instanceId = 'inst-1') => ({
+import * as wettkampfApi from '@/services/wettkampfApi.js'
+
+const makeEvent = () => ({
   id: 'ev-1',
   name: 'Test WK',
   status: 'ACTIVE',
-  activeInstanceId: instanceId,
-  passen: [],
-  rotten: [],
+  groups: [{ id: 'g1', name: 'Rotte A', members: [{ id: 'p1', displayName: 'Alice' }] }],
+  passen: [{ id: 'pa1', name: 'Passe 1' }],
 })
 
 const mountPanel = (event) => mount(ActiveCompetitionPanel, {
@@ -67,28 +49,47 @@ describe('ActiveCompetitionPanel', () => {
     expect(wrapper.emitted('stop')).toBeTruthy()
   })
 
-  it('renders passen stepper when a live instance exists', () => {
-    const store = useActivePasseStore()
-    store.activeInstances.push(makeInstance())
-    const wrapper = mountPanel(makeEvent('inst-1'))
+  it('renders the Passen stepper from event.passen', () => {
+    const wrapper = mountPanel(makeEvent())
     expect(wrapper.text()).toContain('Passe 1')
   })
 
-  it('renders serie cards on the default Serien tab', () => {
-    const store = useActivePasseStore()
-    store.activeInstances.push(makeInstance())
-    const wrapper = mountPanel(makeEvent('inst-1'))
+  it('renders serie cards for the active Passe on the Fortschritt tab', async () => {
+    const passeStore = usePasseStore()
+    passeStore.savedPassen = [
+      { id: 'pa1', name: 'Passe 1', serien: [
+        { id: 's1', alias: 'Morgenserie' },
+        { id: 's2', alias: 'Abendserie' },
+      ] },
+    ]
+    const wrapper = mountPanel(makeEvent())
+    await flushPromises()
+    const fortschrittTab = wrapper.findAll('.tab-btn').find(t => t.text() === 'Fortschritt')
+    await fortschrittTab.trigger('click')
     expect(wrapper.text()).toContain('Morgenserie')
     expect(wrapper.text()).toContain('Abendserie')
   })
 
-  it('switches to Rangliste tab and shows player scores', async () => {
-    const store = useActivePasseStore()
-    store.activeInstances.push(makeInstance())
-    const wrapper = mountPanel(makeEvent('inst-1'))
-    const tabs = wrapper.findAll('.tab-btn')
-    await tabs.find(t => t.text() === 'Rangliste').trigger('click')
+  it('switches to the Rangliste tab and shows the empty state until results arrive', async () => {
+    const wrapper = mountPanel(makeEvent())
+    const ranglisteTab = wrapper.findAll('.tab-btn').find(t => t.text() === 'Rangliste')
+    await ranglisteTab.trigger('click')
+    expect(wrapper.text()).toContain('Noch keine Ergebnisse')
+  })
+
+  it('renders ranked player scores on the Rangliste tab', async () => {
+    wettkampfApi.getLeaderboard.mockResolvedValueOnce({
+      playerScores: [
+        { playerId: 'p1', displayName: 'Alice', totalScore: 8, maxScore: 10, rank: 1 },
+        { playerId: 'p2', displayName: 'Bob', totalScore: 5, maxScore: 10, rank: 2 },
+      ],
+    })
+    const wrapper = mountPanel(makeEvent())
+    await flushPromises()
+    const ranglisteTab = wrapper.findAll('.tab-btn').find(t => t.text() === 'Rangliste')
+    await ranglisteTab.trigger('click')
     expect(wrapper.text()).toContain('Alice')
-    expect(wrapper.text()).toContain('8')
+    expect(wrapper.text()).toContain('8 / 10')
+    expect(wrapper.text()).toContain('Bob')
   })
 })

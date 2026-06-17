@@ -88,7 +88,7 @@
 import { computed } from 'vue'
 import Icons from '@/components/Icons.vue'
 import RotteProgressRow from '@/components/competition/RotteProgressRow.vue'
-import { useActivePasseStore } from '@/stores/activePasseStore.js'
+import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 
 const props = defineProps({
   range: {
@@ -103,10 +103,10 @@ const props = defineProps({
 
 const emit = defineEmits(['go-to-range'])
 
-const activePasseStore = useActivePasseStore()
+const competitionEventStore = useCompetitionEventStore()
 
 const inst = computed(() =>
-  activePasseStore.activeInstances.find((i) => i.instanceId === props.instanceId) ?? null,
+  props.instanceId ? competitionEventStore.getCompetitionInstance(props.instanceId) : null,
 )
 
 const activeRotte = computed(() =>
@@ -121,7 +121,7 @@ const waitingRotten = computed(() =>
 
 function handlePause() {
   if (!activeRotte.value) return
-  activePasseStore.unassignRotte(props.instanceId, activeRotte.value.rotteId)
+  competitionEventStore.unassignRotte(props.instanceId, activeRotte.value.rotteId)
 }
 
 function handleVerwalten() {
@@ -130,7 +130,7 @@ function handleVerwalten() {
 }
 
 function handleActivate(rotte) {
-  activePasseStore.assignRotteToRange(props.instanceId, rotte.rotteId, props.range.id)
+  competitionEventStore.assignRotteToRange(props.instanceId, rotte.rotteId, props.range.id)
 }
 </script>
 

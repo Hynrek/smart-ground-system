@@ -180,6 +180,7 @@ export const usePasseStore = defineStore('passe', () => {
       } else {
         const pendingId = pairPending.value.id;
         const pendingAlias = pairPending.value.alias;
+        const pendingLetter = pairPending.value.letter;
         recording.value = { ...recording.value, [positionId]: true, [pendingId]: true };
         setTimeout(() => {
           const r = { ...recording.value };
@@ -195,6 +196,8 @@ export const usePasseStore = defineStore('passe', () => {
           alias2: alias,
           positionId1: pendingId,
           positionId2: positionId,
+          letter1: pendingLetter,
+          letter2: letter,
         };
         const segs = [...editingSerie.value];
         segs[0].steps = [...segs[0].steps, step];

@@ -18,7 +18,7 @@
         >
           <div class="session-header">
             <span class="session-name">{{ ev.name }}</span>
-            <span class="session-meta">{{ ev.rotten.length }} Rotten</span>
+            <span class="session-meta">{{ getRotten(ev).length }} Rotten</span>
           </div>
 
           <div class="rotte-list">
@@ -61,19 +61,15 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
-import { useActivePasseStore } from '@/stores/activePasseStore.js'
 import Icons from '@/components/Icons.vue'
 
 const router = useRouter()
 const competitionEventStore = useCompetitionEventStore()
-const activePasseStore = useActivePasseStore()
 
 const activeEvents = computed(() => competitionEventStore.activeEvents)
 
-const getRotten = (ev) => {
-  const instance = activePasseStore.activeInstances.find(i => i.instanceId === ev.activeInstanceId)
-  return instance?.rotten ?? ev.rotten
-}
+const getRotten = (ev) =>
+  competitionEventStore.getCompetitionInstance(ev.id)?.rotten ?? []
 
 const currentPasse = (rotte) => {
   const phase = rotte.phases?.[rotte.currentPhaseIndex]
@@ -85,7 +81,7 @@ const badgeLabel = (status) => {
   return map[status] ?? 'Wartend'
 }
 
-const allPlayers = (ev) => ev.rotten.flatMap(r => r.players)
+const allPlayers = (ev) => getRotten(ev).flatMap(r => r.players ?? [])
 </script>
 
 <style scoped>
