@@ -4,6 +4,7 @@ import ch.jp.shooting.dto.SessionLeaderboardResponse;
 import ch.jp.shooting.mapper.CareerStatsMapper;
 import ch.jp.shooting.model.*;
 import ch.jp.shooting.repository.CareerStatsRepository;
+import ch.jp.shooting.repository.CompetitionTiebreakerRepository;
 import ch.jp.shooting.repository.LiveSessionRepository;
 import ch.jp.shooting.repository.PlayerResultRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,6 +28,7 @@ class CompetitionServiceTest {
     @Mock PlayerResultRepository playerResultRepository;
     @Mock CareerStatsRepository careerStatsRepository;
     @Mock CareerStatsMapper careerStatsMapper;
+    @Mock CompetitionTiebreakerRepository tiebreakerRepository;
 
     private CompetitionService service;
     private UUID sessionId;
@@ -35,7 +37,8 @@ class CompetitionServiceTest {
     @BeforeEach
     void setUp() {
         service = new CompetitionService(sessionRepository, playerResultRepository,
-            careerStatsRepository, careerStatsMapper, new ObjectMapper());
+            careerStatsRepository, careerStatsMapper, new ObjectMapper(),
+            tiebreakerRepository, new TieResolver());
         sessionId = UUID.randomUUID();
         session = new LiveSession(SessionType.COMPETITION, SessionStatus.ACTIVE);
     }

@@ -5,8 +5,10 @@ import ch.jp.shooting.exception.SessionNotFoundException;
 import ch.jp.shooting.mapper.CareerStatsMapper;
 import ch.jp.shooting.model.*;
 import ch.jp.shooting.repository.CareerStatsRepository;
+import ch.jp.shooting.repository.CompetitionTiebreakerRepository;
 import ch.jp.shooting.repository.LiveSessionRepository;
 import ch.jp.shooting.repository.PlayerResultRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,7 +18,6 @@ import org.jspecify.annotations.NullMarked;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Service für Wettkampf-Verwaltung: Leaderboard-Berechnung, Karriere-Statistiken.
@@ -29,18 +30,24 @@ public class CompetitionService {
     private final CareerStatsRepository careerStatsRepository;
     private final CareerStatsMapper careerStatsMapper;
     private final ObjectMapper objectMapper;
+    private final CompetitionTiebreakerRepository tiebreakerRepository;
+    private final TieResolver tieResolver;
 
     public CompetitionService(
             LiveSessionRepository sessionRepository,
             PlayerResultRepository playerResultRepository,
             CareerStatsRepository careerStatsRepository,
             CareerStatsMapper careerStatsMapper,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            CompetitionTiebreakerRepository tiebreakerRepository,
+            TieResolver tieResolver) {
         this.sessionRepository = sessionRepository;
         this.playerResultRepository = playerResultRepository;
         this.careerStatsRepository = careerStatsRepository;
         this.careerStatsMapper = careerStatsMapper;
         this.objectMapper = objectMapper;
+        this.tiebreakerRepository = tiebreakerRepository;
+        this.tieResolver = tieResolver;
     }
 
     /**
@@ -89,14 +96,36 @@ public class CompetitionService {
             entry.setMaxScore(entry.getMaxScore() + playerMax);
         }
 
-        // Sortiere nach Punkte (absteigend) und vergebe Ränge
-        List<SessionLeaderboardResponse.PlayerScoreEntry> sortedScores = playerScores.values()
-            .stream()
-            .sorted((a, b) -> Integer.compare(b.getTotalScore(), a.getTotalScore()))
-            .collect(Collectors.toList());
+        // Punktgleiche Blöcke über TieResolver + Stechen-Runden ordnen und ranken.
+        List<TieResolver.PlayerStanding> standings = new ArrayList<>();
+        for (SessionLeaderboardResponse.PlayerScoreEntry e : playerScores.values()) {
+            standings.add(new TieResolver.PlayerStanding(
+                e.getPlayerId(), e.getDisplayName(), e.getTotalScore(), e.getMaxScore()));
+        }
 
-        for (int i = 0; i < sortedScores.size(); i++) {
-            sortedScores.get(i).setRank(i + 1);
+        // Abgeschlossene Stechen-Runden in TieResolver-Runden übersetzen.
+        List<TieResolver.TiebreakerRound> rounds = new ArrayList<>();
+        for (CompetitionTiebreaker tb : tiebreakerRepository.findBySessionId(sessionId)) {
+            if (tb.getStatus() != TiebreakerStatus.COMPLETED || tb.getResultsJson() == null) {
+                continue;
+            }
+            rounds.add(new TieResolver.TiebreakerRound(
+                tb.getTieGroupId(),
+                tb.getRoundNumber(),
+                parseUuidList(tb.getParticipantsJson()),
+                parseScores(tb.getResultsJson())));
+        }
+
+        var resolved = tieResolver.resolve(standings, rounds);
+
+        // In Auflösungsreihenfolge neu aufbauen; Rang + Tie-Flags auf die Einträge übertragen.
+        List<SessionLeaderboardResponse.PlayerScoreEntry> sortedScores = new ArrayList<>();
+        for (TieResolver.ResolvedStanding rs : resolved) {
+            SessionLeaderboardResponse.PlayerScoreEntry entry = playerScores.get(rs.playerId());
+            entry.setRank(rs.rank());
+            entry.setTied(rs.tied());
+            entry.setTieResolvedByStechen(rs.tieResolvedByStechen());
+            sortedScores.add(entry);
         }
 
         return new SessionLeaderboardResponse(
@@ -105,6 +134,36 @@ public class CompetitionService {
             sortedScores,
             Collections.emptyList()  // Gruppen-Scores folgen später
         );
+    }
+
+    /** Parst eine JSON-Array-Liste von UUID-Strings (participantsJson). */
+    private List<UUID> parseUuidList(String json) throws Exception {
+        var node = objectMapper.readTree(json == null || json.isBlank() ? "[]" : json);
+        var ids = new ArrayList<UUID>();
+        if (node.isArray()) {
+            for (JsonNode n : node) {
+                String s = n.asText(null);
+                if (s != null && !s.isBlank()) {
+                    ids.add(UUID.fromString(s));
+                }
+            }
+        }
+        return ids;
+    }
+
+    /** Parst resultsJson [{playerId,totalPoints,...}] zu playerId → totalPoints. */
+    private Map<UUID, Integer> parseScores(String json) throws Exception {
+        var node = objectMapper.readTree(json == null || json.isBlank() ? "[]" : json);
+        var scores = new HashMap<UUID, Integer>();
+        if (node.isArray()) {
+            for (JsonNode s : node) {
+                String pid = s.path("playerId").asText(null);
+                if (pid != null && !pid.isBlank()) {
+                    scores.put(UUID.fromString(pid), s.path("totalPoints").asInt(0));
+                }
+            }
+        }
+        return scores;
     }
 
     /**

@@ -63,6 +63,8 @@ public class SessionLeaderboardResponse {
         private int totalScore;
         private int maxScore;
         private int rank;
+        private boolean tied;
+        private boolean tieResolvedByStechen;
 
         public PlayerScoreEntry(UUID playerId, String displayName, int totalScore, int maxScore, int rank) {
             this.playerId = playerId;
@@ -110,6 +112,22 @@ public class SessionLeaderboardResponse {
 
         public void setRank(int rank) {
             this.rank = rank;
+        }
+
+        public boolean isTied() {
+            return tied;
+        }
+
+        public void setTied(boolean tied) {
+            this.tied = tied;
+        }
+
+        public boolean isTieResolvedByStechen() {
+            return tieResolvedByStechen;
+        }
+
+        public void setTieResolvedByStechen(boolean v) {
+            this.tieResolvedByStechen = v;
         }
     }
 
