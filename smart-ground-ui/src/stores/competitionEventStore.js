@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as wettkampfApi from '@/services/wettkampfApi.js'
+import * as tiebreakerApi from '@/services/tiebreakerApi.js'
 
 export const useCompetitionEventStore = defineStore('competitionEvent', () => {
   // ── Planning state (server-synced) ─────────────────────────────────────────
@@ -11,6 +12,9 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
   // ── Runtime state (in-memory, rebuilt from events + passe data) ───────────
   const competitionInstances          = ref([])
   const completedCompetitionInstances = ref([])
+
+  // ── Stechen (tiebreaker) state ────────────────────────────────────────────
+  const tiesBySession = ref({})
 
   // ── Computed ──────────────────────────────────────────────────────────────
 
@@ -370,6 +374,42 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     events.value = events.value.map(e => e.id === updated.id ? updated : e)
   }
 
+  // ── Stechen (tiebreaker) ──────────────────────────────────────────────────
+
+  const loadTies = async (sessionId) => {
+    const res = await tiebreakerApi.getTies(sessionId)
+    tiesBySession.value = { ...tiesBySession.value, [sessionId]: res }
+    return res
+  }
+
+  const startStechen = async (sessionId, payload) => {
+    const created = await tiebreakerApi.startTiebreaker(sessionId, payload)
+    await loadTies(sessionId)
+    return created
+  }
+
+  const submitStechenResults = async (sessionId, tiebreakerId, results) => {
+    const updated = await tiebreakerApi.submitTiebreakerResults(sessionId, tiebreakerId, results)
+    tiesBySession.value = { ...tiesBySession.value, [sessionId]: updated }
+    return updated
+  }
+
+  // Finish a competition. Returns { completed: true } on success, or
+  // { completed: false, unresolvedTies } when the backend's finish guard (409) blocks it.
+  const finishEvent = async (sessionId, force = false) => {
+    try {
+      await wettkampfApi.patchStatus(sessionId, 'completed', { force })
+      const updated = await wettkampfApi.getSession(sessionId)
+      _replaceEvent(updated)
+      return { completed: true }
+    } catch (e) {
+      if (e.status === 409 && e.body?.unresolvedTies) {
+        return { completed: false, unresolvedTies: e.body.unresolvedTies }
+      }
+      throw e
+    }
+  }
+
   return {
     // Planning state
     events, loading, error,
@@ -385,5 +425,8 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     assignRotteToRange, unassignRotte,
     markBlockInProgress, markBlockDone,
     getActiveCompetitionRotten, getBlocksForRange,
+    // Stechen (tiebreaker)
+    tiesBySession,
+    loadTies, startStechen, submitStechenResults, finishEvent,
   }
 })
