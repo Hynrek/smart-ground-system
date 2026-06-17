@@ -17,14 +17,21 @@ export async function handleResponse(response) {
     throw new Error('Access denied.');
   }
   let message = `HTTP ${response.status}`;
+  let body = null;
   try {
-    const problem = await response.json();
-    if (problem.detail) message = problem.detail;
-    else if (problem.title) message = problem.title;
+    body = await response.json();
+    if (body.detail) message = body.detail;
+    else if (body.title) message = body.title;
+    else if (body.message) message = body.message;
   } catch {
     // Ignore JSON parse errors
   }
-  throw new Error(message);
+  // Attach status + parsed body so callers can inspect structured errors
+  // (e.g. a 409 UnresolvedTiesError carrying the unresolved tied blocks).
+  const error = new Error(message);
+  error.status = response.status;
+  error.body = body;
+  throw error;
 }
 
 export async function apiFetch(path, options = {}) {
