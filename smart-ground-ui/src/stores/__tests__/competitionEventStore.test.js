@@ -8,6 +8,7 @@ vi.mock('@/services/wettkampfApi.js', () => ({
   patchStatus:   vi.fn(),
   getSession:    vi.fn(),
   getProgress:   vi.fn(),
+  getLeaderboard: vi.fn(),
   deleteSession: vi.fn(),
   createGroup:   vi.fn(),
   updateGroup:   vi.fn(),
@@ -277,5 +278,53 @@ describe('useCompetitionEventStore', () => {
       }],
     }]
     expect(store.getActiveCompetitionRotten()[0].blocks.map(b => b.blockId)).toEqual(['b1', 'b2'])
+  })
+
+  describe('loadCompletedResults', () => {
+    const mkLeaderboard = () => ({
+      sessionId: 's1',
+      status: 'COMPLETED',
+      playerScores: [
+        { playerId: 'm2', displayName: 'Bob',   totalScore: 47, maxScore: 50, rank: 1, tied: false, tieResolvedByStechen: false },
+        { playerId: 'm1', displayName: 'Alice', totalScore: 40, maxScore: 50, rank: 2, tied: true,  tieResolvedByStechen: true  },
+      ],
+      groupScores: [],
+    })
+
+    const mkCompletedSession = () => mkSession({
+      status: 'COMPLETED',
+      completedAt: '2026-06-17T10:00:00Z',
+      groups: [
+        { id: 'g1', name: 'Rotte A', members: [{ id: 'm1', displayName: 'Alice' }] },
+        { id: 'g2', name: 'Rotte B', members: [{ id: 'm2', displayName: 'Bob' }] },
+      ],
+      playerResults: [{ playerId: 'm1', programResults: '[]', totalScore: 40, maxScore: 50 }],
+    })
+
+    it('builds ranked standings with Rotte names joined and tie flags preserved', async () => {
+      api.getLeaderboard.mockResolvedValue(mkLeaderboard())
+      api.getSession.mockResolvedValue(mkCompletedSession())
+      const store = useCompetitionEventStore()
+
+      await store.loadCompletedResults('s1')
+
+      const result = store.completedResultsBySession['s1']
+      expect(result.standings.map(s => s.displayName)).toEqual(['Bob', 'Alice'])
+      expect(result.standings[0]).toMatchObject({ rank: 1, playerId: 'm2', rotteName: 'Rotte B', totalScore: 47, maxScore: 50 })
+      expect(result.standings[1]).toMatchObject({ rank: 2, rotteName: 'Rotte A', tied: true, tieResolvedByStechen: true })
+      expect(result.completedAt).toBe('2026-06-17T10:00:00Z')
+      expect(result.playerResults).toHaveLength(1)
+    })
+
+    it('sets error and leaves cache empty when the API fails', async () => {
+      api.getLeaderboard.mockRejectedValue(new Error('boom'))
+      api.getSession.mockResolvedValue(mkCompletedSession())
+      const store = useCompetitionEventStore()
+
+      await store.loadCompletedResults('s1')
+
+      expect(store.error).toBe('boom')
+      expect(store.completedResultsBySession['s1']).toBeUndefined()
+    })
   })
 })

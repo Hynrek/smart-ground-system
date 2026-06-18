@@ -13,6 +13,13 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
   const competitionInstances          = ref([])
   const completedCompetitionInstances = ref([])
 
+  // ── Completed results (server-backed, survives reload) ────────────────────
+  // Keyed by sessionId. Unlike completedCompetitionInstances (which is only
+  // populated when a competition finishes in the current session), this is
+  // fetched from the backend so a reloaded COMPLETED competition still shows
+  // its final Rangliste.
+  const completedResultsBySession = ref({})
+
   // ── Stechen (tiebreaker) state ────────────────────────────────────────────
   const tiesBySession = ref({})
 
@@ -374,6 +381,50 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     return result
   }
 
+  // ── Completed results ───────────────────────────────────────────────────────
+
+  // Fetch the final standings for a COMPLETED competition. Ranking and tie
+  // resolution are computed server-side (leaderboard); Rotte names and the
+  // per-player detail source (playerResults) come from the full session.
+  const loadCompletedResults = async (sessionId) => {
+    loading.value = true
+    error.value = null
+    try {
+      const [leaderboard, session] = await Promise.all([
+        wettkampfApi.getLeaderboard(sessionId),
+        wettkampfApi.getSession(sessionId),
+      ])
+      const rotteByPlayer = new Map()
+      for (const group of (session.groups ?? [])) {
+        for (const member of (group.members ?? [])) {
+          rotteByPlayer.set(member.id, group.name)
+        }
+      }
+      const standings = (leaderboard.playerScores ?? []).map(p => ({
+        rank: p.rank,
+        playerId: p.playerId,
+        displayName: p.displayName,
+        rotteName: rotteByPlayer.get(p.playerId) ?? null,
+        totalScore: p.totalScore,
+        maxScore: p.maxScore,
+        tied: p.tied ?? false,
+        tieResolvedByStechen: p.tieResolvedByStechen ?? false,
+      }))
+      completedResultsBySession.value = {
+        ...completedResultsBySession.value,
+        [sessionId]: {
+          standings,
+          playerResults: session.playerResults ?? [],
+          completedAt: session.completedAt ?? null,
+        },
+      }
+    } catch (e) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
   // ── Private ───────────────────────────────────────────────────────────────
 
   const _replaceEvent = (updated) => {
@@ -427,6 +478,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     addPasseToEvent, removePasseFromEvent,
     // Runtime state
     competitionInstances, completedCompetitionInstances,
+    completedResultsBySession, loadCompletedResults,
     getCompetitionInstance, initCompetitionInstance,
     assignRotteToRange, unassignRotte,
     markBlockInProgress, markBlockDone,
