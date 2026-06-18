@@ -26,11 +26,28 @@ hardcoded hex colors instead of the design-token system, and presents no ranking
 
 ## Non-Goals (YAGNI)
 
-- Full per-step scorecard (every Serie/step with hit/miss letters). Documented as a **stretch
-  goal**; the `programResults` JSON already carries the data, so it can be added later without
-  reworking this design.
 - Per-Rotte separate rankings. The ranking is one combined standing (Rotte shown as metadata).
 - Real-time / live updates. This view is for finished competitions only.
+- Per-step **letters/types** (A/B target labels). The step definitions are not reliably
+  available post-completion, so the per-step scorecard shows hit/miss + points per step, not
+  the A/B clay labels.
+
+## Addendum (2026-06-18): per-step scorecard implemented
+
+The per-step scorecard (originally a stretch goal) is now implemented. A correction to the
+earlier assumption: `programResults` does **not** carry per-step data — it only holds per-Serie
+aggregates (`{ passeIndex, serieId, totalPoints, maxPoints }`). The actual `stepStates` are
+persisted verbatim in `competition_serie_results.results` (written by
+`CompetitionProgressService` on Serie completion) but were exposed by no GET endpoint.
+
+- **Backend:** new `GET /sessions/{id}/serie-results` (`CompetitionController`, hand-written like
+  `leaderboard`) → `CompetitionSerieResultDetailResponse[]` with `{ groupId, passeIndex, serieId,
+  completedAt, results }`, where `results` is the parsed JSON (player results incl. `stepStates`).
+- **Frontend:** `loadCompletedResults` also fetches serie-results; `useCompletedResults` exposes
+  `getPlayerSteps(playerId)` (per-Passe groups of `{ state, pointsEarned, pointValue }`). A shared
+  `StepScorecard.vue` renders hit/miss chips; both the admin panel and the shooter kiosk view
+  show it in the expanded per-shooter detail. Degrades to nothing when no step data is present.
+- The shooter Rangliste route is lazy-loaded to avoid a router↔apiClient import cycle.
 
 ## Data Availability (backend, verified)
 
