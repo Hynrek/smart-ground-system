@@ -96,24 +96,32 @@
 
     <!-- Serien tab -->
     <div v-if="activeTab === 'fortschritt'" class="serien-view">
-      <div
-        v-for="card in serieCards"
-        :key="card.serieAlias"
-        class="serie-card"
-      >
-        <div class="serie-card-header">Serie: {{ card.serieAlias }}</div>
+      <!-- PRE_COMPLETE: per-shooter score correction (Passe switcher + editable chips) -->
+      <CompetitionCorrectionPanel
+        v-if="isPreComplete"
+        :session-id="event.id"
+        :passen="event.passen ?? []"
+      />
+      <template v-else>
         <div
-          v-for="row in card.rotteRows"
-          :key="row.rotteId"
-          class="rotte-row"
+          v-for="card in serieCards"
+          :key="card.serieAlias"
+          class="serie-card"
         >
-          <span class="rotte-name">{{ row.rotteName }}</span>
-          <span class="rotte-chip" :class="`chip-${row.status}`">
-            {{ rowStatusLabel(row.status) }}
-          </span>
+          <div class="serie-card-header">Serie: {{ card.serieAlias }}</div>
+          <div
+            v-for="row in card.rotteRows"
+            :key="row.rotteId"
+            class="rotte-row"
+          >
+            <span class="rotte-name">{{ row.rotteName }}</span>
+            <span class="rotte-chip" :class="`chip-${row.status}`">
+              {{ rowStatusLabel(row.status) }}
+            </span>
+          </div>
         </div>
-      </div>
-      <div v-if="serieCards.length === 0" class="empty-state">Keine Serien in dieser Passe</div>
+        <div v-if="serieCards.length === 0" class="empty-state">Keine Serien in dieser Passe</div>
+      </template>
     </div>
 
     <!-- Rangliste tab -->
@@ -139,6 +147,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Icons from '@/components/Icons.vue'
 import { usePasseStore } from '@/stores/passeStore.js'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
+import CompetitionCorrectionPanel from '@/components/competition/CompetitionCorrectionPanel.vue'
 import { getProgress, getLeaderboard } from '@/services/wettkampfApi.js'
 import { useUrlTab } from '@/composables/useUrlTab.js'
 
@@ -162,6 +171,8 @@ const tiedPlayerIds = computed(() => {
 const passeStore = usePasseStore()
 const competitionStore = useCompetitionEventStore()
 const { activeTab, setTab } = useUrlTab('fortschritt', ['fortschritt', 'rangliste', 'rotten'])
+
+const isPreComplete = computed(() => props.event.status?.toUpperCase() === 'PRE_COMPLETE')
 
 const progressData = ref(null)
 const leaderboardData = ref(null)
