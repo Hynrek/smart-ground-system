@@ -15,6 +15,7 @@ vi.mock('vue-router', async (importOriginal) => ({
 vi.mock('@/services/wettkampfApi.js', () => ({
   getLeaderboard: vi.fn(),
   getSession: vi.fn(),
+  getSerieResults: vi.fn(),
 }))
 
 import * as wettkampfApi from '@/services/wettkampfApi.js'
@@ -43,6 +44,15 @@ const session = {
   ],
 }
 
+const serieResults = [
+  { groupId: 'g1', passeIndex: 0, serieId: 'x', results: [
+    { playerId: 'm1', stepStates: [
+      { stepIndex: 0, state: 'done', pointsEarned: 2, pointValue: 2 },
+      { stepIndex: 1, state: 'failed-both', pointsEarned: 0, pointValue: 2 },
+    ] },
+  ] },
+]
+
 const mountView = () => mount(CompetitionResultsView, {
   props: { id: 'ev-1' },
   global: { stubs: { Icons: true } },
@@ -54,6 +64,7 @@ describe('CompetitionResultsView (shooter)', () => {
     vi.clearAllMocks()
     wettkampfApi.getLeaderboard.mockResolvedValue(leaderboard)
     wettkampfApi.getSession.mockResolvedValue(session)
+    wettkampfApi.getSerieResults.mockResolvedValue(serieResults)
   })
 
   it('renders the standings in rank order', async () => {
@@ -83,6 +94,7 @@ describe('CompetitionResultsView (shooter)', () => {
     expect(detail.exists()).toBe(true)
     expect(detail.text()).toContain('Passe 1')
     expect(detail.text()).toContain('18 / 25')
+    expect(wrapper.findAll('.step-chip').length).toBeGreaterThanOrEqual(2)
   })
 
   it('navigates back when the back button is clicked', async () => {

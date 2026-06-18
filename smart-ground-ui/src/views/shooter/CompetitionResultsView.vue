@@ -51,6 +51,11 @@
               <span class="passe-label">{{ passe.label }}</span>
               <span class="passe-pts">{{ passe.totalPoints }} / {{ passe.maxPoints }}</span>
             </div>
+            <StepScorecard
+              v-if="stepsFor(row.playerId).length > 0"
+              class="step-detail"
+              :passen="stepsFor(row.playerId)"
+            />
           </div>
         </div>
       </div>
@@ -62,6 +67,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Icons from '@/components/Icons.vue'
+import StepScorecard from '@/components/competition/StepScorecard.vue'
 import { useCompletedResults } from '@/composables/useCompletedResults.js'
 import { useAuthStore } from '@/stores/authStore.js'
 
@@ -71,13 +77,19 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const sessionId = computed(() => props.id)
-const { standings, loading, error, load, getPlayerDetail } = useCompletedResults(sessionId)
+const { standings, loading, error, load, getPlayerDetail, getPlayerSteps } = useCompletedResults(sessionId)
 
 const expandedId = ref(null)
 const detailCache = new Map()
 const detailFor = (playerId) => {
   if (!detailCache.has(playerId)) detailCache.set(playerId, getPlayerDetail(playerId))
   return detailCache.get(playerId)
+}
+
+const stepsCache = new Map()
+const stepsFor = (playerId) => {
+  if (!stepsCache.has(playerId)) stepsCache.set(playerId, getPlayerSteps(playerId))
+  return stepsCache.get(playerId)
 }
 
 const isMe = (row) => !!authStore.profile?.id && row.userId === authStore.profile.id
@@ -90,6 +102,7 @@ const goBack = () => router.push('/wettkampf')
 
 onMounted(() => {
   detailCache.clear()
+  stepsCache.clear()
   load()
 })
 </script>
@@ -179,4 +192,6 @@ onMounted(() => {
 .passe-line { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
 .passe-label { font-size: 15px; color: rgba(255, 255, 255, 0.7); }
 .passe-pts { font-size: 15px; font-weight: 700; }
+
+.step-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 </style>

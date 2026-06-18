@@ -8,6 +8,7 @@ vi.mock('@/components/Icons.vue', () => ({ default: { template: '<span />' } }))
 vi.mock('@/services/wettkampfApi.js', () => ({
   getLeaderboard: vi.fn(),
   getSession: vi.fn(),
+  getSerieResults: vi.fn(),
   exportLeaderboard: vi.fn().mockResolvedValue(undefined),
 }))
 
@@ -40,6 +41,15 @@ const session = {
   ],
 }
 
+const serieResults = [
+  { groupId: 'g2', passeIndex: 0, serieId: 'x', results: [
+    { playerId: 'm2', stepStates: [
+      { stepIndex: 0, state: 'done', pointsEarned: 2, pointValue: 2 },
+      { stepIndex: 1, state: 'failed-a', pointsEarned: 1, pointValue: 2 },
+    ] },
+  ] },
+]
+
 const mountPanel = () => mount(CompletedResultsPanel, {
   props: { event: { id: 'ev-1', name: 'Frühjahrspokal', status: 'COMPLETED' } },
   global: { stubs: { Icons: true } },
@@ -51,6 +61,7 @@ describe('CompletedResultsPanel', () => {
     vi.clearAllMocks()
     wettkampfApi.getLeaderboard.mockResolvedValue(leaderboard)
     wettkampfApi.getSession.mockResolvedValue(session)
+    wettkampfApi.getSerieResults.mockResolvedValue(serieResults)
   })
 
   it('loads and renders standings in rank order with Rotte and totals', async () => {
@@ -81,6 +92,15 @@ describe('CompletedResultsPanel', () => {
     expect(detail.text()).toContain('Passe 1')
     expect(detail.text()).toContain('24 / 25')
     expect(detail.text()).toContain('Passe 2')
+  })
+
+  it('renders per-step chips in the expanded detail', async () => {
+    const wrapper = mountPanel()
+    await flushPromises()
+    await wrapper.findAll('.standing-row')[0].trigger('click') // Bob (m2)
+    const chips = wrapper.findAll('.step-chip')
+    expect(chips.length).toBeGreaterThanOrEqual(2)
+    expect(chips[0].classes()).toContain('is-done')
   })
 
   it('calls exportLeaderboard when the export button is clicked', async () => {

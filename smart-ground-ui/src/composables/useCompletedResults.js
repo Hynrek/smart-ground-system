@@ -68,5 +68,32 @@ export function useCompletedResults(sessionId) {
     }
   }
 
-  return { standings, completedAt, loading, error, load, getPlayerDetail }
+  // Per-step scorecard for a player, grouped by Passe. Built from the persisted
+  // serie-results (each carries the raw stepStates). Returns [] when no per-step
+  // data is available for the player.
+  const getPlayerSteps = (playerId) => {
+    const serieResults = entry.value?.serieResults ?? []
+    const byPasse = new Map()
+    for (const sr of serieResults) {
+      const playerEntry = (sr.results ?? []).find(r => r.playerId === playerId)
+      const steps = playerEntry?.stepStates ?? []
+      if (steps.length === 0) continue
+      const idx = sr.passeIndex ?? 0
+      const group = byPasse.get(idx) ?? { passeIndex: idx, steps: [] }
+      for (const s of steps) {
+        group.steps.push({
+          stepIndex: s.stepIndex ?? 0,
+          state: s.state,
+          pointsEarned: s.pointsEarned ?? 0,
+          pointValue: s.pointValue ?? 0,
+        })
+      }
+      byPasse.set(idx, group)
+    }
+    return [...byPasse.values()]
+      .sort((a, b) => a.passeIndex - b.passeIndex)
+      .map(g => ({ passeIndex: g.passeIndex, label: `Passe ${g.passeIndex + 1}`, steps: g.steps }))
+  }
+
+  return { standings, completedAt, loading, error, load, getPlayerDetail, getPlayerSteps }
 }

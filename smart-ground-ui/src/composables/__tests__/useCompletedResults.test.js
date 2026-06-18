@@ -24,6 +24,19 @@ describe('useCompletedResults', () => {
           },
           { playerId: 'm2', totalScore: 47, maxScore: 50, programResults: 'not json' },
         ],
+        serieResults: [
+          { groupId: 'g1', passeIndex: 0, serieId: 'se1', results: [
+            { playerId: 'm1', stepStates: [
+              { stepIndex: 0, state: 'done', pointsEarned: 2, pointValue: 2 },
+              { stepIndex: 1, state: 'failed-a', pointsEarned: 1, pointValue: 2 },
+            ] },
+          ] },
+          { groupId: 'g1', passeIndex: 1, serieId: 'se2', results: [
+            { playerId: 'm1', stepStates: [
+              { stepIndex: 0, state: 'done', pointsEarned: 2, pointValue: 2 },
+            ] },
+          ] },
+        ],
         completedAt: '2026-06-17T10:00:00Z',
       },
     }
@@ -71,5 +84,25 @@ describe('useCompletedResults', () => {
     expect(detail.passen).toEqual([])
     expect(detail.total).toBe(47)
     expect(detail.max).toBe(50)
+  })
+
+  it('getPlayerSteps groups a player\'s step states by Passe', () => {
+    const store = useCompetitionEventStore()
+    seed(store)
+    const { getPlayerSteps } = useCompletedResults('s1')
+    const passen = getPlayerSteps('m1')
+    expect(passen.map(p => p.label)).toEqual(['Passe 1', 'Passe 2'])
+    expect(passen[0].steps).toEqual([
+      { stepIndex: 0, state: 'done', pointsEarned: 2, pointValue: 2 },
+      { stepIndex: 1, state: 'failed-a', pointsEarned: 1, pointValue: 2 },
+    ])
+    expect(passen[1].steps).toHaveLength(1)
+  })
+
+  it('getPlayerSteps returns [] for a player with no serie results', () => {
+    const store = useCompetitionEventStore()
+    seed(store)
+    const { getPlayerSteps } = useCompletedResults('s1')
+    expect(getPlayerSteps('m2')).toEqual([])
   })
 })

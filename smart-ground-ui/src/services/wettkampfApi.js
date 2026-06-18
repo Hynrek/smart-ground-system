@@ -71,6 +71,11 @@ export const getProgress = (sessionId) =>
 export const getLeaderboard = (sessionId) =>
   apiFetch(`/sessions/${sessionId}/leaderboard`)
 
+// Persisted per-Serie play results incl. stepStates, for the per-step scorecard
+// of a completed competition.
+export const getSerieResults = (sessionId) =>
+  apiFetch(`/sessions/${sessionId}/serie-results`)
+
 // Download the leaderboard as a file. The export endpoint returns CSV/JSON
 // (not the JSON envelope apiFetch parses), so this does its own fetch for the
 // raw blob and triggers a browser download.

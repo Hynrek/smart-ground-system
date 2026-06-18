@@ -9,6 +9,7 @@ vi.mock('@/services/wettkampfApi.js', () => ({
   getSession:    vi.fn(),
   getProgress:   vi.fn(),
   getLeaderboard: vi.fn(),
+  getSerieResults: vi.fn(),
   deleteSession: vi.fn(),
   createGroup:   vi.fn(),
   updateGroup:   vi.fn(),
@@ -301,9 +302,16 @@ describe('useCompetitionEventStore', () => {
       playerResults: [{ playerId: 'm1', programResults: '[]', totalScore: 40, maxScore: 50 }],
     })
 
+    const mkSerieResults = () => ([
+      { groupId: 'g1', passeIndex: 0, serieId: 'se1', results: [
+        { playerId: 'm1', stepStates: [{ stepIndex: 0, state: 'done', pointsEarned: 2, pointValue: 2 }] },
+      ] },
+    ])
+
     it('builds ranked standings with Rotte names joined and tie flags preserved', async () => {
       api.getLeaderboard.mockResolvedValue(mkLeaderboard())
       api.getSession.mockResolvedValue(mkCompletedSession())
+      api.getSerieResults.mockResolvedValue(mkSerieResults())
       const store = useCompetitionEventStore()
 
       await store.loadCompletedResults('s1')
@@ -314,11 +322,25 @@ describe('useCompetitionEventStore', () => {
       expect(result.standings[1]).toMatchObject({ rank: 2, playerId: 'm1', userId: 'u1', rotteName: 'Rotte A', tied: true, tieResolvedByStechen: true })
       expect(result.completedAt).toBe('2026-06-17T10:00:00Z')
       expect(result.playerResults).toHaveLength(1)
+      expect(result.serieResults).toHaveLength(1)
+      expect(result.serieResults[0].results[0].stepStates[0].state).toBe('done')
+    })
+
+    it('tolerates a missing serie-results payload', async () => {
+      api.getLeaderboard.mockResolvedValue(mkLeaderboard())
+      api.getSession.mockResolvedValue(mkCompletedSession())
+      api.getSerieResults.mockResolvedValue(undefined)
+      const store = useCompetitionEventStore()
+
+      await store.loadCompletedResults('s1')
+
+      expect(store.completedResultsBySession['s1'].serieResults).toEqual([])
     })
 
     it('sets error and leaves cache empty when the API fails', async () => {
       api.getLeaderboard.mockRejectedValue(new Error('boom'))
       api.getSession.mockResolvedValue(mkCompletedSession())
+      api.getSerieResults.mockResolvedValue([])
       const store = useCompetitionEventStore()
 
       await store.loadCompletedResults('s1')

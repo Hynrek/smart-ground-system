@@ -60,6 +60,11 @@
             <span class="passe-label">{{ passe.label }}</span>
             <span class="passe-pts">{{ passe.totalPoints }} / {{ passe.maxPoints }}</span>
           </div>
+          <StepScorecard
+            v-if="stepsFor(row.playerId).length > 0"
+            class="step-detail"
+            :passen="stepsFor(row.playerId)"
+          />
         </div>
       </div>
     </div>
@@ -69,22 +74,29 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import Icons from '@/components/Icons.vue'
+import StepScorecard from '@/components/competition/StepScorecard.vue'
 import { useCompletedResults } from '@/composables/useCompletedResults.js'
 import { exportLeaderboard } from '@/services/wettkampfApi.js'
 
 const props = defineProps({ event: { type: Object, required: true } })
 
 const sessionId = computed(() => props.event.id)
-const { standings, completedAt, loading, error, load, getPlayerDetail } = useCompletedResults(sessionId)
+const { standings, completedAt, loading, error, load, getPlayerDetail, getPlayerSteps } = useCompletedResults(sessionId)
 
 const expandedId = ref(null)
 const exporting = ref(false)
 
-// Cache per-player detail so repeated renders don't re-parse the JSON blob.
+// Cache per-player detail so repeated renders don't re-parse the JSON blobs.
 const detailCache = new Map()
 const detailFor = (playerId) => {
   if (!detailCache.has(playerId)) detailCache.set(playerId, getPlayerDetail(playerId))
   return detailCache.get(playerId)
+}
+
+const stepsCache = new Map()
+const stepsFor = (playerId) => {
+  if (!stepsCache.has(playerId)) stepsCache.set(playerId, getPlayerSteps(playerId))
+  return stepsCache.get(playerId)
 }
 
 const toggle = (playerId) => {
@@ -108,6 +120,7 @@ const handleExport = async () => {
 
 onMounted(() => {
   detailCache.clear()
+  stepsCache.clear()
   load()
 })
 </script>
@@ -193,4 +206,6 @@ onMounted(() => {
 .passe-line { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
 .passe-label { font-size: 12px; color: var(--sg-text-muted); }
 .passe-pts { font-size: 12px; font-weight: 600; color: var(--sg-brand); }
+
+.step-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--sg-border); }
 </style>

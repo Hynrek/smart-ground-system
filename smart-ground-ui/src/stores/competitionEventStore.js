@@ -390,9 +390,10 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     loading.value = true
     error.value = null
     try {
-      const [leaderboard, session] = await Promise.all([
+      const [leaderboard, session, serieResults] = await Promise.all([
         wettkampfApi.getLeaderboard(sessionId),
         wettkampfApi.getSession(sessionId),
+        wettkampfApi.getSerieResults(sessionId),
       ])
       const memberMeta = new Map()
       for (const group of (session.groups ?? [])) {
@@ -416,6 +417,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
         [sessionId]: {
           standings,
           playerResults: session.playerResults ?? [],
+          serieResults: serieResults ?? [],
           completedAt: session.completedAt ?? null,
         },
       }
