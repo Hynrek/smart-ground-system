@@ -1,5 +1,6 @@
 /* global URLSearchParams */
-import { apiFetch } from './apiClient.js'
+import { apiFetch, BASE_URL } from './apiClient.js'
+import { getAuthHeaders } from './authHeader.js'
 
 export const createSession = (name, passen, groups) =>
   apiFetch('/sessions', {
@@ -69,6 +70,26 @@ export const getProgress = (sessionId) =>
 
 export const getLeaderboard = (sessionId) =>
   apiFetch(`/sessions/${sessionId}/leaderboard`)
+
+// Download the leaderboard as a file. The export endpoint returns CSV/JSON
+// (not the JSON envelope apiFetch parses), so this does its own fetch for the
+// raw blob and triggers a browser download.
+export const exportLeaderboard = async (sessionId, format = 'csv') => {
+  const response = await fetch(
+    `${BASE_URL}/sessions/${sessionId}/leaderboard/export?format=${format}`,
+    { headers: { ...getAuthHeaders() } },
+  )
+  if (!response.ok) throw new Error(`Export failed: HTTP ${response.status}`)
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `rangliste.${format}`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
 
 export const addPasse = (sessionId, passeId) =>
   apiFetch(`/sessions/${sessionId}/passen`, {
