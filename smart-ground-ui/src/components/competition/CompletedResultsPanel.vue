@@ -1,108 +1,196 @@
 <!-- src/components/competition/CompletedResultsPanel.vue -->
 <template>
   <div class="panel-content">
-    <h2 class="panel-title">Ergebnisse</h2>
-
-    <div
-      v-for="rotte in completedRotten"
-      :key="rotte.rotteId"
-      class="rotte-result-card"
-    >
-      <div class="rr-header">
-        <span class="rr-name">{{ rotte.name }}</span>
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">Rangliste</h2>
+        <span v-if="completedAtLabel" class="panel-subtitle">Abgeschlossen am {{ completedAtLabel }}</span>
       </div>
-
-      <div
-        v-for="player in rotte.players"
-        :key="player.id"
-        class="player-result-row"
+      <button
+        class="export-btn"
+        :disabled="standings.length === 0 || exporting"
+        @click="handleExport"
       >
-        <span class="pr-name">{{ player.displayName || '–' }}</span>
-        <div class="pr-phases">
-          <div v-for="phase in rotte.phases" :key="phase.phaseIndex" class="phase-result">
-            <span class="phase-label">{{ phase.passeName }}</span>
-            <span class="phase-pts">
-              {{ phasePoints(phase, player.id) }}/{{ phaseMaxPoints(phase, player.id) }}
-            </span>
+        <Icons icon="download" :size="14" />
+        Export (CSV)
+      </button>
+    </div>
+
+    <!-- Loading -->
+    <div v-if="loading && standings.length === 0" class="state-note">Ergebnisse werden geladen…</div>
+
+    <!-- Error -->
+    <div v-else-if="error" class="state-note state-error">
+      <span>Ergebnisse konnten nicht geladen werden.</span>
+      <button class="retry-btn" @click="load">Erneut versuchen</button>
+    </div>
+
+    <!-- Empty -->
+    <div v-else-if="standings.length === 0" class="state-note">Noch keine Ergebnisse.</div>
+
+    <!-- Standings -->
+    <div v-else class="standings">
+      <div
+        v-for="row in standings"
+        :key="row.playerId"
+        class="standing-block"
+      >
+        <button
+          class="standing-row"
+          :class="[`rank-${row.rank}`, { expanded: expandedId === row.playerId }]"
+          @click="toggle(row.playerId)"
+        >
+          <span class="rank" :class="{ medal: row.rank <= 3 }">{{ row.rank }}</span>
+          <span class="name">{{ row.displayName || '–' }}</span>
+          <span v-if="row.rotteName" class="rotte-chip">{{ row.rotteName }}</span>
+          <span v-if="row.tieResolvedByStechen" class="stechen-badge">Stechen</span>
+          <span class="score">{{ row.totalScore }} / {{ row.maxScore }}</span>
+          <Icons icon="chevronDown" :size="14" class="chevron" :class="{ open: expandedId === row.playerId }" />
+        </button>
+
+        <div v-if="expandedId === row.playerId" class="player-detail">
+          <div v-if="detailFor(row.playerId).passen.length === 0" class="detail-empty">
+            Keine Detailauswertung verfügbar — Gesamt {{ detailFor(row.playerId).total }} / {{ detailFor(row.playerId).max }}
+          </div>
+          <div
+            v-for="passe in detailFor(row.playerId).passen"
+            :key="passe.label"
+            class="passe-line"
+          >
+            <span class="passe-label">{{ passe.label }}</span>
+            <span class="passe-pts">{{ passe.totalPoints }} / {{ passe.maxPoints }}</span>
           </div>
         </div>
-        <span class="pr-total">{{ totalPoints(rotte, player.id) }}/{{ maxPoints(rotte, player.id) }}</span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
+import { computed, onMounted, ref } from 'vue'
+import Icons from '@/components/Icons.vue'
+import { useCompletedResults } from '@/composables/useCompletedResults.js'
+import { exportLeaderboard } from '@/services/wettkampfApi.js'
 
 const props = defineProps({ event: { type: Object, required: true } })
-const competitionEventStore = useCompetitionEventStore()
 
-const completedInstance = computed(() =>
-  competitionEventStore.completedCompetitionInstances.find(i => i.instanceId === props.event.id)
+const sessionId = computed(() => props.event.id)
+const { standings, completedAt, loading, error, load, getPlayerDetail } = useCompletedResults(sessionId)
+
+const expandedId = ref(null)
+const exporting = ref(false)
+
+// Cache per-player detail so repeated renders don't re-parse the JSON blob.
+const detailCache = new Map()
+const detailFor = (playerId) => {
+  if (!detailCache.has(playerId)) detailCache.set(playerId, getPlayerDetail(playerId))
+  return detailCache.get(playerId)
+}
+
+const toggle = (playerId) => {
+  expandedId.value = expandedId.value === playerId ? null : playerId
+}
+
+const completedAtLabel = computed(() =>
+  completedAt.value ? new Date(completedAt.value).toLocaleDateString('de-CH') : null,
 )
 
-const completedRotten = computed(() => completedInstance.value?.rotten ?? [])
-
-const phasePoints = (phase, playerId) => {
-  let pts = 0
-  for (const block of phase.blocks ?? []) {
-    const pr = block.result?.playerResults?.find(r => r.playerId === playerId)
-    if (pr) pts += pr.totalPoints ?? 0
+const handleExport = async () => {
+  exporting.value = true
+  try {
+    await exportLeaderboard(props.event.id, 'csv')
+  } catch (e) {
+    console.error('[CompletedResultsPanel] export failed:', e)
+  } finally {
+    exporting.value = false
   }
-  return pts
 }
 
-const phaseMaxPoints = (phase, playerId) => {
-  let pts = 0
-  for (const block of phase.blocks ?? []) {
-    const pr = block.result?.playerResults?.find(r => r.playerId === playerId)
-    if (pr) pts += pr.maxPoints ?? 0
-  }
-  return pts
-}
-
-const totalPoints = (rotte, playerId) =>
-  (rotte.phases ?? []).reduce((s, phase) => s + phasePoints(phase, playerId), 0)
-
-const maxPoints = (rotte, playerId) =>
-  (rotte.phases ?? []).reduce((s, phase) => s + phaseMaxPoints(phase, playerId), 0)
+onMounted(() => {
+  detailCache.clear()
+  load()
+})
 </script>
 
 <style scoped>
-.panel-content { flex: 1; overflow-y: auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 20px; }
+.panel-content { flex: 1; overflow-y: auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 16px; }
 
-.panel-title { font-size: 18px; font-weight: 700; color: #1a1a2e; margin: 0; }
+.panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 
-.rotte-result-card {
-  background: #fff; border: 1px solid #e2e8f0;
-  border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+.panel-title { font-size: 18px; font-weight: 700; color: var(--sg-brand); margin: 0; }
+
+.panel-subtitle { font-size: 12px; color: var(--sg-text-faint); }
+
+.export-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--sg-accent-subtle); border: 1px solid var(--sg-color-info-bg);
+  border-radius: 10px; padding: 7px 14px;
+  color: var(--sg-color-info-text); font-size: 13px; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: background 0.15s; white-space: nowrap;
+}
+.export-btn:hover:not(:disabled) { background: var(--sg-accent-tint); }
+.export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.state-note {
+  padding: 28px; text-align: center; color: var(--sg-text-faint); font-size: 14px;
+  border: 1px dashed var(--sg-border); border-radius: 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.state-error { color: var(--sg-color-warning-text); border-color: color-mix(in srgb, var(--sg-color-warning) 40%, transparent); }
+
+.retry-btn {
+  background: transparent; border: 1px solid var(--sg-border); border-radius: 8px;
+  padding: 6px 14px; color: var(--sg-text-muted); font-size: 13px; font-family: inherit; cursor: pointer;
+}
+.retry-btn:hover { background: var(--sg-bg-panel); }
+
+.standings { display: flex; flex-direction: column; gap: 8px; }
+
+.standing-block {
+  background: var(--sg-bg-card); border: 1px solid var(--sg-border);
+  border-radius: 12px; overflow: hidden; box-shadow: var(--sg-shadow-sm);
 }
 
-.rr-header { padding-bottom: 8px; border-bottom: 1px solid #bee3f8; }
-
-.rr-name { font-size: 13px; font-weight: 700; color: #0288d1; text-transform: uppercase; letter-spacing: 0.4px; }
-
-.player-result-row {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 6px 0; border-bottom: 1px solid #f7fafc;
+.standing-row {
+  display: grid; grid-template-columns: 36px 1fr auto auto auto 18px;
+  align-items: center; gap: 12px; width: 100%;
+  padding: 12px 16px; background: transparent; border: none; font-family: inherit;
+  cursor: pointer; text-align: left; transition: background 0.12s;
 }
-.player-result-row:last-child { border-bottom: none; }
+.standing-row:hover { background: var(--sg-bg-panel); }
 
-.pr-name { font-size: 13px; font-weight: 600; min-width: 130px; color: #2d3748; }
+.rank { font-size: 14px; font-weight: 700; color: var(--sg-text-muted); text-align: center; }
+.rank.medal { color: var(--sg-brand); }
+.rank-1 .rank.medal { color: #d4af37; }
+.rank-2 .rank.medal { color: #9aa3ad; }
+.rank-3 .rank.medal { color: #cd7f32; }
 
-.pr-phases { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; }
+.name { font-size: 14px; font-weight: 600; color: var(--sg-brand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.phase-result {
-  display: flex; gap: 4px; font-size: 11px;
-  background: #f7fafc; border-radius: 6px; padding: 2px 8px;
+.rotte-chip {
+  font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 20px;
+  background: var(--sg-bg-panel); border: 1px solid var(--sg-border); color: var(--sg-text-muted);
 }
 
-.phase-label { color: #a0aec0; }
+.stechen-badge {
+  font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px;
+  background: var(--sg-color-warning-bg); color: var(--sg-color-warning-text);
+  border: 1px solid color-mix(in srgb, var(--sg-color-warning) 40%, transparent);
+}
 
-.phase-pts { color: #4a5568; font-weight: 600; }
+.score { font-size: 14px; font-weight: 700; color: var(--sg-brand); white-space: nowrap; }
 
-.pr-total { font-size: 13px; font-weight: 700; color: #0288d1; white-space: nowrap; }
+.chevron { color: var(--sg-text-faint); transition: transform 0.15s; }
+.chevron.open { transform: rotate(180deg); }
+
+.player-detail {
+  padding: 6px 16px 14px; display: flex; flex-direction: column; gap: 4px;
+  border-top: 1px solid var(--sg-border); background: var(--sg-bg-panel);
+}
+
+.detail-empty { font-size: 12px; color: var(--sg-text-faint); padding: 6px 0; }
+
+.passe-line { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+.passe-label { font-size: 12px; color: var(--sg-text-muted); }
+.passe-pts { font-size: 12px; font-weight: 600; color: var(--sg-brand); }
 </style>

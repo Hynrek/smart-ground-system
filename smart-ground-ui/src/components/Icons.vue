@@ -65,6 +65,8 @@ const iconPaths = {
   program: 'M2 2h12a1 1 0 011 1v10a1 1 0 01-1 1H2a1 1 0 01-1-1V3a1 1 0 011-1zM2 5h12M4 8l3 2 3-4',
   chevronLeft: 'M9.5 2.5L6 6l3.5 3.5',
   chevronRight: 'M6.5 2.5L10 6l-3.5 3.5',
+  chevronDown: 'M2.5 4.5L6 8l3.5-3.5',
+  download: 'M8 2v7M5 6l3 3 3-3M3 12h10',
   stop: 'M3 3h10a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4a1 1 0 011-1z',
   alert: 'M8 1l6 11H2L8 1zm0 8v1M8 5v2',
   target: 'M8 2a6 6 0 100 12A6 6 0 008 2zm0 2a4 4 0 110 8 4 4 0 010-8zm0 2a2 2 0 100 4 2 2 0 000-4z',
