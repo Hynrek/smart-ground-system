@@ -107,6 +107,20 @@ describe('useCompetitionProgress', () => {
     expect(activePhaseIndex.value).toBe(1)
   })
 
+  it('uses the instance releasedPasseIndex as the active phase (admin gate)', () => {
+    const inst = makeInstance()
+    // Both Rotten finished Passe 1, but the admin has not released Passe 2 yet.
+    inst.releasedPasseIndex = 0
+    inst.rotten[0].phases[0].status = 'done'
+    inst.rotten[1].phases[0].status = 'done'
+    const instance = ref(inst)
+    const { activePhaseIndex, passenProgress } = useCompetitionProgress(instance)
+    expect(activePhaseIndex.value).toBe(0)
+    // Passe 1 is done-by-all → fertig; the gate keeps it as the active index but
+    // the next passe stays offen until released.
+    expect(passenProgress.value[1].status).toBe('offen')
+  })
+
   it('serieCards: one card per block in the active phase, with a row per rotte', () => {
     const instance = ref(makeInstance())
     const { serieCards } = useCompetitionProgress(instance)
