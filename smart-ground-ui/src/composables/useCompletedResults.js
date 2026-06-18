@@ -31,29 +31,20 @@ export function useCompletedResults(sessionId) {
     return id ? store.loadCompletedResults(id) : Promise.resolve()
   }
 
-  // Aggregate a player's per-Serie result entries into per-Passe totals.
-  // Competition programResults is a flat JSON array of
-  // { passeIndex, serieId, totalPoints, maxPoints, completedAt }.
+  // Per-Passe totals for a player, aggregated from the persisted serie-results
+  // (each row carries the player's per-Serie totalPoints/maxPoints). getSession's
+  // playerResults is empty in practice, so serie-results is the reliable source.
+  // Falls back to the leaderboard standing's grand total when no per-Serie data.
   const getPlayerDetail = (playerId) => {
-    const pr = entry.value?.playerResults?.find(r => r.playerId === playerId) ?? null
-    const fallback = { total: pr?.totalScore ?? 0, max: pr?.maxScore ?? 0, passen: [] }
-
-    if (!pr?.programResults) return fallback
-
-    let entries
-    try {
-      entries = JSON.parse(pr.programResults)
-    } catch {
-      return fallback
-    }
-    if (!Array.isArray(entries)) return fallback
-
+    const serieResults = entry.value?.serieResults ?? []
     const byPasse = new Map()
-    for (const e of entries) {
-      const idx = e.passeIndex ?? 0
+    for (const sr of serieResults) {
+      const pe = (sr.results ?? []).find(r => r.playerId === playerId)
+      if (!pe) continue
+      const idx = sr.passeIndex ?? 0
       const agg = byPasse.get(idx) ?? { passeIndex: idx, totalPoints: 0, maxPoints: 0 }
-      agg.totalPoints += e.totalPoints ?? 0
-      agg.maxPoints += e.maxPoints ?? 0
+      agg.totalPoints += pe.totalPoints ?? 0
+      agg.maxPoints += pe.maxPoints ?? 0
       byPasse.set(idx, agg)
     }
 
@@ -61,11 +52,16 @@ export function useCompletedResults(sessionId) {
       .sort((a, b) => a.passeIndex - b.passeIndex)
       .map(p => ({ label: `Passe ${p.passeIndex + 1}`, totalPoints: p.totalPoints, maxPoints: p.maxPoints }))
 
-    return {
-      total: passen.reduce((s, p) => s + p.totalPoints, 0),
-      max: passen.reduce((s, p) => s + p.maxPoints, 0),
-      passen,
+    if (passen.length > 0) {
+      return {
+        total: passen.reduce((s, p) => s + p.totalPoints, 0),
+        max: passen.reduce((s, p) => s + p.maxPoints, 0),
+        passen,
+      }
     }
+
+    const standing = (entry.value?.standings ?? []).find(s => s.playerId === playerId)
+    return { total: standing?.totalScore ?? 0, max: standing?.maxScore ?? 0, passen: [] }
   }
 
   // Per-step scorecard for a player, grouped by Passe. Built from the persisted

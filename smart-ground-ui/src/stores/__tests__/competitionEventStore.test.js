@@ -321,7 +321,6 @@ describe('useCompetitionEventStore', () => {
       expect(result.standings[0]).toMatchObject({ rank: 1, playerId: 'm2', userId: 'u2', rotteName: 'Rotte B', totalScore: 47, maxScore: 50 })
       expect(result.standings[1]).toMatchObject({ rank: 2, playerId: 'm1', userId: 'u1', rotteName: 'Rotte A', tied: true, tieResolvedByStechen: true })
       expect(result.completedAt).toBe('2026-06-17T10:00:00Z')
-      expect(result.playerResults).toHaveLength(1)
       expect(result.serieResults).toHaveLength(1)
       expect(result.serieResults[0].results[0].stepStates[0].state).toBe('done')
     })

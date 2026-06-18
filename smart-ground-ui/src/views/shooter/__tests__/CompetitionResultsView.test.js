@@ -46,7 +46,7 @@ const session = {
 
 const serieResults = [
   { groupId: 'g1', passeIndex: 0, serieId: 'x', results: [
-    { playerId: 'm1', stepStates: [
+    { playerId: 'm1', totalPoints: 18, maxPoints: 25, stepStates: [
       { stepIndex: 0, state: 'done', pointsEarned: 2, pointValue: 2 },
       { stepIndex: 1, state: 'failed-both', pointsEarned: 0, pointValue: 2 },
     ] },

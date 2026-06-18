@@ -416,7 +416,6 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
         ...completedResultsBySession.value,
         [sessionId]: {
           standings,
-          playerResults: session.playerResults ?? [],
           serieResults: serieResults ?? [],
           completedAt: session.completedAt ?? null,
         },

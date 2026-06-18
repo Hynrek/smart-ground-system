@@ -26,13 +26,13 @@ describe('useCompletedResults', () => {
         ],
         serieResults: [
           { groupId: 'g1', passeIndex: 0, serieId: 'se1', results: [
-            { playerId: 'm1', stepStates: [
+            { playerId: 'm1', totalPoints: 20, maxPoints: 25, stepStates: [
               { stepIndex: 0, state: 'done', pointsEarned: 2, pointValue: 2 },
               { stepIndex: 1, state: 'failed-a', pointsEarned: 1, pointValue: 2 },
             ] },
           ] },
           { groupId: 'g1', passeIndex: 1, serieId: 'se2', results: [
-            { playerId: 'm1', stepStates: [
+            { playerId: 'm1', totalPoints: 20, maxPoints: 25, stepStates: [
               { stepIndex: 0, state: 'done', pointsEarned: 2, pointValue: 2 },
             ] },
           ] },
@@ -63,7 +63,7 @@ describe('useCompletedResults', () => {
     expect(spy).toHaveBeenCalledWith('s1')
   })
 
-  it('getPlayerDetail aggregates programResults into per-Passe totals', () => {
+  it('getPlayerDetail aggregates serie-results into per-Passe totals', () => {
     const store = useCompetitionEventStore()
     seed(store)
     const { getPlayerDetail } = useCompletedResults('s1')
@@ -76,7 +76,7 @@ describe('useCompletedResults', () => {
     expect(detail.max).toBe(50)
   })
 
-  it('getPlayerDetail falls back to bare totals when programResults is unparseable', () => {
+  it('getPlayerDetail falls back to the standing total when the player has no serie results', () => {
     const store = useCompetitionEventStore()
     seed(store)
     const { getPlayerDetail } = useCompletedResults('s1')
