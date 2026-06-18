@@ -35,6 +35,16 @@
       </div>
     </div>
 
+    <!-- Admin Passe gate -->
+    <button
+      v-if="(event.passen?.length ?? 0) > 1"
+      class="release-passe-btn"
+      :disabled="!canReleaseNextPasse || releasing"
+      @click="releaseNext"
+    >
+      Nächste Passe freigeben
+    </button>
+
     <!-- Tabs -->
     <div class="tab-bar">
       <button
@@ -128,6 +138,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Icons from '@/components/Icons.vue'
 import { usePasseStore } from '@/stores/passeStore.js'
+import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 import { getProgress, getLeaderboard } from '@/services/wettkampfApi.js'
 import { useUrlTab } from '@/composables/useUrlTab.js'
 
@@ -149,6 +160,7 @@ const tiedPlayerIds = computed(() => {
 })
 
 const passeStore = usePasseStore()
+const competitionStore = useCompetitionEventStore()
 const { activeTab, setTab } = useUrlTab('fortschritt', ['fortschritt', 'rangliste', 'rotten'])
 
 const progressData = ref(null)
@@ -166,6 +178,33 @@ const refresh = async () => {
     leaderboardData.value = leaderboard
   } catch (e) {
     console.error('[ActiveCompetitionPanel] poll failed:', e)
+  }
+}
+
+// ── Admin Passe gate ────────────────────────────────────────────────────────
+const releasedPasseIndex = computed(() => progressData.value?.releasedPasseIndex ?? 0)
+
+const releasedPasseComplete = computed(() => {
+  const groups = progressData.value?.groups ?? []
+  if (groups.length === 0) return false
+  return groups.every(g => g.completions?.[releasedPasseIndex.value]?.completed === true)
+})
+
+const canReleaseNextPasse = computed(() =>
+  releasedPasseComplete.value && releasedPasseIndex.value + 1 < (props.event.passen?.length ?? 0),
+)
+
+const releasing = ref(false)
+const releaseNext = async () => {
+  if (!canReleaseNextPasse.value || releasing.value) return
+  releasing.value = true
+  try {
+    await competitionStore.releaseNextPasse(props.event.id)
+    await refresh()
+  } catch (e) {
+    console.error('[ActiveCompetitionPanel] release passe failed:', e)
+  } finally {
+    releasing.value = false
   }
 }
 
@@ -365,6 +404,23 @@ const rotteStatusLabel = (status) => ({ active: 'Aktiv', done: 'Fertig', paused:
 .pname-fertig { color: var(--sg-color-success-text); }
 .pname-aktiv  { color: var(--sg-color-warning-text); }
 .pname-offen  { color: var(--sg-text-faint); }
+
+/* ── Admin Passe gate ── */
+.release-passe-btn {
+  align-self: flex-start;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: var(--sg-accent-hover);
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.release-passe-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.release-passe-btn:hover:not(:disabled) { background: var(--sg-accent); }
 
 /* ── Tab bar ── */
 .tab-bar {

@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { usePasseStore } from '@/stores/passeStore.js'
+import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 import ActiveCompetitionPanel from '../competition/ActiveCompetitionPanel.vue'
 
 vi.mock('@/components/Icons.vue', () => ({ default: { template: '<span />' } }))
@@ -176,5 +177,40 @@ describe('ActiveCompetitionPanel', () => {
     const fortschrittTab = wrapper.findAll('.tab-btn').find(t => t.text() === 'Fortschritt')
     await fortschrittTab.trigger('click')
     expect(wrapper.find('.serie-card-header').text()).toContain('Serie:')
+  })
+
+  it('disables "Nächste Passe freigeben" until the released passe is complete', async () => {
+    wettkampfApi.getProgress.mockResolvedValue({
+      releasedPasseIndex: 0,
+      groups: [{ groupId: 'g1', completions: [{ passeIndex: 0, completed: false }, { passeIndex: 1, completed: false }] }],
+    })
+    const event = { ...makeEvent(), passen: [{ id: 'pa0', name: 'Passe 1' }, { id: 'pa1', name: 'Passe 2' }] }
+    const { wrapper } = await mountPanel(event)
+    await flushPromises()
+    const btn = wrapper.find('.release-passe-btn')
+    expect(btn.exists()).toBe(true)
+    expect(btn.attributes('disabled')).toBeDefined()
+  })
+
+  it('enables and calls releaseNextPasse when the released passe is complete', async () => {
+    wettkampfApi.getProgress.mockResolvedValue({
+      releasedPasseIndex: 0,
+      groups: [{ groupId: 'g1', completions: [{ passeIndex: 0, completed: true }, { passeIndex: 1, completed: false }] }],
+    })
+    const store = useCompetitionEventStore()
+    const spy = vi.spyOn(store, 'releaseNextPasse').mockResolvedValue({ releasedPasseIndex: 1 })
+    const event = { ...makeEvent(), id: 'c1', passen: [{ id: 'pa0', name: 'Passe 1' }, { id: 'pa1', name: 'Passe 2' }] }
+    const { wrapper } = await mountPanel(event)
+    await flushPromises()
+    const btn = wrapper.find('.release-passe-btn')
+    expect(btn.attributes('disabled')).toBeUndefined()
+    await btn.trigger('click')
+    expect(spy).toHaveBeenCalledWith('c1')
+  })
+
+  it('hides the release button when there is only one Passe', async () => {
+    const { wrapper } = await mountPanel(makeEvent())
+    await flushPromises()
+    expect(wrapper.find('.release-passe-btn').exists()).toBe(false)
   })
 })
