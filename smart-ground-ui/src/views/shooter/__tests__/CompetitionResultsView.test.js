@@ -42,6 +42,12 @@ const session = {
       ]),
     },
   ],
+  passen: [
+    { serien: [{ id: 'x', alias: 'Morgen', rangeName: 'Stand 1', steps: [
+      { type: 'solo', letter: 'A' },
+      { type: 'pair', letter1: 'B', letter2: 'D' },
+    ] }] },
+  ],
 }
 
 const serieResults = [
@@ -94,6 +100,7 @@ describe('CompetitionResultsView (shooter)', () => {
     expect(detail.exists()).toBe(true)
     expect(detail.text()).toContain('Passe 1')
     expect(detail.text()).toContain('18 / 25')
+    expect(wrapper.find('.serie-label').exists()).toBe(true)
     expect(wrapper.findAll('.step-chip').length).toBeGreaterThanOrEqual(2)
   })
 

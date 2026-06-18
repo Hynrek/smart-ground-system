@@ -52,9 +52,9 @@
               <span class="passe-pts">{{ passe.totalPoints }} / {{ passe.maxPoints }}</span>
             </div>
             <StepScorecard
-              v-if="stepsFor(row.playerId).length > 0"
+              v-if="serienFor(row.playerId).length > 0"
               class="step-detail"
-              :passen="stepsFor(row.playerId)"
+              :serien="serienFor(row.playerId)"
             />
           </div>
         </div>
@@ -77,7 +77,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const sessionId = computed(() => props.id)
-const { standings, loading, error, load, getPlayerDetail, getPlayerSteps } = useCompletedResults(sessionId)
+const { standings, loading, error, load, getPlayerDetail, getPlayerSerien } = useCompletedResults(sessionId)
 
 const expandedId = ref(null)
 const detailCache = new Map()
@@ -86,10 +86,10 @@ const detailFor = (playerId) => {
   return detailCache.get(playerId)
 }
 
-const stepsCache = new Map()
-const stepsFor = (playerId) => {
-  if (!stepsCache.has(playerId)) stepsCache.set(playerId, getPlayerSteps(playerId))
-  return stepsCache.get(playerId)
+const serienCache = new Map()
+const serienFor = (playerId) => {
+  if (!serienCache.has(playerId)) serienCache.set(playerId, getPlayerSerien(playerId))
+  return serienCache.get(playerId)
 }
 
 const isMe = (row) => !!authStore.profile?.id && row.userId === authStore.profile.id
@@ -102,7 +102,7 @@ const goBack = () => router.push('/wettkampf')
 
 onMounted(() => {
   detailCache.clear()
-  stepsCache.clear()
+  serienCache.clear()
   load()
 })
 </script>

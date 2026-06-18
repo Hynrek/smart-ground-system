@@ -39,6 +39,15 @@ const session = {
       ]),
     },
   ],
+  passen: [
+    { serien: [{ id: 'x', alias: 'Morgen', rangeName: 'Stand 1', steps: [
+      { type: 'solo', letter: 'A' },
+      { type: 'pair', letter1: 'B', letter2: 'D' },
+    ] }] },
+    { serien: [{ id: 'z', alias: 'Abend', rangeName: 'Stand 2', steps: [
+      { type: 'solo', letter: 'C' },
+    ] }] },
+  ],
 }
 
 const serieResults = [
@@ -99,13 +108,12 @@ describe('CompletedResultsPanel', () => {
     expect(detail.text()).toContain('Passe 2')
   })
 
-  it('renders per-step chips in the expanded detail', async () => {
+  it('renders serie-grouped step chips in the expanded detail', async () => {
     const wrapper = mountPanel()
     await flushPromises()
     await wrapper.findAll('.standing-row')[0].trigger('click') // Bob (m2)
-    const chips = wrapper.findAll('.step-chip')
-    expect(chips.length).toBeGreaterThanOrEqual(2)
-    expect(chips[0].classes()).toContain('is-done')
+    expect(wrapper.find('.serie-label').text()).toContain('Stand 1 – Morgen')
+    expect(wrapper.findAll('.step-chip').length).toBeGreaterThanOrEqual(2)
   })
 
   it('calls exportLeaderboard when the export button is clicked', async () => {
