@@ -1726,6 +1726,34 @@ paths:
         '404':
           description: Session not found
 
+  /api/sessions/{sessionId}/passen/release:
+    post:
+      summary: Release the next Passe for play (admin gate)
+      description: >
+        Advances the session's releasedPasseIndex by one. Allowed only when every
+        Rotte has completed every Serie of the current released Passe and a next
+        Passe exists. Returns the updated progress.
+      operationId: releaseNextPasse
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Progress after advancing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionProgressResponse'
+        '404':
+          description: Session not found
+        '409':
+          description: Current Passe not complete, or already at the last Passe
+
   # ─────────────────────────────────────────────────────────────────────────────
   # SmartBox
   # ─────────────────────────────────────────────────────────────────────────────
@@ -3898,6 +3926,9 @@ components:
         sessionId:
           type: string
           format: uuid
+        releasedPasseIndex:
+          type: integer
+          description: Highest 0-based Passe index released for play (admin-gated).
         groups:
           type: array
           items:
