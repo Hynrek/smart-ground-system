@@ -91,4 +91,17 @@ describe('WettkampfDetailView', () => {
     const { wrapper } = await setup({ event: makeEvent({ status: 'OPEN' }) })
     expect(wrapper.find('.tab-row').exists()).toBe(true)
   })
+
+  it('stays on the detail and shows the COMPLETED panel after finishing (no navigation)', async () => {
+    const { wrapper, store, push } = await setup({ event: makeEvent({ status: 'PRE_COMPLETE' }) })
+    // finishEvent flips the event to COMPLETED in the store, as the real action does.
+    vi.spyOn(store, 'finishEvent').mockImplementation(async (id) => {
+      store.events = store.events.map(e => e.id === id ? { ...e, status: 'COMPLETED' } : e)
+      return { completed: true }
+    })
+    await wrapper.find('.start-btn').trigger('click') // "Wettkampf abschliessen"
+    await flushPromises()
+    expect(push).not.toHaveBeenCalled()
+    expect(wrapper.find('.completed-stub').exists()).toBe(true)
+  })
 })

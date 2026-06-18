@@ -346,7 +346,7 @@ const handleFinish = async () => {
   try {
     const res = await store.finishEvent(eventId.value, false)
     if (res.completed) {
-      router.push('/admin/wettkampf?tab=active')
+      // Stay on the detail; the COMPLETED status renders CompletedResultsPanel in place.
     } else {
       finishGuardTies.value = res.unresolvedTies ?? []
       showFinishGuard.value = true
@@ -365,7 +365,6 @@ const forceFinish = async () => {
     const res = await store.finishEvent(eventId.value, true)
     if (res.completed) {
       showFinishGuard.value = false
-      router.push('/admin/wettkampf?tab=active')
     }
   } catch (e) {
     console.error('[WettkampfDetailView] force finish failed:', e)
