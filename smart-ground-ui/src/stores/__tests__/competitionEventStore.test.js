@@ -79,6 +79,7 @@ describe('useCompetitionEventStore', () => {
     await store.goLive('s1')
     expect(api.patchStatus).toHaveBeenCalledWith('s1', 'open')
     expect(api.patchStatus).toHaveBeenCalledWith('s1', 'active')
+    expect(store.events[0].status).toBe('ACTIVE')
   })
 
   it('goLive from OPEN only starts the event', async () => {
@@ -89,6 +90,7 @@ describe('useCompetitionEventStore', () => {
     await store.goLive('s1')
     expect(api.patchStatus).not.toHaveBeenCalledWith('s1', 'open')
     expect(api.patchStatus).toHaveBeenCalledWith('s1', 'active')
+    expect(store.events[0].status).toBe('ACTIVE')
   })
 
   it('stopEvent deletes the abandoned competition instead of archiving it', async () => {
