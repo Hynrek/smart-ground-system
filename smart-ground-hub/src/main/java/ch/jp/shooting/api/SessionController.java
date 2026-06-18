@@ -152,6 +152,17 @@ public class SessionController implements SessionApi {
         }
     }
 
+    @Override
+    public ResponseEntity<SessionProgressResponse> releaseNextPasse(UUID sessionId) {
+        try {
+            return ResponseEntity.ok(progressService.releaseNextPasse(sessionId));
+        } catch (RuntimeException e) {
+            throw e; // ConflictException → 409, IllegalArgumentException → handler
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     // ── Stechen (Tiebreaker) ──
 
     @Override

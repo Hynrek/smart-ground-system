@@ -42,6 +42,10 @@ public class LiveSession {
     @Enumerated(EnumType.STRING)
     private SessionStatus status; // SETUP, OPEN, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED
 
+    /** Höchster (0-basierter) Passe-Index, der zum Spielen freigegeben ist (Admin-Gate). */
+    @Column(name = "released_passe_index", nullable = false)
+    private int releasedPasseIndex = 0;
+
     /**
      * Programmkonfiguration als JSON-Snapshot beim Start (immutable während Spiel).
      * Format: Program[] (komplette Struktur: {id, name, segments[{id, alias, steps[...]}]})
@@ -159,6 +163,14 @@ public class LiveSession {
 
     public void setProgramSnapshots(@Nullable String programSnapshots) {
         this.programSnapshots = programSnapshots;
+    }
+
+    public int getReleasedPasseIndex() {
+        return releasedPasseIndex;
+    }
+
+    public void setReleasedPasseIndex(int releasedPasseIndex) {
+        this.releasedPasseIndex = releasedPasseIndex;
     }
 
     @Nullable
