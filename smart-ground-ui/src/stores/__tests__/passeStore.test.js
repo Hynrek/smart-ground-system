@@ -103,7 +103,7 @@ describe('passeStore — setSeriePublished', () => {
   })
 
   it('setSeriePublished updates state optimistically and calls API', async () => {
-    serieApi.patchSeriePublished = vi.fn().mockResolvedValue({})
+    vi.mocked(serieApi.patchSeriePublished).mockResolvedValue({})
     const store = usePasseStore()
     store.savedSerien = [{ id: 'ab1', name: 'Test', steps: [], ownership: 'range', published: false }]
     await store.setSeriePublished('ab1', true)
@@ -112,7 +112,7 @@ describe('passeStore — setSeriePublished', () => {
   })
 
   it('setSeriePublished rolls back on API error', async () => {
-    serieApi.patchSeriePublished = vi.fn().mockRejectedValue(new Error('Network'))
+    vi.mocked(serieApi.patchSeriePublished).mockRejectedValue(new Error('Network'))
     const store = usePasseStore()
     store.savedSerien = [{ id: 'ab1', name: 'Test', steps: [], ownership: 'range', published: false }]
     await expect(store.setSeriePublished('ab1', true)).rejects.toThrow('Network')
@@ -120,7 +120,6 @@ describe('passeStore — setSeriePublished', () => {
   })
 
   it('setSeriePublished does nothing for unknown id', async () => {
-    serieApi.patchSeriePublished = vi.fn()
     const store = usePasseStore()
     store.savedSerien = []
     await store.setSeriePublished('nonexistent', true)
