@@ -113,6 +113,18 @@ describe('ActiveCompetitionPanel', () => {
     expect(labels).toEqual(['Fortschritt', 'Rangliste', 'Rotten'])
   })
 
+  it('defaults to the Fortschritt tab when no ?tab is present', async () => {
+    const { wrapper } = await mountPanel(makeEvent())
+    const fortschrittTab = wrapper.findAll('.tab-btn').find(t => t.text() === 'Fortschritt')
+    expect(fortschrittTab.classes()).toContain('active')
+  })
+
+  it('falls back to Fortschritt for an unknown ?tab value', async () => {
+    const { wrapper } = await mountPanel(makeEvent(), { tab: 'bogus' })
+    const fortschrittTab = wrapper.findAll('.tab-btn').find(t => t.text() === 'Fortschritt')
+    expect(fortschrittTab.classes()).toContain('active')
+  })
+
   it('honours the ?tab query param', async () => {
     const { wrapper } = await mountPanel(makeEvent(), { tab: 'rangliste' })
     await flushPromises()
