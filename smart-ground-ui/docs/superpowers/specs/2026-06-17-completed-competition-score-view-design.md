@@ -49,6 +49,18 @@ persisted verbatim in `competition_serie_results.results` (written by
   show it in the expanded per-shooter detail. Degrades to nothing when no step data is present.
 - The shooter Rangliste route is lazy-loaded to avoid a router↔apiClient import cycle.
 
+### Correction (live verification): per-Passe totals source
+
+Verifying against the running backend revealed that `GET /sessions/{id}` returns
+`playerResults: []` (the `PlayerResult` rows exist — the leaderboard reads them — but
+`SessionResponse` does not map them). The original per-Passe totals, built from
+`programResults` on that payload, therefore never populated. **Per-Passe totals are now
+derived from the serie-results rows** (each carries the player's per-Serie
+`totalPoints`/`maxPoints`), summed by `passeIndex`, with a fallback to the leaderboard
+standing's grand total. The `programResults` path and the unused `playerResults` cache field
+were removed. Verified end-to-end: Wettkampf 1 → Silvan Birrer 19/20, Passe 1 14/14 + Passe 2
+5/6, with per-step hit/miss chips.
+
 ## Data Availability (backend, verified)
 
 For a `COMPLETED` session, the reliably server-backed sources (both survive reload) are:
