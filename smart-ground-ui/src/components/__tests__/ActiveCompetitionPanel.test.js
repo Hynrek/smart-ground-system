@@ -138,4 +138,43 @@ describe('ActiveCompetitionPanel', () => {
     await flushPromises()
     expect(router.currentRoute.value.query.tab).toBe('rangliste')
   })
+
+  it('marks an individual Serie done from completedSerien (not whole-Passe)', async () => {
+    wettkampfApi.getProgress.mockResolvedValue({
+      groups: [{
+        groupId: 'g1', groupName: 'Rotte A', passenTotal: 1, passenCompleted: 0,
+        completions: [{ passeIndex: 0, passeName: 'Passe 1', completed: false }],
+        completedSerien: [{ passeIndex: 0, serieId: 's1' }],
+      }],
+    })
+    const passeStore = usePasseStore()
+    passeStore.savedPassen = [{ id: 'pa1', name: 'Passe 1', serien: [
+      { id: 's1', alias: 'Erste' },
+      { id: 's2', alias: 'Zweite' },
+    ] }]
+    const event = {
+      ...makeEvent(),
+      groups: [{ id: 'g1', name: 'Rotte A', members: [] }],
+    }
+    const { wrapper } = await mountPanel(event)
+    await flushPromises()
+    const fortschrittTab = wrapper.findAll('.tab-btn').find(t => t.text() === 'Fortschritt')
+    await fortschrittTab.trigger('click')
+    const cards = wrapper.findAll('.serie-card')
+    const erste = cards.find(c => c.find('.serie-card-header').text().includes('Erste'))
+    const zweite = cards.find(c => c.find('.serie-card-header').text().includes('Zweite'))
+    expect(erste.find('.rotte-chip').text()).toContain('Fertig')
+    expect(zweite.find('.rotte-chip').text()).toContain('Offen')
+  })
+
+  it('prefixes serie cards with "Serie:"', async () => {
+    const passeStore = usePasseStore()
+    passeStore.savedPassen = [{ id: 'pa1', name: 'Passe 1', serien: [{ id: 's1', alias: 'Erste' }] }]
+    const event = { ...makeEvent(), groups: [{ id: 'g1', name: 'Rotte A', members: [] }] }
+    const { wrapper } = await mountPanel(event)
+    await flushPromises()
+    const fortschrittTab = wrapper.findAll('.tab-btn').find(t => t.text() === 'Fortschritt')
+    await fortschrittTab.trigger('click')
+    expect(wrapper.find('.serie-card-header').text()).toContain('Serie:')
+  })
 })

@@ -91,7 +91,7 @@
         :key="card.serieAlias"
         class="serie-card"
       >
-        <div class="serie-card-header">{{ card.serieAlias }}</div>
+        <div class="serie-card-header">Serie: {{ card.serieAlias }}</div>
         <div
           v-for="row in card.rotteRows"
           :key="row.rotteId"
@@ -245,11 +245,13 @@ const serieCards = computed(() => {
     serieAlias: serie.alias ?? serie.name ?? '?',
     rotteRows: (props.event.groups ?? []).map(group => {
       const prog = progressGroups.find(g => g.groupId === group.id)
-      const passeCompletion = prog?.completions?.[idx]
+      const done = (prog?.completedSerien ?? []).some(
+        c => c.passeIndex === idx && c.serieId === serie.id,
+      )
       return {
         rotteId: group.id,
         rotteName: group.name,
-        status: passeCompletion?.completed ? 'done' : 'pending',
+        status: done ? 'done' : 'pending',
       }
     }),
   }))

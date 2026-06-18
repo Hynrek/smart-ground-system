@@ -421,11 +421,31 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
         tied: p.tied ?? false,
         tieResolvedByStechen: p.tieResolvedByStechen ?? false,
       }))
+      // Serie definitions (range, name, step position letters) for the per-Serie
+      // step-chip view. Keyed by serieId; sortIndex preserves passe→serie order.
+      const serieDefs = {}
+      let serieSortIndex = 0
+      for (const passe of (session.passen ?? [])) {
+        for (const serie of (passe.serien ?? [])) {
+          serieDefs[serie.id] = {
+            rangeName: serie.rangeName ?? null,
+            serieName: serie.alias ?? serie.name ?? 'Serie',
+            sortIndex: serieSortIndex++,
+            steps: (serie.steps ?? []).map(s => ({
+              type: s.type ?? null,
+              letter: s.letter ?? null,
+              letter1: s.letter1 ?? null,
+              letter2: s.letter2 ?? null,
+            })),
+          }
+        }
+      }
       completedResultsBySession.value = {
         ...completedResultsBySession.value,
         [sessionId]: {
           standings,
           serieResults: serieResults ?? [],
+          serieDefs,
           completedAt: session.completedAt ?? null,
         },
       }

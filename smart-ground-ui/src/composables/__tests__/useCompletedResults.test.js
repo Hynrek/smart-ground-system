@@ -37,6 +37,15 @@ describe('useCompletedResults', () => {
             ] },
           ] },
         ],
+        serieDefs: {
+          se1: { rangeName: 'Stand 1', serieName: 'Morgen', sortIndex: 0, steps: [
+            { type: 'solo', letter: 'A', letter1: null, letter2: null },
+            { type: 'pair', letter: null, letter1: 'B', letter2: 'D' },
+          ] },
+          se2: { rangeName: 'Stand 2', serieName: 'Abend', sortIndex: 1, steps: [
+            { type: 'solo', letter: 'C', letter1: null, letter2: null },
+          ] },
+        },
         completedAt: '2026-06-17T10:00:00Z',
       },
     }
@@ -86,23 +95,35 @@ describe('useCompletedResults', () => {
     expect(detail.max).toBe(50)
   })
 
-  it('getPlayerSteps groups a player\'s step states by Passe', () => {
+  it('getPlayerSerien joins step states to serie definitions (range, name, letters)', () => {
     const store = useCompetitionEventStore()
     seed(store)
-    const { getPlayerSteps } = useCompletedResults('s1')
-    const passen = getPlayerSteps('m1')
-    expect(passen.map(p => p.label)).toEqual(['Passe 1', 'Passe 2'])
-    expect(passen[0].steps).toEqual([
-      { stepIndex: 0, state: 'done', pointsEarned: 2, pointValue: 2 },
-      { stepIndex: 1, state: 'failed-a', pointsEarned: 1, pointValue: 2 },
+    const { getPlayerSerien } = useCompletedResults('s1')
+    const serien = getPlayerSerien('m1')
+    expect(serien.map(s => s.serieName)).toEqual(['Morgen', 'Abend'])
+    expect(serien[0].rangeName).toBe('Stand 1')
+    expect(serien[0].steps).toEqual([
+      { stepIndex: 0, type: 'solo', letter: 'A', letter1: null, letter2: null, state: 'done' },
+      { stepIndex: 1, type: 'pair', letter: null, letter1: 'B', letter2: 'D', state: 'failed-a' },
     ])
-    expect(passen[1].steps).toHaveLength(1)
   })
 
-  it('getPlayerSteps returns [] for a player with no serie results', () => {
+  it('getPlayerSerien degrades gracefully when a serie has no definition', () => {
     const store = useCompetitionEventStore()
     seed(store)
-    const { getPlayerSteps } = useCompletedResults('s1')
-    expect(getPlayerSteps('m2')).toEqual([])
+    store.completedResultsBySession.s1.serieDefs = {} // no defs
+    const { getPlayerSerien } = useCompletedResults('s1')
+    const serien = getPlayerSerien('m1')
+    expect(serien).toHaveLength(2)
+    expect(serien[0].steps[0]).toEqual(
+      { stepIndex: 0, type: null, letter: null, letter1: null, letter2: null, state: 'done' },
+    )
+  })
+
+  it('getPlayerSerien returns [] for a player with no serie results', () => {
+    const store = useCompetitionEventStore()
+    seed(store)
+    const { getPlayerSerien } = useCompletedResults('s1')
+    expect(getPlayerSerien('m2')).toEqual([])
   })
 })

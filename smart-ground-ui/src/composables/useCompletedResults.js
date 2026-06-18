@@ -64,32 +64,40 @@ export function useCompletedResults(sessionId) {
     return { total: standing?.totalScore ?? 0, max: standing?.maxScore ?? 0, passen: [] }
   }
 
-  // Per-step scorecard for a player, grouped by Passe. Built from the persisted
-  // serie-results (each carries the raw stepStates). Returns [] when no per-step
-  // data is available for the player.
-  const getPlayerSteps = (playerId) => {
+  // Per-Serie step groups for a player, joined to the serie definitions (range,
+  // name, per-step position letters). Ordered by the serie's sortIndex. Degrades
+  // to letter-less steps when a serie definition is absent.
+  const getPlayerSerien = (playerId) => {
     const serieResults = entry.value?.serieResults ?? []
-    const byPasse = new Map()
+    const defs = entry.value?.serieDefs ?? {}
+    const groups = []
     for (const sr of serieResults) {
       const playerEntry = (sr.results ?? []).find(r => r.playerId === playerId)
-      const steps = playerEntry?.stepStates ?? []
-      if (steps.length === 0) continue
-      const idx = sr.passeIndex ?? 0
-      const group = byPasse.get(idx) ?? { passeIndex: idx, steps: [] }
-      for (const s of steps) {
-        group.steps.push({
+      const states = playerEntry?.stepStates ?? []
+      if (states.length === 0) continue
+      const def = defs[sr.serieId] ?? null
+      const steps = states.map(s => {
+        const ds = def?.steps?.[s.stepIndex] ?? null
+        return {
           stepIndex: s.stepIndex ?? 0,
+          type: ds?.type ?? null,
+          letter: ds?.letter ?? null,
+          letter1: ds?.letter1 ?? null,
+          letter2: ds?.letter2 ?? null,
           state: s.state,
-          pointsEarned: s.pointsEarned ?? 0,
-          pointValue: s.pointValue ?? 0,
-        })
-      }
-      byPasse.set(idx, group)
+        }
+      })
+      groups.push({
+        key: `${sr.passeIndex ?? 0}:${sr.serieId}`,
+        passeIndex: sr.passeIndex ?? 0,
+        rangeName: def?.rangeName ?? null,
+        serieName: def?.serieName ?? 'Serie',
+        sortIndex: def?.sortIndex ?? (sr.passeIndex ?? 0),
+        steps,
+      })
     }
-    return [...byPasse.values()]
-      .sort((a, b) => a.passeIndex - b.passeIndex)
-      .map(g => ({ passeIndex: g.passeIndex, label: `Passe ${g.passeIndex + 1}`, steps: g.steps }))
+    return groups.sort((a, b) => a.sortIndex - b.sortIndex)
   }
 
-  return { standings, completedAt, loading, error, load, getPlayerDetail, getPlayerSteps }
+  return { standings, completedAt, loading, error, load, getPlayerDetail, getPlayerSerien }
 }

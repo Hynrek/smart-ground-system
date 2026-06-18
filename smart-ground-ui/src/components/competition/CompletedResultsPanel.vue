@@ -61,9 +61,9 @@
             <span class="passe-pts">{{ passe.totalPoints }} / {{ passe.maxPoints }}</span>
           </div>
           <StepScorecard
-            v-if="stepsFor(row.playerId).length > 0"
+            v-if="serienFor(row.playerId).length > 0"
             class="step-detail"
-            :passen="stepsFor(row.playerId)"
+            :serien="serienFor(row.playerId)"
           />
         </div>
       </div>
@@ -81,7 +81,7 @@ import { exportLeaderboard } from '@/services/wettkampfApi.js'
 const props = defineProps({ event: { type: Object, required: true } })
 
 const sessionId = computed(() => props.event.id)
-const { standings, completedAt, loading, error, load, getPlayerDetail, getPlayerSteps } = useCompletedResults(sessionId)
+const { standings, completedAt, loading, error, load, getPlayerDetail, getPlayerSerien } = useCompletedResults(sessionId)
 
 const expandedId = ref(null)
 const exporting = ref(false)
@@ -93,10 +93,10 @@ const detailFor = (playerId) => {
   return detailCache.get(playerId)
 }
 
-const stepsCache = new Map()
-const stepsFor = (playerId) => {
-  if (!stepsCache.has(playerId)) stepsCache.set(playerId, getPlayerSteps(playerId))
-  return stepsCache.get(playerId)
+const serienCache = new Map()
+const serienFor = (playerId) => {
+  if (!serienCache.has(playerId)) serienCache.set(playerId, getPlayerSerien(playerId))
+  return serienCache.get(playerId)
 }
 
 const toggle = (playerId) => {
@@ -120,7 +120,7 @@ const handleExport = async () => {
 
 onMounted(() => {
   detailCache.clear()
-  stepsCache.clear()
+  serienCache.clear()
   load()
 })
 </script>

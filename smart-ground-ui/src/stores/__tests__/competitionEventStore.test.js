@@ -347,6 +347,37 @@ describe('useCompetitionEventStore', () => {
       expect(result.serieResults[0].results[0].stepStates[0].state).toBe('done')
     })
 
+    it('builds a serieDefs map from the session passen', async () => {
+      api.getLeaderboard.mockResolvedValue({ playerScores: [] })
+      api.getSerieResults.mockResolvedValue([])
+      api.getSession.mockResolvedValue(mkSession({
+        status: 'COMPLETED', groups: [],
+        passen: [
+          { serien: [
+            { id: 'se1', alias: 'Morgen', rangeName: 'Stand 1', steps: [
+              { type: 'solo', letter: 'A' },
+              { type: 'pair', letter1: 'B', letter2: 'D' },
+            ] },
+          ] },
+          { serien: [{ id: 'se2', name: 'Abend', steps: [] }] },
+        ],
+      }))
+      const store = useCompetitionEventStore()
+
+      await store.loadCompletedResults('s1')
+
+      const defs = store.completedResultsBySession['s1'].serieDefs
+      expect(defs.se1).toEqual({
+        rangeName: 'Stand 1', serieName: 'Morgen', sortIndex: 0,
+        steps: [
+          { type: 'solo', letter: 'A', letter1: null, letter2: null },
+          { type: 'pair', letter: null, letter1: 'B', letter2: 'D' },
+        ],
+      })
+      expect(defs.se2.serieName).toBe('Abend')
+      expect(defs.se2.sortIndex).toBe(1)
+    })
+
     it('tolerates a missing serie-results payload', async () => {
       api.getLeaderboard.mockResolvedValue(mkLeaderboard())
       api.getSession.mockResolvedValue(mkCompletedSession())
