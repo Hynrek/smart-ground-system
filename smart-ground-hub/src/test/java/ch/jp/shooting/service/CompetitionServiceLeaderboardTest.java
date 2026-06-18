@@ -35,6 +35,7 @@ class CompetitionServiceLeaderboardTest {
     @Mock CareerStatsRepository careerStatsRepository;
     @Mock CareerStatsMapper careerStatsMapper;
     @Mock CompetitionTiebreakerRepository tiebreakerRepository;
+    @Mock ch.jp.shooting.repository.CompetitionSerieResultRepository serieResultRepository;
 
     private CompetitionService service;
     private UUID sessionId;
@@ -44,7 +45,7 @@ class CompetitionServiceLeaderboardTest {
     void setUp() {
         service = new CompetitionService(sessionRepository, playerResultRepository,
             careerStatsRepository, careerStatsMapper, new ObjectMapper(),
-            tiebreakerRepository, new TieResolver());
+            tiebreakerRepository, new TieResolver(), serieResultRepository);
         sessionId = UUID.randomUUID();
         session = new LiveSession(SessionType.COMPETITION, SessionStatus.ACTIVE);
     }

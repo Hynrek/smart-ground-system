@@ -5,6 +5,7 @@ import ch.jp.shooting.exception.SessionNotFoundException;
 import ch.jp.shooting.mapper.CareerStatsMapper;
 import ch.jp.shooting.model.*;
 import ch.jp.shooting.repository.CareerStatsRepository;
+import ch.jp.shooting.repository.CompetitionSerieResultRepository;
 import ch.jp.shooting.repository.CompetitionTiebreakerRepository;
 import ch.jp.shooting.repository.LiveSessionRepository;
 import ch.jp.shooting.repository.PlayerResultRepository;
@@ -32,6 +33,7 @@ public class CompetitionService {
     private final ObjectMapper objectMapper;
     private final CompetitionTiebreakerRepository tiebreakerRepository;
     private final TieResolver tieResolver;
+    private final CompetitionSerieResultRepository serieResultRepository;
 
     public CompetitionService(
             LiveSessionRepository sessionRepository,
@@ -40,7 +42,8 @@ public class CompetitionService {
             CareerStatsMapper careerStatsMapper,
             ObjectMapper objectMapper,
             CompetitionTiebreakerRepository tiebreakerRepository,
-            TieResolver tieResolver) {
+            TieResolver tieResolver,
+            CompetitionSerieResultRepository serieResultRepository) {
         this.sessionRepository = sessionRepository;
         this.playerResultRepository = playerResultRepository;
         this.careerStatsRepository = careerStatsRepository;
@@ -48,6 +51,33 @@ public class CompetitionService {
         this.objectMapper = objectMapper;
         this.tiebreakerRepository = tiebreakerRepository;
         this.tieResolver = tieResolver;
+        this.serieResultRepository = serieResultRepository;
+    }
+
+    /**
+     * Liefert alle persistierten Serie-Ergebnisse einer Sitzung inkl. der rohen
+     * Play-Ergebnisse (mit stepStates) für die Schritt-für-Schritt-Auswertung.
+     */
+    @Transactional(readOnly = true)
+    public List<CompetitionSerieResultDetailResponse> getSerieResults(UUID sessionId) throws Exception {
+        if (!sessionRepository.existsById(sessionId)) {
+            throw new SessionNotFoundException(sessionId);
+        }
+        List<CompetitionSerieResultDetailResponse> out = new ArrayList<>();
+        for (CompetitionSerieResult csr : serieResultRepository.findBySessionId(sessionId)) {
+            CompetitionSerieResultDetailResponse dto = new CompetitionSerieResultDetailResponse();
+            dto.groupId = csr.getGroup().getId();
+            dto.passeIndex = csr.getPasseIndex();
+            dto.serieId = csr.getSerieId();
+            dto.playInstanceId = csr.getPlayInstanceId();
+            dto.completedAt = csr.getCompletedAt();
+            String raw = csr.getResults();
+            if (raw != null && !raw.isBlank()) {
+                dto.results = objectMapper.readTree(raw);
+            }
+            out.add(dto);
+        }
+        return out;
     }
 
     /**

@@ -172,6 +172,17 @@ public class CompetitionController {
             .body(leaderboard);
     }
 
+    /**
+     * GET /api/sessions/{id}/serie-results
+     * Liefert die persistierten Serie-Ergebnisse inkl. roher Play-Daten (stepStates)
+     * für die Schritt-für-Schritt-Auswertung abgeschlossener Wettkämpfe.
+     */
+    @GetMapping("/sessions/{sessionId}/serie-results")
+    public ResponseEntity<java.util.List<CompetitionSerieResultDetailResponse>> getSerieResults(
+            @PathVariable UUID sessionId) throws Exception {
+        return ResponseEntity.ok(competitionService.getSerieResults(sessionId));
+    }
+
     // ── Career Stats / Global Leaderboards ──
 
     /**
