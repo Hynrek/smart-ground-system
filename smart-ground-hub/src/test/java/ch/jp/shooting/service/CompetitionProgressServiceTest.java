@@ -125,4 +125,62 @@ class CompetitionProgressServiceTest {
         // the only Serie of Passe 0 is done → the Passe counts as completed
         assertEquals(1, gp.getPassenCompleted());
     }
+
+    @Test
+    void getProgress_includesReleasedPasseIndex() throws Exception {
+        session.setReleasedPasseIndex(1);
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(groupRepository.findBySessionId(sessionId)).thenReturn(List.of());
+        SessionProgressResponse resp = progressService.getProgress(sessionId);
+        assertEquals(1, resp.getReleasedPasseIndex());
+    }
+
+    private void twoPasseSnapshots(UUID serie2) throws Exception {
+        PasseSnapshot p0 = new PasseSnapshot(); p0.id = "p0"; p0.name = "Passe 1";
+        p0.serieIds = List.of(serieId.toString());
+        PasseSnapshot p1 = new PasseSnapshot(); p1.id = "p1"; p1.name = "Passe 2";
+        p1.serieIds = List.of(serie2.toString());
+        session.setProgramSnapshots(objectMapper.writeValueAsString(List.of(p0, p1)));
+    }
+
+    @Test
+    void releaseNextPasse_advancesWhenCurrentPasseCompleteByAllGroups() throws Exception {
+        twoPasseSnapshots(UUID.randomUUID());
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(groupRepository.findBySessionId(any())).thenReturn(List.of(group));
+        when(csrRepository.findBySessionId(any()))
+            .thenReturn(List.of(new CompetitionSerieResult(session, group, 0, serieId)));
+        when(csrRepository.findBySessionIdAndGroupId(any(), any()))
+            .thenReturn(List.of(new CompetitionSerieResult(session, group, 0, serieId)));
+        when(sessionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SessionProgressResponse resp = progressService.releaseNextPasse(sessionId);
+
+        assertEquals(1, session.getReleasedPasseIndex());
+        assertEquals(1, resp.getReleasedPasseIndex());
+        verify(sessionRepository).save(session);
+    }
+
+    @Test
+    void releaseNextPasse_rejectsWhenCurrentPasseIncomplete() throws Exception {
+        twoPasseSnapshots(UUID.randomUUID());
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(groupRepository.findBySessionId(any())).thenReturn(List.of(group));
+        when(csrRepository.findBySessionId(any())).thenReturn(List.of());
+
+        assertThrows(ch.jp.shooting.exception.ConflictException.class,
+            () -> progressService.releaseNextPasse(sessionId));
+        assertEquals(0, session.getReleasedPasseIndex());
+    }
+
+    @Test
+    void releaseNextPasse_rejectsAtLastPasse() throws Exception {
+        twoPasseSnapshots(UUID.randomUUID());
+        session.setReleasedPasseIndex(1); // already the last (index 1 of 2)
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+
+        assertThrows(ch.jp.shooting.exception.ConflictException.class,
+            () -> progressService.releaseNextPasse(sessionId));
+        assertEquals(1, session.getReleasedPasseIndex());
+    }
 }

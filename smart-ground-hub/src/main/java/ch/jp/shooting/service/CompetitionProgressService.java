@@ -1,6 +1,7 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.dto.*;
+import ch.jp.shooting.exception.ConflictException;
 import ch.jp.shooting.model.*;
 import ch.jp.shooting.repository.*;
 import ch.jp.smartground.model.GroupProgressResponse;
@@ -92,6 +93,43 @@ public class CompetitionProgressService {
         return buildSessionProgressResponse(sessionId);
     }
 
+    /** Admin-Gate: gibt die nächste Passe frei, wenn die aktuelle vollständig ist. */
+    public SessionProgressResponse releaseNextPasse(UUID sessionId) throws Exception {
+        LiveSession session = sessionRepository.findById(sessionId)
+            .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+        if (session.getStatus() != SessionStatus.ACTIVE) {
+            throw new ConflictException("Passe-Freigabe nur im Status ACTIVE möglich");
+        }
+        PasseSnapshot[] passen = parsePassen(session.getProgramSnapshots());
+        int idx = session.getReleasedPasseIndex();
+        if (idx + 1 >= passen.length) {
+            throw new ConflictException("Keine weitere Passe vorhanden");
+        }
+        if (!isPasseDoneForAllGroups(session, idx)) {
+            throw new ConflictException("Aktuelle Passe ist noch nicht von allen Rotten abgeschlossen");
+        }
+        session.setReleasedPasseIndex(idx + 1);
+        sessionRepository.save(session);
+        return buildSessionProgressResponse(sessionId);
+    }
+
+    /** True when every group has completed every Serie of the given Passe index. */
+    private boolean isPasseDoneForAllGroups(LiveSession session, int passeIndex) throws Exception {
+        PasseSnapshot[] passen = parsePassen(session.getProgramSnapshots());
+        if (passeIndex < 0 || passeIndex >= passen.length) return false;
+        List<ShooterGroup> groups = groupRepository.findBySessionId(session.getId());
+        if (groups.isEmpty()) return false;
+        Set<String> done = csrRepository.findBySessionId(session.getId()).stream()
+            .map(c -> c.getGroup().getId() + ":" + c.getPasseIndex() + ":" + c.getSerieId())
+            .collect(java.util.stream.Collectors.toSet());
+        for (ShooterGroup g : groups) {
+            for (String serieIdStr : passen[passeIndex].serieIds) {
+                if (!done.contains(g.getId() + ":" + passeIndex + ":" + serieIdStr)) return false;
+            }
+        }
+        return true;
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     private boolean isAllPassenDoneForAllGroups(LiveSession session) throws Exception {
@@ -144,6 +182,7 @@ public class CompetitionProgressService {
 
         SessionProgressResponse response = new SessionProgressResponse();
         response.setSessionId(sessionId);
+        response.setReleasedPasseIndex(session.getReleasedPasseIndex());
 
         for (ShooterGroup group : groups) {
             List<CompetitionSerieResult> completed =
