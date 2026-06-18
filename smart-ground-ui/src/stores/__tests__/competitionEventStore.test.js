@@ -10,6 +10,7 @@ vi.mock('@/services/wettkampfApi.js', () => ({
   getProgress:   vi.fn(),
   releaseNextPasse: vi.fn(),
   completeSerie: vi.fn(),
+  correctSerieResult: vi.fn(),
   getLeaderboard: vi.fn(),
   getSerieResults: vi.fn(),
   deleteSession: vi.fn(),
@@ -464,5 +465,17 @@ describe('useCompetitionEventStore', () => {
       for (const r of inst.rotten) r.phases[0].blocks[0].status = 'done'
       expect(store.isReleasedPasseComplete('c1')).toBe(true)
     })
+  })
+
+  it('correctSerieResult posts the corrected serie then reloads results', async () => {
+    api.correctSerieResult.mockResolvedValue({})
+    api.getLeaderboard.mockResolvedValue({ playerScores: [] })
+    api.getSession.mockResolvedValue({ id: 's1', groups: [], passen: [] })
+    api.getSerieResults.mockResolvedValue([])
+    const store = useCompetitionEventStore()
+    const results = [{ playerId: 'm1', totalPoints: 2, maxPoints: 2, stepStates: [] }]
+    await store.correctSerieResult('s1', 'g1', 'se1', 0, results)
+    expect(api.correctSerieResult).toHaveBeenCalledWith('s1', 'g1', 'se1', 0, results)
+    expect(api.getSerieResults).toHaveBeenCalledWith('s1')
   })
 })

@@ -71,6 +71,12 @@ export const getProgress = (sessionId) =>
 export const releaseNextPasse = (sessionId) =>
   apiFetch(`/sessions/${sessionId}/passen/release`, { method: 'POST' })
 
+export const correctSerieResult = (sessionId, groupId, serieId, passeIndex, results) =>
+  apiFetch(`/sessions/${sessionId}/groups/${groupId}/serien/${serieId}/results`, {
+    method: 'PUT',
+    body: JSON.stringify({ passeIndex, results }),
+  })
+
 export const getLeaderboard = (sessionId) =>
   apiFetch(`/sessions/${sessionId}/leaderboard`)
 
