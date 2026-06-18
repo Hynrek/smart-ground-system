@@ -295,8 +295,8 @@ describe('useCompetitionEventStore', () => {
       status: 'COMPLETED',
       completedAt: '2026-06-17T10:00:00Z',
       groups: [
-        { id: 'g1', name: 'Rotte A', members: [{ id: 'm1', displayName: 'Alice' }] },
-        { id: 'g2', name: 'Rotte B', members: [{ id: 'm2', displayName: 'Bob' }] },
+        { id: 'g1', name: 'Rotte A', members: [{ id: 'm1', userId: 'u1', displayName: 'Alice' }] },
+        { id: 'g2', name: 'Rotte B', members: [{ id: 'm2', userId: 'u2', displayName: 'Bob' }] },
       ],
       playerResults: [{ playerId: 'm1', programResults: '[]', totalScore: 40, maxScore: 50 }],
     })
@@ -310,8 +310,8 @@ describe('useCompetitionEventStore', () => {
 
       const result = store.completedResultsBySession['s1']
       expect(result.standings.map(s => s.displayName)).toEqual(['Bob', 'Alice'])
-      expect(result.standings[0]).toMatchObject({ rank: 1, playerId: 'm2', rotteName: 'Rotte B', totalScore: 47, maxScore: 50 })
-      expect(result.standings[1]).toMatchObject({ rank: 2, rotteName: 'Rotte A', tied: true, tieResolvedByStechen: true })
+      expect(result.standings[0]).toMatchObject({ rank: 1, playerId: 'm2', userId: 'u2', rotteName: 'Rotte B', totalScore: 47, maxScore: 50 })
+      expect(result.standings[1]).toMatchObject({ rank: 2, playerId: 'm1', userId: 'u1', rotteName: 'Rotte A', tied: true, tieResolvedByStechen: true })
       expect(result.completedAt).toBe('2026-06-17T10:00:00Z')
       expect(result.playerResults).toHaveLength(1)
     })

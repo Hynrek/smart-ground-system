@@ -14,6 +14,7 @@ import ShooterRangeSelectView from '@/views/shooter/ShooterRangeSelectView.vue';
 import ShooterRemoteView from '@/views/shooter/ShooterRemoteView.vue';
 import ShooterPlayPage from '@/views/shooter/ShooterPlayPage.vue';
 import CompetitionLiveView from '@/views/shooter/CompetitionLiveView.vue';
+import CompetitionResultsView from '@/views/shooter/CompetitionResultsView.vue';
 import PasseManagementView from '@/views/shooter/PasseManagementView.vue';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -42,6 +43,7 @@ const routes = [
   { path: '/remote/:rangeId/play', component: ShooterPlayPage,  props: true, meta: { layout: 'shooter', permission: 'PLAY_SERIES' } },
   { path: '/competition/live',     component: CompetitionLiveView,          meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
   { path: '/wettkampf/live/:instanceId', component: CompetitionLiveView, props: true, meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
+  { path: '/wettkampf/:id/rangliste', component: CompetitionResultsView, props: true, meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
   { path: '/meine-passen',         component: PasseManagementView,          meta: { layout: 'shooter', permission: 'PLAY_SERIES' } },
   { path: '/wettkampf',            component: () => import('@/views/shooter/CompetitionManagementView.vue'), meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
 ];

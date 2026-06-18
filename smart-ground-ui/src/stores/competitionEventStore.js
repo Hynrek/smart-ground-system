@@ -394,17 +394,18 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
         wettkampfApi.getLeaderboard(sessionId),
         wettkampfApi.getSession(sessionId),
       ])
-      const rotteByPlayer = new Map()
+      const memberMeta = new Map()
       for (const group of (session.groups ?? [])) {
         for (const member of (group.members ?? [])) {
-          rotteByPlayer.set(member.id, group.name)
+          memberMeta.set(member.id, { rotteName: group.name, userId: member.userId ?? null })
         }
       }
       const standings = (leaderboard.playerScores ?? []).map(p => ({
         rank: p.rank,
         playerId: p.playerId,
+        userId: memberMeta.get(p.playerId)?.userId ?? null,
         displayName: p.displayName,
-        rotteName: rotteByPlayer.get(p.playerId) ?? null,
+        rotteName: memberMeta.get(p.playerId)?.rotteName ?? null,
         totalScore: p.totalScore,
         maxScore: p.maxScore,
         tied: p.tied ?? false,

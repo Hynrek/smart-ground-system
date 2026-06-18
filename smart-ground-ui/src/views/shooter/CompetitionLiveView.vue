@@ -15,8 +15,18 @@
       </button>
     </div>
 
+    <!-- Completed: the competition finished while watching — offer the Rangliste -->
+    <div v-if="justCompleted" class="completed-panel">
+      <div class="completed-card">
+        <Icons icon="check" :size="28" color="rgba(255,255,255,0.9)" />
+        <h2 class="completed-title">Wettkampf abgeschlossen</h2>
+        <p class="completed-text">Alle Passen sind geschossen.</p>
+        <button class="results-link" @click="goToResults">Zur Rangliste</button>
+      </div>
+    </div>
+
     <!-- Body -->
-    <div class="body">
+    <div v-else class="body">
       <!-- LEFT: ranges -->
       <div class="col col--left">
         <div class="section-label">BEREICHE</div>
@@ -73,11 +83,21 @@ const instance = computed(() =>
   props.instanceId ? competitionEventStore.getCompetitionInstance(props.instanceId) : null,
 )
 
-// ── Redirect if instance disappears ──────────────────────────────────────
+// The instance disappears from competitionInstances both when the competition
+// completes (moved to completedCompetitionInstances) and when it is abandoned
+// (deleted). Distinguish the two: completed → offer the Rangliste; abandoned →
+// fall back to the list.
+const justCompleted = computed(() =>
+  !!props.instanceId &&
+  instance.value === null &&
+  competitionEventStore.completedCompetitionInstances.some(i => i.instanceId === props.instanceId),
+)
+
+// ── Redirect only when the instance is gone for good (abandoned) ───────────
 watch(
   instance,
   (val) => {
-    if (props.instanceId && val === null) {
+    if (props.instanceId && val === null && !justCompleted.value) {
       router.push('/wettkampf')
     }
   },
@@ -94,6 +114,10 @@ onMounted(async () => {
 // ── Actions ───────────────────────────────────────────────────────────────
 function goBack() {
   router.push('/wettkampf')
+}
+
+function goToResults() {
+  router.push(`/wettkampf/${props.instanceId}/rangliste`)
 }
 
 function handleStop() {
@@ -183,6 +207,29 @@ function onGoToRange({ rangeId, rotteId }) {
 .stop-btn:hover {
   background: rgba(252, 129, 129, 0.15);
 }
+
+/* ── Completed panel ── */
+.completed-panel {
+  flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+
+.completed-card {
+  display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px; padding: 36px 32px; max-width: 360px; width: 100%;
+}
+
+.completed-title { font-size: 20px; font-weight: 800; margin: 4px 0 0; }
+
+.completed-text { font-size: 14px; color: rgba(255, 255, 255, 0.6); margin: 0; }
+
+.results-link {
+  margin-top: 8px; min-height: 48px; padding: 12px 28px;
+  background: var(--sg-accent, #4299e1); border: none; border-radius: 12px;
+  color: #fff; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer;
+  transition: filter 0.15s;
+}
+.results-link:hover { filter: brightness(1.1); }
 
 /* ── Body: two-column grid ── */
 .body {
