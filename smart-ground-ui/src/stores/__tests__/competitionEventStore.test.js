@@ -71,6 +71,26 @@ describe('useCompetitionEventStore', () => {
     expect(store.events[0].status).toBe('ACTIVE')
   })
 
+  it('goLive from SETUP opens then starts the event', async () => {
+    api.patchStatus.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
+    api.getSession.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
+    const store = useCompetitionEventStore()
+    store.events = [mkSession({ status: 'SETUP' })]
+    await store.goLive('s1')
+    expect(api.patchStatus).toHaveBeenCalledWith('s1', 'open')
+    expect(api.patchStatus).toHaveBeenCalledWith('s1', 'active')
+  })
+
+  it('goLive from OPEN only starts the event', async () => {
+    api.patchStatus.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
+    api.getSession.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
+    const store = useCompetitionEventStore()
+    store.events = [mkSession({ status: 'OPEN' })]
+    await store.goLive('s1')
+    expect(api.patchStatus).not.toHaveBeenCalledWith('s1', 'open')
+    expect(api.patchStatus).toHaveBeenCalledWith('s1', 'active')
+  })
+
   it('stopEvent deletes the abandoned competition instead of archiving it', async () => {
     api.deleteSession.mockResolvedValue(undefined)
     const store = useCompetitionEventStore()
