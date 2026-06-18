@@ -36,8 +36,8 @@
         </div>
 
         <div class="tab-row">
-          <button class="tab-btn" :class="{ active: setupTab === 'rotten' }" @click="setupTab = 'rotten'; showPassePicker = false">Rotten</button>
-          <button class="tab-btn" :class="{ active: setupTab === 'passen' }" @click="setupTab = 'passen'; showPassePicker = false">Passen</button>
+          <button class="tab-btn" :class="{ active: setupTab === 'rotten' }" @click="setSetupTab('rotten', { replace: true }); showPassePicker = false">Rotten</button>
+          <button class="tab-btn" :class="{ active: setupTab === 'passen' }" @click="setSetupTab('passen', { replace: true }); showPassePicker = false">Passen</button>
         </div>
 
         <!-- Rotten tab -->
@@ -233,6 +233,7 @@
 <script setup>
 import { computed, ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUrlTab } from '@/composables/useUrlTab.js'
 import { storeToRefs } from 'pinia'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 import { useUserStore } from '@/stores/userStore.js'
@@ -312,7 +313,7 @@ const availableUsers = computed(() =>
 )
 
 const passeStore = usePasseStore()
-const setupTab = ref('rotten')
+const { activeTab: setupTab, setTab: setSetupTab } = useUrlTab('rotten', ['rotten', 'passen'])
 const showPassePicker = ref(false)
 
 const assignedPasseIds = computed(() =>
