@@ -147,6 +147,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
       sessionId: event.id,
       type: 'competition',
       templateName: event.name,
+      releasedPasseIndex: 0,
       rotten,
     }
 
@@ -166,6 +167,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
   const _hydrateProgress = (instanceId, progress) => {
     const inst = competitionInstances.value.find(i => i.instanceId === instanceId)
     if (!inst || !progress?.groups) return
+    inst.releasedPasseIndex = progress.releasedPasseIndex ?? 0
     for (const gp of progress.groups) {
       const rotte = inst.rotten.find(r => r.rotteId === gp.groupId)
       if (!rotte) continue
@@ -188,12 +190,13 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
           firstOpen = idx
         }
       })
+      // Gate display/play to the admin-released Passe (all Rotten share it).
+      rotte.currentPhaseIndex = inst.releasedPasseIndex
       if (firstOpen === -1) {
-        rotte.currentPhaseIndex = Math.max(0, rotte.phases.length - 1)
         rotte.status = 'done'
       } else {
-        rotte.currentPhaseIndex = firstOpen
-        rotte.phases[firstOpen].status = 'active'
+        const releasedPhase = rotte.phases[inst.releasedPasseIndex]
+        if (releasedPhase && releasedPhase.status !== 'done') releasedPhase.status = 'active'
       }
     }
   }
@@ -308,7 +311,8 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
   const _completeCompetitionBlock = (inst, blockId, playerResults, rotteId) => {
     const rotte = inst.rotten?.find(r => r.rotteId === rotteId)
     if (!rotte) return
-    const phase = rotte.phases[rotte.currentPhaseIndex]
+    const phaseIdx = inst.releasedPasseIndex ?? 0
+    const phase = rotte.phases[phaseIdx]
     if (!phase) return
     const block = phase.blocks.find(b => b.blockId === blockId)
     if (!block) return
@@ -316,20 +320,52 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     block.completedAt = Date.now()
     block.result = { playerResults }
 
-    if (phase.blocks.every(b => b.status === 'done')) {
-      phase.status = 'done'
-      const nextIndex = rotte.currentPhaseIndex + 1
-      if (nextIndex < rotte.phases.length) {
-        rotte.currentPhaseIndex = nextIndex
-        rotte.phases[nextIndex].status = 'active'
-      } else {
-        rotte.status = 'done'
-        if (inst.rotten.every(r => r.status === 'done')) {
-          completedCompetitionInstances.value.push({ ...inst, completedAt: Date.now() })
-          competitionInstances.value = competitionInstances.value.filter(i => i.instanceId !== inst.instanceId)
-        }
+    // A Rotte never advances past the released Passe on its own — the admin gates
+    // the next Passe. Only mark the phase done and detect overall completion.
+    if (phase.blocks.every(b => b.status === 'done')) phase.status = 'done'
+    const allDone = inst.rotten.every(r => r.phases.every(p => p.blocks.every(b => b.status === 'done')))
+    if (allDone) {
+      rotte.status = 'done'
+      completedCompetitionInstances.value.push({ ...inst, completedAt: Date.now() })
+      competitionInstances.value = competitionInstances.value.filter(i => i.instanceId !== inst.instanceId)
+    }
+  }
+
+  // ── Runtime: admin Passe gate ─────────────────────────────────────────────
+
+  // Release the next Passe for all Rotten (admin gate). The backend guards that the
+  // current released Passe is fully complete; on success it returns the new index.
+  const releaseNextPasse = async (instanceId) => {
+    const inst = competitionInstances.value.find(i => i.instanceId === instanceId)
+    const sessionId = inst?.sessionId ?? instanceId
+    const res = await wettkampfApi.releaseNextPasse(sessionId)
+    if (inst) {
+      inst.releasedPasseIndex = res?.releasedPasseIndex ?? (inst.releasedPasseIndex + 1)
+      for (const r of inst.rotten) {
+        r.currentPhaseIndex = inst.releasedPasseIndex
+        const p = r.phases[inst.releasedPasseIndex]
+        if (p && p.status !== 'done') p.status = 'active'
       }
     }
+    return res
+  }
+
+  // True when every Rotte has completed every Serie of the released Passe.
+  const isReleasedPasseComplete = (instanceId) => {
+    const inst = competitionInstances.value.find(i => i.instanceId === instanceId)
+    if (!inst || inst.rotten.length === 0) return false
+    const idx = inst.releasedPasseIndex ?? 0
+    return inst.rotten.every(r => {
+      const blocks = r.phases[idx]?.blocks ?? []
+      return blocks.length > 0 && blocks.every(b => b.status === 'done')
+    })
+  }
+
+  // A Rotte that finished the released Passe but the competition isn't over → waiting.
+  const isRotteWaitingForPasse = (inst, rotte) => {
+    const idx = inst?.releasedPasseIndex ?? 0
+    const blocks = rotte?.phases?.[idx]?.blocks ?? []
+    return blocks.length > 0 && blocks.every(b => b.status === 'done') && rotte.status !== 'done'
   }
 
   // ── Runtime: queries ──────────────────────────────────────────────────────
@@ -343,7 +379,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     for (const inst of competitionInstances.value) {
       for (const rotte of (inst.rotten ?? [])) {
         if (rotte.status === 'done') continue
-        const phase = rotte.phases[rotte.currentPhaseIndex]
+        const phase = rotte.phases[inst.releasedPasseIndex ?? 0]
         if (!phase) continue
         // Only surface Serien that still need shooting — completed ones must not
         // reappear in the flyout — and, when scoped, only those on this range.
@@ -370,7 +406,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     for (const inst of competitionInstances.value) {
       for (const rotte of (inst.rotten ?? [])) {
         if (rotte.assignedRangeId !== rangeId || rotte.status !== 'active') continue
-        const phase = rotte.phases[rotte.currentPhaseIndex]
+        const phase = rotte.phases[inst.releasedPasseIndex ?? 0]
         if (!phase) continue
         for (const block of phase.blocks) {
           if (block.rangeId === rangeId && block.status !== 'done') {
@@ -513,6 +549,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     getCompetitionInstance, initCompetitionInstance,
     assignRotteToRange, unassignRotte,
     markBlockInProgress, markBlockDone,
+    releaseNextPasse, isReleasedPasseComplete, isRotteWaitingForPasse,
     getActiveCompetitionRotten, getBlocksForRange,
     // Stechen (tiebreaker)
     tiesBySession,

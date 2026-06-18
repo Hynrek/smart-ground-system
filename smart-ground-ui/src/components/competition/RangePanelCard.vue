@@ -26,8 +26,11 @@
           {{ activeRotte.players.map(p => p.displayName ?? p.name).join(' · ') }}
         </div>
 
+        <!-- Waiting for the admin Passe gate -->
+        <div v-if="waitingForOthers" class="waiting-notice">Warte auf andere Rotten</div>
+
         <!-- Actions -->
-        <div class="action-row">
+        <div v-else class="action-row">
           <button class="btn btn--ghost" @click="handlePause">
             <Icons icon="stop" :size="13" color="rgba(255,255,255,0.7)" />
             Pause
@@ -119,6 +122,14 @@ const waitingRotten = computed(() =>
   inst.value?.rotten.filter((r) => r.status === 'waiting' || r.status === 'paused') ?? [],
 )
 
+// The active rotte finished every Serie of the released Passe and is held by the
+// admin Passe gate until all Rotten catch up.
+const waitingForOthers = computed(() =>
+  activeRotte.value
+    ? competitionEventStore.isRotteWaitingForPasse(inst.value, activeRotte.value)
+    : false,
+)
+
 function handlePause() {
   if (!activeRotte.value) return
   competitionEventStore.unassignRotte(props.instanceId, activeRotte.value.rotteId)
@@ -185,6 +196,18 @@ function handleActivate(rotte) {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
   padding: 0 2px;
+}
+
+/* ── Waiting notice (admin Passe gate) ── */
+.waiting-notice {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f6ad55;
+  background: rgba(246, 173, 85, 0.1);
+  border: 1px solid rgba(246, 173, 85, 0.25);
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: center;
 }
 
 /* ── Action row ── */

@@ -68,6 +68,9 @@ export const completeSerie = (sessionId, groupId, serieId, passeIndex, playInsta
 export const getProgress = (sessionId) =>
   apiFetch(`/sessions/${sessionId}/progress`)
 
+export const releaseNextPasse = (sessionId) =>
+  apiFetch(`/sessions/${sessionId}/passen/release`, { method: 'POST' })
+
 export const getLeaderboard = (sessionId) =>
   apiFetch(`/sessions/${sessionId}/leaderboard`)
 
