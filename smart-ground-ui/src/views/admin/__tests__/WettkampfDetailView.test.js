@@ -99,7 +99,24 @@ describe('WettkampfDetailView', () => {
       store.events = store.events.map(e => e.id === id ? { ...e, status: 'COMPLETED' } : e)
       return { completed: true }
     })
-    await wrapper.find('.start-btn').trigger('click') // "Wettkampf abschliessen"
+    await wrapper.find('.start-btn').trigger('click') // PRE_COMPLETE branch: "Wettkampf abschliessen"
+    await flushPromises()
+    expect(push).not.toHaveBeenCalled()
+    expect(wrapper.find('.completed-stub').exists()).toBe(true)
+  })
+
+  it('force-finishing past the tie guard stays in place and shows the COMPLETED panel', async () => {
+    const { wrapper, store, push } = await setup({ event: makeEvent({ status: 'PRE_COMPLETE' }) })
+    // First finish is blocked by an unresolved tie; force finish then completes.
+    vi.spyOn(store, 'finishEvent').mockImplementation(async (id, force) => {
+      if (!force) return { completed: false, unresolvedTies: [{ tiePosition: 1, players: [] }] }
+      store.events = store.events.map(e => e.id === id ? { ...e, status: 'COMPLETED' } : e)
+      return { completed: true }
+    })
+    await wrapper.find('.start-btn').trigger('click') // handleFinish → guard dialog
+    await flushPromises()
+    expect(wrapper.find('.warning-modal').exists()).toBe(true)
+    await wrapper.find('.action-btn--start').trigger('click') // forceFinish
     await flushPromises()
     expect(push).not.toHaveBeenCalled()
     expect(wrapper.find('.completed-stub').exists()).toBe(true)
