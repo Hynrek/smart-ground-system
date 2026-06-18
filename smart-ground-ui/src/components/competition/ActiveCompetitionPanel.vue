@@ -39,24 +39,24 @@
     <div class="tab-bar">
       <button
         class="tab-btn"
-        :class="{ active: activeTab === 'rotten' }"
-        @click="activeTab = 'rotten'"
-      >
-        Rotten
-      </button>
-      <button
-        class="tab-btn"
-        :class="{ active: activeTab === 'serien' }"
-        @click="activeTab = 'serien'"
+        :class="{ active: activeTab === 'fortschritt' }"
+        @click="setTab('fortschritt', { replace: true })"
       >
         Fortschritt
       </button>
       <button
         class="tab-btn"
         :class="{ active: activeTab === 'rangliste' }"
-        @click="activeTab = 'rangliste'"
+        @click="setTab('rangliste', { replace: true })"
       >
         Rangliste
+      </button>
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'rotten' }"
+        @click="setTab('rotten', { replace: true })"
+      >
+        Rotten
       </button>
     </div>
 
@@ -85,7 +85,7 @@
     </div>
 
     <!-- Serien tab -->
-    <div v-if="activeTab === 'serien'" class="serien-view">
+    <div v-if="activeTab === 'fortschritt'" class="serien-view">
       <div
         v-for="card in serieCards"
         :key="card.serieAlias"
@@ -125,10 +125,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Icons from '@/components/Icons.vue'
 import { usePasseStore } from '@/stores/passeStore.js'
 import { getProgress, getLeaderboard } from '@/services/wettkampfApi.js'
+import { useUrlTab } from '@/composables/useUrlTab.js'
 
 const props = defineProps({
   event: { type: Object, required: true },
@@ -148,7 +149,7 @@ const tiedPlayerIds = computed(() => {
 })
 
 const passeStore = usePasseStore()
-const activeTab = ref('rotten')
+const { activeTab, setTab } = useUrlTab('fortschritt', ['fortschritt', 'rangliste', 'rotten'])
 
 const progressData = ref(null)
 const leaderboardData = ref(null)

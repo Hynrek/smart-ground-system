@@ -82,6 +82,15 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     initCompetitionInstance(updated)
   }
 
+  // Advance a planned competition all the way to ACTIVE in one call. The backend
+  // requires SETUP → OPEN → ACTIVE; this hides the transient OPEN step from callers.
+  // (Once OPEN is removed server-side — Task G — this collapses to startEvent.)
+  const goLive = async (id) => {
+    const status = getEvent(id)?.status?.toUpperCase()
+    if (status === 'SETUP') await openEvent(id)
+    await startEvent(id)
+  }
+
   // Abandoning a competition deletes it outright — abandoned events are not kept
   // around as archived clutter.
   const stopEvent = (id) => deleteEvent(id)
@@ -474,7 +483,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     events, loading, error,
     planningEvents, activeEvents, completedEvents, getEvent,
     loadEvents,
-    createEvent, openEvent, startEvent, stopEvent, stopCompetition, deleteEvent,
+    createEvent, openEvent, startEvent, goLive, stopEvent, stopCompetition, deleteEvent,
     addRotte, removeRotte, renameRotte,
     addPlayer, removePlayer, togglePlayerPaid,
     addPasseToEvent, removePasseFromEvent,
