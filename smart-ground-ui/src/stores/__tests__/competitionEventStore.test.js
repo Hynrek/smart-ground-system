@@ -8,6 +8,8 @@ vi.mock('@/services/wettkampfApi.js', () => ({
   patchStatus:   vi.fn(),
   getSession:    vi.fn(),
   getProgress:   vi.fn(),
+  releaseNextPasse: vi.fn(),
+  completeSerie: vi.fn(),
   getLeaderboard: vi.fn(),
   getSerieResults: vi.fn(),
   deleteSession: vi.fn(),
@@ -176,7 +178,7 @@ describe('useCompetitionEventStore', () => {
     expect(store.events[0].passen).toEqual([])
   })
 
-  it('loadEvents hydrates persisted progress so completed Passen advance', async () => {
+  it('loadEvents hydrates persisted progress + releasedPasseIndex so released Passen advance', async () => {
     const ev = mkSession({
       id: 's1', status: 'ACTIVE',
       groups: [{ id: 'g1', name: 'Rotte A', members: [{ id: 'm1', displayName: 'Max' }] }],
@@ -187,6 +189,7 @@ describe('useCompetitionEventStore', () => {
     })
     api.listSessions.mockResolvedValue({ content: [ev] })
     api.getProgress.mockResolvedValue({
+      releasedPasseIndex: 1,
       groups: [{ groupId: 'g1', completions: [{ passeIndex: 0, completed: true }, { passeIndex: 1, completed: false }] }],
     })
     const store = useCompetitionEventStore()
@@ -399,6 +402,67 @@ describe('useCompetitionEventStore', () => {
 
       expect(store.error).toBe('boom')
       expect(store.completedResultsBySession['s1']).toBeUndefined()
+    })
+  })
+
+  describe('synchronized passe phasing', () => {
+    const buildInstanceWith = (store, releasedPasseIndex = 0) => {
+      const ev = {
+        id: 'c1', name: 'WK', status: 'ACTIVE',
+        groups: [
+          { id: 'r1', name: 'Rotte A', members: [{ id: 'p1', displayName: 'A' }] },
+          { id: 'r2', name: 'Rotte B', members: [{ id: 'p2', displayName: 'B' }] },
+        ],
+        passen: [
+          { id: 'pa0', name: 'Passe 1', serien: [{ id: 's0', alias: 'S0', rangeId: 'rg1', steps: [] }] },
+          { id: 'pa1', name: 'Passe 2', serien: [{ id: 's1', alias: 'S1', rangeId: 'rg1', steps: [] }] },
+        ],
+      }
+      const inst = store.initCompetitionInstance(ev)
+      inst.releasedPasseIndex = releasedPasseIndex
+      for (const r of inst.rotten) { r.assignedRangeId = 'rg1'; r.status = 'active' }
+      return inst
+    }
+
+    it('only surfaces blocks from the released passe', () => {
+      const store = useCompetitionEventStore()
+      buildInstanceWith(store, 0)
+      const blocks = store.getBlocksForRange('rg1')
+      expect(blocks.map(b => b.serieId)).toEqual(['s0', 's0'])
+    })
+
+    it('a rotte that finished the released passe surfaces no blocks (waiting)', () => {
+      const store = useCompetitionEventStore()
+      const inst = buildInstanceWith(store, 0)
+      inst.rotten[0].phases[0].blocks[0].status = 'done'
+      const blocks = store.getBlocksForRange('rg1')
+      expect(blocks.map(b => b.rotteId)).toEqual(['r2'])
+    })
+
+    it('_completeCompetitionBlock does not advance a rotte past releasedPasseIndex', async () => {
+      api.completeSerie.mockResolvedValue(undefined)
+      const store = useCompetitionEventStore()
+      buildInstanceWith(store, 0)
+      await store.markBlockDone('c1', 's0', [], 'r1')
+      const surfaced = store.getActiveCompetitionRotten('rg1').flatMap(r => r.blocks.map(b => b.serieId))
+      expect(surfaced).not.toContain('s1')
+    })
+
+    it('releaseNextPasse posts and bumps the instance index', async () => {
+      api.releaseNextPasse.mockResolvedValue({ releasedPasseIndex: 1 })
+      const store = useCompetitionEventStore()
+      const inst = buildInstanceWith(store, 0)
+      await store.releaseNextPasse('c1')
+      expect(api.releaseNextPasse).toHaveBeenCalledWith('c1')
+      expect(inst.releasedPasseIndex).toBe(1)
+    })
+
+    it('isReleasedPasseComplete is true only when all rotten finished the released passe', () => {
+      const store = useCompetitionEventStore()
+      const inst = buildInstanceWith(store, 0)
+      expect(store.isReleasedPasseComplete('c1')).toBe(false)
+      for (const r of inst.rotten) r.phases[0].blocks[0].status = 'done'
+      expect(store.isReleasedPasseComplete('c1')).toBe(true)
     })
   })
 })
