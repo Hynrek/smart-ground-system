@@ -22,8 +22,8 @@
       <p>Wettkampf nicht gefunden.</p>
     </div>
 
-    <!-- ══ SETUP (Planung) ══ -->
-    <template v-else-if="event.status?.toUpperCase() === 'SETUP'">
+    <!-- ══ SETUP / OPEN (Planung) ══ -->
+    <template v-else-if="['SETUP', 'OPEN'].includes(event.status?.toUpperCase())">
       <div class="content">
         <div class="info-bar">
           <span class="info-chip">{{ (event.passen?.length ?? 0) }} Passen</span>
@@ -102,48 +102,6 @@
           </div>
         </section>
 
-        <div class="start-section">
-          <div class="payment-total">{{ paidPlayers.length }}/{{ totalPlayers }} Schützen bezahlt</div>
-          <button class="start-btn" :disabled="(event.groups ?? []).length === 0" @click="handleOpen">
-            <Icons icon="play" :size="15" color="#fff" />
-            Wettkampf starten
-          </button>
-        </div>
-      </div>
-    </template>
-
-    <!-- ══ OPEN ══ -->
-    <template v-else-if="event.status?.toUpperCase() === 'OPEN'">
-      <div class="content">
-        <div class="info-bar">
-          <span class="info-chip">{{ totalThrows }} Würfe</span>
-          <span class="info-chip">{{ totalPlayers }} Schützen</span>
-        </div>
-        <div v-if="unpaidPlayers.length > 0" class="payment-warning">
-          <Icons icon="alert" :size="14" color="rgba(246,173,85,0.9)" />
-          {{ unpaidPlayers.length }} Schützen haben noch nicht bezahlt
-        </div>
-        <section class="section">
-          <div class="section-header">
-            <h2 class="section-title">Rotten</h2>
-            <button class="add-rotte-btn" :disabled="(event.groups ?? []).length >= 8" @click="store.addRotte(eventId)">
-              <Icons icon="plus" :size="13" /> Rotte hinzufügen
-            </button>
-          </div>
-          <div class="rotten-grid">
-            <RotteEditorCard
-              v-for="group in (event.groups ?? [])"
-              :key="group.id"
-              :rotte="toRotteShape(group)"
-              :available-users="availableUsers"
-              @rename="(name) => store.renameRotte(eventId, group.id, name)"
-              @remove="confirmRemoveRotte(group)"
-              @add-player="(user) => store.addPlayer(eventId, group.id, user)"
-              @remove-player="(pid) => store.removePlayer(eventId, group.id, pid)"
-              @toggle-paid="(pid) => store.togglePlayerPaid(eventId, group.id, pid)"
-            />
-          </div>
-        </section>
         <div v-if="showPaymentWarning" class="modal-overlay" @click.self="showPaymentWarning = false">
           <div class="warning-modal">
             <h3 class="modal-title">Nicht alle haben bezahlt</h3>
@@ -158,8 +116,8 @@
           </div>
         </div>
         <div class="start-section">
-          <div class="payment-total">{{ paidPlayers.length }}/{{ totalPlayers }} bezahlt</div>
-          <button class="start-btn" @click="handleStart">
+          <div class="payment-total">{{ paidPlayers.length }}/{{ totalPlayers }} Schützen bezahlt</div>
+          <button class="start-btn" :disabled="(event.groups ?? []).length === 0" @click="handleStart">
             <Icons icon="play" :size="15" color="#fff" />
             Wettkampf starten
           </button>
@@ -339,10 +297,7 @@ const confirmRemoveRotte = (group) => {
   store.removeRotte(eventId.value, group.id ?? group.rotteId)
 }
 
-// ── Open (SETUP → OPEN) ────────────────────────────────────────────────────
-const handleOpen = () => store.openEvent(eventId.value)
-
-// ── Start (OPEN → ACTIVE) ──────────────────────────────────────────────────
+// ── Start (SETUP/OPEN → ACTIVE) ─────────────────────────────────────────────
 const showPaymentWarning = ref(false)
 
 const handleStart = () => {
@@ -355,7 +310,7 @@ const handleStart = () => {
 
 const confirmStart = () => {
   showPaymentWarning.value = false
-  store.startEvent(eventId.value)
+  store.goLive(eventId.value)
 }
 
 // ── Stop ───────────────────────────────────────────────────────────────────

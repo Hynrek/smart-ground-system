@@ -68,4 +68,27 @@ describe('WettkampfDetailView', () => {
     const { wrapper } = await setup({ query: { tab: 'passen' } })
     expect(wrapper.text()).toContain('Passe hinzufügen')
   })
+
+  it('starts the competition in one click when everyone has paid', async () => {
+    const { wrapper, store } = await setup()
+    await wrapper.find('.start-btn').trigger('click')
+    expect(store.goLive).toHaveBeenCalledWith('ev-1')
+  })
+
+  it('shows the payment warning before starting when a player is unpaid', async () => {
+    const event = makeEvent({
+      groups: [{ id: 'g1', name: 'Rotte A', members: [{ id: 'm1', displayName: 'Bob', paid: false }] }],
+    })
+    const { wrapper, store } = await setup({ event })
+    await wrapper.find('.start-btn').trigger('click')
+    expect(store.goLive).not.toHaveBeenCalled()
+    expect(wrapper.find('.warning-modal').exists()).toBe(true)
+    await wrapper.find('.action-btn--start').trigger('click')
+    expect(store.goLive).toHaveBeenCalledWith('ev-1')
+  })
+
+  it('renders the planning screen (not a tab-less screen) for an OPEN event', async () => {
+    const { wrapper } = await setup({ event: makeEvent({ status: 'OPEN' }) })
+    expect(wrapper.find('.tab-row').exists()).toBe(true)
+  })
 })
