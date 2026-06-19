@@ -32,7 +32,6 @@ class CompetitionTiebreakerRepositoryTest {
         UUID tieGroup = UUID.randomUUID();
 
         CompetitionTiebreaker tb = new CompetitionTiebreaker(session, tieGroup, 1, 1);
-        tb.setTemplateType("passe");
         tb.setTemplateId(UUID.randomUUID());
         tb.setTemplateName("Stech-Passe");
         tb.setParticipantsJson("[]");

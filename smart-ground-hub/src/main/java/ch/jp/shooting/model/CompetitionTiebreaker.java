@@ -40,9 +40,6 @@ public class CompetitionTiebreaker {
     @Column(name = "participants_json", columnDefinition = "TEXT", nullable = false)
     private String participantsJson = "[]";
 
-    @Column(name = "template_type", nullable = false)
-    private String templateType = "passe"; // passe | serie
-
     @Column(name = "template_id")
     @Nullable
     private UUID templateId;
@@ -96,8 +93,6 @@ public class CompetitionTiebreaker {
     public void setTiePosition(int tiePosition) { this.tiePosition = tiePosition; }
     public String getParticipantsJson() { return participantsJson; }
     public void setParticipantsJson(String participantsJson) { this.participantsJson = participantsJson; }
-    public String getTemplateType() { return templateType; }
-    public void setTemplateType(String templateType) { this.templateType = templateType; }
     @Nullable public UUID getTemplateId() { return templateId; }
     public void setTemplateId(@Nullable UUID templateId) { this.templateId = templateId; }
     @Nullable public String getTemplateName() { return templateName; }

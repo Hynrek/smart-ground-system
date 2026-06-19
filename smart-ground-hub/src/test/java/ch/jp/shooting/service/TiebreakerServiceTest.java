@@ -12,7 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -23,7 +23,7 @@ class TiebreakerServiceTest {
     @Mock PlayerResultRepository playerResultRepo;
     @Mock SessionPlayerRepository playerRepo;
     @Mock PlayInstanceService playInstanceService;
-    @Mock PasseRepository passeRepo;
+    @Mock SerieRepository serieRepo;
     @Spy ObjectMapper objectMapper = new ObjectMapper();
     @Spy TieResolver tieResolver = new TieResolver();
 
@@ -37,6 +37,65 @@ class TiebreakerServiceTest {
         session = new LiveSession(SessionType.COMPETITION, SessionStatus.PRE_COMPLETE);
         session.setId(sessionId);
         lenient().when(sessionRepo.findById(sessionId)).thenReturn(Optional.of(session));
+    }
+
+    @Test
+    void startTiebreaker_loadsSerie_buildsSnapshot_startsSerieRun() throws Exception {
+        UUID serieId = UUID.randomUUID();
+        UUID p1 = UUID.randomUUID();
+        UUID p2 = UUID.randomUUID();
+
+        Serie serie = new Serie();
+        serie.setId(serieId);
+        serie.setName("Stech-Serie");
+        serie.setStepsJson("[]");
+        when(serieRepo.findById(serieId)).thenReturn(Optional.of(serie));
+
+        when(tbRepo.findBySessionId(sessionId)).thenReturn(List.of());
+        when(tbRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SessionPlayer sp1 = new SessionPlayer();
+        sp1.setId(p1); sp1.setDisplayName("Anna"); sp1.setType(PlayerType.USER);
+        SessionPlayer sp2 = new SessionPlayer();
+        sp2.setId(p2); sp2.setDisplayName("Ben"); sp2.setType(PlayerType.USER);
+        when(playerRepo.findAllById(List.of(p1, p2))).thenReturn(List.of(sp1, sp2));
+
+        var instanceResp = new ch.jp.smartground.model.PlayInstanceResponse();
+        UUID instanceId = UUID.randomUUID();
+        instanceResp.setInstanceId(instanceId);
+        when(playInstanceService.startSerieInstance(eq(serieId), eq("Stech-Serie"), anyString(), anyList()))
+                .thenReturn(instanceResp);
+
+        var req = new ch.jp.smartground.model.StartTiebreakerRequest();
+        req.setPlayerIds(List.of(p1, p2));
+        req.setTemplateId(serieId);
+        req.setTiePosition(1);
+
+        var resp = service.startTiebreaker(sessionId, req);
+
+        assertEquals("Stech-Serie", resp.getTemplateName());
+        assertEquals(instanceId, resp.getPlayInstanceId().get());
+
+        ArgumentCaptor<CompetitionTiebreaker> captor = ArgumentCaptor.forClass(CompetitionTiebreaker.class);
+        verify(tbRepo).save(captor.capture());
+        CompetitionTiebreaker saved = captor.getValue();
+        assertEquals(TiebreakerStatus.ACTIVE, saved.getStatus());
+        assertEquals(serieId, saved.getTemplateId());
+        assertNotNull(saved.getProgramSnapshot());
+
+        verify(playInstanceService).startSerieInstance(eq(serieId), eq("Stech-Serie"), anyString(), anyList());
+        verify(playerResultRepo, never()).save(any());
+    }
+
+    @Test
+    void startTiebreaker_rejectedWhenSessionNotPreComplete() {
+        session.setStatus(SessionStatus.ACTIVE);
+        var req = new ch.jp.smartground.model.StartTiebreakerRequest();
+        req.setPlayerIds(List.of(UUID.randomUUID()));
+        req.setTemplateId(UUID.randomUUID());
+
+        assertThrows(ch.jp.shooting.exception.InvalidTiebreakerStateException.class,
+                () -> service.startTiebreaker(sessionId, req));
     }
 
     @Test

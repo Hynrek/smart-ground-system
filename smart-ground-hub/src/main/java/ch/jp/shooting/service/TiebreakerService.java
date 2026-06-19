@@ -4,20 +4,19 @@ import ch.jp.shooting.exception.InvalidTiebreakerStateException;
 import ch.jp.shooting.exception.TiebreakerNotFoundException;
 import ch.jp.shooting.model.CompetitionTiebreaker;
 import ch.jp.shooting.model.LiveSession;
-import ch.jp.shooting.model.Passe;
 import ch.jp.shooting.model.PlayerResult;
+import ch.jp.shooting.model.Serie;
 import ch.jp.shooting.model.PlayerType;
 import ch.jp.shooting.model.SessionPlayer;
 import ch.jp.shooting.model.SessionStatus;
 import ch.jp.shooting.model.TiebreakerStatus;
 import ch.jp.shooting.repository.CompetitionTiebreakerRepository;
 import ch.jp.shooting.repository.LiveSessionRepository;
-import ch.jp.shooting.repository.PasseRepository;
 import ch.jp.shooting.repository.PlayerResultRepository;
+import ch.jp.shooting.repository.SerieRepository;
 import ch.jp.shooting.repository.SessionPlayerRepository;
 import ch.jp.smartground.model.PlayerRef;
 import ch.jp.smartground.model.SessionTiesResponse;
-import ch.jp.smartground.model.StartPasseInstanceRequest;
 import ch.jp.smartground.model.StartTiebreakerRequest;
 import ch.jp.smartground.model.SubmitTiebreakerResultsRequest;
 import ch.jp.smartground.model.TiebreakerParticipant;
@@ -26,6 +25,8 @@ import ch.jp.smartground.model.TiebreakerResponse;
 import ch.jp.smartground.model.TiedBlock;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,7 +44,7 @@ import java.util.UUID;
 
 /**
  * Integrations-Kern des Wettkampf-Stechens (Tiebreaker): listet Gleichstände auf,
- * startet eine Stechen-Runde als Passe-Lauf und nimmt deren Ergebnisse entgegen.
+ * startet eine Stechen-Runde als Einzel-Serie-Lauf und nimmt deren Ergebnisse entgegen.
  *
  * <p>Wichtig: Stechen-Ergebnisse landen NIE in {@link PlayerResult} — sie ordnen nur
  * den gleichstehenden Block. Die Hauptpunkte bleiben unangetastet.
@@ -58,7 +59,7 @@ public class TiebreakerService {
     private final PlayerResultRepository playerResultRepo;
     private final SessionPlayerRepository playerRepo;
     private final PlayInstanceService playInstanceService;
-    private final PasseRepository passeRepo;
+    private final SerieRepository serieRepo;
     private final ObjectMapper objectMapper;
     private final TieResolver tieResolver;
 
@@ -67,7 +68,7 @@ public class TiebreakerService {
                              PlayerResultRepository playerResultRepo,
                              SessionPlayerRepository playerRepo,
                              PlayInstanceService playInstanceService,
-                             PasseRepository passeRepo,
+                             SerieRepository serieRepo,
                              ObjectMapper objectMapper,
                              TieResolver tieResolver) {
         this.sessionRepo = sessionRepo;
@@ -75,7 +76,7 @@ public class TiebreakerService {
         this.playerResultRepo = playerResultRepo;
         this.playerRepo = playerRepo;
         this.playInstanceService = playInstanceService;
-        this.passeRepo = passeRepo;
+        this.serieRepo = serieRepo;
         this.objectMapper = objectMapper;
         this.tieResolver = tieResolver;
     }
@@ -170,19 +171,12 @@ public class TiebreakerService {
 
     // ── Stechen-Runde starten ──────────────────────────────────────────────────
 
-    /** Startet eine neue Stechen-Runde als Live-Passe-Lauf für die gleichstehenden Spieler. */
+    /** Startet eine neue Stechen-Runde als Live-Lauf einer Einzel-Serie für die gleichstehenden Spieler. */
     public TiebreakerResponse startTiebreaker(UUID sessionId, StartTiebreakerRequest req) throws Exception {
         LiveSession session = sessionRepo.findById(sessionId)
                 .orElseThrow(() -> new TiebreakerNotFoundException(sessionId));
         if (session.getStatus() != SessionStatus.PRE_COMPLETE) {
             throw new InvalidTiebreakerStateException("Stechen nur im Status PRE_COMPLETE möglich");
-        }
-
-        // Scope-Entscheidung: derzeit nur Passe-Stechen.
-        String templateType = req.getTemplateType() != null ? req.getTemplateType().getValue() : "passe";
-        if ("serie".equals(templateType)) {
-            throw new InvalidTiebreakerStateException(
-                    "Serie-Stechen wird derzeit nicht unterstützt — bitte eine Passe-Vorlage wählen");
         }
 
         int tiePosition = req.getTiePosition() != null ? req.getTiePosition() : 1;
@@ -213,20 +207,20 @@ public class TiebreakerService {
             roundNumber = 1;
         }
 
-        // Passe-Vorlage laden (Name + Snapshot des Ablaufs).
-        Passe passe = passeRepo.findById(req.getTemplateId())
+        // Serie-Vorlage laden — ein Stechen ist immer eine Einzel-Serie.
+        Serie serie = serieRepo.findById(req.getTemplateId())
                 .orElseThrow(() -> new TiebreakerNotFoundException(req.getTemplateId()));
+        String snapshot = buildSerieSnapshot(serie);
 
         // Tiebreaker anlegen.
         CompetitionTiebreaker tb = new CompetitionTiebreaker(session, tieGroupId, roundNumber, tiePosition);
-        tb.setTemplateType("passe");
-        tb.setTemplateId(req.getTemplateId());
-        tb.setTemplateName(passe.getName());
-        tb.setProgramSnapshot(passe.getSerienJson()); // unveränderlicher Ablauf-Snapshot
+        tb.setTemplateId(serie.getId());
+        tb.setTemplateName(serie.getName());
+        tb.setProgramSnapshot(snapshot); // unveränderlicher Ablauf-Snapshot (genau eine Serie)
         tb.setParticipantsJson(objectMapper.writeValueAsString(
                 playerIds.stream().map(UUID::toString).toList()));
 
-        // Live-Lauf: Passe-Instanz für die gleichstehenden Spieler starten.
+        // Live-Lauf: einblockige Passe-Instanz aus der Serie für die gleichstehenden Spieler.
         var tiedPlayers = playerRepo.findAllById(playerIds);
         var playerRefs = tiedPlayers.stream()
                 .map(p -> new PlayerRef()
@@ -234,14 +228,31 @@ public class TiebreakerService {
                         .type(mapPlayerType(p.getType()))
                         .displayName(p.getDisplayName()))
                 .toList();
-        var startReq = new StartPasseInstanceRequest()
-                .passeId(req.getTemplateId())
-                .players(playerRefs);
-        var instance = playInstanceService.startPasseInstance(startReq);
+        var instance = playInstanceService.startSerieInstance(
+                serie.getId(), serie.getName(), snapshot, playerRefs);
         tb.setPlayInstanceId(instance.getInstanceId());
 
         tb.setStatus(TiebreakerStatus.ACTIVE);
         return toResponse(tbRepo.save(tb));
+    }
+
+    /**
+     * Baut aus einer einzelnen Serie einen Serien-Listen-Snapshot in derselben Form wie
+     * {@code Passe.serienJson}: {@code [{id, alias, rangeId, rangeName, steps}]}.
+     */
+    private String buildSerieSnapshot(Serie serie) throws Exception {
+        ObjectNode serieNode = objectMapper.createObjectNode();
+        serieNode.put("id", serie.getId().toString());
+        serieNode.put("alias", serie.getName());
+        if (serie.getRange() != null) {
+            serieNode.put("rangeId", serie.getRange().getId().toString());
+            serieNode.put("rangeName", serie.getRange().getName());
+        }
+        String steps = serie.getStepsJson();
+        serieNode.set("steps", objectMapper.readTree(steps == null || steps.isBlank() ? "[]" : steps));
+        ArrayNode arrayNode = objectMapper.createArrayNode();
+        arrayNode.add(serieNode);
+        return objectMapper.writeValueAsString(arrayNode);
     }
 
     // ── Stechen-Ergebnisse entgegennehmen ──────────────────────────────────────
@@ -291,7 +302,6 @@ public class TiebreakerService {
                 .roundNumber(tb.getRoundNumber())
                 .tiePosition(tb.getTiePosition())
                 .status(TiebreakerResponse.StatusEnum.fromValue(tb.getStatus().name()))
-                .templateType(tb.getTemplateType())
                 .templateId(tb.getTemplateId())
                 .templateName(tb.getTemplateName());
         if (tb.getPlayInstanceId() != null) {
