@@ -220,7 +220,7 @@ public class TiebreakerService {
         tb.setParticipantsJson(objectMapper.writeValueAsString(
                 playerIds.stream().map(UUID::toString).toList()));
 
-        // Live-Lauf: einblockige Passe-Instanz aus der Serie für die gleichstehenden Spieler.
+        // Live-Lauf: Einzel-Serie-Lauf für die gleichstehenden Spieler starten.
         var tiedPlayers = playerRepo.findAllById(playerIds);
         var playerRefs = tiedPlayers.stream()
                 .map(p -> new PlayerRef()
@@ -237,8 +237,8 @@ public class TiebreakerService {
     }
 
     /**
-     * Baut aus einer einzelnen Serie einen Serien-Listen-Snapshot in derselben Form wie
-     * {@code Passe.serienJson}: {@code [{id, alias, rangeId, rangeName, steps}]}.
+     * Baut aus einer einzelnen Serie einen Serien-Listen-Snapshot in der Form, die
+     * {@code PlayMapper.parseEmbeddedSerien} konsumiert: {@code [{id, alias, rangeId, rangeName, steps}]}.
      */
     private String buildSerieSnapshot(Serie serie) throws Exception {
         ObjectNode serieNode = objectMapper.createObjectNode();

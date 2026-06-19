@@ -82,6 +82,13 @@ class TiebreakerServiceTest {
         assertEquals(TiebreakerStatus.ACTIVE, saved.getStatus());
         assertEquals(serieId, saved.getTemplateId());
         assertNotNull(saved.getProgramSnapshot());
+        var snap = objectMapper.readTree(saved.getProgramSnapshot());
+        assertTrue(snap.isArray());
+        assertEquals(1, snap.size());
+        var node = snap.get(0);
+        assertEquals(serieId.toString(), node.get("id").asText());
+        assertEquals("Stech-Serie", node.get("alias").asText());
+        assertTrue(node.get("steps").isArray());
 
         verify(playInstanceService).startSerieInstance(eq(serieId), eq("Stech-Serie"), anyString(), anyList());
         verify(playerResultRepo, never()).save(any());
@@ -133,5 +140,48 @@ class TiebreakerServiceTest {
 
         assertThrows(ch.jp.shooting.exception.InvalidTiebreakerStateException.class,
                 () -> service.submitResults(sessionId, tbId, req));
+    }
+
+    @Test
+    void startTiebreaker_snapshotIncludesRangeWhenSeriePresent() throws Exception {
+        UUID serieId = UUID.randomUUID();
+        UUID rangeId = UUID.randomUUID();
+        UUID p1 = UUID.randomUUID();
+
+        Range range = new Range();
+        range.setId(rangeId);
+        range.setName("Stand 1");
+
+        Serie serie = new Serie();
+        serie.setId(serieId);
+        serie.setName("Stech-Serie");
+        serie.setStepsJson("[]");
+        serie.setRange(range);
+        when(serieRepo.findById(serieId)).thenReturn(Optional.of(serie));
+
+        when(tbRepo.findBySessionId(sessionId)).thenReturn(List.of());
+        when(tbRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        SessionPlayer sp1 = new SessionPlayer();
+        sp1.setId(p1); sp1.setDisplayName("Anna"); sp1.setType(PlayerType.USER);
+        when(playerRepo.findAllById(List.of(p1))).thenReturn(List.of(sp1));
+
+        var instanceResp = new ch.jp.smartground.model.PlayInstanceResponse();
+        instanceResp.setInstanceId(UUID.randomUUID());
+        when(playInstanceService.startSerieInstance(eq(serieId), eq("Stech-Serie"), anyString(), anyList()))
+                .thenReturn(instanceResp);
+
+        var req = new ch.jp.smartground.model.StartTiebreakerRequest();
+        req.setPlayerIds(List.of(p1));
+        req.setTemplateId(serieId);
+        req.setTiePosition(1);
+
+        var resp = service.startTiebreaker(sessionId, req);
+
+        ArgumentCaptor<CompetitionTiebreaker> captor = ArgumentCaptor.forClass(CompetitionTiebreaker.class);
+        verify(tbRepo).save(captor.capture());
+        var node = objectMapper.readTree(captor.getValue().getProgramSnapshot()).get(0);
+        assertEquals(rangeId.toString(), node.get("rangeId").asText());
+        assertEquals("Stand 1", node.get("rangeName").asText());
     }
 }
