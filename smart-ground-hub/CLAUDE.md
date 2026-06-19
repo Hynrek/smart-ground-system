@@ -164,12 +164,12 @@ Roles are **DB entities** (`Role`), not a fixed enum:
 
 ```
 Serie  ──────────────────────▶  steps (JSON array)
-  └─ Passe  ─────────────────▶  list of Serie snapshots (JSON)
+  └─ Passe  ─────────────────▶  ordered list of Serie IDs (live-joined)
         └─ Training  ────────▶  list of Passe snapshots (JSON)
 ```
 
-- **`Serie`** (formerly Ablauf): A shooting sequence. `ownership`: `user` (private) or `range` (visible to all on that range). Steps stored as JSON array. `published`: `false` by default; range-owned Serien are hidden from regular users until an admin sets `published = true` via `PATCH /api/serien/{id}/published`.
-- **`Passe`** (formerly Programm): Named collection of Serie snapshots. Owner-scoped.
+- **`Serie`** (formerly Ablauf): A shooting sequence. `ownership`: `user` (private) or `range` (visible to all on that range). Steps stored as JSON array. `published`: `false` by default; range-owned Serien are hidden from regular users until an admin sets `published = true` via `PATCH /api/serien/{id}/published`. Serie `PUT` (`UpdateSerieRequest`) accepts an optional `steps` array → in-place step edit keeping the **stable Serie ID**; this is why a Passe can safely reference Serien by ID.
+- **`Passe`** (formerly Programm): Named, **ordered reference** to existing Serien (`serie_ids_json`). Serien are joined live on read (`PasseService.resolveLiveSerien`), with step labels resolved from current positions via `PositionLabelResolver`; a deleted Serie resolves to a placeholder (`missing=true`, empty steps). The same join is reused by `PlayInstanceService.startPasseInstance` and `SessionService`. Owner-scoped.
 - **`Training`**: Named collection of Passe snapshots. Owner-scoped.
 
 ### PlayInstance (live execution)
@@ -273,7 +273,7 @@ guests            id, display_name, created_at
 ```
 serien            id, name, ownership(user|range), range_id→ranges?, owner_id→users,
                   steps_json TEXT, published boolean (default false), created_at
-passen            id, name, owner_id→users, serien_json TEXT, created_at
+passen            id, name, owner_id→users, serie_ids_json TEXT, created_at
 trainings         id, name, owner_id→users, programmes_json TEXT, created_at
 play_instances    instanceId, type(passe|training), template_id UUID, template_name,
                   status(active|completed|cancelled), owner_id→users, players_json TEXT,
