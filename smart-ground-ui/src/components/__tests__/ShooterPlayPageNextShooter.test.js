@@ -42,6 +42,33 @@ const makeRouter = () =>
     routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }],
   })
 
+// Mounts ShooterPlayPage in the group-setup modal with a staged serie, ready to
+// trigger beginGroupPlay via the "Starten" button. `players` controls multi/single.
+const mountAtGroupSetup = async (players = mockPlayers) => {
+  const router = makeRouter()
+  await router.push('/remote/r1/play')
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  const store = usePlaySessionStore()
+
+  store.showGroupSetup = true
+  store.pendingGroupSerien = mockProgram
+  store.pendingPasseInfo = {
+    serie: mockProgram[0],
+    players: players.map((p) => ({ id: p.id, displayName: p.displayName })),
+  }
+
+  const wrapper = mount(ShooterPlayPage, {
+    props: { rangeId: 'r1' },
+    global: { plugins: [router, pinia] },
+  })
+  await nextTick()
+  // Trigger the real beginGroupPlay flow via the modal's "Starten" button.
+  await wrapper.find('.btn-primary').trigger('click')
+  await nextTick()
+  return { wrapper, store }
+}
+
 // Mounts ShooterPlayPage in an active multi-player session, at program end
 // (isAtProgramEnd = true, nextPlayer set to p2), so the Getroffen card is visible.
 const mountAtProgramEnd = async () => {
@@ -104,6 +131,28 @@ describe('ShooterPlayPage — Nächster Schütze overlay', () => {
     await wrapper.find('.next-shooter-start-btn').trigger('click')
     await nextTick()
     expect(store.advanceToNextPlayer).toHaveBeenCalledOnce()
+    expect(wrapper.find('.next-shooter-overlay').exists()).toBe(false)
+  })
+
+  it('shows the ready overlay for the FIRST shooter on group start', async () => {
+    const { wrapper, store } = await mountAtGroupSetup()
+    const advanceSpy = vi.spyOn(store, 'advanceToNextPlayer')
+
+    expect(wrapper.find('.next-shooter-overlay').exists()).toBe(true)
+    // Overlay names the first (current) shooter, not the next one.
+    expect(wrapper.find('.next-shooter-name').text()).toContain('Alice')
+
+    await wrapper.find('.next-shooter-start-btn').trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('.next-shooter-overlay').exists()).toBe(false)
+    // The first shooter must not be skipped.
+    expect(advanceSpy).not.toHaveBeenCalled()
+    expect(store.currentPlayer?.displayName).toBe('Alice')
+  })
+
+  it('does NOT show the ready overlay on start for a single-player session', async () => {
+    const { wrapper } = await mountAtGroupSetup([mockPlayers[0]])
     expect(wrapper.find('.next-shooter-overlay').exists()).toBe(false)
   })
 })

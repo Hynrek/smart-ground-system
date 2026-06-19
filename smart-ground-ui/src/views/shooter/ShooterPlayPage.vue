@@ -321,7 +321,7 @@
       <div v-if="showNextShooterOverlay" class="next-shooter-overlay">
         <div class="next-shooter-card">
           <span class="next-shooter-label">Nächster Schütze</span>
-          <span class="next-shooter-name">{{ store.nextPlayer?.displayName }}</span>
+          <span class="next-shooter-name">{{ readyPlayer?.displayName }}</span>
           <span class="next-shooter-hint">Bitte schießbereit machen</span>
           <button class="next-shooter-start-btn" @click="confirmNextShooter">
             Starten →
@@ -352,9 +352,20 @@ const raffaleDelayStart = ref(null);
 
 // ── Next-shooter overlay ──────────────────────────────────────────────────────
 const showNextShooterOverlay = ref(false);
+const pendingFirstShooter = ref(false);
+
+// Whom the ready overlay is about: the current (first) shooter on group start,
+// otherwise the upcoming shooter between turns.
+const readyPlayer = computed(() =>
+  pendingFirstShooter.value ? store.currentPlayer : store.nextPlayer
+);
 
 const confirmNextShooter = () => {
   showNextShooterOverlay.value = false;
+  if (pendingFirstShooter.value) {
+    pendingFirstShooter.value = false;
+    return;
+  }
   store.advanceToNextPlayer();
 };
 
@@ -436,6 +447,10 @@ const beginGroupPlay = () => {
     _blockContext.value?.rotteId ?? null,
     _blockContext.value?.instanceType ?? null,
   );
+  if (store.isMultiPlayer) {
+    pendingFirstShooter.value = true;
+    showNextShooterOverlay.value = true;
+  }
 };
 
 const cancelGroupSetup = () => {
