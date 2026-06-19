@@ -26,10 +26,11 @@ public class Passe {
     private User owner;
 
     /**
-     * Snapshot der Serien zum Erstellungszeitpunkt (EmbeddedSerie[]).
+     * Geordnete Liste der referenzierten Serie-IDs (JSON-Array von UUID-Strings).
+     * Die Serien werden beim Lesen live verbunden (kein Snapshot mehr).
      */
-    @Column(name = "serien_json", columnDefinition = "TEXT", nullable = false)
-    private String serienJson = "[]";
+    @Column(name = "serie_ids_json", columnDefinition = "TEXT", nullable = false)
+    private String serieIdsJson = "[]";
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
@@ -40,8 +41,8 @@ public class Passe {
     public void setName(String name) { this.name = name; }
     public User getOwner() { return owner; }
     public void setOwner(User owner) { this.owner = owner; }
-    public String getSerienJson() { return serienJson; }
-    public void setSerienJson(String serienJson) { this.serienJson = serienJson; }
+    public String getSerieIdsJson() { return serieIdsJson; }
+    public void setSerieIdsJson(String serieIdsJson) { this.serieIdsJson = serieIdsJson; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

@@ -243,6 +243,54 @@ class SerieServiceTest {
     }
 
     @Test
+    void updateSerie_withSteps_replacesStepsAndKeepsSameId() {
+        var posId = UUID.randomUUID();
+        var serie = soloSerieWithStaleLetter(posId); // one solo step, stale letter
+        var serieId = serie.getId();
+        when(serieRepository.findById(serieId)).thenReturn(Optional.of(serie));
+        when(serieRepository.save(org.mockito.ArgumentMatchers.any(Serie.class)))
+            .thenAnswer(i -> i.getArgument(0));
+        when(positionLabelResolver.byPosIds(org.mockito.ArgumentMatchers.anyCollection()))
+            .thenReturn(java.util.Map.of(posId.toString(), pos(posId, "B2")));
+
+        var newPosId = UUID.randomUUID();
+        var request = new ch.jp.smartground.model.UpdateSerieRequest()
+            .name("Renamed")
+            .steps(List.of(new ch.jp.smartground.model.Step()
+                .id("9")
+                .type(ch.jp.smartground.model.StepType.SOLO)
+                .posId(newPosId.toString())));
+
+        var result = serieService.updateSerie(serieId, request);
+
+        // stable ID
+        assertThat(result.getId()).isEqualTo(serieId);
+        // steps replaced: the persisted stepsJson now references newPosId, not the old one
+        assertThat(serie.getStepsJson()).contains(newPosId.toString());
+        assertThat(serie.getStepsJson()).doesNotContain(posId.toString());
+        assertThat(result.getSteps()).hasSize(1);
+    }
+
+    @Test
+    void updateSerie_withoutSteps_keepsExistingSteps() {
+        var posId = UUID.randomUUID();
+        var serie = soloSerieWithStaleLetter(posId);
+        var originalStepsJson = serie.getStepsJson();
+        when(serieRepository.findById(serie.getId())).thenReturn(Optional.of(serie));
+        when(serieRepository.save(org.mockito.ArgumentMatchers.any(Serie.class)))
+            .thenAnswer(i -> i.getArgument(0));
+        when(positionLabelResolver.byPosIds(org.mockito.ArgumentMatchers.anyCollection()))
+            .thenReturn(java.util.Map.of(posId.toString(), pos(posId, "A1")));
+
+        var request = new ch.jp.smartground.model.UpdateSerieRequest().name("Renamed only");
+
+        var result = serieService.updateSerie(serie.getId(), request);
+
+        assertThat(result.getName()).isEqualTo("Renamed only");
+        assertThat(serie.getStepsJson()).isEqualTo(originalStepsJson); // steps untouched
+    }
+
+    @Test
     void updateSeriePublished_userOwnedSerie_throws400() {
         var serie = new Serie();
         serie.setId(UUID.randomUUID());

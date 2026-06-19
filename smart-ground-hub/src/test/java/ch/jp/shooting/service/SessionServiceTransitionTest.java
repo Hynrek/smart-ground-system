@@ -37,6 +37,7 @@ class SessionServiceTransitionTest {
     @Mock UserRepository userRepository;
     @Mock PasseRepository passeRepository;
     @Mock TiebreakerService tiebreakerService;
+    @Mock PasseService passeService;
 
     SessionService service;
     UUID sessionId;
@@ -47,7 +48,7 @@ class SessionServiceTransitionTest {
         service = new SessionService(
                 sessionRepository, groupRepository, playerRepository, resultRepository,
                 templateRepository, userRepository, passeRepository,
-                new ObjectMapper(), tiebreakerService);
+                new ObjectMapper(), tiebreakerService, passeService);
         sessionId = UUID.randomUUID();
         session = new LiveSession();
         session.setName("Wettkampf");

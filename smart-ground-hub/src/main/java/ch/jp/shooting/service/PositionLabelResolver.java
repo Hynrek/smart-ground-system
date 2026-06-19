@@ -51,4 +51,15 @@ public class PositionLabelResolver {
             return null;
         }
     }
+
+    /**
+     * Anzeige-Alias einer Position: Geräte-Alias, sonst der Positions-Buchstabe (label).
+     * Einzige Quelle der Wahrheit für die Alias-Auflösung (von SerieService und PasseService genutzt).
+     */
+    public static String aliasOf(RangePosition position) {
+        var device = position.getDevice();
+        return device != null && device.getAlias() != null && !device.getAlias().isBlank()
+            ? device.getAlias()
+            : position.getLabel();
+    }
 }

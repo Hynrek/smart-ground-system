@@ -72,13 +72,11 @@ public final class PlayMapper {
 
     // ── Passe ─────────────────────────────────────────────────────────────────
 
-    public static PasseResponse toPasseResponse(Passe passe) {
+    public static PasseResponse toPasseResponse(Passe passe, List<EmbeddedSerie> serien) {
         return new PasseResponse()
             .id(passe.getId())
             .name(passe.getName())
-            .serien(parseEmbeddedSerien(passe.getSerienJson()).stream()
-                .map(PlayMapper::toEmbeddedSerie)
-                .toList())
+            .serien(serien)
             .createdAt(OffsetDateTime.ofInstant(passe.getCreatedAt(), ZoneOffset.UTC))
             .ownerUsername(passe.getOwner().getEmail());
     }
@@ -121,8 +119,13 @@ public final class PlayMapper {
         return parseList(json, new TypeReference<>() {});
     }
 
-    public static String writeEmbeddedSerien(List<EmbeddedSerieRecord> serien) {
-        return writeValue(serien);
+    public static String writeSerieIds(List<java.util.UUID> ids) {
+        return writeValue(ids.stream().map(java.util.UUID::toString).toList());
+    }
+
+    public static List<java.util.UUID> parseSerieIds(String json) {
+        List<String> raw = parseList(json, new TypeReference<>() {});
+        return raw.stream().map(java.util.UUID::fromString).toList();
     }
 
     public static List<PlayerRefRecord> parsePlayerRefs(String json) {
@@ -170,7 +173,8 @@ public final class PlayMapper {
             .alias(r.alias())
             .rangeId(r.rangeId())
             .rangeName(r.rangeName())
-            .steps(r.steps().stream().map(PlayMapper::toStep).toList());
+            .steps(r.steps().stream().map(PlayMapper::toStep).toList())
+            .missing(r.missing());
     }
 
     private static PlayerRef toPlayerRef(PlayerRefRecord r) {

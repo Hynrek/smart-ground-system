@@ -9,5 +9,6 @@ public record EmbeddedSerieRecord(
     String alias,
     @Nullable UUID rangeId,
     @Nullable String rangeName,
-    List<StepRecord> steps
+    List<StepRecord> steps,
+    boolean missing
 ) {}
