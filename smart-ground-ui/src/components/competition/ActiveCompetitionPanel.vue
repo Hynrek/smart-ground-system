@@ -108,7 +108,7 @@
           :key="card.serieAlias"
           class="serie-card"
         >
-          <div class="serie-card-header">Serie: {{ card.serieAlias }}</div>
+          <div class="serie-card-header">{{ card.headerLabel }}</div>
           <div
             v-for="row in card.rotteRows"
             :key="row.rotteId"
@@ -291,20 +291,25 @@ const serieCards = computed(() => {
 
   const progressGroups = progressData.value?.groups ?? []
 
-  return serien.map(serie => ({
-    serieAlias: serie.alias ?? serie.name ?? '?',
-    rotteRows: (props.event.groups ?? []).map(group => {
-      const prog = progressGroups.find(g => g.groupId === group.id)
-      const done = (prog?.completedSerien ?? []).some(
-        c => c.passeIndex === idx && c.serieId === serie.id,
-      )
-      return {
-        rotteId: group.id,
-        rotteName: group.name,
-        status: done ? 'done' : 'pending',
-      }
-    }),
-  }))
+  return serien.map(serie => {
+    const serieName = serie.alias ?? serie.name ?? '?'
+    return {
+      serieAlias: serieName,
+      // Header reads "StandName: SerienName"; fall back to just the serie name when no Stand.
+      headerLabel: serie.rangeName ? `${serie.rangeName}: ${serieName}` : serieName,
+      rotteRows: (props.event.groups ?? []).map(group => {
+        const prog = progressGroups.find(g => g.groupId === group.id)
+        const done = (prog?.completedSerien ?? []).some(
+          c => c.passeIndex === idx && c.serieId === serie.id,
+        )
+        return {
+          rotteId: group.id,
+          rotteName: group.name,
+          status: done ? 'done' : 'pending',
+        }
+      }),
+    }
+  })
 })
 
 // ── Leaderboard ────────────────────────────────────────────────────────────────

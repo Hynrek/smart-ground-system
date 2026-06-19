@@ -171,7 +171,20 @@ describe('ActiveCompetitionPanel', () => {
     expect(zweite.find('.rotte-chip').text()).toContain('Offen')
   })
 
-  it('prefixes serie cards with "Serie:"', async () => {
+  it('labels serie cards "StandName: SerienName" when the serie has a Stand', async () => {
+    const passeStore = usePasseStore()
+    passeStore.savedPassen = [{ id: 'pa1', name: 'Passe 1', serien: [
+      { id: 's1', alias: 'Erste', rangeName: 'Stand 1' },
+    ] }]
+    const event = { ...makeEvent(), groups: [{ id: 'g1', name: 'Rotte A', members: [] }] }
+    const { wrapper } = await mountPanel(event)
+    await flushPromises()
+    const fortschrittTab = wrapper.findAll('.tab-btn').find(t => t.text() === 'Fortschritt')
+    await fortschrittTab.trigger('click')
+    expect(wrapper.find('.serie-card-header').text()).toBe('Stand 1: Erste')
+  })
+
+  it('labels serie cards with just the serie name when there is no Stand', async () => {
     const passeStore = usePasseStore()
     passeStore.savedPassen = [{ id: 'pa1', name: 'Passe 1', serien: [{ id: 's1', alias: 'Erste' }] }]
     const event = { ...makeEvent(), groups: [{ id: 'g1', name: 'Rotte A', members: [] }] }
@@ -179,7 +192,7 @@ describe('ActiveCompetitionPanel', () => {
     await flushPromises()
     const fortschrittTab = wrapper.findAll('.tab-btn').find(t => t.text() === 'Fortschritt')
     await fortschrittTab.trigger('click')
-    expect(wrapper.find('.serie-card-header').text()).toContain('Serie:')
+    expect(wrapper.find('.serie-card-header').text()).toBe('Erste')
   })
 
   it('disables "Nächste Passe freigeben" until the released passe is complete', async () => {

@@ -190,7 +190,7 @@
 
 <script setup>
 import { computed, ref, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useUrlTab } from '@/composables/useUrlTab.js'
 import { storeToRefs } from 'pinia'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
@@ -205,6 +205,7 @@ import StechenPanel from '@/components/competition/StechenPanel.vue'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
+const route = useRoute()
 const store = useCompetitionEventStore()
 const userStore = useUserStore()
 
@@ -311,6 +312,9 @@ const handleStart = () => {
 const confirmStart = () => {
   showPaymentWarning.value = false
   store.startEvent(eventId.value)
+  // Setup and active views share the ?tab= param; 'rotten' is the setup default but
+  // also a valid active tab, so reset to the active default after starting.
+  router.replace({ query: { ...route.query, tab: 'fortschritt' } })
 }
 
 // ── Stop ───────────────────────────────────────────────────────────────────
