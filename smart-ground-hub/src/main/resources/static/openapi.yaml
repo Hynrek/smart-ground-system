@@ -2719,6 +2719,14 @@ components:
           type: string
           format: uuid
           nullable: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Step'
+          description: >
+            When present and non-empty, replaces the Serie's steps in place,
+            keeping the same Serie ID. When omitted, the existing steps are kept
+            (rename / range-only edit).
 
     UpdateSerieOwnershipRequest:
       type: object

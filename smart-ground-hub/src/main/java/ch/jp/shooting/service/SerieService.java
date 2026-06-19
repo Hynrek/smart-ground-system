@@ -97,23 +97,7 @@ public class SerieService {
         serie.setOwnership(
                 request.getOwnership() != null ? request.getOwnership().getValue() : "user"
         );
-        serie.setStepsJson(PlayMapper.writeSteps(
-                request.getSteps().stream()
-                        .map(step -> new StepRecord(
-                                step.getId(),
-                                step.getType().getValue(),
-                                stringOrNull(step.getPosId()),
-                                stringOrNull(step.getAlias()),
-                                stringOrNull(step.getPosId1()),
-                                stringOrNull(step.getPosId2()),
-                                stringOrNull(step.getAlias1()),
-                                stringOrNull(step.getAlias2()),
-                                step.getLetter(),
-                                step.getLetter1(),
-                                step.getLetter2()
-                        ))
-                        .toList()
-        ));
+        serie.setStepsJson(writeStepsJson(request.getSteps()));
         var rangeIdJn = request.getRangeId();
         if (rangeIdJn != null && rangeIdJn.isPresent()) {
             UUID rangeId = rangeIdJn.get();
@@ -163,7 +147,11 @@ public class SerieService {
                 serie.setRange(null);
             }
         }
-        return PlayMapper.toSerieResponse(serieRepository.save(serie));
+        var steps = request.getSteps();
+        if (steps != null && !steps.isEmpty()) {
+            serie.setStepsJson(writeStepsJson(steps));
+        }
+        return withResolvedLabels(PlayMapper.toSerieResponse(serieRepository.save(serie)));
     }
 
     /**
@@ -217,6 +205,27 @@ public class SerieService {
     private static String stringOrNull(@Nullable JsonNullable<String> jn) {
         if (jn == null || !jn.isPresent()) return null;
         return jn.get();
+    }
+
+    /** Serialisiert die eingehenden Step-DTOs in die persistierte stepsJson-Form. */
+    private static String writeStepsJson(List<Step> steps) {
+        return PlayMapper.writeSteps(
+            steps.stream()
+                .map(step -> new StepRecord(
+                    step.getId(),
+                    step.getType().getValue(),
+                    stringOrNull(step.getPosId()),
+                    stringOrNull(step.getAlias()),
+                    stringOrNull(step.getPosId1()),
+                    stringOrNull(step.getPosId2()),
+                    stringOrNull(step.getAlias1()),
+                    stringOrNull(step.getAlias2()),
+                    step.getLetter(),
+                    step.getLetter1(),
+                    step.getLetter2()
+                ))
+                .toList()
+        );
     }
 
     /** Resolves one serie's step letters/aliases live from current positions. */
