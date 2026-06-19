@@ -8,10 +8,10 @@ export const getTies = (sessionId) =>
 export const listTiebreakers = (sessionId) =>
   apiFetch(`/sessions/${sessionId}/tiebreakers`)
 
-export const startTiebreaker = (sessionId, { playerIds, templateType, templateId, tiePosition }) =>
+export const startTiebreaker = (sessionId, { playerIds, templateId, tiePosition }) =>
   apiFetch(`/sessions/${sessionId}/tiebreakers`, {
     method: 'POST',
-    body: JSON.stringify({ playerIds, templateType, templateId, tiePosition }),
+    body: JSON.stringify({ playerIds, templateId, tiePosition }),
   })
 
 export const submitTiebreakerResults = (sessionId, tiebreakerId, results) =>
