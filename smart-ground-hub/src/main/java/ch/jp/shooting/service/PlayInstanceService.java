@@ -2,6 +2,7 @@ package ch.jp.shooting.service;
 
 import ch.jp.shooting.config.SecurityHelper;
 import ch.jp.shooting.dto.play.BlockResultRecord;
+import ch.jp.shooting.dto.play.EmbeddedSerieRecord;
 import ch.jp.shooting.dto.play.PlayBlockRecord;
 import ch.jp.shooting.dto.play.PlayerRefRecord;
 import ch.jp.shooting.dto.play.PlayerResultRecord;
@@ -55,10 +56,28 @@ public class PlayInstanceService {
 
     /** Startet einen neuen Passe-Lauf für einen oder mehrere Spieler. */
     public PlayInstanceResponse startPasseInstance(StartPasseInstanceRequest request) {
-        var owner = securityHelper.currentUser();
         var passe = passeRepository.findById(request.getPasseId())
             .orElseThrow(() -> new PasseNotFoundException(request.getPasseId()));
         var serien = PlayMapper.parseEmbeddedSerien(passe.getSerienJson());
+        return buildAndSaveInstance(passe.getId(), passe.getName(), serien, request.getPlayers());
+    }
+
+    /**
+     * Startet einen Einzel-Serie-Lauf als einblockige Passe-Instanz.
+     * Erwartet einen Serien-Listen-Snapshot (gleiche Form wie {@code Passe.serienJson}),
+     * der genau eine Serie enthält. Es wird KEINE persistierte Passe benötigt.
+     */
+    public PlayInstanceResponse startSerieInstance(UUID serieId, String serieName,
+                                                   String serienSnapshotJson, List<PlayerRef> players) {
+        var serien = PlayMapper.parseEmbeddedSerien(serienSnapshotJson);
+        return buildAndSaveInstance(serieId, serieName, serien, players);
+    }
+
+    /** Baut aus einer Serien-Liste eine aktive Passe-Instanz und speichert sie. */
+    private PlayInstanceResponse buildAndSaveInstance(UUID templateId, String templateName,
+                                                      List<EmbeddedSerieRecord> serien,
+                                                      List<PlayerRef> players) {
+        var owner = securityHelper.currentUser();
 
         var blocks = serien.stream().map(s ->
             new PlayBlockRecord(
@@ -68,16 +87,16 @@ public class PlayInstanceService {
             )
         ).toList();
 
-        var players = request.getPlayers().stream()
+        var playerRecords = players.stream()
             .map(p -> new PlayerRefRecord(p.getId(), p.getType().getValue(), p.getDisplayName()))
             .toList();
 
         var instance = new PlayInstance();
         instance.setType("passe");
-        instance.setTemplateId(passe.getId());
-        instance.setTemplateName(passe.getName());
+        instance.setTemplateId(templateId);
+        instance.setTemplateName(templateName);
         instance.setOwner(owner);
-        instance.setPlayersJson(PlayMapper.writePlayerRefs(players));
+        instance.setPlayersJson(PlayMapper.writePlayerRefs(playerRecords));
         instance.setStateJson(PlayMapper.writeBlocks(blocks));
         instance.setStatus("active");
 
