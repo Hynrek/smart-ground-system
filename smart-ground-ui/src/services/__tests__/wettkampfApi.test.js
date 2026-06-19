@@ -29,12 +29,12 @@ describe('wettkampfApi', () => {
   })
 
   it('patchStatus patches /sessions/:id/status', async () => {
-    await api.patchStatus('s1', 'open')
+    await api.patchStatus('s1', 'active')
     expect(mockApiFetch).toHaveBeenCalledWith(
       '/sessions/s1/status', expect.objectContaining({ method: 'PATCH' })
     )
     const body = JSON.parse(mockApiFetch.mock.calls[0][1].body)
-    expect(body.status).toBe('open')
+    expect(body.status).toBe('active')
   })
 
   it('deleteSession calls DELETE /sessions/:id', async () => {

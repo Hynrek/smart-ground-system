@@ -22,8 +22,8 @@
       <p>Wettkampf nicht gefunden.</p>
     </div>
 
-    <!-- ══ SETUP / OPEN (Planung) ══ -->
-    <template v-else-if="['SETUP', 'OPEN'].includes(event.status?.toUpperCase())">
+    <!-- ══ SETUP (Planung) ══ -->
+    <template v-else-if="event.status?.toUpperCase() === 'SETUP'">
       <div class="content">
         <div class="info-bar">
           <span class="info-chip">{{ (event.passen?.length ?? 0) }} Passen</span>
@@ -213,7 +213,7 @@ const event = computed(() => store.getEvent(eventId.value))
 
 const statusLabel = computed(() => {
   const map = {
-    SETUP: 'Planung', OPEN: 'Offen', ACTIVE: 'Aktiv',
+    SETUP: 'Planung', ACTIVE: 'Aktiv',
     PRE_COMPLETE: 'Auswertung', COMPLETED: 'Abgeschlossen', ABANDONED: 'Abgebrochen',
   }
   return map[event.value?.status?.toUpperCase()] ?? '–'
@@ -297,7 +297,7 @@ const confirmRemoveRotte = (group) => {
   store.removeRotte(eventId.value, group.id ?? group.rotteId)
 }
 
-// ── Start (SETUP/OPEN → ACTIVE) ─────────────────────────────────────────────
+// ── Start (SETUP → ACTIVE) ─────────────────────────────────────────────
 const showPaymentWarning = ref(false)
 
 const handleStart = () => {
@@ -310,7 +310,7 @@ const handleStart = () => {
 
 const confirmStart = () => {
   showPaymentWarning.value = false
-  store.goLive(eventId.value)
+  store.startEvent(eventId.value)
 }
 
 // ── Stop ───────────────────────────────────────────────────────────────────
@@ -413,7 +413,6 @@ onMounted(async () => {
   font-size: 11px; font-weight: 700; border-radius: 8px; padding: 3px 10px;
 }
 .badge-setup { background: var(--sg-accent-tint); color: var(--sg-color-info-text); border: 1px solid var(--sg-color-info-bg); }
-.badge-open { background: var(--sg-color-info-bg); color: var(--sg-color-info-text); border: 1px solid var(--sg-accent); }
 .badge-active { background: var(--sg-color-warning-bg); color: var(--sg-color-warning-text); border: 1px solid color-mix(in srgb, var(--sg-color-warning) 40%, transparent); }
 .badge-pre_complete { background: var(--sg-color-warning-bg); color: var(--sg-color-warning-text); border: 1px solid color-mix(in srgb, var(--sg-color-warning) 40%, transparent); }
 .badge-completed { background: var(--sg-color-success-bg); color: var(--sg-color-success-text); border: 1px solid color-mix(in srgb, var(--sg-color-success) 40%, transparent); }

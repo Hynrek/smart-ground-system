@@ -42,7 +42,7 @@ const setup = async ({ event = makeEvent(), query = {} } = {}) => {
   const store = useCompetitionEventStore()
   store.events = [event]
   vi.spyOn(store, 'loadEvents').mockResolvedValue()
-  vi.spyOn(store, 'goLive').mockResolvedValue()
+  vi.spyOn(store, 'startEvent').mockResolvedValue()
   vi.spyOn(store, 'loadTies').mockResolvedValue()
   const userStore = useUserStore()
   vi.spyOn(userStore, 'loadUsers').mockResolvedValue()
@@ -72,7 +72,7 @@ describe('WettkampfDetailView', () => {
   it('starts the competition in one click when everyone has paid', async () => {
     const { wrapper, store } = await setup()
     await wrapper.find('.start-btn').trigger('click')
-    expect(store.goLive).toHaveBeenCalledWith('ev-1')
+    expect(store.startEvent).toHaveBeenCalledWith('ev-1')
   })
 
   it('shows the payment warning before starting when a player is unpaid', async () => {
@@ -81,15 +81,10 @@ describe('WettkampfDetailView', () => {
     })
     const { wrapper, store } = await setup({ event })
     await wrapper.find('.start-btn').trigger('click')
-    expect(store.goLive).not.toHaveBeenCalled()
+    expect(store.startEvent).not.toHaveBeenCalled()
     expect(wrapper.find('.warning-modal').exists()).toBe(true)
     await wrapper.find('.action-btn--start').trigger('click')
-    expect(store.goLive).toHaveBeenCalledWith('ev-1')
-  })
-
-  it('renders the planning screen (not a tab-less screen) for an OPEN event', async () => {
-    const { wrapper } = await setup({ event: makeEvent({ status: 'OPEN' }) })
-    expect(wrapper.find('.tab-row').exists()).toBe(true)
+    expect(store.startEvent).toHaveBeenCalledWith('ev-1')
   })
 
   it('stays on the detail and shows the COMPLETED panel after finishing (no navigation)', async () => {
