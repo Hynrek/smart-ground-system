@@ -106,6 +106,21 @@ class TiebreakerServiceTest {
     }
 
     @Test
+    void startTiebreaker_serieNotFound_throwsSerieNotFound() {
+        UUID missingSerieId = UUID.randomUUID();
+        when(tbRepo.findBySessionId(sessionId)).thenReturn(List.of());
+        when(serieRepo.findById(missingSerieId)).thenReturn(Optional.empty());
+
+        var req = new ch.jp.smartground.model.StartTiebreakerRequest();
+        req.setPlayerIds(List.of(UUID.randomUUID()));
+        req.setTemplateId(missingSerieId);
+        req.setTiePosition(1);
+
+        assertThrows(ch.jp.shooting.exception.SerieNotFoundException.class,
+                () -> service.startTiebreaker(sessionId, req));
+    }
+
+    @Test
     void submitResults_doesNotTouchPlayerResults() throws Exception {
         UUID tbId = UUID.randomUUID();
         UUID p1 = UUID.randomUUID();
