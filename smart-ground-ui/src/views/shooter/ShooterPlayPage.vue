@@ -687,7 +687,8 @@ const handleFailStep = (failType) => {
   if (store.isAtProgramEnd) handlePlayerComplete();
 };
 
-const goBack = () => {
+const goBack = async () => {
+  if (store.playComplete) await store.commitResults();
   store.closePlayback();
   router.push(`/remote/${props.rangeId}`);
 };

@@ -31,6 +31,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   const playScore = ref({ totalPoints: 0, stepStates: [] });
   const playLastDeviceStep = ref(null); // { serieIdx, stepIdx } of last fired step
   const playComplete = ref(false);      // true once the user confirms program end
+  const resultsCommitted = ref(false);  // true once results have been sent to the backend
   const activeBlockContext = ref(null); // { instanceId, blockId, rotteId? } | null
 
   // ── Multi-player state ──────────────────────────────────────────────────────
@@ -260,6 +261,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     playRaffaleStarted.value = false;
     playLastDeviceStep.value = null;
     playComplete.value = false;
+    resultsCommitted.value = false;
 
     // Initialize playScore with stepStates for all players
     const stepStates = [];
@@ -306,6 +308,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     playRaffaleStarted.value = false;
     playLastDeviceStep.value = null;
     playComplete.value = false;
+    resultsCommitted.value = false;
 
     const stepStates = [];
     sessionPlayers.value.forEach((player) => {
@@ -502,8 +505,19 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
   // Called by the UI when the user confirms the program is finished
   // (clicking Fertig or using a fail button at program end).
+  // UI-only: this just shows the final-score screen. Results are committed
+  // to the backend later via commitResults() (on Beenden) so that any score
+  // corrections made on the final screen are included.
   const confirmComplete = async () => {
-    playComplete.value = true;
+    playComplete.value = true
+  }
+
+  // Commits the current (possibly corrected) player results to the backend and
+  // cleans up legacy sessions. Called when the user clicks Beenden on the
+  // final-score screen. Idempotent: safe to call more than once.
+  const commitResults = async () => {
+    if (resultsCommitted.value) return
+    resultsCommitted.value = true
     // Notify the correct store when a block instance completes
     if (activeBlockContext.value) {
       const ctx = activeBlockContext.value
@@ -519,11 +533,11 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     }
     // Remove legacy session from active sessions
     if (currentSessionId.value) {
-      activeSessions.value = activeSessions.value.filter((s) => s.sessionId !== currentSessionId.value);
-      currentSessionId.value = null;
-      saveSessions();
+      activeSessions.value = activeSessions.value.filter((s) => s.sessionId !== currentSessionId.value)
+      currentSessionId.value = null
+      saveSessions()
     }
-  };
+  }
 
   const closePlayback = () => {
     playProg.value = null;
@@ -535,6 +549,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     playScore.value = { totalPoints: 0, stepStates: [] };
     playLastDeviceStep.value = null;
     playComplete.value = false;
+    resultsCommitted.value = false;
     sessionPlayers.value = [];
     currentPlayerIndex.value = 0;
     completedPlayerCount.value = 0;
@@ -571,6 +586,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     playRaffaleStarted.value = false;
     playLastDeviceStep.value = null;
     playComplete.value = false;
+    resultsCommitted.value = false;
 
     const stepStates = [];
     players.forEach((player) => {
@@ -714,6 +730,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     playScore,
     playLastDeviceStep,
     playComplete,
+    resultsCommitted,
     activeBlockContext,
     sessionPlayers,
     currentPlayerIndex,
@@ -753,6 +770,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     confirmPlayer,
     unconfirmPlayer,
     confirmComplete,
+    commitResults,
     closePlayback,
     buildPlayerResults,
     getPointValueForStep,
