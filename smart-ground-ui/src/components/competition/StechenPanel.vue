@@ -152,19 +152,19 @@
         </div>
 
         <div class="modal-section">
-          <label for="stechen-passe" class="modal-section-label">Passe-Vorlage</label>
+          <label for="stechen-serie" class="modal-section-label">Serie-Vorlage</label>
           <select
-            id="stechen-passe"
-            v-model="startModal.passeId"
+            id="stechen-serie"
+            v-model="startModal.serieId"
             class="modal-select"
           >
-            <option :value="null" disabled>Passe wählen…</option>
-            <option v-for="passe in passenOptions" :key="passe.id" :value="passe.id">
-              {{ passe.name }}
+            <option :value="null" disabled>Serie wählen…</option>
+            <option v-for="serie in serieOptions" :key="serie.id" :value="serie.id">
+              {{ serie.name }}
             </option>
           </select>
-          <span v-if="passenOptions.length === 0" class="modal-hint">
-            Keine Passe-Vorlagen verfügbar.
+          <span v-if="serieOptions.length === 0" class="modal-hint">
+            Keine Serie-Vorlagen verfügbar.
           </span>
         </div>
 
@@ -175,7 +175,7 @@
           <Button
             variant="primary"
             size="sm"
-            :disabled="!startModal.passeId || starting"
+            :disabled="!startModal.serieId || starting"
             @click="confirmStart"
           >
             {{ starting ? 'Starten…' : 'Starten' }}
@@ -202,8 +202,10 @@ const { tiesBySession } = storeToRefs(store)
 
 const tiedBlocks = computed(() => tiesBySession.value[props.sessionId]?.tiedBlocks ?? [])
 
-// Passe templates only — the backend rejects a `serie` Stechen with a 409.
-const passenOptions = computed(() => passeStore.savedGlobalPassen)
+// A Stechen is always a single Serie — offer published, range-owned Serien only.
+const serieOptions = computed(() =>
+  passeStore.getGlobalSerien().filter((s) => s.published === true),
+)
 
 // ── Round helpers ──────────────────────────────────────────────────────────
 const hasActiveRound = (block) => (block.rounds ?? []).some(r => r.status === 'ACTIVE')
@@ -263,14 +265,14 @@ const saveResults = async (round) => {
 }
 
 // ── Start modal ─────────────────────────────────────────────────────────────
-const startModal = reactive({ open: false, block: null, passeId: null })
+const startModal = reactive({ open: false, block: null, serieId: null })
 const starting = ref(false)
 const startError = ref(null)
 
 const openStartModal = (block) => {
   startModal.open = true
   startModal.block = block
-  startModal.passeId = null
+  startModal.serieId = null
   startError.value = null
 }
 
@@ -280,15 +282,14 @@ const closeStartModal = () => {
 }
 
 const confirmStart = async () => {
-  if (!startModal.passeId || starting.value) return
+  if (!startModal.serieId || starting.value) return
   starting.value = true
   startError.value = null
   const block = startModal.block
   try {
     await store.startStechen(props.sessionId, {
       playerIds: block.players.map(p => p.playerId),
-      templateType: 'passe',
-      templateId: startModal.passeId,
+      templateId: startModal.serieId,
       tiePosition: block.tiePosition,
     })
     closeStartModal()
@@ -302,8 +303,8 @@ const confirmStart = async () => {
 }
 
 onMounted(async () => {
-  if (passeStore.savedGlobalPassen.length === 0) {
-    await passeStore.loadPassenFromStorage().catch(() => {})
+  if (passeStore.savedSerien.length === 0) {
+    await passeStore.loadSerienFromStorage().catch(() => {})
   }
 })
 </script>
