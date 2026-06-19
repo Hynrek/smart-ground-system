@@ -2768,6 +2768,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Step'
+        missing:
+          type: boolean
+          description: >
+            True when the referenced Serie no longer exists (deleted). In that
+            case steps is empty and the client should render a placeholder.
 
     PasseResponse:
       type: object
