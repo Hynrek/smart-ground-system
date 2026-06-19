@@ -118,12 +118,13 @@ export function useCompletedResults(sessionId) {
   const getCorrectionData = (passeIndex) => {
     const serieResults = (entry.value?.serieResults ?? []).filter(sr => (sr.passeIndex ?? 0) === passeIndex)
     const defs = entry.value?.serieDefs ?? {}
+    const standingsById = new Map((entry.value?.standings ?? []).map(s => [s.playerId, s.displayName]))
     const serien = serieResults
       .map(sr => {
         const def = defs[sr.serieId] ?? null
         const players = (sr.results ?? []).map(r => ({
           playerId: r.playerId,
-          displayName: r.displayName ?? null,
+          displayName: r.displayName ?? standingsById.get(r.playerId) ?? null,
           steps: (r.stepStates ?? []).map(s => ({
             stepIndex: s.stepIndex ?? 0,
             state: s.state,

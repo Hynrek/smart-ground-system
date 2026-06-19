@@ -148,4 +148,15 @@ describe('useCompletedResults', () => {
     expect(data.serien[0].players[0]).toMatchObject({ playerId: 'm1' })
     expect(data.serien[0].players[0].steps[0]).toMatchObject({ stepIndex: 0, state: 'done' })
   })
+
+  it('getCorrectionData resolves displayName from standings when the serie-result row lacks one', () => {
+    const store = useCompetitionEventStore()
+    seed(store)
+    // serieResults[].results[].displayName is null, but standings knows the name
+    store.completedResultsBySession.s1.serieResults[0].results[0].displayName = null
+    const { getCorrectionData } = useCompletedResults('s1')
+    const data = getCorrectionData(0)
+    expect(data.serien[0].players[0].playerId).toBe('m1')
+    expect(data.serien[0].players[0].displayName).toBe('Alice')
+  })
 })

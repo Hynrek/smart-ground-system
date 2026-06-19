@@ -116,6 +116,7 @@ const applyPick = async (newState) => {
     const totals = recomputeSerieTotals(steps)
     return {
       playerId: player.playerId,
+      displayName: player.displayName ?? null,
       totalPoints: totals.totalPoints,
       maxPoints: totals.maxPoints,
       stepStates: steps,

@@ -84,4 +84,15 @@ describe('CompetitionCorrectionPanel', () => {
     expect(m1.totalPoints).toBe(1) // step0 now 0, step1 (failed-a) still 1
     expect(m1.maxPoints).toBe(4)
   })
+
+  it('includes a non-empty displayName for every player in the correction payload', async () => {
+    const wrapper = mountPanel()
+    await flushPromises()
+    await wrapper.findAll('.step-chip')[0].trigger('click')
+    await wrapper.findAll('.picker-btn').find(b => b.text() === 'Fehler').trigger('click')
+    await flushPromises()
+    const results = store.correctSerieResult.mock.calls[0][4]
+    expect(results.length).toBeGreaterThan(0)
+    expect(results.every(r => typeof r.displayName === 'string' && r.displayName.length > 0)).toBe(true)
+  })
 })
