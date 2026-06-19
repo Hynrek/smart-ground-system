@@ -288,10 +288,11 @@ const totalThrows = computed(() => {
 });
 
 const stepLabel = (step) => {
+  const dash = (v) => v ?? '—';
   if (step.type === 'solo' || step.type === 'raffale') {
-    return `${step.letter} — ${step.alias}`;
+    return `${dash(step.letter)} — ${dash(step.alias)}`;
   }
-  return `${step.letter1}+${step.letter2} — ${step.alias1} & ${step.alias2}`;
+  return `${dash(step.letter1)}+${dash(step.letter2)} — ${dash(step.alias1)} & ${dash(step.alias2)}`;
 };
 
 const canSave = computed(() => {
