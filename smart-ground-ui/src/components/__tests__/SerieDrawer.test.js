@@ -292,4 +292,24 @@ describe('SerieDrawer — edit mode', () => {
     expect(wrapper.emitted('deleted')).toBeTruthy()
     expect(wrapper.emitted('close')).toBeTruthy()
   })
+
+  it('renders a placeholder for a step whose position was deleted (null letter)', async () => {
+    const serie = {
+      id: '_sg_range_serie_1',
+      name: 'Solo',
+      rangeId: 'r1',
+      rangeName: 'Platz 1',
+      steps: [{ id: 1, type: 'solo', positionId: 'pos-a', alias: null, letter: null }],
+      ownership: 'range',
+    }
+    const wrapper = mount(SerieDrawer, {
+      props: { open: true, mode: 'edit', serie },
+      global: { stubs: { Icons: true } },
+      attachTo: document.body,
+    })
+    await wrapper.vm.$nextTick()
+    const label = getDrawerElement()?.querySelector('.step-label')
+    expect(label?.textContent).toContain('—')
+    expect(label?.textContent).not.toContain('null')
+  })
 })
