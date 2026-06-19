@@ -1248,7 +1248,7 @@ paths:
           required: false
           schema:
             type: string
-            enum: [SETUP, OPEN, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED]
+            enum: [SETUP, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED]
           description: Filter by status
         - name: page
           in: query
@@ -1317,7 +1317,7 @@ paths:
         '404':
           description: Session not found
     delete:
-      summary: Delete a session (SETUP or OPEN status only)
+      summary: Delete a session (SETUP status only)
       operationId: deleteSession
       tags: [Session]
       parameters:
@@ -1339,9 +1339,9 @@ paths:
     patch:
       summary: Advance or revert session status
       description: >
-        Allowed transitions: SETUP → OPEN, OPEN → ACTIVE, ACTIVE → ABANDONED,
+        Allowed transitions: SETUP → ACTIVE, ACTIVE → ABANDONED,
         ACTIVE → PRE_COMPLETE, PRE_COMPLETE → COMPLETED.
-        Pass the target status as a case-insensitive string (e.g. "open", "active").
+        Pass the target status as a case-insensitive string (e.g. "active", "completed").
       operationId: patchSessionStatus
       tags: [Session]
       parameters:
@@ -3669,7 +3669,7 @@ components:
 
     SessionStatus:
       type: string
-      enum: [SETUP, OPEN, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED]
+      enum: [SETUP, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED]
 
     PasseReference:
       type: object
@@ -3766,7 +3766,7 @@ components:
           type: string
           description: >
             Target status (case-insensitive).
-            Allowed transitions: SETUP → OPEN, OPEN → ACTIVE,
+            Allowed transitions: SETUP → ACTIVE,
             ACTIVE → PRE_COMPLETE, ACTIVE → ABANDONED, PRE_COMPLETE → COMPLETED.
         force: { type: boolean, description: When true, finishing proceeds despite unresolved decisive ties. }
 

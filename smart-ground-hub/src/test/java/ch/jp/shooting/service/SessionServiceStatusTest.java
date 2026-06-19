@@ -7,13 +7,13 @@ import static org.junit.jupiter.api.Assertions.*;
 class SessionServiceStatusTest {
 
     @Test
-    void sessionStatus_hasOpenAndPreComplete() {
-        assertNotNull(SessionStatus.valueOf("OPEN"));
+    void sessionStatus_hasPreCompleteButNoOpen() {
         assertNotNull(SessionStatus.valueOf("PRE_COMPLETE"));
+        assertThrows(IllegalArgumentException.class, () -> SessionStatus.valueOf("OPEN"));
     }
 
     @Test
-    void sessionStatus_hasSixValues() {
-        assertEquals(6, SessionStatus.values().length);
+    void sessionStatus_hasFiveValues() {
+        assertEquals(5, SessionStatus.values().length);
     }
 }

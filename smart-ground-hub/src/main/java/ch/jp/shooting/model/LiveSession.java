@@ -40,7 +40,7 @@ public class LiveSession {
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
-    private SessionStatus status; // SETUP, OPEN, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED
+    private SessionStatus status; // SETUP, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED
 
     /** Höchster (0-basierter) Passe-Index, der zum Spielen freigegeben ist (Admin-Gate). */
     @Column(name = "released_passe_index", nullable = false)
