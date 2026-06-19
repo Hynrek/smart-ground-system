@@ -3772,13 +3772,12 @@ components:
 
     StartTiebreakerRequest:
       type: object
-      required: [playerIds, templateType, templateId]
+      required: [playerIds, templateId]
       properties:
         playerIds:
           type: array
           items: { type: string, format: uuid }
-        templateType: { type: string, enum: [serie, passe] }
-        templateId: { type: string, format: uuid }
+        templateId: { type: string, format: uuid, description: Serie template id (a Stechen is always a single Serie) }
         tiePosition: { type: integer, description: Standings position the tie is for (1 = first) }
 
     SubmitTiebreakerResultsRequest:
@@ -3806,7 +3805,6 @@ components:
         roundNumber: { type: integer }
         tiePosition: { type: integer }
         status: { type: string, enum: [PENDING, ACTIVE, COMPLETED] }
-        templateType: { type: string }
         templateId: { type: string, format: uuid }
         templateName: { type: string }
         playInstanceId: { type: string, format: uuid, nullable: true }
