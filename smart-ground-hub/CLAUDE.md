@@ -216,7 +216,7 @@ When players share a main score, a **Stechen** (shoot-off) breaks the tie. The `
 - **4 endpoints on `SessionApi`** (implemented in `SessionController`, delegating to `TiebreakerService`):
   - `GET /api/sessions/{id}/ties` → `getSessionTies` — list tied blocks + their rounds
   - `GET /api/sessions/{id}/tiebreakers` → `listTiebreakers` — list all shoot-off rounds
-  - `POST /api/sessions/{id}/tiebreakers` → `startTiebreaker` (201) — start a new round (only in `PRE_COMPLETE`, Passe templates only)
+  - `POST /api/sessions/{id}/tiebreakers` → `startTiebreaker` (201) — start a new round (only in `PRE_COMPLETE`). A Stechen is **always a single Serie**: `templateId` is a Serie id; the round runs as a one-block `passe`-type `PlayInstance` via `PlayInstanceService.startSerieInstance` (no persisted Passe). There is no `templateType` field — the Passe option was removed (Task F).
   - `POST /api/sessions/{id}/tiebreakers/{tiebreakerId}/results` → `submitTiebreakerResults` — record/correct round results
 - **Warn-don't-block finish guard.** `SessionService.patchSessionStatus` on `PRE_COMPLETE → COMPLETED` checks for *decisive* unresolved ties (tie-position 1, not yet resolved). If any exist and `force != true`, it throws `UnresolvedTiesException` → **HTTP 409** with an `UnresolvedTiesError` body (`message` + `unresolvedTies[]`). Sending `force=true` in `UpdateSessionStatusRequest` overrides the guard and finishes the session. Non-decisive ties never block.
 
