@@ -1,7 +1,7 @@
 <!-- src/components/competition/StechenPanel.vue -->
 <!--
   Stechen (tiebreaker) administration for a PRE_COMPLETE competition.
-  Surfaces tied blocks, lets the operator start a Stechen run from a Passe template,
+  Surfaces tied blocks, lets the operator start a Stechen run from a Serie template,
   enter results for active rounds, and shows the per-tie round history.
   All data access goes through competitionEventStore — never the services directly.
 -->
