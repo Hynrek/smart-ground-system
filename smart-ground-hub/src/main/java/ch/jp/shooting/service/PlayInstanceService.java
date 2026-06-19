@@ -70,6 +70,10 @@ public class PlayInstanceService {
     public PlayInstanceResponse startSerieInstance(UUID serieId, String serieName,
                                                    String serienSnapshotJson, List<PlayerRef> players) {
         var serien = PlayMapper.parseEmbeddedSerien(serienSnapshotJson);
+        if (serien.size() != 1) {
+            throw new IllegalArgumentException(
+                "Serien-Snapshot für startSerieInstance muss genau eine Serie enthalten, enthält aber: " + serien.size());
+        }
         return buildAndSaveInstance(serieId, serieName, serien, players);
     }
 

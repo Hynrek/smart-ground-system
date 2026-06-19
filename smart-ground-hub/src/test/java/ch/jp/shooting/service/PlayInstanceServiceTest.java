@@ -37,6 +37,7 @@ class PlayInstanceServiceTest {
         when(playInstanceRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         UUID serieId = UUID.randomUUID();
+        // Snapshot hat keine Range, daher fliessen rangeId/rangeName als null durch
         String snapshot = "[{\"id\":\"" + serieId + "\",\"alias\":\"Stech-Serie\",\"steps\":[]}]";
         var players = List.of(new PlayerRef()
                 .id(UUID.randomUUID().toString())
@@ -57,5 +58,15 @@ class PlayInstanceServiceTest {
         assertEquals(1, blocks.size());
         assertEquals("Stech-Serie", blocks.get(0).serieAlias());
         assertEquals("pending", blocks.get(0).status());
+
+        var savedPlayers = PlayMapper.parsePlayerRefs(saved.getPlayersJson());
+        assertEquals(1, savedPlayers.size());
+        assertEquals("Anna", savedPlayers.get(0).displayName());
+    }
+
+    @Test
+    void startSerieInstance_rejectsSnapshotWithoutExactlyOneSerie() {
+        assertThrows(IllegalArgumentException.class, () ->
+            service.startSerieInstance(java.util.UUID.randomUUID(), "X", "[]", java.util.List.of()));
     }
 }
