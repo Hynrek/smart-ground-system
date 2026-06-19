@@ -252,26 +252,19 @@ public class SerieService {
         if (posId != null) {
             var p = positions.get(posId);
             step.letter(p != null ? p.getLabel() : null);
-            step.alias(p != null ? aliasOf(p) : null);
+            step.alias(p != null ? PositionLabelResolver.aliasOf(p) : null);
         }
         var posId1 = stringOrNull(step.getPosId1());
         if (posId1 != null) {
             var p1 = positions.get(posId1);
             step.letter1(p1 != null ? p1.getLabel() : null);
-            step.alias1(p1 != null ? aliasOf(p1) : null);
+            step.alias1(p1 != null ? PositionLabelResolver.aliasOf(p1) : null);
         }
         var posId2 = stringOrNull(step.getPosId2());
         if (posId2 != null) {
             var p2 = positions.get(posId2);
             step.letter2(p2 != null ? p2.getLabel() : null);
-            step.alias2(p2 != null ? aliasOf(p2) : null);
+            step.alias2(p2 != null ? PositionLabelResolver.aliasOf(p2) : null);
         }
-    }
-
-    private static String aliasOf(RangePosition position) {
-        var device = position.getDevice();
-        return device != null && device.getAlias() != null && !device.getAlias().isBlank()
-            ? device.getAlias()
-            : position.getLabel();
     }
 }

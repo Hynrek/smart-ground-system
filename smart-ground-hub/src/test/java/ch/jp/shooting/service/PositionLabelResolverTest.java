@@ -50,4 +50,34 @@ class PositionLabelResolverTest {
         var result = resolver.byPosIds(List.of());
         assertThat(result).isEmpty();
     }
+
+    @Test
+    void aliasOf_withDeviceAlias_returnsDeviceAlias() {
+        var p = new RangePosition();
+        p.setLabel("A1");
+        var device = new ch.jp.shooting.model.Device();
+        device.setAlias("Werfer 3");
+        p.setDevice(device);
+
+        assertThat(PositionLabelResolver.aliasOf(p)).isEqualTo("Werfer 3");
+    }
+
+    @Test
+    void aliasOf_withoutDevice_fallsBackToLabel() {
+        var p = new RangePosition();
+        p.setLabel("A1");
+
+        assertThat(PositionLabelResolver.aliasOf(p)).isEqualTo("A1");
+    }
+
+    @Test
+    void aliasOf_blankDeviceAlias_fallsBackToLabel() {
+        var p = new RangePosition();
+        p.setLabel("A1");
+        var device = new ch.jp.shooting.model.Device();
+        device.setAlias("   ");
+        p.setDevice(device);
+
+        assertThat(PositionLabelResolver.aliasOf(p)).isEqualTo("A1");
+    }
 }
