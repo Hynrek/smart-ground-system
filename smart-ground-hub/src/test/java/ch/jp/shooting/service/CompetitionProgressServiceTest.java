@@ -183,4 +183,74 @@ class CompetitionProgressServiceTest {
             () -> progressService.releaseNextPasse(sessionId));
         assertEquals(1, session.getReleasedPasseIndex());
     }
+
+    private void setPlayerId(SessionPlayer p, UUID id) {
+        try { var f = SessionPlayer.class.getDeclaredField("id"); f.setAccessible(true); f.set(p, id); }
+        catch (Exception e) { throw new RuntimeException(e); }
+    }
+
+    @Test
+    void correctSerieResult_overwritesRowAndReplacesPlayerResultEntry() throws Exception {
+        session.setStatus(SessionStatus.PRE_COMPLETE);
+        UUID memberId = UUID.randomUUID();
+        SessionPlayer m1 = new SessionPlayer(); setPlayerId(m1, memberId); m1.setDisplayName("Max");
+        group.getMembers().add(m1);
+        var existingCsr = new CompetitionSerieResult(session, group, 0, serieId);
+        existingCsr.setResults("[]");
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(groupRepository.findByIdAndSessionId(groupId, sessionId)).thenReturn(Optional.of(group));
+        when(csrRepository.findBySessionIdAndGroupIdAndPasseIndexAndSerieId(any(), any(), anyInt(), any()))
+            .thenReturn(Optional.of(existingCsr));
+        when(csrRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        var pr = new PlayerResult(session, m1);
+        pr.setProgramResults(objectMapper.writeValueAsString(List.of(
+            java.util.Map.of("passeIndex", 0, "serieId", serieId.toString(), "totalPoints", 1, "maxPoints", 2))));
+        when(playerResultRepository.findBySessionIdAndPlayerId(any(), eq(memberId))).thenReturn(Optional.of(pr));
+        when(playerResultRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(groupRepository.findBySessionId(any())).thenReturn(List.of(group));
+        when(csrRepository.findBySessionIdAndGroupId(any(), any())).thenReturn(List.of(existingCsr));
+
+        var req = new ch.jp.smartground.model.CompleteSerieRequest();
+        req.setPasseIndex(org.openapitools.jackson.nullable.JsonNullable.of(0));
+        var pres = new ch.jp.smartground.model.PlayerResult();
+        pres.setPlayerId(memberId.toString()); pres.setTotalPoints(2); pres.setMaxPoints(2);
+        req.setResults(List.of(pres));
+
+        progressService.correctSerieResult(sessionId, groupId, serieId, req);
+
+        verify(csrRepository).save(argThat(c -> c.getResults() != null && c.getResults().contains("\"totalPoints\":2")));
+        verify(playerResultRepository).save(argThat(saved -> {
+            try {
+                var arr = objectMapper.readValue(saved.getProgramResults(), java.util.Map[].class);
+                var forSerie = java.util.Arrays.stream(arr)
+                    .filter(m -> serieId.toString().equals(m.get("serieId"))).toList();
+                return forSerie.size() == 1
+                    && ((Number) forSerie.get(0).get("totalPoints")).intValue() == 2;
+            } catch (Exception e) { return false; }
+        }));
+    }
+
+    @Test
+    void correctSerieResult_rejectsWhenNotPreComplete() {
+        session.setStatus(SessionStatus.ACTIVE);
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(groupRepository.findByIdAndSessionId(groupId, sessionId)).thenReturn(Optional.of(group));
+        var req = new ch.jp.smartground.model.CompleteSerieRequest();
+        req.setPasseIndex(org.openapitools.jackson.nullable.JsonNullable.of(0));
+        assertThrows(ch.jp.shooting.exception.ConflictException.class,
+            () -> progressService.correctSerieResult(sessionId, groupId, serieId, req));
+    }
+
+    @Test
+    void correctSerieResult_rejectsWhenSerieNotCompleted() {
+        session.setStatus(SessionStatus.PRE_COMPLETE);
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(groupRepository.findByIdAndSessionId(groupId, sessionId)).thenReturn(Optional.of(group));
+        when(csrRepository.findBySessionIdAndGroupIdAndPasseIndexAndSerieId(any(), any(), anyInt(), any()))
+            .thenReturn(Optional.empty());
+        var req = new ch.jp.smartground.model.CompleteSerieRequest();
+        req.setPasseIndex(org.openapitools.jackson.nullable.JsonNullable.of(0));
+        assertThrows(ch.jp.shooting.exception.ConflictException.class,
+            () -> progressService.correctSerieResult(sessionId, groupId, serieId, req));
+    }
 }

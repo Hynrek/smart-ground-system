@@ -1701,6 +1701,52 @@ paths:
         '404':
           description: Session, group, or serie not found
 
+  /api/sessions/{sessionId}/groups/{groupId}/serien/{serieId}/results:
+    put:
+      summary: Correct a completed Serie's results (admin, PRE_COMPLETE)
+      description: >
+        Overwrites the stored stepStates of an already-completed Serie and replaces
+        the matching per-Passe/Serie entry in each player's aggregated results.
+        Only allowed while the session is in PRE_COMPLETE.
+      operationId: correctSerieResult
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: serieId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteSerieRequest'
+      responses:
+        '200':
+          description: Correction applied; updated session progress returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionProgressResponse'
+        '404':
+          description: Session or group not found
+        '409':
+          description: Serie not completed, or session not in PRE_COMPLETE
+
   /api/sessions/{sessionId}/progress:
     get:
       summary: Get per-group progress for a session

@@ -78,7 +78,7 @@ public class CompetitionProgressService {
         }
         csr = csrRepository.save(csr);
 
-        upsertPlayerResultsFromApi(session, group, passeIndex, serieId, request.getResults());
+        writePlayerResults(session, group, passeIndex, serieId, request.getResults(), false);
 
         if (session.getStatus() == SessionStatus.ACTIVE && isAllPassenDoneForAllGroups(session)) {
             session.setStatus(SessionStatus.PRE_COMPLETE);
@@ -110,6 +110,28 @@ public class CompetitionProgressService {
         }
         session.setReleasedPasseIndex(idx + 1);
         sessionRepository.save(session);
+        return buildSessionProgressResponse(sessionId);
+    }
+
+    /** Korrigiert die Ergebnisse einer bereits abgeschlossenen Serie (Admin, PRE_COMPLETE). */
+    public SessionProgressResponse correctSerieResult(
+            UUID sessionId, UUID groupId, UUID serieId,
+            ch.jp.smartground.model.CompleteSerieRequest request) throws Exception {
+        LiveSession session = sessionRepository.findById(sessionId)
+            .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+        ShooterGroup group = groupRepository.findByIdAndSessionId(groupId, sessionId)
+            .orElseThrow(() -> new IllegalArgumentException("Group not found: " + groupId));
+        if (session.getStatus() != SessionStatus.PRE_COMPLETE) {
+            throw new ConflictException("Korrektur nur im Status PRE_COMPLETE möglich");
+        }
+        int passeIndex = request.getPasseIndex() != null && request.getPasseIndex().isPresent()
+                ? request.getPasseIndex().get() : 0;
+        CompetitionSerieResult csr = csrRepository
+            .findBySessionIdAndGroupIdAndPasseIndexAndSerieId(sessionId, groupId, passeIndex, serieId)
+            .orElseThrow(() -> new ConflictException("Serie noch nicht abgeschlossen"));
+        csr.setResults(objectMapper.writeValueAsString(request.getResults()));
+        csrRepository.save(csr);
+        writePlayerResults(session, group, passeIndex, serieId, request.getResults(), true);
         return buildSessionProgressResponse(sessionId);
     }
 
@@ -240,9 +262,9 @@ public class CompetitionProgressService {
         return response;
     }
 
-    private void upsertPlayerResultsFromApi(LiveSession session, ShooterGroup group,
+    private void writePlayerResults(LiveSession session, ShooterGroup group,
             int passeIndex, UUID serieId,
-            List<ch.jp.smartground.model.PlayerResult> results) throws Exception {
+            List<ch.jp.smartground.model.PlayerResult> results, boolean replaceExisting) throws Exception {
         if (group.getMembers().isEmpty()) return;
 
         List<ch.jp.smartground.model.PlayerResult> playerScores =
@@ -271,6 +293,14 @@ public class CompetitionProgressService {
                     Map<String, Object> typedMap = (Map<String, Object>) rawMap;
                     existing.add(typedMap);
                 }
+            }
+
+            // Korrektur ersetzt den vorhandenen Eintrag derselben Passe/Serie; der reguläre
+            // Abschluss hängt an (der Duplikat-Schutz liegt in completeSerie).
+            if (replaceExisting) {
+                existing.removeIf(m ->
+                    serieId.toString().equals(m.get("serieId"))
+                    && m.get("passeIndex") instanceof Number n && n.intValue() == passeIndex);
             }
 
             Map<String, Object> entry = new LinkedHashMap<>();
