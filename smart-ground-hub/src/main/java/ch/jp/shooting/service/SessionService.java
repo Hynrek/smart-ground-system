@@ -34,6 +34,7 @@ public class SessionService {
     private final PasseRepository passeRepository;
     private final ObjectMapper objectMapper;
     private final TiebreakerService tiebreakerService;
+    private final PasseService passeService;
 
     public SessionService(
             LiveSessionRepository sessionRepository,
@@ -44,7 +45,8 @@ public class SessionService {
             UserRepository userRepository,
             PasseRepository passeRepository,
             ObjectMapper objectMapper,
-            TiebreakerService tiebreakerService) {
+            TiebreakerService tiebreakerService,
+            PasseService passeService) {
         this.sessionRepository = sessionRepository;
         this.groupRepository = groupRepository;
         this.playerRepository = playerRepository;
@@ -54,6 +56,7 @@ public class SessionService {
         this.passeRepository = passeRepository;
         this.objectMapper = objectMapper;
         this.tiebreakerService = tiebreakerService;
+        this.passeService = passeService;
     }
 
     /**
@@ -631,7 +634,7 @@ public class SessionService {
                             if (p.id != null) {
                                 passeRepository.findById(UUID.fromString(p.id)).ifPresent(passe -> {
                                     List<ch.jp.smartground.model.EmbeddedSerie> serien =
-                                        PlayMapper.parseEmbeddedSerien(passe.getSerienJson()).stream()
+                                        passeService.resolveLiveSerien(passe).stream()
                                             .map(PlayMapper::toEmbeddedSerie)
                                             .collect(Collectors.toList());
                                     ref.setSerien(serien);

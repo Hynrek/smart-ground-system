@@ -42,6 +42,7 @@ class SessionServiceFinishGuardTest {
     @Mock UserRepository userRepository;
     @Mock PasseRepository passeRepository;
     @Mock TiebreakerService tiebreakerService;
+    @Mock PasseService passeService;
 
     SessionService service;
 
@@ -59,7 +60,8 @@ class SessionServiceFinishGuardTest {
                 userRepository,
                 passeRepository,
                 new ObjectMapper(),
-                tiebreakerService);
+                tiebreakerService,
+                passeService);
 
         sessionId = UUID.randomUUID();
         session = new LiveSession();

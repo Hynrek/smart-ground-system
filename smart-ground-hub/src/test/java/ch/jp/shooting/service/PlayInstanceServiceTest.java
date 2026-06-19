@@ -27,6 +27,7 @@ class PlayInstanceServiceTest {
 
     @Mock PlayInstanceRepository playInstanceRepository;
     @Mock PasseRepository passeRepository;
+    @Mock PasseService passeService;
     @Mock SecurityHelper securityHelper;
 
     @InjectMocks PlayInstanceService service;
@@ -62,6 +63,38 @@ class PlayInstanceServiceTest {
         var savedPlayers = PlayMapper.parsePlayerRefs(saved.getPlayersJson());
         assertEquals(1, savedPlayers.size());
         assertEquals("Anna", savedPlayers.get(0).displayName());
+    }
+
+    @Test
+    void startPasseInstance_buildsBlocksFromLiveResolvedSerien() {
+        var passeId = UUID.randomUUID();
+        var passe = new ch.jp.shooting.model.Passe();
+        passe.setId(passeId);
+        passe.setName("Passe X");
+
+        var serieId = UUID.randomUUID();
+        var liveSerien = List.of(new ch.jp.shooting.dto.play.EmbeddedSerieRecord(
+            serieId, "Serie 1", null, null, List.of(), false));
+
+        when(passeRepository.findById(passeId)).thenReturn(java.util.Optional.of(passe));
+        when(passeService.resolveLiveSerien(passe)).thenReturn(liveSerien);
+        when(securityHelper.currentUser()).thenReturn(mock(User.class));
+        when(playInstanceRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        var request = new ch.jp.smartground.model.StartPasseInstanceRequest()
+            .passeId(passeId)
+            .players(List.of(new PlayerRef()
+                .id(UUID.randomUUID().toString())
+                .type(PlayerRef.TypeEnum.USER)
+                .displayName("Anna")));
+
+        service.startPasseInstance(request);
+
+        ArgumentCaptor<PlayInstance> captor = ArgumentCaptor.forClass(PlayInstance.class);
+        verify(playInstanceRepository).save(captor.capture());
+        var blocks = PlayMapper.parseBlocks(captor.getValue().getStateJson());
+        assertEquals(1, blocks.size());
+        assertEquals("Serie 1", blocks.get(0).serieAlias());
     }
 
     @Test

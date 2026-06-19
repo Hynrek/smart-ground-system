@@ -42,13 +42,16 @@ public class PlayInstanceService {
 
     private final PlayInstanceRepository playInstanceRepository;
     private final PasseRepository passeRepository;
+    private final PasseService passeService;
     private final SecurityHelper securityHelper;
 
     public PlayInstanceService(PlayInstanceRepository playInstanceRepository,
                                PasseRepository passeRepository,
+                               PasseService passeService,
                                SecurityHelper securityHelper) {
         this.playInstanceRepository = playInstanceRepository;
         this.passeRepository = passeRepository;
+        this.passeService = passeService;
         this.securityHelper = securityHelper;
     }
 
@@ -58,7 +61,7 @@ public class PlayInstanceService {
     public PlayInstanceResponse startPasseInstance(StartPasseInstanceRequest request) {
         var passe = passeRepository.findById(request.getPasseId())
             .orElseThrow(() -> new PasseNotFoundException(request.getPasseId()));
-        var serien = PlayMapper.parseEmbeddedSerien(passe.getSerienJson());
+        var serien = passeService.resolveLiveSerien(passe);
         return buildAndSaveInstance(passe.getId(), passe.getName(), serien, request.getPlayers());
     }
 
