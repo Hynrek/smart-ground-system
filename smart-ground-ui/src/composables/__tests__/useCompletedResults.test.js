@@ -126,4 +126,26 @@ describe('useCompletedResults', () => {
     const { getPlayerSerien } = useCompletedResults('s1')
     expect(getPlayerSerien('m2')).toEqual([])
   })
+
+  it('recomputeSerieTotals sums earned/value by state', () => {
+    const { recomputeSerieTotals } = useCompletedResults('s1')
+    const totals = recomputeSerieTotals([
+      { state: 'done', pointValue: 2 },
+      { state: 'failed-a', pointValue: 2 },
+      { state: 'failed-both', pointValue: 2 },
+      { state: 'pending', pointValue: 1 },
+    ])
+    expect(totals).toEqual({ totalPoints: 3, maxPoints: 7 })
+  })
+
+  it('getCorrectionData groups the chosen passe by serie with per-player steps', () => {
+    const store = useCompetitionEventStore()
+    seed(store)
+    const { getCorrectionData } = useCompletedResults('s1')
+    const data = getCorrectionData(0)
+    expect(data.serien[0]).toMatchObject({ serieId: 'se1', rangeName: 'Stand 1', serieName: 'Morgen' })
+    expect(data.serien[0].steps[0]).toMatchObject({ stepIndex: 0, type: 'solo', letter: 'A' })
+    expect(data.serien[0].players[0]).toMatchObject({ playerId: 'm1' })
+    expect(data.serien[0].players[0].steps[0]).toMatchObject({ stepIndex: 0, state: 'done' })
+  })
 })

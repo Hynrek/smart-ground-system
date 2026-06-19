@@ -59,4 +59,17 @@ describe('StepScorecard', () => {
     const wrapper = mount(StepScorecard, { props: { serien: [] } })
     expect(wrapper.find('.step-chip').exists()).toBe(false)
   })
+
+  it('editable mode emits correct-step with the step identity on chip click', async () => {
+    const wrapper = mount(StepScorecard, { props: { serien, editable: true } })
+    await wrapper.findAll('.step-chip')[0].trigger('click')
+    expect(wrapper.emitted('correct-step')).toBeTruthy()
+    expect(wrapper.emitted('correct-step')[0][0]).toMatchObject({ stepIndex: 0, currentState: 'done' })
+  })
+
+  it('non-editable chips do not emit on click', async () => {
+    const wrapper = mount(StepScorecard, { props: { serien } })
+    await wrapper.findAll('.step-chip')[0].trigger('click')
+    expect(wrapper.emitted('correct-step')).toBeFalsy()
+  })
 })

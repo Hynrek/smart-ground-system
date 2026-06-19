@@ -34,7 +34,10 @@ const mountPanel = async (event, query = {}) => {
   await router.isReady()
   const wrapper = mount(ActiveCompetitionPanel, {
     props: { event },
-    global: { plugins: [router], stubs: { Icons: true } },
+    global: {
+      plugins: [router],
+      stubs: { Icons: true, CompetitionCorrectionPanel: { template: '<div class="correction-stub" />' } },
+    },
   })
   return { wrapper, router }
 }
@@ -212,5 +215,16 @@ describe('ActiveCompetitionPanel', () => {
     const { wrapper } = await mountPanel(makeEvent())
     await flushPromises()
     expect(wrapper.find('.release-passe-btn').exists()).toBe(false)
+  })
+
+  it('shows the correction panel in the Fortschritt tab only for PRE_COMPLETE', async () => {
+    const active = await mountPanel(makeEvent())
+    await flushPromises()
+    expect(active.wrapper.find('.correction-stub').exists()).toBe(false)
+    expect(active.wrapper.find('.serie-card, .empty-state').exists()).toBe(true)
+
+    const pre = await mountPanel({ ...makeEvent(), status: 'PRE_COMPLETE' })
+    await flushPromises()
+    expect(pre.wrapper.find('.correction-stub').exists()).toBe(true)
   })
 })

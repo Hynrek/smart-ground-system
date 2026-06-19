@@ -99,5 +99,56 @@ export function useCompletedResults(sessionId) {
     return groups.sort((a, b) => a.sortIndex - b.sortIndex)
   }
 
-  return { standings, completedAt, loading, error, load, getPlayerDetail, getPlayerSerien }
+  // ── PRE_COMPLETE correction support ─────────────────────────────────────────
+
+  const STEP_DEDUCTION = { 'failed-both': 2, 'failed-a': 1, 'failed-b': 1 }
+  const earnedFor = (state, pointValue) =>
+    state === 'pending' ? 0 : Math.max(0, pointValue - (STEP_DEDUCTION[state] ?? 0))
+
+  // Recompute a Serie's per-player totals from its step states (same rule as the kiosk).
+  const recomputeSerieTotals = (steps) => steps.reduce(
+    (acc, s) => ({
+      totalPoints: acc.totalPoints + earnedFor(s.state, s.pointValue ?? 0),
+      maxPoints: acc.maxPoints + (s.pointValue ?? 0),
+    }),
+    { totalPoints: 0, maxPoints: 0 },
+  )
+
+  // Per-Serie, per-player editable view for one Passe (PRE_COMPLETE correction).
+  const getCorrectionData = (passeIndex) => {
+    const serieResults = (entry.value?.serieResults ?? []).filter(sr => (sr.passeIndex ?? 0) === passeIndex)
+    const defs = entry.value?.serieDefs ?? {}
+    const serien = serieResults
+      .map(sr => {
+        const def = defs[sr.serieId] ?? null
+        const players = (sr.results ?? []).map(r => ({
+          playerId: r.playerId,
+          displayName: r.displayName ?? null,
+          steps: (r.stepStates ?? []).map(s => ({
+            stepIndex: s.stepIndex ?? 0,
+            state: s.state,
+            pointValue: s.pointValue ?? 0,
+            pointsEarned: s.pointsEarned ?? 0,
+          })),
+        }))
+        return {
+          groupId: sr.groupId,
+          serieId: sr.serieId,
+          rangeName: def?.rangeName ?? null,
+          serieName: def?.serieName ?? 'Serie',
+          sortIndex: def?.sortIndex ?? 0,
+          steps: (def?.steps ?? []).map((d, i) => ({
+            stepIndex: i, type: d.type, letter: d.letter, letter1: d.letter1, letter2: d.letter2,
+          })),
+          players,
+        }
+      })
+      .sort((a, b) => a.sortIndex - b.sortIndex)
+    return { passeIndex, serien }
+  }
+
+  return {
+    standings, completedAt, loading, error, load, getPlayerDetail, getPlayerSerien,
+    recomputeSerieTotals, getCorrectionData,
+  }
 }

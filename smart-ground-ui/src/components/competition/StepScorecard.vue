@@ -17,8 +17,12 @@
           <span
             v-if="isSplit(step.type)"
             class="step-chip step-chip--split"
+            :class="{ 'step-chip--editable': editable }"
+            :role="editable ? 'button' : undefined"
+            :tabindex="editable ? 0 : undefined"
             :aria-label="ariaLabel(step)"
             :title="ariaLabel(step)"
+            @click="onChipClick(serie, step)"
           >
             <span class="half" :class="halfClass(step.state, 'left')">{{ leftLabel(step) }}</span>
             <span class="half" :class="halfClass(step.state, 'right')">{{ rightLabel(step) }}</span>
@@ -27,9 +31,12 @@
           <span
             v-else
             class="step-chip"
-            :class="solidClass(step.state)"
+            :class="[solidClass(step.state), { 'step-chip--editable': editable }]"
+            :role="editable ? 'button' : undefined"
+            :tabindex="editable ? 0 : undefined"
             :aria-label="ariaLabel(step)"
             :title="ariaLabel(step)"
+            @click="onChipClick(serie, step)"
           >{{ step.letter ?? '' }}</span>
         </template>
       </div>
@@ -40,9 +47,27 @@
 <script setup>
 import { StepState, StepType } from '@/constants/playEnums.js'
 
-defineProps({
+const props = defineProps({
   serien: { type: Array, required: true },
+  // When true, chips are interactive and clicking emits `correct-step` for the admin
+  // PRE_COMPLETE correction flow. Default false → display-only (Task C behavior).
+  editable: { type: Boolean, default: false },
 })
+
+const emit = defineEmits(['correct-step'])
+
+const onChipClick = (serie, step) => {
+  if (!props.editable) return
+  emit('correct-step', {
+    serieKey: serie.key,
+    serieId: serie.serieId,
+    groupId: serie.groupId,
+    playerId: serie.playerId,
+    stepIndex: step.stepIndex,
+    type: step.type,
+    currentState: step.state,
+  })
+}
 
 const isSplit = (type) =>
   type === StepType.PAIR || type === StepType.A_SCHUSS || type === StepType.RAFFALE
@@ -99,6 +124,9 @@ const ariaLabel = (step) => {
   min-width: 28px; height: 24px; padding: 0 8px; border-radius: 8px;
   font-size: 12px; font-weight: 700; border: 1px solid transparent; overflow: hidden;
 }
+
+.step-chip--editable { cursor: pointer; }
+.step-chip--editable:focus-visible { outline: 2px solid var(--sg-accent); outline-offset: 1px; }
 
 .step-chip.is-done { background: rgba(72, 187, 120, 0.16); color: #2f855a; border-color: rgba(72, 187, 120, 0.4); }
 .step-chip.is-fail { background: rgba(229, 62, 62, 0.14); color: #c53030; border-color: rgba(229, 62, 62, 0.4); }

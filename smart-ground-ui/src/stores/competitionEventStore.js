@@ -492,6 +492,13 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     }
   }
 
+  // Correct a completed Serie's results (admin, PRE_COMPLETE), then refresh the
+  // cached serie-results/standings so the corrected scores + Rangliste update.
+  const correctSerieResult = async (sessionId, groupId, serieId, passeIndex, playerResults) => {
+    await wettkampfApi.correctSerieResult(sessionId, groupId, serieId, passeIndex, playerResults)
+    await loadCompletedResults(sessionId)
+  }
+
   // ── Private ───────────────────────────────────────────────────────────────
 
   const _replaceEvent = (updated) => {
@@ -545,7 +552,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     addPasseToEvent, removePasseFromEvent,
     // Runtime state
     competitionInstances, completedCompetitionInstances,
-    completedResultsBySession, loadCompletedResults,
+    completedResultsBySession, loadCompletedResults, correctSerieResult,
     getCompetitionInstance, initCompetitionInstance,
     assignRotteToRange, unassignRotte,
     markBlockInProgress, markBlockDone,
