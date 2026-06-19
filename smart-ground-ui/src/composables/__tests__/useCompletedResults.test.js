@@ -159,4 +159,41 @@ describe('useCompletedResults', () => {
     expect(data.serien[0].players[0].playerId).toBe('m1')
     expect(data.serien[0].players[0].displayName).toBe('Alice')
   })
+
+  it('getPlayerCorrectionSerien returns editable serie groups carrying serieId/groupId/pointValue', () => {
+    const store = useCompetitionEventStore()
+    seed(store)
+    const { getPlayerCorrectionSerien } = useCompletedResults('s1')
+    const serien = getPlayerCorrectionSerien('m1')
+    expect(serien.map(s => s.serieName)).toEqual(['Morgen', 'Abend'])
+    // metadata required to correct chips
+    expect(serien[0]).toMatchObject({ serieId: 'se1', groupId: 'g1', playerId: 'm1', passeIndex: 0 })
+    expect(serien[0].key).toBe('0:se1:m1')
+    expect(serien[0].steps[0]).toMatchObject({ stepIndex: 0, type: 'solo', letter: 'A', state: 'done', pointValue: 2 })
+    expect(serien[0].steps[1]).toMatchObject({ stepIndex: 1, type: 'pair', letter1: 'B', letter2: 'D', state: 'failed-a', pointValue: 2 })
+  })
+
+  it('getPlayerCorrectionSerien returns [] for a player with no serie results', () => {
+    const store = useCompetitionEventStore()
+    seed(store)
+    const { getPlayerCorrectionSerien } = useCompletedResults('s1')
+    expect(getPlayerCorrectionSerien('m2')).toEqual([])
+  })
+
+  it('findCorrectionSerie locates the full serie record and its passeIndex', () => {
+    const store = useCompetitionEventStore()
+    seed(store)
+    const { findCorrectionSerie } = useCompletedResults('s1')
+    const found = findCorrectionSerie('se1', 'g1')
+    expect(found.passeIndex).toBe(0)
+    expect(found.serie).toMatchObject({ serieId: 'se1', groupId: 'g1' })
+    expect(found.serie.players[0].playerId).toBe('m1')
+  })
+
+  it('findCorrectionSerie returns null when the serie is unknown', () => {
+    const store = useCompetitionEventStore()
+    seed(store)
+    const { findCorrectionSerie } = useCompletedResults('s1')
+    expect(findCorrectionSerie('nope', 'g1')).toBe(null)
+  })
 })

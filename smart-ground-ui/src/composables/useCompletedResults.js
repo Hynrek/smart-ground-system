@@ -99,6 +99,44 @@ export function useCompletedResults(sessionId) {
     return groups.sort((a, b) => a.sortIndex - b.sortIndex)
   }
 
+  // Per-player editable serie groups (all passen) for the PRE_COMPLETE correction view.
+  // Mirrors getPlayerSerien but keeps serieId/groupId/pointValue so chips can be corrected.
+  const getPlayerCorrectionSerien = (playerId) => {
+    const serieResults = entry.value?.serieResults ?? []
+    const defs = entry.value?.serieDefs ?? {}
+    const groups = []
+    for (const sr of serieResults) {
+      const pe = (sr.results ?? []).find(r => r.playerId === playerId)
+      const states = pe?.stepStates ?? []
+      if (states.length === 0) continue
+      const def = defs[sr.serieId] ?? null
+      const steps = states.map(s => {
+        const ds = def?.steps?.[s.stepIndex] ?? null
+        return {
+          stepIndex: s.stepIndex ?? 0,
+          type: ds?.type ?? null,
+          letter: ds?.letter ?? null,
+          letter1: ds?.letter1 ?? null,
+          letter2: ds?.letter2 ?? null,
+          state: s.state,
+          pointValue: s.pointValue ?? 0,
+        }
+      })
+      groups.push({
+        key: `${sr.passeIndex ?? 0}:${sr.serieId}:${playerId}`,
+        serieId: sr.serieId,
+        groupId: sr.groupId,
+        playerId,
+        passeIndex: sr.passeIndex ?? 0,
+        rangeName: def?.rangeName ?? null,
+        serieName: def?.serieName ?? 'Serie',
+        sortIndex: def?.sortIndex ?? (sr.passeIndex ?? 0),
+        steps,
+      })
+    }
+    return groups.sort((a, b) => a.sortIndex - b.sortIndex)
+  }
+
   // ── PRE_COMPLETE correction support ─────────────────────────────────────────
 
   const STEP_DEDUCTION = { 'failed-both': 2, 'failed-a': 1, 'failed-b': 1 }
@@ -148,8 +186,17 @@ export function useCompletedResults(sessionId) {
     return { passeIndex, serien }
   }
 
+  // Locate the full correction record (all players) for a serie, with its passeIndex.
+  const findCorrectionSerie = (serieId, groupId) => {
+    const sr = (entry.value?.serieResults ?? []).find(r => r.serieId === serieId && r.groupId === groupId)
+    if (!sr) return null
+    const passeIndex = sr.passeIndex ?? 0
+    const serie = getCorrectionData(passeIndex).serien.find(s => s.serieId === serieId && s.groupId === groupId)
+    return serie ? { passeIndex, serie } : null
+  }
+
   return {
     standings, completedAt, loading, error, load, getPlayerDetail, getPlayerSerien,
-    recomputeSerieTotals, getCorrectionData,
+    getPlayerCorrectionSerien, recomputeSerieTotals, getCorrectionData, findCorrectionSerie,
   }
 }

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import CompletedResultsPanel from '../competition/CompletedResultsPanel.vue'
+import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 
 vi.mock('@/components/Icons.vue', () => ({ default: { template: '<span />' } }))
 
@@ -128,5 +129,54 @@ describe('CompletedResultsPanel', () => {
     const wrapper = mountPanel()
     await flushPromises()
     expect(wrapper.text()).toContain('Noch keine Ergebnisse')
+  })
+
+  // ── read-only parity (COMPLETED view must not regress) ─────────────────────
+
+  it('read-only mode renders non-editable step chips and no picker', async () => {
+    const wrapper = mountPanel()
+    await flushPromises()
+    await wrapper.findAll('.standing-row')[0].trigger('click') // Bob (m2)
+    expect(wrapper.findAll('.step-chip').length).toBeGreaterThanOrEqual(2)
+    // not editable: no editable modifier on any chip and no picker overlay
+    expect(wrapper.find('.step-chip--editable').exists()).toBe(false)
+    expect(wrapper.find('.picker-overlay').exists()).toBe(false)
+  })
+
+  // ── editable mode (PRE_COMPLETE correction reuse) ──────────────────────────
+
+  it('editable mode shows editable chips, opens the picker and calls correctSerieResult with displayName', async () => {
+    const wrapper = mount(CompletedResultsPanel, {
+      props: { event: { id: 'ev-1', name: 'Frühjahrspokal', status: 'PRE_COMPLETE' }, editable: true },
+      global: { stubs: { Icons: true } },
+    })
+    await flushPromises()
+
+    const store = useCompetitionEventStore()
+    const spy = vi.spyOn(store, 'correctSerieResult').mockResolvedValue()
+
+    await wrapper.findAll('.standing-row')[0].trigger('click') // Bob (m2)
+
+    // editable chips are rendered
+    const chips = wrapper.findAll('.step-chip--editable')
+    expect(chips.length).toBeGreaterThanOrEqual(1)
+    expect(wrapper.find('.picker-overlay').exists()).toBe(false)
+
+    // clicking a chip opens the picker
+    await chips[0].trigger('click')
+    expect(wrapper.find('.picker-overlay').exists()).toBe(true)
+
+    // picking a state persists the correction
+    await wrapper.find('.picker-btn--hit').trigger('click')
+    await flushPromises()
+
+    expect(spy).toHaveBeenCalledTimes(1)
+    const [sessionId, groupId, serieId, passeIndex, results] = spy.mock.calls[0]
+    expect(sessionId).toBe('ev-1')
+    expect(groupId).toBe('g2')
+    expect(serieId).toBe('x')
+    expect(passeIndex).toBe(0)
+    expect(results.length).toBeGreaterThanOrEqual(1)
+    results.forEach(r => expect(typeof r.displayName).toBe('string'))
   })
 })

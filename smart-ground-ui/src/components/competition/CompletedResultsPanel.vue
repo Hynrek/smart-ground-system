@@ -49,11 +49,11 @@
         </button>
 
         <div v-if="expandedId === row.playerId" class="player-detail">
-          <div v-if="detailFor(row.playerId).passen.length === 0" class="detail-empty">
-            Keine Detailauswertung verfügbar — Gesamt {{ detailFor(row.playerId).total }} / {{ detailFor(row.playerId).max }}
+          <div v-if="getPlayerDetail(row.playerId).passen.length === 0" class="detail-empty">
+            Keine Detailauswertung verfügbar — Gesamt {{ getPlayerDetail(row.playerId).total }} / {{ getPlayerDetail(row.playerId).max }}
           </div>
           <div
-            v-for="passe in detailFor(row.playerId).passen"
+            v-for="passe in getPlayerDetail(row.playerId).passen"
             :key="passe.label"
             class="passe-line"
           >
@@ -61,11 +61,25 @@
             <span class="passe-pts">{{ passe.totalPoints }} / {{ passe.maxPoints }}</span>
           </div>
           <StepScorecard
-            v-if="serienFor(row.playerId).length > 0"
+            v-if="editable"
             class="step-detail"
-            :serien="serienFor(row.playerId)"
+            editable
+            :serien="getPlayerCorrectionSerien(row.playerId)"
+            @correct-step="onCorrect"
+          />
+          <StepScorecard
+            v-else-if="getPlayerSerien(row.playerId).length > 0"
+            class="step-detail"
+            :serien="getPlayerSerien(row.playerId)"
           />
         </div>
+      </div>
+    </div>
+
+    <div v-if="correctionTarget" class="picker-overlay" @click.self="correctionTarget = null">
+      <div class="picker-box">
+        <span class="picker-title">Treffer korrigieren</span>
+        <StepStatePicker :type="correctionTarget.type" @pick="applyPick" />
       </div>
     </div>
   </div>
@@ -75,32 +89,71 @@
 import { computed, onMounted, ref } from 'vue'
 import Icons from '@/components/Icons.vue'
 import StepScorecard from '@/components/competition/StepScorecard.vue'
+import StepStatePicker from '@/components/competition/StepStatePicker.vue'
 import { useCompletedResults } from '@/composables/useCompletedResults.js'
+import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 import { exportLeaderboard } from '@/services/wettkampfApi.js'
 
-const props = defineProps({ event: { type: Object, required: true } })
+const props = defineProps({
+  event: { type: Object, required: true },
+  // When true, the expanded detail renders editable StepScorecard chips and a
+  // correction picker (admin PRE_COMPLETE score correction). Default false → the
+  // read-only COMPLETED view.
+  editable: { type: Boolean, default: false },
+})
 
 const sessionId = computed(() => props.event.id)
-const { standings, completedAt, loading, error, load, getPlayerDetail, getPlayerSerien } = useCompletedResults(sessionId)
+const {
+  standings, completedAt, loading, error, load,
+  getPlayerDetail, getPlayerSerien, getPlayerCorrectionSerien,
+  recomputeSerieTotals, getCorrectionData, findCorrectionSerie,
+} = useCompletedResults(sessionId)
+
+const store = useCompetitionEventStore()
 
 const expandedId = ref(null)
 const exporting = ref(false)
 
-// Cache per-player detail so repeated renders don't re-parse the JSON blobs.
-const detailCache = new Map()
-const detailFor = (playerId) => {
-  if (!detailCache.has(playerId)) detailCache.set(playerId, getPlayerDetail(playerId))
-  return detailCache.get(playerId)
-}
-
-const serienCache = new Map()
-const serienFor = (playerId) => {
-  if (!serienCache.has(playerId)) serienCache.set(playerId, getPlayerSerien(playerId))
-  return serienCache.get(playerId)
-}
-
 const toggle = (playerId) => {
   expandedId.value = expandedId.value === playerId ? null : playerId
+}
+
+// ── PRE_COMPLETE correction (editable mode) ─────────────────────────────────
+
+const correctionTarget = ref(null)
+const onCorrect = (payload) => { correctionTarget.value = payload }
+
+// Per-step earned points, reusing the shared total rule on a single step.
+const stepEarned = (state, pointValue) => recomputeSerieTotals([{ state, pointValue }]).totalPoints
+
+const applyPick = async (newState) => {
+  const t = correctionTarget.value
+  correctionTarget.value = null
+  if (!t) return
+  const found = findCorrectionSerie(t.serieId, t.groupId)
+  if (!found) return
+  const { passeIndex, serie } = found
+  const serieIndex = getCorrectionData(passeIndex).serien.indexOf(serie)
+
+  // Rebuild every player's corrected stepStates for this Serie (only the targeted
+  // step of the targeted player changes), with recomputed totals.
+  const results = serie.players.map(player => {
+    const steps = serie.steps.map(def => {
+      const st = player.steps.find(s => s.stepIndex === def.stepIndex)
+      const pointValue = st?.pointValue ?? 0
+      const state = (player.playerId === t.playerId && def.stepIndex === t.stepIndex)
+        ? newState : (st?.state ?? 'pending')
+      return { playerId: player.playerId, serieIndex, stepIndex: def.stepIndex, state, pointValue, pointsEarned: stepEarned(state, pointValue) }
+    })
+    const totals = recomputeSerieTotals(steps)
+    return { playerId: player.playerId, displayName: player.displayName ?? null, totalPoints: totals.totalPoints, maxPoints: totals.maxPoints, stepStates: steps }
+  })
+
+  try {
+    await store.correctSerieResult(props.event.id, t.groupId, t.serieId, passeIndex, results)
+  } catch (e) {
+    console.error('[CompletedResultsPanel] correction failed:', e)
+  }
 }
 
 const completedAtLabel = computed(() =>
@@ -119,8 +172,6 @@ const handleExport = async () => {
 }
 
 onMounted(() => {
-  detailCache.clear()
-  serienCache.clear()
   load()
 })
 </script>
@@ -208,4 +259,18 @@ onMounted(() => {
 .passe-pts { font-size: 12px; font-weight: 600; color: var(--sg-brand); }
 
 .step-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--sg-border); }
+
+.picker-overlay {
+  position: fixed; inset: 0; z-index: 130;
+  background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+
+.picker-box {
+  display: flex; flex-direction: column; gap: 12px;
+  background: var(--sg-bg-card); border: 1px solid var(--sg-border);
+  border-radius: 16px; padding: 20px; box-shadow: var(--sg-shadow-lg);
+}
+
+.picker-title { font-size: 14px; font-weight: 700; color: var(--sg-brand); }
 </style>
