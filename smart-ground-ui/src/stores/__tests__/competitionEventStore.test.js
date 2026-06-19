@@ -54,44 +54,12 @@ describe('useCompetitionEventStore', () => {
     expect(store.events).toHaveLength(1)
   })
 
-  it('openEvent patches status to open and updates local event', async () => {
-    api.patchStatus.mockResolvedValue(mkSession({ status: 'OPEN' }))
-    api.getSession.mockResolvedValue(mkSession({ status: 'OPEN' }))
-    const store = useCompetitionEventStore()
-    store.events = [mkSession()]
-    await store.openEvent('s1')
-    expect(api.patchStatus).toHaveBeenCalledWith('s1', 'open')
-    expect(store.events[0].status).toBe('OPEN')
-  })
-
   it('startEvent patches status to active', async () => {
     api.patchStatus.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
     api.getSession.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
     const store = useCompetitionEventStore()
-    store.events = [mkSession({ status: 'OPEN' })]
-    await store.startEvent('s1')
-    expect(api.patchStatus).toHaveBeenCalledWith('s1', 'active')
-    expect(store.events[0].status).toBe('ACTIVE')
-  })
-
-  it('goLive from SETUP opens then starts the event', async () => {
-    api.patchStatus.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
-    api.getSession.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
-    const store = useCompetitionEventStore()
     store.events = [mkSession({ status: 'SETUP' })]
-    await store.goLive('s1')
-    expect(api.patchStatus).toHaveBeenCalledWith('s1', 'open')
-    expect(api.patchStatus).toHaveBeenCalledWith('s1', 'active')
-    expect(store.events[0].status).toBe('ACTIVE')
-  })
-
-  it('goLive from OPEN only starts the event', async () => {
-    api.patchStatus.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
-    api.getSession.mockResolvedValue(mkSession({ status: 'ACTIVE' }))
-    const store = useCompetitionEventStore()
-    store.events = [mkSession({ status: 'OPEN' })]
-    await store.goLive('s1')
-    expect(api.patchStatus).not.toHaveBeenCalledWith('s1', 'open')
+    await store.startEvent('s1')
     expect(api.patchStatus).toHaveBeenCalledWith('s1', 'active')
     expect(store.events[0].status).toBe('ACTIVE')
   })
@@ -142,10 +110,11 @@ describe('useCompetitionEventStore', () => {
     expect(store.events[0].groups[0].members[0].paid).toBe(true)
   })
 
-  it('planningEvents returns SETUP and OPEN', () => {
+  it('planningEvents returns only SETUP events', () => {
     const store = useCompetitionEventStore()
-    store.events = [mkSession({ id: 's1', status: 'SETUP' }), mkSession({ id: 's2', status: 'OPEN' }), mkSession({ id: 's3', status: 'ACTIVE' })]
-    expect(store.planningEvents).toHaveLength(2)
+    store.events = [mkSession({ id: 's1', status: 'SETUP' }), mkSession({ id: 's2', status: 'ACTIVE' })]
+    expect(store.planningEvents).toHaveLength(1)
+    expect(store.planningEvents[0].id).toBe('s1')
   })
 
   it('activeEvents returns ACTIVE and PRE_COMPLETE', () => {

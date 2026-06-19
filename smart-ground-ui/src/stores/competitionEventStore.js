@@ -25,7 +25,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
 
   // ── Computed ──────────────────────────────────────────────────────────────
 
-  const planningEvents  = computed(() => events.value.filter(e => ['SETUP', 'OPEN'].includes(e.status?.toUpperCase())))
+  const planningEvents  = computed(() => events.value.filter(e => e.status?.toUpperCase() === 'SETUP'))
   const activeEvents    = computed(() => events.value.filter(e => ['ACTIVE', 'PRE_COMPLETE'].includes(e.status?.toUpperCase())))
   const completedEvents = computed(() => events.value.filter(e => e.status?.toUpperCase() === 'COMPLETED'))
   const getEvent        = (id) => events.value.find(e => e.id === id) ?? null
@@ -70,25 +70,11 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     return full.id
   }
 
-  const openEvent = async (id) => {
-    await wettkampfApi.patchStatus(id, 'open')
-    _replaceEvent(await wettkampfApi.getSession(id))
-  }
-
   const startEvent = async (id) => {
     await wettkampfApi.patchStatus(id, 'active')
     const updated = await wettkampfApi.getSession(id)
     _replaceEvent(updated)
     initCompetitionInstance(updated)
-  }
-
-  // Advance a planned competition all the way to ACTIVE in one call. The backend
-  // requires SETUP → OPEN → ACTIVE; this hides the transient OPEN step from callers.
-  // (Once OPEN is removed server-side — Task G — this collapses to startEvent.)
-  const goLive = async (id) => {
-    const status = getEvent(id)?.status?.toUpperCase()
-    if (status === 'SETUP') await openEvent(id)
-    await startEvent(id)
   }
 
   // Abandoning a competition deletes it outright — abandoned events are not kept
@@ -546,7 +532,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     events, loading, error,
     planningEvents, activeEvents, completedEvents, getEvent,
     loadEvents,
-    createEvent, openEvent, startEvent, goLive, stopEvent, stopCompetition, deleteEvent,
+    createEvent, startEvent, stopEvent, stopCompetition, deleteEvent,
     addRotte, removeRotte, renameRotte,
     addPlayer, removePlayer, togglePlayerPaid,
     addPasseToEvent, removePasseFromEvent,
