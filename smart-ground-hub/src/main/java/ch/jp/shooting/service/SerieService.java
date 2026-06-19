@@ -5,11 +5,13 @@ import ch.jp.shooting.dto.play.StepRecord;
 import ch.jp.shooting.exception.RangeNotFoundException;
 import ch.jp.shooting.exception.SerieNotFoundException;
 import ch.jp.shooting.mapper.PlayMapper;
+import ch.jp.shooting.model.RangePosition;
 import ch.jp.shooting.model.Serie;
 import ch.jp.shooting.repository.RangeRepository;
 import ch.jp.shooting.repository.SerieRepository;
 import ch.jp.smartground.model.CreateSerieRequest;
 import ch.jp.smartground.model.SerieResponse;
+import ch.jp.smartground.model.Step;
 import ch.jp.smartground.model.UpdateSerieOwnershipRequest;
 import ch.jp.smartground.model.UpdateSeriePublishedRequest;
 import ch.jp.smartground.model.UpdateSerieRequest;
@@ -21,7 +23,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 // Geschäftslogik für Serien (Wurfsequenzen)
 @Service
@@ -31,13 +36,16 @@ public class SerieService {
     private final SerieRepository serieRepository;
     private final RangeRepository rangeRepository;
     private final SecurityHelper securityHelper;
+    private final PositionLabelResolver positionLabelResolver;
 
     public SerieService(SerieRepository serieRepository,
                         RangeRepository rangeRepository,
-                        SecurityHelper securityHelper) {
+                        SecurityHelper securityHelper,
+                        PositionLabelResolver positionLabelResolver) {
         this.serieRepository = serieRepository;
         this.rangeRepository = rangeRepository;
         this.securityHelper = securityHelper;
+        this.positionLabelResolver = positionLabelResolver;
     }
 
     /**
@@ -77,7 +85,7 @@ public class SerieService {
             }
         }
 
-        return result.stream().map(PlayMapper::toSerieResponse).toList();
+        return withResolvedLabels(result.stream().map(PlayMapper::toSerieResponse).toList());
     }
 
     /** Erstellt eine neue Serie für den aktuellen Nutzer. */
@@ -133,7 +141,7 @@ public class SerieService {
             // Unpublizierte Platz-Serie: 404 statt 403, um Existenz nicht preiszugeben
             throw new SerieNotFoundException(id);
         }
-        return PlayMapper.toSerieResponse(serie);
+        return withResolvedLabels(PlayMapper.toSerieResponse(serie));
     }
 
     /** Aktualisiert Name und optionale Platz-Zuordnung einer Serie. */
@@ -209,5 +217,52 @@ public class SerieService {
     private static String stringOrNull(@Nullable JsonNullable<String> jn) {
         if (jn == null || !jn.isPresent()) return null;
         return jn.get();
+    }
+
+    /** Resolves one serie's step letters/aliases live from current positions. */
+    private SerieResponse withResolvedLabels(SerieResponse response) {
+        return withResolvedLabels(List.of(response)).get(0);
+    }
+
+    /** Batch-resolves step letters/aliases for many serien with a single position lookup. */
+    private List<SerieResponse> withResolvedLabels(List<SerieResponse> responses) {
+        var posIds = responses.stream()
+            .flatMap(r -> r.getSteps().stream())
+            .flatMap(s -> Stream.of(stringOrNull(s.getPosId()),
+                                    stringOrNull(s.getPosId1()),
+                                    stringOrNull(s.getPosId2())))
+            .filter(Objects::nonNull)
+            .toList();
+        var positions = positionLabelResolver.byPosIds(posIds);
+        responses.forEach(r -> r.getSteps().forEach(step -> applyLabels(step, positions)));
+        return responses;
+    }
+
+    private static void applyLabels(Step step, Map<String, RangePosition> positions) {
+        var posId = stringOrNull(step.getPosId());
+        if (posId != null) {
+            var p = positions.get(posId);
+            step.letter(p != null ? p.getLabel() : null);
+            step.alias(p != null ? aliasOf(p) : null);
+        }
+        var posId1 = stringOrNull(step.getPosId1());
+        if (posId1 != null) {
+            var p1 = positions.get(posId1);
+            step.letter1(p1 != null ? p1.getLabel() : null);
+            step.alias1(p1 != null ? aliasOf(p1) : null);
+        }
+        var posId2 = stringOrNull(step.getPosId2());
+        if (posId2 != null) {
+            var p2 = positions.get(posId2);
+            step.letter2(p2 != null ? p2.getLabel() : null);
+            step.alias2(p2 != null ? aliasOf(p2) : null);
+        }
+    }
+
+    private static String aliasOf(RangePosition position) {
+        var device = position.getDevice();
+        return device != null && device.getAlias() != null && !device.getAlias().isBlank()
+            ? device.getAlias()
+            : position.getLabel();
     }
 }

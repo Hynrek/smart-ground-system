@@ -31,6 +31,7 @@ class SerieServiceTest {
     @Mock SerieRepository serieRepository;
     @Mock RangeRepository rangeRepository;
     @Mock SecurityHelper securityHelper;
+    @Mock PositionLabelResolver positionLabelResolver;
 
     @InjectMocks SerieService serieService;
 
@@ -54,6 +55,56 @@ class SerieServiceTest {
         serie.setCreatedAt(Instant.now());
         serie.setOwner(user);
         return serie;
+    }
+
+    private ch.jp.shooting.model.RangePosition pos(UUID id, String label) {
+        var p = new ch.jp.shooting.model.RangePosition();
+        p.setId(id);
+        p.setLabel(label);
+        return p;
+    }
+
+    /** A user-owned serie with one solo step whose posId references the given position id,
+     *  but whose stored letter is intentionally stale. */
+    private Serie soloSerieWithStaleLetter(UUID posId) {
+        var serie = new Serie();
+        serie.setId(UUID.randomUUID());
+        serie.setName("Solo");
+        serie.setOwnership("user");
+        serie.setStepsJson(
+            "[{\"id\":\"1\",\"type\":\"solo\",\"posId\":\"" + posId + "\","
+            + "\"alias\":\"STALE_ALIAS\",\"letter\":\"OLD\"}]");
+        serie.setCreatedAt(Instant.now());
+        serie.setOwner(user);
+        return serie;
+    }
+
+    @Test
+    void listSerien_resolvesStepLetterFromCurrentPosition() {
+        var posId = UUID.randomUUID();
+        var serie = soloSerieWithStaleLetter(posId);
+        when(securityHelper.isAdminOrOwner()).thenReturn(false);
+        when(serieRepository.findByOwnerOrPublishedRange(user)).thenReturn(List.of(serie));
+        when(positionLabelResolver.byPosIds(org.mockito.ArgumentMatchers.anyCollection()))
+            .thenReturn(java.util.Map.of(posId.toString(), pos(posId, "A1")));
+
+        var result = serieService.listSerien(null, null);
+
+        assertThat(result.get(0).getSteps().get(0).getLetter()).isEqualTo("A1");
+    }
+
+    @Test
+    void getSerie_unknownPosition_resolvesLetterToNull() {
+        var posId = UUID.randomUUID();
+        var serie = soloSerieWithStaleLetter(posId);
+        when(serieRepository.findById(serie.getId())).thenReturn(Optional.of(serie));
+        when(securityHelper.isAdminOrOwner()).thenReturn(true);
+        when(positionLabelResolver.byPosIds(org.mockito.ArgumentMatchers.anyCollection()))
+            .thenReturn(java.util.Map.of()); // position was deleted
+
+        var result = serieService.getSerie(serie.getId());
+
+        assertThat(result.getSteps().get(0).getLetter()).isNull();
     }
 
     @Test
