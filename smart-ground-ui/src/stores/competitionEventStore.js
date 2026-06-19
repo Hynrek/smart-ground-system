@@ -479,10 +479,15 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
   }
 
   // Correct a completed Serie's results (admin, PRE_COMPLETE), then refresh the
-  // cached serie-results/standings so the corrected scores + Rangliste update.
+  // cached serie-results/standings AND ties so the corrected scores, Rangliste,
+  // and Gleichstand flags update without a manual reload. Ties refresh is
+  // best-effort: a tie-endpoint failure must not block the standings update.
   const correctSerieResult = async (sessionId, groupId, serieId, passeIndex, playerResults) => {
     await wettkampfApi.correctSerieResult(sessionId, groupId, serieId, passeIndex, playerResults)
-    await loadCompletedResults(sessionId)
+    await Promise.all([
+      loadCompletedResults(sessionId),
+      loadTies(sessionId).catch(e => console.error('[competitionEventStore] tie refresh failed:', e)),
+    ])
   }
 
   // ── Private ───────────────────────────────────────────────────────────────

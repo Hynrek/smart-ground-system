@@ -24,7 +24,15 @@ vi.mock('@/services/wettkampfApi.js', () => ({
   removePasse:   vi.fn(),
 }))
 
+vi.mock('@/services/tiebreakerApi.js', () => ({
+  getTies:                 vi.fn(),
+  listTiebreakers:         vi.fn(),
+  startTiebreaker:         vi.fn(),
+  submitTiebreakerResults: vi.fn(),
+}))
+
 import * as api from '@/services/wettkampfApi.js'
+import * as tb from '@/services/tiebreakerApi.js'
 
 const mkSession = (o = {}) => ({
   id: 's1', name: 'Frühjahrspokal', status: 'SETUP', groups: [], createdAt: '2026-06-05T00:00:00Z', ...o,
@@ -436,15 +444,18 @@ describe('useCompetitionEventStore', () => {
     })
   })
 
-  it('correctSerieResult posts the corrected serie then reloads results', async () => {
+  it('correctSerieResult posts the corrected serie then reloads results AND ties', async () => {
     api.correctSerieResult.mockResolvedValue({})
     api.getLeaderboard.mockResolvedValue({ playerScores: [] })
     api.getSession.mockResolvedValue({ id: 's1', groups: [], passen: [] })
     api.getSerieResults.mockResolvedValue([])
+    tb.getTies.mockResolvedValue({ tiedBlocks: [] })
     const store = useCompetitionEventStore()
     const results = [{ playerId: 'm1', totalPoints: 2, maxPoints: 2, stepStates: [] }]
     await store.correctSerieResult('s1', 'g1', 'se1', 0, results)
     expect(api.correctSerieResult).toHaveBeenCalledWith('s1', 'g1', 'se1', 0, results)
     expect(api.getSerieResults).toHaveBeenCalledWith('s1')
+    // Ties must be re-fetched so Stechen/Gleichstand flags update without a reload (#5).
+    expect(tb.getTies).toHaveBeenCalledWith('s1')
   })
 })
