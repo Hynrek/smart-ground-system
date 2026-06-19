@@ -5,6 +5,7 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import { usePasseStore } from '@/stores/passeStore.js'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
 import ActiveCompetitionPanel from '../competition/ActiveCompetitionPanel.vue'
+import CompletedResultsPanel from '../competition/CompletedResultsPanel.vue'
 
 vi.mock('@/components/Icons.vue', () => ({ default: { template: '<span />' } }))
 
@@ -36,7 +37,7 @@ const mountPanel = async (event, query = {}) => {
     props: { event },
     global: {
       plugins: [router],
-      stubs: { Icons: true, CompetitionCorrectionPanel: { template: '<div class="correction-stub" />' } },
+      stubs: { Icons: true, CompletedResultsPanel: true },
     },
   })
   return { wrapper, router }
@@ -230,14 +231,36 @@ describe('ActiveCompetitionPanel', () => {
     expect(wrapper.find('.release-passe-btn').exists()).toBe(false)
   })
 
-  it('shows the correction panel in the Fortschritt tab only for PRE_COMPLETE', async () => {
-    const active = await mountPanel(makeEvent())
+  it('keeps the Fortschritt tab showing serie progress for PRE_COMPLETE (no correction panel)', async () => {
+    const { wrapper } = await mountPanel({ ...makeEvent(), status: 'PRE_COMPLETE' })
     await flushPromises()
-    expect(active.wrapper.find('.correction-stub').exists()).toBe(false)
-    expect(active.wrapper.find('.serie-card, .empty-state').exists()).toBe(true)
+    // The Fortschritt tab renders the normal serie progress (cards or empty state),
+    // never the editable results panel.
+    expect(wrapper.find('.serie-card, .empty-state').exists()).toBe(true)
+    expect(wrapper.findComponent(CompletedResultsPanel).exists()).toBe(false)
+  })
 
-    const pre = await mountPanel({ ...makeEvent(), status: 'PRE_COMPLETE' })
+  it('renders the editable CompletedResultsPanel on the Rangliste tab for PRE_COMPLETE', async () => {
+    const { wrapper } = await mountPanel({ ...makeEvent(), status: 'PRE_COMPLETE' })
+    const ranglisteTab = wrapper.findAll('.tab-btn').find(t => t.text() === 'Rangliste')
+    await ranglisteTab.trigger('click')
     await flushPromises()
-    expect(pre.wrapper.find('.correction-stub').exists()).toBe(true)
+    const panel = wrapper.findComponent(CompletedResultsPanel)
+    expect(panel.exists()).toBe(true)
+    expect(panel.props('editable')).toBe(true)
+    expect(panel.props('event')).toMatchObject({ id: 'ev-1' })
+  })
+
+  it('keeps the live leaderboard rows on the Rangliste tab for ACTIVE (no CompletedResultsPanel)', async () => {
+    wettkampfApi.getLeaderboard.mockResolvedValueOnce({
+      playerScores: [{ playerId: 'p1', displayName: 'Alice', totalScore: 8, maxScore: 10, rank: 1 }],
+    })
+    const { wrapper } = await mountPanel(makeEvent())
+    await flushPromises()
+    const ranglisteTab = wrapper.findAll('.tab-btn').find(t => t.text() === 'Rangliste')
+    await ranglisteTab.trigger('click')
+    await flushPromises()
+    expect(wrapper.findComponent(CompletedResultsPanel).exists()).toBe(false)
+    expect(wrapper.find('.rangliste-row').exists()).toBe(true)
   })
 })

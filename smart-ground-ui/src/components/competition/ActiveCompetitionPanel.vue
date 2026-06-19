@@ -96,47 +96,43 @@
 
     <!-- Serien tab -->
     <div v-if="activeTab === 'fortschritt'" class="serien-view">
-      <!-- PRE_COMPLETE: per-shooter score correction (Passe switcher + editable chips) -->
-      <CompetitionCorrectionPanel
-        v-if="isPreComplete"
-        :session-id="event.id"
-        :passen="event.passen ?? []"
-      />
-      <template v-else>
+      <div
+        v-for="card in serieCards"
+        :key="card.serieAlias"
+        class="serie-card"
+      >
+        <div class="serie-card-header">{{ card.headerLabel }}</div>
         <div
-          v-for="card in serieCards"
-          :key="card.serieAlias"
-          class="serie-card"
+          v-for="row in card.rotteRows"
+          :key="row.rotteId"
+          class="rotte-row"
         >
-          <div class="serie-card-header">{{ card.headerLabel }}</div>
-          <div
-            v-for="row in card.rotteRows"
-            :key="row.rotteId"
-            class="rotte-row"
-          >
-            <span class="rotte-name">{{ row.rotteName }}</span>
-            <span class="rotte-chip" :class="`chip-${row.status}`">
-              {{ rowStatusLabel(row.status) }}
-            </span>
-          </div>
+          <span class="rotte-name">{{ row.rotteName }}</span>
+          <span class="rotte-chip" :class="`chip-${row.status}`">
+            {{ rowStatusLabel(row.status) }}
+          </span>
         </div>
-        <div v-if="serieCards.length === 0" class="empty-state">Keine Serien in dieser Passe</div>
-      </template>
+      </div>
+      <div v-if="serieCards.length === 0" class="empty-state">Keine Serien in dieser Passe</div>
     </div>
 
     <!-- Rangliste tab -->
     <div v-if="activeTab === 'rangliste'" class="rangliste-view">
-      <div
-        v-for="(entry, i) in leaderboard"
-        :key="entry.playerId"
-        class="rangliste-row"
-      >
-        <span class="rank">{{ i + 1 }}</span>
-        <span class="player-name">{{ entry.displayName }}</span>
-        <span v-if="tiedPlayerIds.has(entry.playerId)" class="tie-flag">Gleichstand</span>
-        <span class="score">{{ entry.totalPoints }} / {{ entry.maxPoints }}</span>
-      </div>
-      <div v-if="leaderboard.length === 0" class="empty-state">Noch keine Ergebnisse</div>
+      <!-- PRE_COMPLETE: editable completed-results view (expandable detail + correction chips) -->
+      <CompletedResultsPanel v-if="isPreComplete" :event="event" editable />
+      <template v-else>
+        <div
+          v-for="(entry, i) in leaderboard"
+          :key="entry.playerId"
+          class="rangliste-row"
+        >
+          <span class="rank">{{ i + 1 }}</span>
+          <span class="player-name">{{ entry.displayName }}</span>
+          <span v-if="tiedPlayerIds.has(entry.playerId)" class="tie-flag">Gleichstand</span>
+          <span class="score">{{ entry.totalPoints }} / {{ entry.maxPoints }}</span>
+        </div>
+        <div v-if="leaderboard.length === 0" class="empty-state">Noch keine Ergebnisse</div>
+      </template>
     </div>
 
   </div>
@@ -147,7 +143,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Icons from '@/components/Icons.vue'
 import { usePasseStore } from '@/stores/passeStore.js'
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js'
-import CompetitionCorrectionPanel from '@/components/competition/CompetitionCorrectionPanel.vue'
+import CompletedResultsPanel from '@/components/competition/CompletedResultsPanel.vue'
 import { getProgress, getLeaderboard } from '@/services/wettkampfApi.js'
 import { useUrlTab } from '@/composables/useUrlTab.js'
 
