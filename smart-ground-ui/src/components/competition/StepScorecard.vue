@@ -37,7 +37,7 @@
             :aria-label="ariaLabel(step)"
             :title="ariaLabel(step)"
             @click="onChipClick(serie, step)"
-          >{{ step.letter ?? '' }}</span>
+          >{{ leftLabel(step) }}</span>
         </template>
       </div>
     </div>
@@ -45,7 +45,8 @@
 </template>
 
 <script setup>
-import { StepState, StepType } from '@/constants/playEnums.js'
+import { StepState } from '@/constants/playEnums.js'
+import { isMultiResultStep, stepLetters } from '@/constants/stepModes.js'
 
 const props = defineProps({
   serien: { type: Array, required: true },
@@ -69,8 +70,8 @@ const onChipClick = (serie, step) => {
   })
 }
 
-const isSplit = (type) =>
-  type === StepType.PAIR || type === StepType.A_SCHUSS || type === StepType.RAFFALE
+// Split chips render for multi-result steps — see constants/stepModes.js.
+const isSplit = (type) => isMultiResultStep(type)
 
 const headerLabel = (serie) =>
   serie.rangeName ? `${serie.rangeName} – ${serie.serieName}` : serie.serieName
@@ -82,8 +83,8 @@ const solidClass = (state) => {
 }
 
 // left half = first clay (letter1 / raffale shot 1); right half = second.
-const leftLabel = (step) => step.letter1 ?? step.letter ?? ''
-const rightLabel = (step) => step.letter2 ?? step.letter ?? ''
+const leftLabel = (step) => stepLetters(step).first
+const rightLabel = (step) => stepLetters(step).second
 
 const halfClass = (state, side) => {
   if (state === StepState.PENDING) return 'half--pending'

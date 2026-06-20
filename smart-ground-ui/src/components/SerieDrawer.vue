@@ -65,10 +65,10 @@
             <div class="type-toggle">
               <button
                 v-for="t in STEP_TYPES"
-                :key="t.value"
+                :key="t.type"
                 class="type-btn"
-                :class="{ active: stepMode === t.value }"
-                @click="stepMode = t.value; pairPending = null"
+                :class="{ active: stepMode === t.type }"
+                @click="stepMode = t.type; pairPending = null"
               >
                 {{ t.label }}
               </button>
@@ -105,7 +105,7 @@
             </label>
             <div class="step-list">
               <div v-for="(step, i) in steps" :key="step.id" class="step-row">
-                <span class="step-dot" :class="`dot-${step.type}`" />
+                <span class="step-dot" :style="modeDotStyle(step.type)" />
                 <span class="step-label">{{ stepLabel(step) }}</span>
                 <button class="step-remove" @click="removeStep(i)">
                   <Icons icon="x" :size="11" color="#a0aec0" />
@@ -162,6 +162,7 @@ import { ref, computed, watch } from 'vue';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { usePasseStore } from '@/stores/passeStore.js';
 import Icons from '@/components/Icons.vue';
+import { STEP_MODE_LIST, stepNotation, modeDotStyle } from '@/constants/stepModes.js';
 
 const props = defineProps({
   open: { type: Boolean, required: true },
@@ -174,12 +175,9 @@ const emit = defineEmits(['saved', 'deleted', 'close']);
 const rangeStore = useRangeStore();
 const passeStore = usePasseStore();
 
-const STEP_TYPES = [
-  { value: 'solo', label: 'Solo' },
-  { value: 'pair', label: 'Pair' },
-  { value: 'a_schuss', label: 'a.Schuss' },
-  { value: 'raffale', label: 'Raffale' },
-];
+// Mode list, labels, notation, and dot colors come from the shared stepModes
+// constant so the Serien editor matches the Shooter views. See constants/stepModes.js.
+const STEP_TYPES = STEP_MODE_LIST;
 
 const isCreate = computed(() => props.mode === 'create');
 
@@ -287,13 +285,7 @@ const totalThrows = computed(() => {
   return count;
 });
 
-const stepLabel = (step) => {
-  const dash = (v) => v ?? '—';
-  if (step.type === 'solo' || step.type === 'raffale') {
-    return `${dash(step.letter)} — ${dash(step.alias)}`;
-  }
-  return `${dash(step.letter1)}+${dash(step.letter2)} — ${dash(step.alias1)} & ${dash(step.alias2)}`;
-};
+const stepLabel = (step) => `${stepNotation(step)} — ${stepNotation(step, { useAlias: true })}`;
 
 const canSave = computed(() => {
   if (!editingName.value.trim()) return false;
@@ -551,11 +543,6 @@ defineExpose({ stepMode, pairPending, published });
   border-radius: 50%;
   flex-shrink: 0;
 }
-
-.dot-solo     { background: #4fc3f7; }
-.dot-pair     { background: #48bb78; }
-.dot-a_schuss { background: #f6ad55; }
-.dot-raffale  { background: #a855f7; }
 
 .step-label {
   flex: 1;

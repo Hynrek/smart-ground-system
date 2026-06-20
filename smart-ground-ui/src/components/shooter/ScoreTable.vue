@@ -30,6 +30,7 @@
 <script setup>
 import { computed } from 'vue';
 import { StepState, StepType } from '@/constants/playEnums.js';
+import { stepModeLabel, stepNotation } from '@/constants/stepModes.js';
 
 const props = defineProps({
   stepStates: {
@@ -93,16 +94,10 @@ const getPointDeduction = (state) => {
   return 0;
 };
 
-// Get display label for step type
+// Get display label for step type (shared with all step views — see constants/stepModes.js)
 const getTypeLabel = (step) => {
   if (!step) return '?';
-  const map = {
-    [StepType.SOLO]: 'Solo',
-    [StepType.PAIR]: 'Pair',
-    [StepType.A_SCHUSS]: 'a. Schuss',
-    [StepType.RAFFALE]: 'Raffale',
-  };
-  return map[step.type] ?? step.type;
+  return stepModeLabel(step.type);
 };
 
 // Get display label for step state — uses the actual step to resolve position letters
@@ -125,10 +120,7 @@ const getStateLabel = (state, step = null) => {
 const getLetters = (stepState) => {
   const step = getActualStep(stepState);
   if (!step) return '?';
-  if (step.type === StepType.SOLO || step.type === StepType.RAFFALE) {
-    return step.letter ?? '?';
-  }
-  return `${step.letter1 ?? '?'} + ${step.letter2 ?? '?'}`;
+  return stepNotation(step);
 };
 
 // Get points display (earned/max)

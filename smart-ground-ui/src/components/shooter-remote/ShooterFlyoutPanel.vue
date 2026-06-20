@@ -46,7 +46,7 @@
               v-for="step in currentSteps"
               :key="step.id"
               class="captured-item"
-              :class="`type-${step.type}`"
+              :style="modeBadgeStyle(step.type)"
               :title="getStepTooltip(step)"
               @click="passeStore.removeStep(0, step.id)"
             >
@@ -66,7 +66,7 @@
                   <span class="step-label">
                     {{ stepDisplayLabel(step) }}
                   </span>
-                  <span class="step-type-chip" :class="`type-${step.type}`">
+                  <span class="step-type-chip" :style="modeBadgeStyle(step.type)">
                     {{ stepTypeLabel(step.type) }}
                   </span>
                 </div>
@@ -320,6 +320,7 @@ import { useActivePasseStore } from '@/stores/activePasseStore.js';
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js';
 import Icons from '@/components/Icons.vue';
 import CompetitionFlyoutContent from '@/components/shooter-remote/CompetitionFlyoutContent.vue';
+import { stepModeLabel, stepNotation, modeBadgeStyle } from '@/constants/stepModes.js';
 
 const router = useRouter();
 const store = useShooterRemoteStore();
@@ -515,29 +516,16 @@ const confirmSaveSerie = () => {
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-const stepDisplayLabel = (step) => {
-  if (step.type === 'solo') return step.alias;
-  if (step.type === 'raffale') return `${step.alias} (2×)`;
-  return `${step.alias1} + ${step.alias2}`;
-};
+// Step labels, notation, and colors come from the shared stepModes constant so
+// Shooter and Admin views stay identical. See constants/stepModes.js.
+const stepDisplayLabel = (step) => stepNotation(step, { useAlias: true });
 
-const stepTypeLabel = (type) => {
-  const map = { solo: 'Solo', pair: 'Pair', 'a_schuss': 'a.Schuss', raffale: 'Raffale' };
-  return map[type] ?? type;
-};
+const stepTypeLabel = (type) => stepModeLabel(type);
 
-const getStepLabel = (step) => {
-  if (step.type === 'solo') return step.letter ?? '?';
-  if (step.type === 'pair') return `${step.letter1 ?? '?'}+${step.letter2 ?? '?'}`;
-  if (step.type === 'a_schuss') return `${step.letter1 ?? '?'}+${step.letter2 ?? '?'}`;
-  if (step.type === 'raffale') return `${step.letter ?? '?'}×2`;
-  return '?';
-};
+const getStepLabel = (step) => stepNotation(step);
 
-const getStepTooltip = (step) => {
-  const labels = { solo: 'Solo', pair: 'Pair', 'a_schuss': 'a. Schuss', raffale: 'Raffale (2×)' };
-  return `Klick zum Löschen: ${getStepLabel(step)} (${labels[step.type]})`;
-};
+const getStepTooltip = (step) =>
+  `Klick zum Löschen: ${getStepLabel(step)} (${stepModeLabel(step.type)})`;
 </script>
 
 <style scoped>
@@ -725,46 +713,10 @@ const getStepTooltip = (step) => {
   transform: scale(1.05);
 }
 
-.captured-item.type-solo {
-  border-color: rgba(79, 195, 247, 0.25);
-  background: rgba(79, 195, 247, 0.12);
-}
-
-.captured-item.type-solo .item-code {
-  color: rgba(79, 195, 247, 0.7);
-}
-
-.captured-item.type-pair {
-  border-color: rgba(72, 187, 120, 0.25);
-  background: rgba(72, 187, 120, 0.12);
-}
-
-.captured-item.type-pair .item-code {
-  color: rgba(72, 187, 120, 0.7);
-}
-
-.captured-item.type-a_schuss {
-  border-color: rgba(246, 173, 85, 0.25);
-  background: rgba(246, 173, 85, 0.12);
-}
-
-.captured-item.type-a_schuss .item-code {
-  color: rgba(246, 173, 85, 0.7);
-}
-
-.captured-item.type-raffale {
-  border-color: rgba(168, 85, 247, 0.25);
-  background: rgba(168, 85, 247, 0.12);
-}
-
-.captured-item.type-raffale .item-code {
-  color: rgba(168, 85, 247, 0.7);
-}
-
 .item-code {
   font-size: 12px;
   font-weight: 700;
-  color: #fc8181;
+  color: inherit;
   letter-spacing: -0.5px;
   text-align: center;
 }
@@ -960,16 +912,10 @@ const getStepTooltip = (step) => {
 .step-type-chip {
   font-size: 9px;
   font-weight: 600;
-  color: rgba(79, 195, 247, 0.7);
-  background: rgba(79, 195, 247, 0.1);
   padding: 2px 6px;
   border-radius: 10px;
   flex-shrink: 0;
 }
-
-.step-type-chip.type-pair { color: rgba(72,187,120,0.7); background: rgba(72,187,120,0.1); }
-.step-type-chip.type-a\.schuss { color: rgba(246,173,85,0.7); background: rgba(246,173,85,0.1); }
-.step-type-chip.type-raffale { color: rgba(168,85,247,0.7); background: rgba(168,85,247,0.1); }
 
 .delete-btn {
   background: none;

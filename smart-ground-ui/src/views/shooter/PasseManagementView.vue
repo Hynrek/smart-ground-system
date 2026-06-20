@@ -348,7 +348,7 @@
                     v-for="step in seg.steps.slice(0, 8)"
                     :key="step.id"
                     class="step-dot"
-                    :class="`dot-${step.type}`"
+                    :style="modeDotStyle(step.type)"
                     :title="stepTypeLabel(step.type)"
                   />
                   <span v-if="seg.steps.length > 8" class="step-dot-more">
@@ -570,6 +570,7 @@ import { useAuthStore } from '@/stores/authStore.js';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import { useActivePasseStore } from '@/stores/activePasseStore.js';
 import Icons from '@/components/Icons.vue';
+import { stepModeLabel, modeDotStyle } from '@/constants/stepModes.js';
 import { useUrlTab } from '@/composables/useUrlTab.js';
 
 const router = useRouter();
@@ -764,10 +765,7 @@ const stepCount = (steps) => {
 
 const totalThrows = (serien) => serien.reduce((sum, s) => sum + stepCount(s.steps), 0);
 
-const stepTypeLabel = (type) => {
-  const map = { solo: 'Solo', pair: 'Pair', 'a_schuss': 'a.Schuss', raffale: 'Raffale' };
-  return map[type] ?? type;
-};
+const stepTypeLabel = (type) => stepModeLabel(type);
 
 // ── Active programs actions ───────────────────────────────────────
 const resumeSession = (session) => {
@@ -1091,10 +1089,6 @@ const confirmRenameSession = (sessionId) => {
   background: rgba(255, 255, 255, 0.15);
 }
 
-.step-dot.dot-solo { background: color-mix(in srgb, var(--sg-accent) 50%, transparent); }
-.step-dot.dot-pair { background: rgba(72, 187, 120, 0.5); }
-.step-dot.dot-a_schuss { background: rgba(246, 173, 85, 0.5); }
-.step-dot.dot-raffale { background: rgba(168, 85, 247, 0.5); }
 
 .step-dot-more {
   font-size: 10px;

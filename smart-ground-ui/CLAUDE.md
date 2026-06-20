@@ -1431,6 +1431,64 @@ Token definitions for the Werfer (clay pigeon thrower) devices.
 
 ---
 
+## Step Iconography & Color Code
+
+Step cards represent the shot modes of a Serie (sequence of steps). The notation and color
+code below are a **shared visual language**: the Shooter views (Werfer Remote flyout, Play)
+and the Admin views (Competition Scores, Serien) MUST render steps identically. A step shown
+one way in the shooter flyout must look the same in the admin Serien panel.
+
+### Rules
+
+1. **Always show the position name(s) as the step label.** The trap/position is the anchor;
+   the mode badge qualifies it. Never show a mode without its position(s).
+2. **Notation encodes two things at once** — trap count (one vs two positions) and the
+   timing/trigger that releases the next target.
+3. **One shared source of truth.** Mode labels, notation, colors, and the multi-result
+   predicate live in `constants/stepModes.js`. Import `stepModeLabel`, `stepNotation`,
+   `stepLetters`, `isMultiResultStep`, `modeBadgeStyle`, `modeDotStyle`, and `STEP_MODE_LIST`
+   from there — never hard-code mode labels, notation, colors, or the
+   `[PAIR, A_SCHUSS, RAFFALE]` "double" check in a component. Both the Shooter views
+   (`ShooterFlyoutPanel`, `ShooterPlayPage`, `ScoreTable`) and the Admin/management views
+   (`SerieDrawer`, `PassenAdminView`, `PasseManagementView`, `StepScorecard`) consume it.
+
+   `isMultiResultStep(type)` replaces the duplicated "is this a two-clay step" check (Pair,
+   a.Schuss, Raffale) that drives split-vs-solid scorecard chips and per-clay fail correction.
+   `stepLetters(step)` resolves a step's position letters into `{ first, second }`.
+
+### Modes & notation
+
+| Mode | Notation | Meaning |
+|---|---|---|
+| **Solo** | `A` | One trap, one target. |
+| **Pair** | `A + B` | Two traps, released **simultaneously**. |
+| **a.Schuss** (auf Schuss / on report) | `A → B` | Two traps; the second target is released **because the shooter fired the first shot** (event-triggered). |
+| **Raffale** | `A ×2` | **One** trap, fires **twice** after a fixed timeout (time-triggered repeat). |
+
+Notation grammar: single letter = one trap, two letters = two traps; `+` = simultaneous,
+`→` = on report, `×2` = timed repeat. `→` is reserved for the on-report (a.Schuss) mechanic —
+if a timed two-trap double is ever added, give it its own mark rather than reusing `→`.
+
+### Color code
+
+Colors encode **escalating complexity**. Red is reserved exclusively for Notfall/Stop and the
+× delete affordance — no mode may use red (or green, to avoid the Solo/Pair clash that existed
+when both were green). Each badge carries both color **and** the text label, so meaning never
+depends on color alone (WCAG).
+
+| Mode | Hue | Base | Badge text (on dark) |
+|---|---|---|---|
+| **Solo** | Teal | `#1D9E75` | `#5DCAA5` |
+| **Pair** | Blue | `#378ADD` | `#85B7EB` |
+| **a.Schuss** | Amber | `#EF9F27` | `#FAC775` |
+| **Raffale** | Purple | `#7F77DD` | `#AFA9EC` |
+| _Notfall/Stop, × delete_ | Red | `#E24B4A` | _reserved — never a mode_ |
+
+Badge fill on dark surfaces uses the base hue at ~20% alpha with the badge-text color for the
+label (e.g. Solo: `background: rgba(29,158,117,.20); color: #5DCAA5`).
+
+---
+
 ## Troubleshooting
 
 ### Port 5173 Already in Use

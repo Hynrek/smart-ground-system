@@ -338,6 +338,7 @@ import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import { StepState, StepType } from '@/constants/playEnums.js';
+import { stepModeLabel, stepNotation, isMultiResultStep } from '@/constants/stepModes.js';
 import Icons from '@/components/Icons.vue';
 import ScoreTable from '@/components/shooter/ScoreTable.vue';
 
@@ -380,7 +381,7 @@ const correctionTargetStep = computed(() => {
 
 const correctionTargetIsDouble = computed(() => {
   const step = correctionTargetStep.value;
-  return step ? [StepType.PAIR, StepType.A_SCHUSS, StepType.RAFFALE].includes(step.type) : false;
+  return step ? isMultiResultStep(step.type) : false;
 });
 
 const handleCorrectStep = (payload) => {
@@ -556,12 +557,11 @@ const canFail = computed(() =>
 );
 
 // Fail B / Fail A+B only make sense when the last fired step was a multi-target type.
-const doubleTypes = [StepType.PAIR, StepType.A_SCHUSS, StepType.RAFFALE];
 const lastStepWasADouble = computed(() => {
   if (!store.playLastDeviceStep) return false;
   const { serieIdx, stepIdx } = store.playLastDeviceStep;
   const step = store.playProg?.[serieIdx]?.steps[stepIdx];
-  return step ? doubleTypes.includes(step.type) : false;
+  return step ? isMultiResultStep(step.type) : false;
 });
 
 // The actual step object that was last fired (for dynamic fail button labels)
@@ -602,46 +602,34 @@ const correctionFailLabelB = computed(() => failLabelBFor(correctionTargetStep.v
 const correctionFailLabelBoth = computed(() => failLabelBothFor(correctionTargetStep.value));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const getTypeLabel = (type) => ({
-  [StepType.SOLO]: 'Solo',
-  [StepType.PAIR]: 'Pair',
-  [StepType.A_SCHUSS]: 'a. Schuss',
-  [StepType.RAFFALE]: 'Raffale',
-  fertig: 'Fertig',
-})[type] ?? type;
+// Mode labels and notation come from the shared stepModes constant so Shooter
+// and Admin views stay identical. See constants/stepModes.js.
+const getTypeLabel = (type) => (type === 'fertig' ? 'Fertig' : stepModeLabel(type));
 
 // Letter-based display (main large label on the step card)
 const getStepLetter = (step) => {
   if (!step || step.type === 'fertig') return '';
-  if (step.type === StepType.SOLO || step.type === StepType.RAFFALE) return step.letter ?? '?';
-  return `${step.letter1 ?? '?'} + ${step.letter2 ?? '?'}`;
+  return stepNotation(step);
 };
 
 // Alias-based display (secondary, smaller text under the letter)
 const getStepAliasDisplay = (step) => {
   if (!step || step.type === 'fertig') return '';
-  if (step.type === StepType.SOLO) return step.alias;
-  if (step.type === StepType.RAFFALE) return `${step.alias} (2×)`;
-  return `${step.alias1} + ${step.alias2}`;
+  return stepNotation(step, { useAlias: true });
 };
 
 // Letter-based display for the next-step preview card
 const getStepDisplay = (step) => {
   if (step.type === 'fertig') return 'Passe abgeschlossen';
-  if (step.type === StepType.SOLO) return step.letter ?? step.alias;
-  if (step.type === StepType.RAFFALE) return `${step.letter ?? step.alias} (2×)`;
-  const l1 = step.letter1 ?? step.alias1;
-  const l2 = step.letter2 ?? step.alias2;
-  return `${l1} + ${l2}`;
+  const hasLetters = step.letter ?? step.letter1;
+  return stepNotation(step, { useAlias: !hasLetters });
 };
 
-// Short label for completed cards: "Solo – A", "Pair – A+B" etc.
+// Short label for completed cards: "Solo – A", "a.Schuss – A → B" etc.
 const getCompletedStepShortLabel = (segIdx, stepIdx) => {
   const s = store.playProg?.[segIdx]?.steps[stepIdx];
   if (!s) return '';
-  const t = getTypeLabel(s.type);
-  if (s.type === StepType.SOLO || s.type === StepType.RAFFALE) return `${t} – ${s.letter ?? '?'}`;
-  return `${t} – ${s.letter1 ?? '?'}+${s.letter2 ?? '?'}`;
+  return `${getTypeLabel(s.type)} – ${stepNotation(s)}`;
 };
 
 const getHint = (step) => {

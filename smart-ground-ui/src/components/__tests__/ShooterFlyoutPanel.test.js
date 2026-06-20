@@ -83,7 +83,7 @@ describe('ShooterFlyoutPanel', () => {
     await wrapper.vm.$nextTick();
 
     const chip = wrapper.find('.item-code');
-    expect(chip.text()).toBe('A+C');
+    expect(chip.text()).toBe('A + C');
   });
 
   it('does not import or use deviceStore', () => {

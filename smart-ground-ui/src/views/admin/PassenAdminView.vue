@@ -91,7 +91,7 @@
                   v-for="(step, i) in s.steps.slice(0, 10)"
                   :key="step.id ?? i"
                   class="step-dot"
-                  :class="`dot-${step.type}`"
+                  :style="modeDotStyle(step.type)"
                 />
                 <span v-if="s.steps.length > 10" class="step-dot-more">
                   +{{ s.steps.length - 10 }}
@@ -212,6 +212,7 @@ import { useRangeStore } from '@/stores/rangeStore.js';
 import Icons from '@/components/Icons.vue';
 import SerieDrawer from '@/components/SerieDrawer.vue';
 import GlobalPasseDrawer from '@/components/GlobalPasseDrawer.vue';
+import { modeDotStyle } from '@/constants/stepModes.js';
 
 const passeStore = usePasseStore();
 const rangeStore = useRangeStore();
@@ -516,10 +517,6 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
   flex-shrink: 0;
 }
 
-.dot-solo     { background: var(--sg-accent); }
-.dot-pair     { background: #48bb78; }
-.dot-a_schuss { background: #f6ad55; }
-.dot-raffale  { background: #a855f7; }
 
 .step-dot-more {
   font-size: 10px;
