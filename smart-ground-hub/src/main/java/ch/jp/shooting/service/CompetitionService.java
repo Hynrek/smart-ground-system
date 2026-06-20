@@ -75,6 +75,10 @@ public class CompetitionService {
             if (raw != null && !raw.isBlank()) {
                 dto.results = objectMapper.readTree(raw);
             }
+            String snapshotRaw = csr.getSerieSnapshotJson();
+            if (snapshotRaw != null && !snapshotRaw.isBlank()) {
+                dto.serieSnapshot = objectMapper.readTree(snapshotRaw);
+            }
             out.add(dto);
         }
         return out;
