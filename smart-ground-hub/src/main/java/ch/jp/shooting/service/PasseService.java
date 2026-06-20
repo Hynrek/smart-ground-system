@@ -7,7 +7,6 @@ import ch.jp.shooting.exception.PasseNotFoundException;
 import ch.jp.shooting.exception.SerieNotFoundException;
 import ch.jp.shooting.mapper.PlayMapper;
 import ch.jp.shooting.model.Passe;
-import ch.jp.shooting.model.RangePosition;
 import ch.jp.shooting.model.Serie;
 import ch.jp.shooting.repository.PasseRepository;
 import ch.jp.shooting.repository.SerieRepository;
@@ -142,7 +141,7 @@ public class PasseService {
                 return new EmbeddedSerieRecord(id, MISSING_SERIE_ALIAS, null, null, List.of(), true);
             }
             var resolved = stepsBySerie.get(id).stream()
-                .map(step -> applyLabels(step, positions))
+                .map(step -> PositionLabelResolver.resolveStep(step, positions))
                 .toList();
             var range = serie.getRange();
             return new EmbeddedSerieRecord(
@@ -160,25 +159,5 @@ public class PasseService {
             .map(PlayMapper::toEmbeddedSerie)
             .toList();
         return PlayMapper.toPasseResponse(passe, serien);
-    }
-
-    /** Erzeugt einen Step mit live aufgelösten letter/alias-Werten. */
-    private static StepRecord applyLabels(StepRecord s, Map<String, RangePosition> positions) {
-        var p  = s.posId()  != null ? positions.get(s.posId())  : null;
-        var p1 = s.posId1() != null ? positions.get(s.posId1()) : null;
-        var p2 = s.posId2() != null ? positions.get(s.posId2()) : null;
-        return new StepRecord(
-            s.id(),
-            s.type(),
-            s.posId(),
-            p  != null ? PositionLabelResolver.aliasOf(p)  : null,
-            s.posId1(),
-            s.posId2(),
-            p1 != null ? PositionLabelResolver.aliasOf(p1) : null,
-            p2 != null ? PositionLabelResolver.aliasOf(p2) : null,
-            p  != null ? p.getLabel()  : null,
-            p1 != null ? p1.getLabel() : null,
-            p2 != null ? p2.getLabel() : null
-        );
     }
 }
