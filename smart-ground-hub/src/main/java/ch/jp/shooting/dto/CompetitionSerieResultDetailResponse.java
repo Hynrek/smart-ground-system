@@ -24,5 +24,8 @@ public class CompetitionSerieResultDetailResponse {
     /** Rohe Play-Ergebnisse als geparstes JSON (Array von Spielern mit stepStates). */
     @JsonProperty("results")        @Nullable public JsonNode results;
 
+    /** Eingefrorene, aufgelöste Serie-Definition zum Abschlusszeitpunkt (Name, Platz, Step-Buchstaben). */
+    @JsonProperty("serieSnapshot")  @Nullable public JsonNode serieSnapshot;
+
     public CompetitionSerieResultDetailResponse() {}
 }

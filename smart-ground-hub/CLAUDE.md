@@ -283,6 +283,20 @@ play_instances    instanceId, type(passe|training), template_id UUID, template_n
 ### Competition / Session tables
 `session_templates`, `live_sessions`, `session_players` (type USER|GUEST), `shooter_groups`, `player_results`, `bracket_matches`, `career_stats`
 
+```
+competition_serie_results  id, session_id→live_sessions, group_id→shooter_groups, passe_index,
+                           serie_id, play_instance_id?, results TEXT?, serie_snapshot_json TEXT?,
+                           completed_at   UNIQUE(session_id, group_id, passe_index, serie_id)
+```
+
+> **Completed-result label snapshot (Group 3):** When a competition Serie is completed
+> (`CompetitionProgressService.completeSerie`, re-done on `correctSerieResult` in PRE_COMPLETE),
+> its resolved definition — serie name, range name, per-step letters resolved via
+> `PositionLabelResolver` — is frozen into `CompetitionSerieResult.serie_snapshot_json`
+> (`SerieSnapshotRecord`). The completed-results read path (`getSerieResults`) returns this
+> snapshot and never joins the live Serie, so renaming a position after a competition finishes
+> does not rewrite a finished scorecard.
+
 ### JSON column rule
 All JSON columns use `TEXT` (never `JSONB`) for H2 test compatibility.
 

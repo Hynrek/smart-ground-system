@@ -80,4 +80,36 @@ class PositionLabelResolverTest {
 
         assertThat(PositionLabelResolver.aliasOf(p)).isEqualTo("A1");
     }
+
+    @Test
+    void resolveSteps_overridesLetterAndAliasFromCurrentPositions() {
+        var posId = UUID.randomUUID();
+        when(positionRepository.findAllById(anyIterable()))
+            .thenReturn(List.of(position(posId, "C3")));
+
+        var stale = new ch.jp.shooting.dto.play.StepRecord(
+            "1", "solo", posId.toString(), "STALE_ALIAS",
+            null, null, null, null, "OLD", null, null);
+
+        var resolved = resolver.resolveSteps(List.of(stale));
+
+        assertThat(resolved).hasSize(1);
+        assertThat(resolved.get(0).letter()).isEqualTo("C3");
+        assertThat(resolved.get(0).alias()).isEqualTo("C3"); // no device -> alias falls back to label
+        assertThat(resolved.get(0).posId()).isEqualTo(posId.toString()); // posId preserved
+    }
+
+    @Test
+    void resolveSteps_deletedPosition_yieldsNullLetterAndAlias() {
+        var posId = UUID.randomUUID();
+        // repository returns nothing -> position deleted
+        var stale = new ch.jp.shooting.dto.play.StepRecord(
+            "1", "solo", posId.toString(), "STALE",
+            null, null, null, null, "OLD", null, null);
+
+        var resolved = resolver.resolveSteps(List.of(stale));
+
+        assertThat(resolved.get(0).letter()).isNull();
+        assertThat(resolved.get(0).alias()).isNull();
+    }
 }

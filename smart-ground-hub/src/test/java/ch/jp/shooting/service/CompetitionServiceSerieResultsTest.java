@@ -78,6 +78,30 @@ class CompetitionServiceSerieResultsTest {
     }
 
     @Test
+    void getSerieResults_returnsFrozenSerieSnapshot() throws Exception {
+        when(sessionRepository.existsById(sessionId)).thenReturn(true);
+
+        LiveSession session = new LiveSession(SessionType.COMPETITION, SessionStatus.COMPLETED);
+        ShooterGroup group = new ShooterGroup();
+        group.setId(UUID.randomUUID());
+        UUID serieId = UUID.randomUUID();
+
+        CompetitionSerieResult csr = new CompetitionSerieResult(session, group, 0, serieId);
+        csr.setSerieSnapshotJson(
+            "{\"serieName\":\"Serie 1\",\"rangeName\":\"Stand 1\","
+            + "\"steps\":[{\"id\":\"1\",\"type\":\"solo\",\"letter\":\"A1\"}]}");
+        when(serieResultRepository.findBySessionId(sessionId)).thenReturn(List.of(csr));
+
+        List<CompetitionSerieResultDetailResponse> out = service.getSerieResults(sessionId);
+
+        assertEquals(1, out.size());
+        CompetitionSerieResultDetailResponse dto = out.get(0);
+        assertNotNull(dto.serieSnapshot);
+        assertEquals("Serie 1", dto.serieSnapshot.get("serieName").asText());
+        assertEquals("A1", dto.serieSnapshot.get("steps").get(0).get("letter").asText());
+    }
+
+    @Test
     void getSerieResults_throwsWhenSessionMissing() {
         when(sessionRepository.existsById(sessionId)).thenReturn(false);
         assertThrows(SessionNotFoundException.class, () -> service.getSerieResults(sessionId));

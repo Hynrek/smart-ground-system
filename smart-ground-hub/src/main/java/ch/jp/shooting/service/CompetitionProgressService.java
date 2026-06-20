@@ -1,7 +1,9 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.dto.*;
+import ch.jp.shooting.dto.play.SerieSnapshotRecord;
 import ch.jp.shooting.exception.ConflictException;
+import ch.jp.shooting.mapper.PlayMapper;
 import ch.jp.shooting.model.*;
 import ch.jp.shooting.repository.*;
 import ch.jp.smartground.model.GroupProgressResponse;
@@ -38,18 +40,24 @@ public class CompetitionProgressService {
     private final ShooterGroupRepository groupRepository;
     private final PlayerResultRepository playerResultRepository;
     private final ObjectMapper objectMapper;
+    private final SerieRepository serieRepository;
+    private final PositionLabelResolver positionLabelResolver;
 
     public CompetitionProgressService(
             CompetitionSerieResultRepository csrRepository,
             LiveSessionRepository sessionRepository,
             ShooterGroupRepository groupRepository,
             PlayerResultRepository playerResultRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            SerieRepository serieRepository,
+            PositionLabelResolver positionLabelResolver) {
         this.csrRepository = csrRepository;
         this.sessionRepository = sessionRepository;
         this.groupRepository = groupRepository;
         this.playerResultRepository = playerResultRepository;
         this.objectMapper = objectMapper;
+        this.serieRepository = serieRepository;
+        this.positionLabelResolver = positionLabelResolver;
     }
 
     public SessionProgressResponse completeSerie(
@@ -73,6 +81,7 @@ public class CompetitionProgressService {
 
         CompetitionSerieResult csr = new CompetitionSerieResult(session, group, passeIndex, serieId);
         csr.setPlayInstanceId(playInstanceId);
+        csr.setSerieSnapshotJson(buildSerieSnapshotJson(serieId));
         if (request.getResults() != null && !request.getResults().isEmpty()) {
             csr.setResults(objectMapper.writeValueAsString(request.getResults()));
         }
@@ -130,6 +139,7 @@ public class CompetitionProgressService {
             .findBySessionIdAndGroupIdAndPasseIndexAndSerieId(sessionId, groupId, passeIndex, serieId)
             .orElseThrow(() -> new ConflictException("Serie noch nicht abgeschlossen"));
         csr.setResults(objectMapper.writeValueAsString(request.getResults()));
+        csr.setSerieSnapshotJson(buildSerieSnapshotJson(serieId));
         csrRepository.save(csr);
         writePlayerResults(session, group, passeIndex, serieId, request.getResults(), true);
         return buildSessionProgressResponse(sessionId);
@@ -315,5 +325,22 @@ public class CompetitionProgressService {
             pr.setUpdatedAt(Instant.now());
             playerResultRepository.save(pr);
         }
+    }
+
+    /**
+     * Baut die eingefrorene, aufgelöste Serie-Definition (Name, Platz, Step-Buchstaben)
+     * zum Abschlusszeitpunkt. Gibt null zurück, wenn die Serie nicht (mehr) existiert.
+     */
+    @org.jspecify.annotations.Nullable
+    private String buildSerieSnapshotJson(UUID serieId) throws Exception {
+        Serie serie = serieRepository.findById(serieId).orElse(null);
+        if (serie == null) return null;
+        var resolvedSteps = positionLabelResolver.resolveSteps(
+            PlayMapper.parseSteps(serie.getStepsJson()));
+        var snapshot = new SerieSnapshotRecord(
+            serie.getName(),
+            serie.getRange() != null ? serie.getRange().getName() : null,
+            resolvedSteps);
+        return objectMapper.writeValueAsString(snapshot);
     }
 }
