@@ -51,6 +51,14 @@ public class CompetitionSerieResult {
     @Nullable
     private String results;
 
+    /**
+     * Eingefrorene, aufgelöste Serie-Definition zum Abschlusszeitpunkt (SerieSnapshotRecord als JSON).
+     * Quelle der Wahrheit für die Anzeige abgeschlossener Wertungen – nie live nachgeladen.
+     */
+    @Column(name = "serie_snapshot_json", columnDefinition = "TEXT")
+    @Nullable
+    private String serieSnapshotJson;
+
     @Column(name = "completed_at", nullable = false)
     private Instant completedAt = Instant.now();
 
@@ -76,6 +84,8 @@ public class CompetitionSerieResult {
     public void setPlayInstanceId(@Nullable UUID playInstanceId) { this.playInstanceId = playInstanceId; }
     @Nullable public String getResults() { return results; }
     public void setResults(@Nullable String results) { this.results = results; }
+    @Nullable public String getSerieSnapshotJson() { return serieSnapshotJson; }
+    public void setSerieSnapshotJson(@Nullable String serieSnapshotJson) { this.serieSnapshotJson = serieSnapshotJson; }
     public Instant getCompletedAt() { return completedAt; }
     public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
 }

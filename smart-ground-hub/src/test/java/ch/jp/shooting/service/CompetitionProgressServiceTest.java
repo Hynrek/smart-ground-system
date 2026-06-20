@@ -1,6 +1,8 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.dto.PasseSnapshot;
+import ch.jp.shooting.dto.play.SerieSnapshotRecord;
+import ch.jp.shooting.dto.play.StepRecord;
 import ch.jp.shooting.model.*;
 import ch.jp.shooting.repository.*;
 import ch.jp.smartground.model.CompleteSerieRequest;
@@ -27,6 +29,8 @@ class CompetitionProgressServiceTest {
     @Mock LiveSessionRepository sessionRepository;
     @Mock ShooterGroupRepository groupRepository;
     @Mock PlayerResultRepository playerResultRepository;
+    @Mock SerieRepository serieRepository;
+    @Mock PositionLabelResolver positionLabelResolver;
     @InjectMocks CompetitionProgressService progressService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -78,6 +82,43 @@ class CompetitionProgressServiceTest {
         verify(csrRepository).save(argThat(r ->
             r.getPasseIndex() == 0 && r.getSerieId().equals(serieId)
         ));
+    }
+
+    @Test
+    void completeSerie_freezesResolvedSerieSnapshotOnRow() throws Exception {
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(groupRepository.findByIdAndSessionId(groupId, sessionId)).thenReturn(Optional.of(group));
+        when(csrRepository.existsBySessionIdAndGroupIdAndPasseIndexAndSerieId(
+            any(), any(), anyInt(), any())).thenReturn(false);
+        when(csrRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(groupRepository.findBySessionId(any())).thenReturn(List.of(group));
+        when(csrRepository.findBySessionIdAndGroupId(any(), any())).thenReturn(List.of());
+
+        // Live serie with one solo step carrying a stale letter
+        var serie = new Serie();
+        serie.setId(serieId);
+        serie.setName("Serie 1");
+        serie.setOwnership("user");
+        serie.setStepsJson(
+            "[{\"id\":\"1\",\"type\":\"solo\",\"posId\":\"p-1\",\"letter\":\"OLD\"}]");
+        when(serieRepository.findById(serieId)).thenReturn(Optional.of(serie));
+        when(positionLabelResolver.resolveSteps(anyList())).thenReturn(List.of(
+            new StepRecord("1", "solo", "p-1", "A1", null, null, null, null, "A1", null, null)));
+
+        var captor = org.mockito.ArgumentCaptor.forClass(CompetitionSerieResult.class);
+
+        CompleteSerieRequest req = new CompleteSerieRequest();
+        req.setPasseIndex(org.openapitools.jackson.nullable.JsonNullable.of(0));
+        req.setResults(List.of());
+        progressService.completeSerie(sessionId, groupId, serieId, req);
+
+        verify(csrRepository).save(captor.capture());
+        String json = captor.getValue().getSerieSnapshotJson();
+        assertNotNull(json);
+        SerieSnapshotRecord snapshot = objectMapper.readValue(json, SerieSnapshotRecord.class);
+        assertEquals("Serie 1", snapshot.serieName());
+        assertEquals(1, snapshot.steps().size());
+        assertEquals("A1", snapshot.steps().get(0).letter()); // resolved, not "OLD"
     }
 
     @Test
