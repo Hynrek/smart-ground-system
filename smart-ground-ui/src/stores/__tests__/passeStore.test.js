@@ -50,6 +50,50 @@ describe('passeStore — Serie layer', () => {
     expect(serieApi.deleteSerie).toHaveBeenCalledWith('ab1')
     expect(store.savedSerien).toHaveLength(0)
   })
+
+  it('updateSerie edits in place via PUT with steps, keeping the same Serie ID', async () => {
+    serieApi.updateSerie.mockResolvedValue({
+      id: 'ab1', name: 'Edited', ownership: 'user', rangeId: 'r1', rangeName: 'Stand 1',
+      steps: [{ id: '1', type: 'solo', posId: 'pos-uuid', alias: 'A1', letter: 'A1' }], published: false,
+    })
+    const store = usePasseStore()
+    store.savedSerien = [{
+      id: 'ab1', name: 'Old', rangeId: 'r1', rangeName: 'Stand 1',
+      steps: [], ownership: 'user', published: false,
+    }]
+
+    await store.updateSerie('ab1', 'Edited', [
+      { id: '1', type: 'solo', positionId: 'pos-uuid', alias: 'A1', letter: 'A1' },
+    ])
+
+    expect(serieApi.updateSerie).toHaveBeenCalledWith(
+      'ab1', 'Edited', 'r1',
+      [{ id: '1', type: 'solo', posId: 'pos-uuid', alias: 'A1', letter: 'A1' }],
+    )
+    expect(serieApi.deleteSerie).not.toHaveBeenCalled()
+    expect(serieApi.createSerie).not.toHaveBeenCalled()
+    // same ID retained, name updated
+    expect(store.savedSerien).toHaveLength(1)
+    expect(store.savedSerien[0].id).toBe('ab1')
+    expect(store.savedSerien[0].name).toBe('Edited')
+  })
+
+  it('updateSerie preserves the published flag on a range Serie', async () => {
+    serieApi.updateSerie.mockResolvedValue({
+      id: 'ab9', name: 'Pub', ownership: 'range', rangeId: 'r1', rangeName: 'Stand 1',
+      steps: [], published: true,
+    })
+    const store = usePasseStore()
+    store.savedSerien = [{
+      id: 'ab9', name: 'Pub', rangeId: 'r1', rangeName: 'Stand 1',
+      steps: [], ownership: 'range', published: true,
+    }]
+
+    await store.updateSerie('ab9', 'Pub', [])
+
+    expect(serieApi.patchSeriePublished).not.toHaveBeenCalled()
+    expect(store.savedSerien[0].published).toBe(true)
+  })
 })
 
 describe('passeStore — step recording', () => {

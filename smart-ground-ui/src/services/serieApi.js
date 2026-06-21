@@ -17,10 +17,12 @@ export async function createSerie(name, steps, rangeId = null, ownership = 'user
   })
 }
 
-export async function updateSerie(id, name, rangeId = null) {
+export async function updateSerie(id, name, rangeId = null, steps = undefined) {
+  const body = { name, rangeId }
+  if (steps !== undefined) body.steps = steps
   return apiFetch(`/serien/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ name, rangeId }),
+    body: JSON.stringify(body),
   })
 }
 
