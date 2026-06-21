@@ -328,21 +328,22 @@ describe('useCompetitionEventStore', () => {
       expect(result.serieResults[0].results[0].stepStates[0].state).toBe('done')
     })
 
-    it('builds a serieDefs map from the session passen', async () => {
+    it('builds a serieDefs map from the serie-result snapshots (not the live passen)', async () => {
       api.getLeaderboard.mockResolvedValue({ playerScores: [] })
-      api.getSerieResults.mockResolvedValue([])
+      // Live passen carry STALE labels that must be ignored now
       api.getSession.mockResolvedValue(mkSession({
         status: 'COMPLETED', groups: [],
-        passen: [
-          { serien: [
-            { id: 'se1', alias: 'Morgen', rangeName: 'Stand 1', steps: [
-              { type: 'solo', letter: 'A' },
-              { type: 'pair', letter1: 'B', letter2: 'D' },
-            ] },
-          ] },
-          { serien: [{ id: 'se2', name: 'Abend', steps: [] }] },
-        ],
+        passen: [{ serien: [{ id: 'se1', alias: 'STALE', rangeName: 'STALE', steps: [{ type: 'solo', letter: 'STALE' }] }] }],
       }))
+      api.getSerieResults.mockResolvedValue([
+        { groupId: 'g1', passeIndex: 0, serieId: 'se1', results: [],
+          serieSnapshot: { serieName: 'Morgen', rangeName: 'Stand 1', steps: [
+            { type: 'solo', letter: 'A' },
+            { type: 'pair', letter1: 'B', letter2: 'D' },
+          ] } },
+        { groupId: 'g1', passeIndex: 1, serieId: 'se2', results: [],
+          serieSnapshot: { serieName: 'Abend', rangeName: null, steps: [] } },
+      ])
       const store = useCompetitionEventStore()
 
       await store.loadCompletedResults('s1')

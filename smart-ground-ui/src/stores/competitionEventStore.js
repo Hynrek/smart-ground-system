@@ -444,22 +444,26 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
         tieResolvedByStechen: p.tieResolvedByStechen ?? false,
       }))
       // Serie definitions (range, name, step position letters) for the per-Serie
-      // step-chip view. Keyed by serieId; sortIndex preserves passe→serie order.
+      // step-chip view come from each completed result's FROZEN snapshot (Group 3),
+      // never from the live session — so a later position rename can't rewrite a
+      // finished scorecard. Keyed by serieId; sortIndex preserves passe→serie order.
       const serieDefs = {}
       let serieSortIndex = 0
-      for (const passe of (session.passen ?? [])) {
-        for (const serie of (passe.serien ?? [])) {
-          serieDefs[serie.id] = {
-            rangeName: serie.rangeName ?? null,
-            serieName: serie.alias ?? serie.name ?? 'Serie',
-            sortIndex: serieSortIndex++,
-            steps: (serie.steps ?? []).map(s => ({
-              type: s.type ?? null,
-              letter: s.letter ?? null,
-              letter1: s.letter1 ?? null,
-              letter2: s.letter2 ?? null,
-            })),
-          }
+      const orderedResults = [...(serieResults ?? [])]
+        .sort((a, b) => (a.passeIndex ?? 0) - (b.passeIndex ?? 0))
+      for (const sr of orderedResults) {
+        if (sr.serieId == null || serieDefs[sr.serieId]) continue
+        const snap = sr.serieSnapshot ?? null
+        serieDefs[sr.serieId] = {
+          rangeName: snap?.rangeName ?? null,
+          serieName: snap?.serieName ?? 'Serie',
+          sortIndex: serieSortIndex++,
+          steps: (snap?.steps ?? []).map(s => ({
+            type: s.type ?? null,
+            letter: s.letter ?? null,
+            letter1: s.letter1 ?? null,
+            letter2: s.letter2 ?? null,
+          })),
         }
       }
       completedResultsBySession.value = {

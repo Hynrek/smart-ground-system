@@ -272,21 +272,14 @@ export const usePasseStore = defineStore('passe', () => {
   const updateSerie = async (serieId, newName, newSteps) => {
     const serie = savedSerien.value.find((s) => s.id === serieId);
     if (!serie) return;
-    const wasPublished = serie.published ?? false;
-    // Backend PUT only accepts name/rangeId — replace via delete+create to persist steps
+    // Backend PUT accepts steps -> in-place edit keeps the stable Serie ID,
+    // so referencing Passen never need repair.
     try {
-      await serieApi.deleteSerie(serieId);
       const apiSteps = (newSteps ?? []).map(toApiStep);
-      const created = await serieApi.createSerie(newName, apiSteps, serie.rangeId ?? null, serie.ownership ?? 'user');
-      if (wasPublished) {
-        await serieApi.patchSeriePublished(created.id, true);
-      }
+      const updated = await serieApi.updateSerie(serieId, newName, serie.rangeId ?? null, apiSteps);
       savedSerien.value = savedSerien.value.map((s) =>
-        s.id === serieId ? toUiSerie({ ...created, rangeName: serie.rangeName, published: wasPublished }) : s,
+        s.id === serieId ? toUiSerie({ ...updated, rangeName: serie.rangeName }) : s,
       );
-      // Serie ID changed — reload Passen to repair any Passe references
-      console.warn('[passeStore] updateSerie: Serie ID changed from', serieId, 'to', created.id, '— reloading Passen.');
-      loadPassenFromStorage().catch(console.error);
     } catch (e) {
       console.error('Failed to update Serie:', e);
       throw e;
