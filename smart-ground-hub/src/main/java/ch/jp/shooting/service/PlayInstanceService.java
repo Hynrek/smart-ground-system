@@ -44,15 +44,18 @@ public class PlayInstanceService {
     private final PasseRepository passeRepository;
     private final PasseService passeService;
     private final SecurityHelper securityHelper;
+    private final PositionLabelResolver positionLabelResolver;
 
     public PlayInstanceService(PlayInstanceRepository playInstanceRepository,
                                PasseRepository passeRepository,
                                PasseService passeService,
-                               SecurityHelper securityHelper) {
+                               SecurityHelper securityHelper,
+                               PositionLabelResolver positionLabelResolver) {
         this.playInstanceRepository = playInstanceRepository;
         this.passeRepository = passeRepository;
         this.passeService = passeService;
         this.securityHelper = securityHelper;
+        this.positionLabelResolver = positionLabelResolver;
     }
 
     // ── Neue Instanz starten ──────────────────────────────────────────────────
@@ -123,14 +126,30 @@ public class PlayInstanceService {
                 .filter(inst -> hatBlockAufRange(inst, finalRangeId))
                 .toList();
         }
-        return instances.stream().map(PlayMapper::toPlayInstanceResponse).toList();
+        return instances.stream()
+            .map(PlayMapper::toPlayInstanceResponse)
+            .map(this::withResolvedBlockLabels)
+            .toList();
     }
 
     /** Gibt eine einzelne Instanz zurück. */
     public PlayInstanceResponse getPlayInstance(UUID instanceId) {
         var instance = playInstanceRepository.findById(instanceId)
             .orElseThrow(() -> new PlayInstanceNotFoundException(instanceId));
-        return PlayMapper.toPlayInstanceResponse(instance);
+        return withResolvedBlockLabels(PlayMapper.toPlayInstanceResponse(instance));
+    }
+
+    /**
+     * Löst die Step-Buchstaben aller Blöcke einer (aktiven) Instanz live aus den
+     * aktuellen Positionen auf — nur fürs Anzeigen; state_json bleibt unverändert.
+     */
+    private PlayInstanceResponse withResolvedBlockLabels(PlayInstanceResponse response) {
+        var steps = response.getBlocks().orElse(List.of()).stream()
+            .flatMap(b -> b.getSteps().stream())
+            .toList();
+        var positions = positionLabelResolver.byPosIds(PositionLabelResolver.posIdsOf(steps));
+        steps.forEach(step -> PositionLabelResolver.applyResolvedLabels(step, positions));
+        return response;
     }
 
     // ── Block-Zustandsmaschine ────────────────────────────────────────────────
