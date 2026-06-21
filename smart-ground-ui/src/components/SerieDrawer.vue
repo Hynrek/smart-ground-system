@@ -106,7 +106,7 @@
             <div class="step-list">
               <div v-for="(step, i) in steps" :key="step.id" class="step-row">
                 <span class="step-dot" :style="modeDotStyle(step.type)" />
-                <span class="step-label">{{ stepLabel(step) }}</span>
+                <span class="step-label" :aria-label="stepAriaLabel(step)">{{ stepLabel(step) }}</span>
                 <button class="step-remove" @click="removeStep(i)">
                   <Icons icon="x" :size="11" color="#a0aec0" />
                 </button>
@@ -162,7 +162,7 @@ import { ref, computed, watch } from 'vue';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { usePasseStore } from '@/stores/passeStore.js';
 import Icons from '@/components/Icons.vue';
-import { STEP_MODE_LIST, stepNotation, modeDotStyle } from '@/constants/stepModes.js';
+import { STEP_MODE_LIST, stepNotation, stepAriaLabel, modeDotStyle } from '@/constants/stepModes.js';
 
 const props = defineProps({
   open: { type: Boolean, required: true },

@@ -74,6 +74,9 @@ export const STEP_MODE_LIST = Object.freeze(
 // Reserved for Notfall/Stop and the × delete affordance. Never assign to a mode.
 export const DANGER_COLOR = '#E24B4A';
 
+// Rendered placeholder for a step whose position was deleted (null letter/alias).
+export const MISSING_POSITION = '—';
+
 export function stepModeLabel(type) {
   return STEP_MODES[type]?.label ?? type;
 }
@@ -110,8 +113,8 @@ export function stepLetters(step) {
 export function stepNotation(step, { useAlias = false } = {}) {
   if (!step) return '';
   const key = useAlias ? 'alias' : 'letter';
-  const one = step[key] ?? step[`${key}1`] ?? '?';
-  const two = step[`${key}2`] ?? '?';
+  const one = step[key] ?? step[`${key}1`] ?? MISSING_POSITION;
+  const two = step[`${key}2`] ?? MISSING_POSITION;
   switch (step.type) {
     case StepType.SOLO:
       return `${one}`;
@@ -124,6 +127,24 @@ export function stepNotation(step, { useAlias = false } = {}) {
     default:
       return `${one}`;
   }
+}
+
+/**
+ * German aria-label for a step: mode name + position letter(s), naming a deleted
+ * position explicitly. Use on the element that renders a step so assistive tech
+ * conveys what a bare "—" cannot.
+ */
+export function stepAriaLabel(step) {
+  if (!step) return '';
+  const mode = stepModeLabel(step.type);
+  const name = (v) => (v == null ? 'gelöschte Position' : `Position ${v}`);
+  const { first, second } = stepLetters(step);
+  const firstV = first === '' ? null : first;
+  const secondV = second === '' ? null : second;
+  if (step.type === StepType.PAIR || step.type === StepType.A_SCHUSS) {
+    return `${mode} ${name(firstV)} und ${name(secondV)}`;
+  }
+  return `${mode} ${name(firstV)}`;
 }
 
 // Convert a #rrggbb hex to an rgba() string at the given alpha.
