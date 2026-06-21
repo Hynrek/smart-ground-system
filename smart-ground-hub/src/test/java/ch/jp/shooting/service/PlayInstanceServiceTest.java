@@ -29,6 +29,7 @@ class PlayInstanceServiceTest {
     @Mock PasseRepository passeRepository;
     @Mock PasseService passeService;
     @Mock SecurityHelper securityHelper;
+    @Mock PositionLabelResolver positionLabelResolver;
 
     @InjectMocks PlayInstanceService service;
 
@@ -95,6 +96,50 @@ class PlayInstanceServiceTest {
         var blocks = PlayMapper.parseBlocks(captor.getValue().getStateJson());
         assertEquals(1, blocks.size());
         assertEquals("Serie 1", blocks.get(0).serieAlias());
+    }
+
+    private PlayInstance instanceWithSoloBlock(UUID instanceId, String posId, String staleLetter) {
+        var inst = new PlayInstance();
+        inst.setInstanceId(instanceId);
+        inst.setType("passe");
+        inst.setTemplateId(UUID.randomUUID());
+        inst.setTemplateName("T");
+        inst.setStatus("active");
+        inst.setOwner(mock(User.class));
+        inst.setStartedAt(java.time.Instant.now());
+        inst.setPlayersJson("[]");
+        // one block, one solo step with a stale letter
+        inst.setStateJson("[{\"blockId\":\"" + UUID.randomUUID() + "\",\"serieId\":\"" + UUID.randomUUID()
+            + "\",\"serieAlias\":\"S\",\"steps\":[{\"id\":\"1\",\"type\":\"solo\",\"posId\":\"" + posId
+            + "\",\"letter\":\"" + staleLetter + "\"}],\"status\":\"pending\"}]");
+        return inst;
+    }
+
+    @Test
+    void getPlayInstance_reresolvesBlockStepLettersFromCurrentPositions() {
+        var instanceId = UUID.randomUUID();
+        var posId = UUID.randomUUID();
+        var inst = instanceWithSoloBlock(instanceId, posId.toString(), "OLD");
+        when(playInstanceRepository.findById(instanceId)).thenReturn(java.util.Optional.of(inst));
+        var pos = new ch.jp.shooting.model.RangePosition();
+        pos.setId(posId); pos.setLabel("A1");
+        when(positionLabelResolver.byPosIds(any())).thenReturn(java.util.Map.of(posId.toString(), pos));
+
+        var resp = service.getPlayInstance(instanceId);
+
+        assertEquals("A1", resp.getBlocks().get().get(0).getSteps().get(0).getLetter());
+    }
+
+    @Test
+    void getPlayInstance_deletedPosition_yieldsNullLetterNoCrash() {
+        var instanceId = UUID.randomUUID();
+        var inst = instanceWithSoloBlock(instanceId, UUID.randomUUID().toString(), "OLD");
+        when(playInstanceRepository.findById(instanceId)).thenReturn(java.util.Optional.of(inst));
+        when(positionLabelResolver.byPosIds(any())).thenReturn(java.util.Map.of());
+
+        var resp = service.getPlayInstance(instanceId);
+
+        assertNull(resp.getBlocks().get().get(0).getSteps().get(0).getLetter());
     }
 
     @Test

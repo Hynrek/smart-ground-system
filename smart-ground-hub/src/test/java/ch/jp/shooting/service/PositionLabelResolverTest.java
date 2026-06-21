@@ -112,4 +112,40 @@ class PositionLabelResolverTest {
         assertThat(resolved.get(0).letter()).isNull();
         assertThat(resolved.get(0).alias()).isNull();
     }
+
+    @Test
+    void posIdsOf_collectsAllNonNullPositionIds() {
+        var solo = new ch.jp.smartground.model.Step().id("1")
+            .type(ch.jp.smartground.model.StepType.SOLO).posId("p1");
+        var pair = new ch.jp.smartground.model.Step().id("2")
+            .type(ch.jp.smartground.model.StepType.PAIR).posId1("p2").posId2("p3");
+
+        var ids = PositionLabelResolver.posIdsOf(java.util.List.of(solo, pair));
+
+        assertThat(ids).containsExactlyInAnyOrder("p1", "p2", "p3");
+    }
+
+    @Test
+    void applyResolvedLabels_overridesSoloLetterAndAlias() {
+        var id = UUID.randomUUID();
+        var step = new ch.jp.smartground.model.Step().id("1")
+            .type(ch.jp.smartground.model.StepType.SOLO).posId(id.toString()).letter("OLD");
+
+        PositionLabelResolver.applyResolvedLabels(step,
+            java.util.Map.of(id.toString(), position(id, "A1")));
+
+        assertThat(step.getLetter()).isEqualTo("A1");
+        assertThat(step.getAlias().orElse(null)).isEqualTo("A1"); // no device -> alias falls back to label
+    }
+
+    @Test
+    void applyResolvedLabels_missingPosition_nullsLetterAndAlias() {
+        var step = new ch.jp.smartground.model.Step().id("1")
+            .type(ch.jp.smartground.model.StepType.SOLO).posId(UUID.randomUUID().toString()).letter("OLD");
+
+        PositionLabelResolver.applyResolvedLabels(step, java.util.Map.of()); // deleted
+
+        assertThat(step.getLetter()).isNull();
+        assertThat(step.getAlias().orElse(null)).isNull();
+    }
 }
