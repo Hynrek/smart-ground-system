@@ -1,9 +1,40 @@
 import time
 from machine import Pin
+from micropython import const
 
 # --- KONFIGURATION ---
 # Onboard-LED einmalig definieren – bleibt für Statusanzeige verfügbar
 led = Pin("LED", Pin.OUT)
+
+# Status-LED Timing (Boot-/Verbindungsanzeige)
+STARTUP_BLINKS       = const(3)    # Anzahl Blinks beim Start
+BLINK_ON_MS          = const(150)  # LED-AN-Dauer pro Blink
+BLINK_OFF_MS         = const(150)  # LED-AUS-Dauer pro Blink
+CONNECTING_TOGGLE_MS = const(250)  # Toggle-Intervall während WLAN-Verbindung
+
+
+def led_on():
+    """Schaltet die Onboard-LED dauerhaft ein."""
+    led.value(1)
+
+
+def led_off():
+    """Schaltet die Onboard-LED aus."""
+    led.value(0)
+
+
+def led_toggle():
+    """Wechselt den Zustand der Onboard-LED."""
+    led.toggle()
+
+
+def status_blink(times=STARTUP_BLINKS, on_ms=BLINK_ON_MS, off_ms=BLINK_OFF_MS):
+    """Blinkt die Onboard-LED `times` mal und lässt sie danach ausgeschaltet."""
+    for _ in range(times):
+        led.value(1)
+        time.sleep_ms(on_ms)
+        led.value(0)
+        time.sleep_ms(off_ms)
 
 
 class GpioManager:

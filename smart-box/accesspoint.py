@@ -4,6 +4,8 @@ import time
 import json
 import machine
 
+from hardware import led_on
+
 # --- KONFIGURATION ---
 SYSTEM_CONFIG_PATH = "systemconfig/accesspoint_config.json"
 USER_CONFIG_PATH = "userconfig/client_config.json"
@@ -51,6 +53,9 @@ def start_ap():
     wlan = network.WLAN(network.AP_IF)
     wlan.config(essid=setup_config['accesspoint_ssid'], password=setup_config['accesspoint_pass'])
     wlan.active(True)
+
+    # Status-LED: dauerhaft EIN signalisiert Access-Point-Modus
+    led_on()
 
     print("Access Point aktiv.")
     print("Netzwerkname:", setup_config['accesspoint_ssid'])

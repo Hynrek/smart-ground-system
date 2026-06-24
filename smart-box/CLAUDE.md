@@ -102,15 +102,31 @@ Security state in module globals: `_known_devices` (set of authorised UUIDs), `_
 - `update_pulses()` — called every main loop tick; expires timed pulses using `ticks_diff` (handles 32-bit rollover correctly)
 - `known_ids()` — returns list of registered device UUIDs
 - Module-level `led = Pin("LED", Pin.OUT)` for onboard LED
+- **Status-LED helpers** (boot/connection feedback on the onboard LED): `led_on()`, `led_off()`, `led_toggle()`, and `status_blink(times=3, on_ms=150, off_ms=150)` (blinks, then leaves the LED off). Timing constants `STARTUP_BLINKS`, `BLINK_ON_MS`, `BLINK_OFF_MS`, `CONNECTING_TOGGLE_MS` live in the `# --- KONFIGURATION ---` block. See **Boot Status LED** below.
 
 ### `networkutils.py`
 - `get_mac_address()` — returns 12-char lowercase hex MAC string used as MQTT client ID and topic segment
-- `connect_wifi(ssid, password, timeout=20)` — second-by-second polling; returns `True` on success
+- `connect_wifi(ssid, password, timeout=20)` — `ticks_ms`-deadline poll loop honoring `timeout` seconds; toggles the onboard LED every `CONNECTING_TOGGLE_MS` (250 ms) while waiting and calls `led_off()` on success; returns `True` on success
 - `reconnect_wifi(ssid, pw)` — retries up to `RECONNECT_ATTEMPTS` (12) times with `RECONNECT_DELAY_S` (10 s) between attempts
 - `get_sta_ip()` — returns current IP or `None`
 
 ### `accesspoint.py`
-Captive portal for first-time WiFi setup. Runs in AP mode (SSID/password from `systemconfig/accesspoint_config.json`), serves `accesspoint.html`, writes validated credentials to `userconfig/client_config.json`. Only accepts keys `client_network_ssid`, `client_network_pw`, `broker_ip`, `broker_port`. Requires `client_network_ssid` and `broker_ip`; rejects with 400 otherwise. Reboots after saving. Keep entirely separate from MQTT logic — it runs as an alternative boot path, not alongside MQTT.
+Captive portal for first-time WiFi setup. Runs in AP mode (SSID/password from `systemconfig/accesspoint_config.json`), serves `accesspoint.html`, writes validated credentials to `userconfig/client_config.json`. Only accepts keys `client_network_ssid`, `client_network_pw`, `broker_ip`, `broker_port`. Requires `client_network_ssid` and `broker_ip`; rejects with 400 otherwise. Reboots after saving. Keep entirely separate from MQTT logic — it runs as an alternative boot path, not alongside MQTT. Calls `led_on()` (solid LED) before entering the socket loop to signal AP mode.
+
+---
+
+## Boot Status LED
+
+The onboard LED signals the boot/connection phase so the box can be diagnosed without a serial console. All signals occur **before** MQTT is live, so they never conflict with MQTT-controllable LED devices.
+
+| Phase | LED behavior | Driven from |
+|---|---|---|
+| Boot/startup | Blink 3× (150 ms on / 150 ms off) | `status_blink()` at top of `main.py` |
+| Access-point setup mode | Solid ON | `led_on()` in `accesspoint.start_ap()` |
+| Connecting to WLAN | Toggle every 250 ms | `connect_wifi()` in `networkutils.py` |
+| Connected to WLAN | OFF | `led_off()` in `connect_wifi()` on success |
+
+Because `reconnect_wifi()` calls `connect_wifi()`, the connecting blink also appears during runtime WiFi-reconnects (intended feedback). Helpers live in `hardware.py`; `networkutils.py` and `accesspoint.py` import them (no import cycle — `hardware` imports only `time`/`machine`/`micropython`).
 
 ---
 
