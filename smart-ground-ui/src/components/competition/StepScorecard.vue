@@ -59,6 +59,7 @@ const emit = defineEmits(['correct-step'])
 
 const onChipClick = (serie, step) => {
   if (!props.editable) return
+  const { first, second } = stepLetters(step)
   emit('correct-step', {
     serieKey: serie.key,
     serieId: serie.serieId,
@@ -67,6 +68,10 @@ const onChipClick = (serie, step) => {
     stepIndex: step.stepIndex,
     type: step.type,
     currentState: step.state,
+    // Resolved position letters so the correction picker can label the per-clay
+    // Fehler buttons with the actual positions instead of bare A/B.
+    firstLabel: first,
+    secondLabel: second,
   })
 }
 

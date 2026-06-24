@@ -68,8 +68,10 @@
                 :key="t.type"
                 class="type-btn"
                 :class="{ active: stepMode === t.type }"
+                :style="stepMode === t.type ? typeBtnActiveStyle(t.type) : null"
                 @click="stepMode = t.type; pairPending = null"
               >
+                <span class="type-dot" :style="modeDotStyle(t.type)" />
                 {{ t.label }}
               </button>
             </div>
@@ -107,6 +109,7 @@
               <div v-for="(step, i) in steps" :key="step.id" class="step-row">
                 <span class="step-dot" :style="modeDotStyle(step.type)" />
                 <span class="step-label" :aria-label="stepAriaLabel(step)">{{ stepLabel(step) }}</span>
+                <span class="step-mode">{{ stepModeLabel(step.type) }}</span>
                 <button class="step-remove" @click="removeStep(i)">
                   <Icons icon="x" :size="11" color="#a0aec0" />
                 </button>
@@ -162,7 +165,7 @@ import { ref, computed, watch } from 'vue';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { usePasseStore } from '@/stores/passeStore.js';
 import Icons from '@/components/Icons.vue';
-import { STEP_MODE_LIST, stepNotation, stepAriaLabel, modeDotStyle } from '@/constants/stepModes.js';
+import { STEP_MODE_LIST, stepNotation, stepAriaLabel, stepModeLabel, modeDotStyle } from '@/constants/stepModes.js';
 
 const props = defineProps({
   open: { type: Boolean, required: true },
@@ -285,7 +288,18 @@ const totalThrows = computed(() => {
   return count;
 });
 
-const stepLabel = (step) => `${stepNotation(step)} — ${stepNotation(step, { useAlias: true })}`;
+// Show only the position name(s) (the position `label`, stored as `letter`);
+// the colored dot already conveys the mode.
+const stepLabel = (step) => stepNotation(step);
+
+// Tint the active Schuss-Typ button with its mode color so the colored dot on
+// each button reads as "this color = this type". Text stays dark for contrast;
+// the base hue (from modeDotStyle) drives a light fill + border. Hex alpha:
+// `1f` ≈ 12%, `80` = 50%.
+const typeBtnActiveStyle = (type) => {
+  const base = modeDotStyle(type).background;
+  return base ? { background: `${base}1f`, borderColor: `${base}80` } : null;
+};
 
 const canSave = computed(() => {
   if (!editingName.value.trim()) return false;
@@ -448,6 +462,10 @@ defineExpose({ stepMode, pairPending, published });
 
 .type-btn {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 8px 10px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
@@ -460,10 +478,16 @@ defineExpose({ stepMode, pairPending, published });
   transition: all 0.15s;
 }
 
+/* Active fill + border come from the mode color via inline :style. */
 .type-btn.active {
-  background: rgba(79, 195, 247, 0.12);
-  border-color: rgba(79, 195, 247, 0.5);
-  color: #0288d1;
+  color: #2d3748;
+}
+
+.type-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .type-btn:hover:not(.active) { background: #f7fafc; }
@@ -551,6 +575,16 @@ defineExpose({ stepMode, pairPending, published });
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.step-mode {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #718096;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 2px 7px;
+  border-radius: 9px;
 }
 
 .step-remove {

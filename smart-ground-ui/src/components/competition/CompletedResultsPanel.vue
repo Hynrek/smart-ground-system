@@ -79,7 +79,12 @@
     <div v-if="correctionTarget" class="picker-overlay" @click.self="correctionTarget = null">
       <div class="picker-box">
         <span class="picker-title">Treffer korrigieren</span>
-        <StepStatePicker :type="correctionTarget.type" @pick="applyPick" />
+        <StepStatePicker
+          :type="correctionTarget.type"
+          :first-label="correctionTarget.firstLabel || 'A'"
+          :second-label="correctionTarget.secondLabel || 'B'"
+          @pick="applyPick"
+        />
       </div>
     </div>
   </div>

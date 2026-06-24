@@ -16,4 +16,19 @@ describe('StepStatePicker', () => {
     await w.findAll('.picker-btn').find(b => b.text() === 'Treffer').trigger('click')
     expect(w.emitted('pick')[0][0]).toBe('done')
   })
+
+  it('double-target step labels the per-clay Fehler buttons with the position letters', () => {
+    const w = mount(StepStatePicker, { props: { type: 'pair', firstLabel: 'B', secondLabel: 'D' } })
+    const labels = w.findAll('.picker-btn').map(b => b.text())
+    expect(labels).toContain('Fehler B')
+    expect(labels).toContain('Fehler D')
+    expect(labels).not.toContain('Fehler A')
+  })
+
+  it('falls back to A/B when no position letters are provided', () => {
+    const w = mount(StepStatePicker, { props: { type: 'pair' } })
+    const labels = w.findAll('.picker-btn').map(b => b.text())
+    expect(labels).toContain('Fehler A')
+    expect(labels).toContain('Fehler B')
+  })
 })

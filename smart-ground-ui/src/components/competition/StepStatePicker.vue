@@ -3,7 +3,7 @@
   State picker for correcting one step's result (admin PRE_COMPLETE flow). Emits `pick`
   with a StepState. Modeled on the kiosk ShooterPlayPage picker; the kiosk is left
   unchanged. Single-target steps (solo/raffale) offer Treffer/Fehler; doublettes offer
-  Treffer + Fehler A / Fehler B / Beide.
+  Treffer + Fehler <pos1> / Fehler <pos2> / Beide, labelled with the step's positions.
 -->
 <template>
   <div class="picker">
@@ -11,8 +11,8 @@
       Treffer
     </button>
     <template v-if="isDouble">
-      <button type="button" class="picker-btn" @click="emit('pick', StepState.FAILED_A)">Fehler A</button>
-      <button type="button" class="picker-btn" @click="emit('pick', StepState.FAILED_B)">Fehler B</button>
+      <button type="button" class="picker-btn" @click="emit('pick', StepState.FAILED_A)">Fehler {{ firstLabel }}</button>
+      <button type="button" class="picker-btn" @click="emit('pick', StepState.FAILED_B)">Fehler {{ secondLabel }}</button>
       <button type="button" class="picker-btn" @click="emit('pick', StepState.FAILED_BOTH)">Beide Fehler</button>
     </template>
     <button v-else type="button" class="picker-btn" @click="emit('pick', StepState.FAILED_BOTH)">
@@ -27,6 +27,10 @@ import { StepState, StepType } from '@/constants/playEnums.js'
 
 const props = defineProps({
   type: { type: String, default: null },
+  // Position letters of the two clays, used to label the per-clay Fehler buttons
+  // (e.g. "Fehler B" / "Fehler D"). Fall back to A/B when a position is unknown.
+  firstLabel: { type: String, default: 'A' },
+  secondLabel: { type: String, default: 'B' },
 })
 const emit = defineEmits(['pick'])
 

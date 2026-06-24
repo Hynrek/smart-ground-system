@@ -125,7 +125,7 @@ describe('SerieDrawer — create mode', () => {
 
     // Switch to pair mode
     const typeBtns = getDrawerElement()?.querySelectorAll('.type-btn')
-    const pairBtn = Array.from(typeBtns ?? []).find(b => b.textContent === 'Pair')
+    const pairBtn = Array.from(typeBtns ?? []).find(b => b.textContent?.trim() === 'Pair')
     expect(pairBtn).toBeTruthy()
     pairBtn?.click()
     await wrapper.vm.$nextTick()

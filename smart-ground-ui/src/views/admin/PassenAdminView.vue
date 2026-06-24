@@ -158,7 +158,7 @@
             >
               <div class="serie-info">
                 <span class="serie-name">{{ p.name }}</span>
-                <span class="serie-meta">{{ p.serien?.length ?? 0 }} Serien</span>
+                <span class="serie-meta">{{ passeThrows(p) }} Würfe · {{ p.serien?.length ?? 0 }} Serien</span>
               </div>
               <div class="serie-actions" @click.stop>
                 <button
@@ -308,6 +308,10 @@ const stepCount = (steps) => {
   }
   return count;
 };
+
+// Total Würfe across all serien of a passe.
+const passeThrows = (p) =>
+  (p.serien ?? []).reduce((sum, s) => sum + stepCount(s.steps ?? []), 0);
 
 defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawerMode, passeDrawerPasse });
 </script>
