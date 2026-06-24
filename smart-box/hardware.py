@@ -73,7 +73,10 @@ class GpioManager:
         """
         for dev_info in self._devices.values():
             try:
-                dev_info["pin"].value(0)
+                if dev_info["device"] == "GPIO" and dev_info["pin"] is not None:
+                    dev_info["pin"].value(0)
+                elif dev_info["device"] == "LED":
+                    led.value(0)
             except Exception:
                 pass
         self._devices.clear()

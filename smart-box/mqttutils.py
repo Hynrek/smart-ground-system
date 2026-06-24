@@ -1,3 +1,4 @@
+import gc
 import json
 import time
 import network
@@ -32,6 +33,9 @@ _last_command_time = {}  # Rate limiting: device_id -> last_command_timestamp
 _failed_commands = {}  # Tracking failed commands: device_id -> count
 _blocked_devices = {}  # Blocked devices: device_id -> unblock_timestamp
 
+# Firmware-Konfiguration einmalig beim Modulstart laden – Version ändert sich nie zur Laufzeit
+_firmware_config = None
+
 
 # =============================================================================
 # Config-Persistenz
@@ -49,12 +53,16 @@ def load_firmware_config():
           "supported_device_kinds": ["GPIO", "LED"],
           "supported_directions": ["INPUT", "OUTPUT"] }
     """
+    global _firmware_config
+    if _firmware_config is not None:
+        return _firmware_config
     try:
         with open(FIRMWARE_CONFIG_PATH, 'r') as f:
             data = json.load(f)
             print("Firmware-Konfiguration geladen: v{} ({})".format(
                 data.get("firmware_version", "?"), data.get("box_type", "?")))
-            return data
+            _firmware_config = data
+            return _firmware_config
     except (OSError, ValueError) as e:
         print("Firmware-Konfiguration nicht gefunden:", e)
         return {}
@@ -111,13 +119,23 @@ def _update_known_devices(devices):
     """
     Aktualisiert die Liste bekannter (autorisierter) Geräte aus der Config.
     Nur diese Geräte dürfen Befehle empfangen.
+    Entfernt veraltete Einträge aus Rate-Limit- und Fehlerzähler-Dicts,
+    damit diese bei wechselnden Geräte-IDs nicht unbegrenzt wachsen.
     """
     global _known_devices
-    _known_devices.clear()
+    new_ids = set()
     for dev in devices:
         device_id = dev.get("device_id", "")
         if device_id:
-            _known_devices.add(device_id)
+            new_ids.add(device_id)
+
+    # Einträge für nicht mehr konfigurierte Geräte bereinigen
+    stale = _known_devices - new_ids
+    for device_id in stale:
+        _last_command_time.pop(device_id, None)
+        _failed_commands.pop(device_id, None)
+
+    _known_devices = new_ids
     print("Autorisierte Geräte aktualisiert: {} Gerät(e)".format(len(_known_devices)))
 
 
@@ -244,6 +262,7 @@ def _handle_config(payload_bytes):
         return
 
     devices = data.get("devices", [])
+    del data
     print("Config-Push empfangen mit {} Gerät(en).".format(len(devices)))
 
     # Autorisierte Geräte aktualisieren (Security)
@@ -310,70 +329,75 @@ def message_callback(topic, msg):
     topic_str = topic.decode() if isinstance(topic, bytes) else topic
     print("Nachricht empfangen: Topic={}".format(topic_str))
 
-    if topic_str.endswith("/config"):
-        _handle_config(msg)
-        return
-
-    # --- Befehl parsen ---
     try:
-        data = json.loads(msg)
-        command = data.get("command", "").upper()
-        device_id = data.get("deviceId", None)
-        signal_duration_ms = data.get("signalDurationMs", None)
-        delay_signal_duration_ms = data.get("delaySignalDurationMs", None)
-    except (ValueError, AttributeError) as e:
-        print("Fehler: Ungültiges JSON-Format:", e)
-        return
+        if topic_str.endswith("/config"):
+            _handle_config(msg)
+            return
 
-    # --- Befehlsvalidierung ---
-    if not device_id:
-        print("Fehler: deviceId erforderlich, Befehl blockiert")
-        return
+        # --- Befehl parsen ---
+        try:
+            data = json.loads(msg)
+            command = data.get("command", "").upper()
+            device_id = data.get("deviceId", None)
+            signal_duration_ms = data.get("signalDurationMs", None)
+            delay_signal_duration_ms = data.get("delaySignalDurationMs", None)
+            del data
+        except (ValueError, AttributeError) as e:
+            print("Fehler: Ungültiges JSON-Format:", e)
+            return
 
-    if command not in ("ON", "OFF", "BLOCK", "UNBLOCK"):
-        print("Fehler: Ungültiger Befehl '{}', blockiert".format(command))
-        return
+        # --- Befehlsvalidierung ---
+        if not device_id:
+            print("Fehler: deviceId erforderlich, Befehl blockiert")
+            return
 
-    # --- Admin-Befehle (BLOCK/UNBLOCK) ---
-    if command == "BLOCK":
-        success = _admin_block_device(device_id)
+        if command not in ("ON", "OFF", "BLOCK", "UNBLOCK"):
+            print("Fehler: Ungültiger Befehl '{}', blockiert".format(command))
+            return
+
+        # --- Admin-Befehle (BLOCK/UNBLOCK) ---
+        if command == "BLOCK":
+            success = _admin_block_device(device_id)
+            if success:
+                _send_device_command_ack(device_id)
+            return
+
+        if command == "UNBLOCK":
+            success = _admin_unblock_device(device_id)
+            if success:
+                _send_device_command_ack(device_id)
+            return
+
+        # --- Sicherheits-Checks für ON/OFF ---
+        if device_id not in _known_devices:
+            print("Fehler: Unbekanntes Gerät blockiert: device={}".format(device_id))
+            _record_failed_attempt(device_id)
+            return
+
+        if _is_device_blocked(device_id):
+            print("Fehler: Gerät blockiert: device={}".format(device_id))
+            return
+
+        if not _check_rate_limit(device_id):
+            _record_failed_attempt(device_id)
+            return
+
+        # --- Befehl ausführen (ON/OFF) ---
+        success = False
+        if command == "ON":
+            success = gpio_manager.set(device_id, 1, signal_duration_ms, delay_signal_duration_ms)
+        elif command == "OFF":
+            success = gpio_manager.set(device_id, 0, signal_duration_ms, delay_signal_duration_ms)
+
         if success:
+            _clear_failed_attempts(device_id)
             _send_device_command_ack(device_id)
-        return
+            print("Befehl erfolgreich: device={} command={}".format(device_id, command))
+        else:
+            _record_failed_attempt(device_id)
 
-    if command == "UNBLOCK":
-        success = _admin_unblock_device(device_id)
-        if success:
-            _send_device_command_ack(device_id)
-        return
-
-    # --- Sicherheits-Checks für ON/OFF ---
-    if device_id not in _known_devices:
-        print("Fehler: Unbekanntes Gerät blockiert: device={}".format(device_id))
-        _record_failed_attempt(device_id)
-        return
-
-    if _is_device_blocked(device_id):
-        print("Fehler: Gerät blockiert: device={}".format(device_id))
-        return
-
-    if not _check_rate_limit(device_id):
-        _record_failed_attempt(device_id)
-        return
-
-    # --- Befehl ausführen (ON/OFF) ---
-    success = False
-    if command == "ON":
-        success = gpio_manager.set(device_id, 1, signal_duration_ms, delay_signal_duration_ms)
-    elif command == "OFF":
-        success = gpio_manager.set(device_id, 0, signal_duration_ms, delay_signal_duration_ms)
-
-    if success:
-        _clear_failed_attempts(device_id)
-        _send_device_command_ack(device_id)
-        print("Befehl erfolgreich: device={} command={}".format(device_id, command))
-    else:
-        _record_failed_attempt(device_id)
+    finally:
+        gc.collect()
 
 
 # =============================================================================
