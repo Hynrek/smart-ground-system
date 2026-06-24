@@ -1,0 +1,73 @@
+# Smart Ground — full stack from prebuilt images (no source needed on this machine).
+#
+#   docker login ghcr.io            # one-time, if images are private
+#   docker compose pull             # fetch latest images
+#   docker compose up -d            # start everything
+#   docker compose down             # stop (keeps the DB volume)
+#   docker compose down -v          # stop and wipe the DB
+#
+# Image names + tag come from .env (copy .env.example -> .env first).
+# Frontend:  http://localhost:5173
+# Backend:   http://localhost:8080   (Swagger: /swagger-ui.html)
+services:
+  db:
+    image: postgres:16
+    container_name: smartground-db
+    environment:
+      POSTGRES_DB: smartground
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - smartground
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: smartground-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    networks:
+      - smartground
+
+  app:
+    image: ${REGISTRY}/smart-ground-backend:${TAG:-latest}
+    container_name: smartground-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      db:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    networks:
+      - smartground
+
+  web:
+    image: ${REGISTRY}/smart-ground-ui:${TAG:-latest}
+    container_name: smartground-web
+    ports:
+      - "5173:80"
+    depends_on:
+      - app
+    networks:
+      - smartground
+
+volumes:
+  postgres_data:
+
+networks:
+  smartground:
+    name: smartground-network
