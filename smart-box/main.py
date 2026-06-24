@@ -6,6 +6,7 @@ import network
 
 from networkutils import connect_wifi, reconnect_wifi, get_mac_address
 from accesspoint import start_ap
+from hardware import status_blink
 from mqttutils import publish_discovery, connect_mqtt, reconnect_mqtt, load_device_config, update_device_pulses
 from mqttutils import _update_known_devices
 
@@ -28,6 +29,9 @@ def load_config():
 client = None
 
 try:
+    # Status-LED: 3x blinken signalisiert erfolgreichen Boot
+    status_blink()
+
     config = load_config()
 
     # Unvollständiges Profil -> Setup-Modus starten

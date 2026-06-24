@@ -1,6 +1,8 @@
 import network
 import time
 
+from hardware import led_off, led_toggle, CONNECTING_TOGGLE_MS
+
 RECONNECT_ATTEMPTS = 12
 RECONNECT_DELAY_S = 10
 
@@ -16,15 +18,21 @@ def connect_wifi(ssid, password, timeout=20):
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     wlan.connect(ssid, password)
-    
-    for _ in range(timeout):
-        print('Status', wlan.status())
+
+    # Status-LED: blinkt regelmäßig während des Verbindungsaufbaus.
+    # ticks_ms-Deadline statt sleep(1), damit die LED flüssig toggeln kann
+    # und das Timeout (in Sekunden) trotzdem eingehalten wird.
+    deadline = time.ticks_add(time.ticks_ms(), timeout * 1000)
+    while time.ticks_diff(deadline, time.ticks_ms()) > 0:
         if wlan.isconnected():
             print("Connected to Wi-Fi!")
             print('IP Address:', wlan.ifconfig()[0])
+            led_off()  # Status-LED: AUS bei erfolgreicher Verbindung
             return True
-        time.sleep(1)
-    
+        led_toggle()
+        time.sleep_ms(CONNECTING_TOGGLE_MS)
+
+    print('Status', wlan.status())
     return False
 
 def get_sta_ip():
