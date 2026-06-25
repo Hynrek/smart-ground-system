@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
+import { defaultHome } from '@/router';
 import Button from '@/components/Button.vue';
 
 const router = useRouter();
@@ -15,7 +16,7 @@ const handleLogin = async () => {
   errorMessage.value = '';
   try {
     await authStore.login(username.value, password.value);
-    router.push('/ranges');
+    router.push(defaultHome(authStore));
   } catch (err) {
     errorMessage.value = err.message;
   }

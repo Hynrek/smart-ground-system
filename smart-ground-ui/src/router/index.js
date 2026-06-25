@@ -82,6 +82,14 @@ router.beforeEach(async (to, from, next) => {
     return;
   }
 
+  // Enforce per-route permission: redirect users lacking the required permission
+  // to their own home (or /no-access) rather than letting them load the view.
+  if (authenticated && to.meta.permission && !auth.hasPermission(to.meta.permission)) {
+    const home = defaultHome(auth);
+    next(home === to.path ? '/no-access' : home);
+    return;
+  }
+
   // Hard-lock: assigned users may only visit their range path (allow login/no-access through)
   if (authenticated && auth.profile?.assignedRangeId) {
     const allowedPath = `/remote/${auth.profile.assignedRangeId}`;
