@@ -131,6 +131,31 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     return state?.state === StepState.DONE;
   });
 
+  // Treffer (hit undo) is only valid when the last-fired step currently carries a
+  // fail deduction — i.e. there is an accidental fail to revert.
+  const canMarkHit = computed(() => {
+    if (!playLastDeviceStep.value || playComplete.value) return false;
+    const { serieIdx, stepIdx } = playLastDeviceStep.value;
+    const state = findStepState(serieIdx, stepIdx);
+    return !!state && getPointDeduction(state.state) > 0;
+  });
+
+  // Revert the last-fired step to a full hit. Inverse of updateFailState's point
+  // math. Intentionally does NOT use correctStep — corrections set the audit flags
+  // (corrected/originalState) meant for the final score screen; an in-play mis-tap
+  // fix is not an audited correction.
+  const markLastStepHit = () => {
+    if (!playLastDeviceStep.value || playComplete.value) return;
+    const { serieIdx, stepIdx } = playLastDeviceStep.value;
+    const state = findStepState(serieIdx, stepIdx);
+    if (!state) return;
+    const restore = Math.min(getPointDeduction(state.state), state.pointValue);
+    if (restore === 0) return; // already a full hit / pending
+    state.state = StepState.DONE;
+    state.pointsEarned = Math.min(state.pointValue, state.pointsEarned + restore);
+    playScore.value.totalPoints += restore;
+  };
+
   const playerScores = computed(() =>
     sessionPlayers.value.map((player) => {
       const states = playScore.value.stepStates.filter((s) => s.playerId === player.id);
@@ -756,6 +781,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     serieCompletionPct,
     playProgress,
     canRetry,
+    canMarkHit,
     playerScores,
     playerScoresSorted,
     allPlayersConfirmed,
@@ -765,6 +791,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     completeRaffaleStep,
     markStepDone,
     failStep,
+    markLastStepHit,
     retryStep,
     correctStep,
     confirmPlayer,

@@ -261,40 +261,27 @@
 
     <!-- Action buttons at bottom (always visible) -->
     <div class="action-bar">
-      <!-- Fail first device -->
+      <!-- Fail: solo fails immediately, doubles open the fail flyout -->
       <button
         class="action-btn"
         :disabled="!canFail"
-        :title="failLabelA"
-        @click="handleFailStep('a')"
+        title="Fehler werten"
+        @click="onFailTapped"
       >
-        <span class="btn-label">{{ failLabelA }}</span>
-        <span class="btn-info">-1</span>
+        <span class="btn-label">Fail</span>
       </button>
 
-      <!-- Fail second device (only for pair/a_schuss/raffale) -->
+      <!-- Treffer: revert the last-fired step to a full hit -->
       <button
-        class="action-btn"
-        :disabled="!(canFail && lastStepWasADouble)"
-        :title="failLabelB"
-        @click="handleFailStep('b')"
+        class="action-btn btn-hit-action"
+        :disabled="!store.canMarkHit"
+        title="Letzten Schritt als Treffer werten"
+        @click="handleMarkHit"
       >
-        <span class="btn-label">{{ failLabelB }}</span>
-        <span class="btn-info">-1</span>
+        <span class="btn-label">Treffer</span>
       </button>
 
-      <!-- Fail both (only for pair/a_schuss/raffale) -->
-      <button
-        class="action-btn"
-        :disabled="!(canFail && lastStepWasADouble)"
-        :title="failLabelBoth"
-        @click="handleFailStep('both')"
-      >
-        <span class="btn-label">{{ failLabelBoth }}</span>
-        <span class="btn-info">-2</span>
-      </button>
-
-      <!-- No Bird (always visible) -->
+      <!-- No Bird: retry the last step -->
       <button
         class="action-btn btn-no-bird"
         :disabled="!store.canRetry"
@@ -305,6 +292,32 @@
         <span class="btn-info">Retry</span>
       </button>
     </div>
+
+    <!-- Fail flyout (doubles) — bottom sheet over the action bar -->
+    <Transition name="fail-sheet-fade">
+      <div v-if="failSheetOpen" class="fail-sheet-overlay" @click.self="failSheetOpen = false">
+        <div class="fail-sheet">
+          <div class="fail-sheet-handle" />
+          <div class="fail-sheet-header">
+            <span class="fail-sheet-title">Fail · {{ failSheetNotation }}</span>
+            <button class="fail-sheet-close" aria-label="Schließen" @click="failSheetOpen = false">
+              <Icons icon="x" :size="16" color="rgba(255,255,255,0.5)" />
+            </button>
+          </div>
+          <div class="fail-sheet-grid">
+            <button
+              v-for="cell in failSheetCells"
+              :key="cell.failType"
+              class="fail-cell"
+              @click="chooseFail(cell.failType)"
+            >
+              <span class="fail-cell-label">{{ cell.label }}</span>
+              <span class="fail-cell-cost">−{{ cell.cost }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <!-- Progress dots -->
     <div v-if="store.playProg" class="progress-dots">
@@ -338,7 +351,7 @@ import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import { StepState, StepType } from '@/constants/playEnums.js';
-import { stepModeLabel, stepNotation, isMultiResultStep } from '@/constants/stepModes.js';
+import { stepModeLabel, stepNotation, isMultiResultStep, stepFailCells } from '@/constants/stepModes.js';
 import Icons from '@/components/Icons.vue';
 import ScoreTable from '@/components/shooter/ScoreTable.vue';
 
@@ -372,6 +385,33 @@ const confirmNextShooter = () => {
 
 // ── Correction picker ─────────────────────────────────────────────────────────
 const correctionTarget = ref(null);
+
+// ── Fail flyout (doubles) ───────────────────────────────────────────────────────
+const failSheetOpen = ref(false);
+
+const failSheetCells = computed(() => stepFailCells(lastFiredStep.value));
+const failSheetNotation = computed(() =>
+  lastFiredStep.value ? stepNotation(lastFiredStep.value) : ''
+);
+
+// Fail tapped on the bar: solo fails immediately (one outcome); doubles open the sheet.
+const onFailTapped = () => {
+  if (!canFail.value) return;
+  if (lastStepWasADouble.value) {
+    failSheetOpen.value = true;
+  } else {
+    handleFailStep('a');
+  }
+};
+
+const chooseFail = (failType) => {
+  handleFailStep(failType);
+  failSheetOpen.value = false;
+};
+
+const handleMarkHit = () => {
+  store.markLastStepHit();
+};
 
 const correctionTargetStep = computed(() => {
   if (!correctionTarget.value) return null;
@@ -592,9 +632,7 @@ const failLabelBothFor = (s) => {
   return `Fail ${s.letter1 ?? '1'}/${s.letter2 ?? '2'}`;
 };
 
-const failLabelA = computed(() => failLabelAFor(lastFiredStep.value));
-const failLabelB = computed(() => failLabelBFor(lastFiredStep.value));
-const failLabelBoth = computed(() => failLabelBothFor(lastFiredStep.value));
+// Fail-button label builders are shared with the score-correction picker below.
 
 // Same labels, but for the step targeted by the score-correction picker
 const correctionFailLabelA = computed(() => failLabelAFor(correctionTargetStep.value));
@@ -1335,7 +1373,7 @@ watch(
 /* ── Action bar (bottom buttons) ─────────────────── */
 .action-bar {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   padding: 16px 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -1377,6 +1415,116 @@ watch(
 
 .action-btn.btn-no-bird:hover:not(:disabled) {
   background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
+}
+
+.action-btn.btn-hit-action {
+  border-color: rgba(72, 187, 120, 0.35);
+  background: rgba(72, 187, 120, 0.12);
+  color: var(--sg-color-success);
+}
+
+.action-btn.btn-hit-action:hover:not(:disabled) {
+  background: rgba(72, 187, 120, 0.2);
+}
+
+/* ── Fail flyout (bottom sheet) ───────────────────── */
+.fail-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  z-index: 90;
+}
+
+.fail-sheet {
+  background: rgba(24, 24, 40, 0.98);
+  border-top: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px 18px 0 0;
+  padding: 12px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: transform 0.2s ease;
+}
+
+.fail-sheet-handle {
+  width: 34px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.18);
+  align-self: center;
+}
+
+.fail-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fail-sheet-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.fail-sheet-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  padding: 4px;
+}
+
+.fail-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.fail-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(252, 129, 129, 0.3);
+  background: rgba(252, 129, 129, 0.13);
+  color: var(--sg-color-danger-bg);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.fail-cell:hover {
+  background: rgba(252, 129, 129, 0.2);
+}
+
+.fail-cell-label {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.fail-cell-cost {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.fail-sheet-fade-enter-active,
+.fail-sheet-fade-leave-active {
+  transition: opacity 0.18s;
+}
+
+.fail-sheet-fade-enter-from,
+.fail-sheet-fade-leave-to {
+  opacity: 0;
+}
+
+.fail-sheet-fade-enter-from .fail-sheet,
+.fail-sheet-fade-leave-to .fail-sheet {
+  transform: translateY(100%);
 }
 
 .btn-label {

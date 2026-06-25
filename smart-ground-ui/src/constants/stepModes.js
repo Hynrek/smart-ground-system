@@ -172,3 +172,29 @@ export function modeDotStyle(type) {
   const m = STEP_MODES[type];
   return m ? { background: m.base } : {};
 }
+
+/**
+ * Fail-flyout cells for a double step: first-only / second-only / both, each with
+ * a compact position-notation label and its point cost. Used by the in-play Fail
+ * flyout. Solo steps never reach this (they fail in one tap), so only the double
+ * types are handled. Raffale repeats its single trap letter across both shots.
+ */
+export function stepFailCells(step) {
+  if (!step) return [];
+  const { first, second } = stepLetters(step);
+  if (step.type === StepType.RAFFALE) {
+    const l = first || '?';
+    return [
+      { failType: 'a', label: `${l}1`, cost: 1 },
+      { failType: 'b', label: `${l}2`, cost: 1 },
+      { failType: 'both', label: `${l}×2`, cost: 2 },
+    ];
+  }
+  const a = first || '?';
+  const b = second || '?';
+  return [
+    { failType: 'a', label: `${a}`, cost: 1 },
+    { failType: 'b', label: `${b}`, cost: 1 },
+    { failType: 'both', label: `${a} + ${b}`, cost: 2 },
+  ];
+}
