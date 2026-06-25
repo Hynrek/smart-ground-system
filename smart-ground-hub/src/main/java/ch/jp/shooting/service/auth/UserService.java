@@ -40,6 +40,17 @@ public class UserService {
         this.userMapper = userMapper;
     }
 
+    // 3–30 Zeichen, beginnt alphanumerisch, danach Buchstaben/Ziffern/._-
+    private static final java.util.regex.Pattern USERNAME_PATTERN =
+            java.util.regex.Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._-]{2,29}$");
+
+    private void validateUsername(String username) {
+        if (username == null || !USERNAME_PATTERN.matcher(username.trim()).matches()) {
+            throw new IllegalArgumentException(
+                "Invalid username: 3-30 chars, start with a letter or digit, only letters/digits/._-");
+        }
+    }
+
     // ==================== USER CRUD ====================
 
     /**
@@ -55,13 +66,14 @@ public class UserService {
             throw new ConflictException("Membership number already exists");
         }
 
+        validateUsername(request.getUsername());
+        if (userRepository.findByUsernameLower(User.toUsernameLower(request.getUsername())).isPresent()) {
+            throw new ConflictException("Username already taken");
+        }
+
         // Create user entity
         User user = new User(request.getEmail(), request.getVorname(), request.getNachname());
-        // Vorläufiger Username aus Email-Präfix (wird durch Task 6 durch explizite Eingabe ersetzt)
-        String emailPrefix = request.getEmail().contains("@")
-            ? request.getEmail().substring(0, request.getEmail().indexOf('@'))
-            : request.getEmail();
-        user.setUsername(emailPrefix);
+        user.setUsername(request.getUsername());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setGeburtsdatum(request.getGeburtsdatum());
         user.setGeschlecht(request.getGeschlecht());
@@ -158,6 +170,14 @@ public class UserService {
         }
         if (request.getSchiessLizenzVerfallsdatum() != null) {
             user.setSchiessLizenzVerfallsdatum(request.getSchiessLizenzVerfallsdatum());
+        }
+        if (request.getUsername() != null) {
+            validateUsername(request.getUsername());
+            String lower = User.toUsernameLower(request.getUsername());
+            userRepository.findByUsernameLower(lower)
+                .filter(other -> !other.getId().equals(userId))
+                .ifPresent(o -> { throw new ConflictException("Username already taken"); });
+            user.setUsername(request.getUsername());
         }
         if (request.getStatus() != null) {
             try {
