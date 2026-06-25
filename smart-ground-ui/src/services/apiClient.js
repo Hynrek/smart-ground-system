@@ -1,7 +1,11 @@
 import { getAuthHeaders } from './authHeader.js';
 import router from '@/router/index.js';
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api';
+// Relative by default so the browser hits whatever origin served the SPA.
+// In production, nginx proxies /api to the backend container; in dev, the Vite
+// proxy (see vite.config.js) forwards /api to localhost:8080. Override with an
+// absolute URL via VITE_API_BASE_URL only if the backend lives on another origin.
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
 export async function handleResponse(response) {
   if (response.ok) {

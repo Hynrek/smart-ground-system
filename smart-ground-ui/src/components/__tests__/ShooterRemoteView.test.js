@@ -11,6 +11,10 @@ vi.mock('../../services/rangePositionApi.js', () => ({
   fetchPositions: vi.fn().mockResolvedValue([]),
 }))
 
+vi.mock('../../services/rangeApi.js', () => ({
+  fetchRange: vi.fn().mockResolvedValue({ id: 'range-1', assignedUserId: null }),
+}))
+
 vi.mock('../../components/shooter-remote/ShooterFlyoutPanel.vue', () => ({
   default: { template: '<div />' },
 }))

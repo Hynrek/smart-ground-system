@@ -28,7 +28,7 @@ describe('exportLeaderboard', () => {
   it('requests the CSV export with auth headers and triggers a download', async () => {
     await exportLeaderboard('s1', 'csv')
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:8080/api/sessions/s1/leaderboard/export?format=csv',
+      '/api/sessions/s1/leaderboard/export?format=csv',
       { headers: { Authorization: 'Bearer t' } },
     )
     expect(createObjectURL).toHaveBeenCalledOnce()
@@ -40,7 +40,7 @@ describe('exportLeaderboard', () => {
   it('defaults to csv format', async () => {
     await exportLeaderboard('s1')
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:8080/api/sessions/s1/leaderboard/export?format=csv',
+      '/api/sessions/s1/leaderboard/export?format=csv',
       expect.anything(),
     )
   })
