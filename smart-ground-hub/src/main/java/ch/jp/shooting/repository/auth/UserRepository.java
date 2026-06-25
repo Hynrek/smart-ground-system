@@ -18,6 +18,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.userRoles ur LEFT JOIN FETCH ur.role r LEFT JOIN FETCH r.permissions WHERE u.email = :email")
     Optional<User> findByEmailWithRoles(@Param("email") String email);
 
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.userRoles ur LEFT JOIN FETCH ur.role r "
+         + "LEFT JOIN FETCH r.permissions "
+         + "WHERE LOWER(u.email) = LOWER(:login) OR u.usernameLower = LOWER(:login)")
+    Optional<User> findByEmailOrUsernameWithRoles(@Param("login") String login);
+
+    Optional<User> findByUsernameLower(String usernameLower);
+
     Optional<User> findByMitgliedsnummer(String mitgliedsnummer);
 
     @Query("SELECT ur.role FROM UserRoleEntity ur WHERE ur.user.id = ?1")
