@@ -57,7 +57,8 @@ public class AuthController implements AuthApi {
                 .findFirst()
                 .orElse(null);
 
-        String token = jwtService.generateToken(request.getUsername(), role);
+        // Subject ist immer die kanonische E-Mail – egal ob per E-Mail oder Benutzername eingeloggt
+        String token = jwtService.generateToken(authentication.getName(), role);
         return ResponseEntity.ok(new LoginResponse().token(token));
     }
 
@@ -86,6 +87,7 @@ public class AuthController implements AuthApi {
         MeResponse response = new MeResponse()
                 .id(user.getId())
                 .email(user.getEmail())
+                .username(user.getUsername())
                 .vorname(user.getVorname())
                 .nachname(user.getNachname())
                 .geburtsdatum(user.getGeburtsdatum())
