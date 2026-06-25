@@ -57,6 +57,11 @@ public class UserService {
 
         // Create user entity
         User user = new User(request.getEmail(), request.getVorname(), request.getNachname());
+        // Vorläufiger Username aus Email-Präfix (wird durch Task 6 durch explizite Eingabe ersetzt)
+        String emailPrefix = request.getEmail().contains("@")
+            ? request.getEmail().substring(0, request.getEmail().indexOf('@'))
+            : request.getEmail();
+        user.setUsername(emailPrefix);
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setGeburtsdatum(request.getGeburtsdatum());
         user.setGeschlecht(request.getGeschlecht());

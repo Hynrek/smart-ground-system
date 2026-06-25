@@ -167,6 +167,7 @@ public class DataInitializer {
 
         // Admin-Benutzer anlegen und Rolle per UserRoleEntity zuweisen
         User admin = new User("admin@smartground.local", "Admin", "User");
+        admin.setUsername("admin");
         admin.setPasswordHash(passwordEncoder.encode("admin123"));
         admin.setStatus(User.UserStatus.ACTIVE);
         admin.setEmailBestaetigt(true);
@@ -181,6 +182,7 @@ public class DataInitializer {
             return;
         }
         User shooter = new User("user@smartground.local", "Test", "Schütze");
+        shooter.setUsername("user");
         shooter.setPasswordHash(passwordEncoder.encode("user"));
         shooter.setStatus(User.UserStatus.ACTIVE);
         shooter.setEmailBestaetigt(true);
