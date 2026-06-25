@@ -34,9 +34,9 @@ public class CustomUserDetailsService implements UserDetailsService {
      */
     @Override
     public UserDetails loadUserByUsername(String emailOrUsername) throws UsernameNotFoundException {
-        // Versuche, Benutzer anhand der Email zu finden
-        // (Der Parameter wird als Email interpretiert)
-        User user = userRepository.findByEmailWithRoles(emailOrUsername)
+        // Versuche, Benutzer anhand der Email oder Username zu finden
+        // (Der Parameter wird als Email oder Username interpretiert)
+        User user = userRepository.findByEmailOrUsernameWithRoles(emailOrUsername)
             .orElseThrow(() -> new UsernameNotFoundException("Benutzer nicht gefunden: " + emailOrUsername));
 
         // Prüfe, ob Benutzer aktiv ist
