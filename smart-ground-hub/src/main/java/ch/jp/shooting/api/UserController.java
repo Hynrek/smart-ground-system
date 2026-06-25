@@ -66,6 +66,7 @@ public class UserController implements UserApi {
     public ResponseEntity<UserResponse> createUser(@Valid ch.jp.smartground.model.CreateUserRequest request) {
         ch.jp.shooting.dto.CreateUserRequest dto = new ch.jp.shooting.dto.CreateUserRequest();
         dto.setEmail(request.getEmail());
+        dto.setUsername(request.getUsername());
         dto.setPassword(request.getPassword());
         dto.setVorname(request.getVorname());
         dto.setNachname(request.getNachname());
@@ -91,6 +92,7 @@ public class UserController implements UserApi {
         }
         ch.jp.shooting.dto.UpdateUserRequest dto = new ch.jp.shooting.dto.UpdateUserRequest();
         dto.setEmail(jsonNullableOrNull(request.getEmail()));
+        dto.setUsername(jsonNullableOrNull(request.getUsername()));
         dto.setVorname(jsonNullableOrNull(request.getVorname()));
         dto.setNachname(jsonNullableOrNull(request.getNachname()));
         dto.setGeburtsdatum(jsonNullableOrNull(request.getGeburtsdatum()));
@@ -175,6 +177,7 @@ public class UserController implements UserApi {
         UserResponse r = new UserResponse()
                 .id(dto.getId())
                 .email(dto.getEmail())
+                .username(dto.getUsername())
                 .vorname(dto.getVorname())
                 .nachname(dto.getNachname())
                 .fullName(dto.getFullName())
