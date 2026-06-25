@@ -3541,12 +3541,14 @@ components:
 
     MeResponse:
       type: object
-      required: [id, email, vorname, nachname, status, erstelltAm, permissions]
+      required: [id, email, username, vorname, nachname, status, erstelltAm, permissions]
       properties:
         id:
           type: string
           format: uuid
         email:
+          type: string
+        username:
           type: string
         vorname:
           type: string
@@ -3629,11 +3631,16 @@ components:
 
     CreateUserRequest:
       type: object
-      required: [email, password, vorname, nachname]
+      required: [email, username, password, vorname, nachname]
       properties:
         email:
           type: string
           format: email
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{2,29}$'
         password:
           type: string
         vorname:
@@ -4042,6 +4049,12 @@ components:
           type: string
           format: email
           nullable: true
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{2,29}$'
+          nullable: true
         vorname:
           type: string
           nullable: true
@@ -4118,6 +4131,8 @@ components:
           type: string
           format: uuid
         email:
+          type: string
+        username:
           type: string
         vorname:
           type: string
