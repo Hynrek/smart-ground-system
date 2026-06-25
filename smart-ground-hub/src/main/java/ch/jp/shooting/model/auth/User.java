@@ -19,6 +19,12 @@ public class User {
     @Column(unique = true, nullable = false)
     private String email;
 
+    @Column(nullable = false)
+    private String username; // Anzeige-Schreibweise (wie eingegeben)
+
+    @Column(name = "username_lower", nullable = false, unique = true)
+    private String usernameLower; // Kleinschreibung – für Login-Suche & Eindeutigkeit
+
     @Nullable
     @Column(name = "password_hash")
     private String passwordHash;
@@ -137,6 +143,21 @@ public class User {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getUsername() { return username; }
+
+    /** Setzt den Benutzernamen und berechnet automatisch die Kleinschreibungs-Variante. */
+    public void setUsername(String username) {
+        this.username = username.trim();
+        this.usernameLower = toUsernameLower(username);
+    }
+
+    public String getUsernameLower() { return usernameLower; }
+
+    /** Normalisiert einen Benutzernamen für Eindeutigkeits-/Login-Vergleiche. */
+    public static String toUsernameLower(String username) {
+        return username.trim().toLowerCase(java.util.Locale.ROOT);
+    }
 
     @Nullable
     public String getPasswordHash() { return passwordHash; }
