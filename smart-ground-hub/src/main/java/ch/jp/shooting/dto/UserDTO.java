@@ -11,6 +11,7 @@ import java.util.UUID;
 public class UserDTO {
     private UUID id;
     private String email;
+    private String username;
     private String vorname;
     private String nachname;
     private String fullName;
@@ -73,6 +74,9 @@ public class UserDTO {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
 
     public String getVorname() { return vorname; }
     public void setVorname(String vorname) { this.vorname = vorname; }

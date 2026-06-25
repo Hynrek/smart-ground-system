@@ -12,6 +12,9 @@ public class UpdateUserRequest {
     private String email;
 
     @Nullable
+    private String username;
+
+    @Nullable
     private String vorname;
 
     @Nullable
@@ -73,6 +76,10 @@ public class UpdateUserRequest {
     @Nullable
     public String getEmail() { return email; }
     public void setEmail(@Nullable String email) { this.email = email; }
+
+    @Nullable
+    public String getUsername() { return username; }
+    public void setUsername(@Nullable String username) { this.username = username; }
 
     @Nullable
     public String getVorname() { return vorname; }
