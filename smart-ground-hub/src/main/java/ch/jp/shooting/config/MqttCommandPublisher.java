@@ -2,7 +2,6 @@ package ch.jp.shooting.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jspecify.annotations.NullMarked;
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -26,11 +25,11 @@ public class MqttCommandPublisher {
         this.objectMapper = objectMapper;
     }
 
-    public record CommandPayload(String command, String deviceId, int signalDurationMs, @Nullable Integer delaySignalDurationMs) {}
+    public record CommandPayload(String command, String deviceId, int signalDurationMs) {}
 
-    public void publishToTopic(String topic, String command, String deviceId, int signalDurationMs, @Nullable Integer delaySignalDurationMs) {
+    public void publishToTopic(String topic, String command, String deviceId, int signalDurationMs) {
         try {
-            String payload = objectMapper.writeValueAsString(new CommandPayload(command, deviceId, signalDurationMs, delaySignalDurationMs));
+            String payload = objectMapper.writeValueAsString(new CommandPayload(command, deviceId, signalDurationMs));
             mqttOutboundChannel.send(
                     MessageBuilder.withPayload(payload)
                             .setHeader("mqtt_topic", topic)

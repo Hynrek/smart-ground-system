@@ -21,7 +21,7 @@ import java.util.UUID;
  * Pusht die aktuelle Gerätekonfiguration einer SmartBox via MQTT.
  *
  * Topic:   smartboxes/{mac}/config
- * Payload: { "firmware_version": "0.4", "devices": [ { "device_id", "alias", "direction", "device", "command", "signal_duration_ms", "delay_ms", "blocked" }, … ] }
+ * Payload: { "firmware_version": "0.4", "devices": [ { "device_id", "alias", "direction", "device", "command", "signal_duration_ms", "blocked" }, … ] }
  *
  * Die SmartBox speichert den Payload lokal als device_config.json und
  * quittiert den Empfang auf smartboxes/{mac}/config/ack.
@@ -57,7 +57,6 @@ public class SmartBoxConfigPushService {
         String device,
         String command,
         @JsonProperty("signal_duration_ms") int signalDurationMs,
-        @JsonProperty("delay_ms")           Integer delayMs,
         boolean blocked
     ) {}
 
@@ -112,11 +111,6 @@ public class SmartBoxConfigPushService {
 
             SignalType signal = deviceType.getSignalType();
 
-            // Effective delay: device-level override wins, else DeviceType default
-            Integer effectiveDelay = device.getDelaySignalDurationMs() != null
-                ? device.getDelaySignalDurationMs()
-                : deviceType.getDelaySignalDurationMs();
-
             entries.add(new DeviceConfigEntry(
                 device.getId(),
                 device.getAlias(),
@@ -124,7 +118,6 @@ public class SmartBoxConfigPushService {
                 signal.getDevice().name(),
                 signal.getCommand(),
                 deviceType.getSignalDurationMs(),
-                effectiveDelay,
                 device.isBlocked()
             ));
         }
