@@ -63,6 +63,10 @@ smart-box/
 ├── networkutils.py                     # WiFi connect/reconnect helpers
 ├── accesspoint.py                      # Captive portal for first-time WiFi setup
 ├── accesspoint.html                    # HTML served by the captive portal
+├── boards/
+│   ├── pico2w.py                       # Board-Konstanten und Init für Raspberry Pi Pico 2W
+│   ├── xiao_esp32s3.py                 # Board-Konstanten und Init für XIAO ESP32-S3
+│   └── test_board.py                   # Neutraler Stub für Host-Tests
 ├── systemconfig/
 │   ├── accesspoint_config.json         # AP SSID/password (read-only at runtime)
 │   └── firmware_config.json            # Firmware version + capability registry (read-only at runtime)
@@ -76,7 +80,7 @@ smart-box/
 ## Module Responsibilities
 
 ### `main.py`
-Entry point. Loads `userconfig/client_config.json`; falls back to `start_ap()` if absent or incomplete (`client_network_ssid` or `broker_ip` missing). Pre-loads GPIO from `userconfig/device_config.json` before MQTT connects. Honors `broker_port` (default 1883). Connects MQTT, sends discovery **once on boot**, then runs the main polling loop. Activates a `machine.WDT` (timeout `WDT_TIMEOUT_MS`, 8 s) immediately before the loop — main-loop only, since AP/first-connect can legitimately wait; feeds it each tick and threads it through the reconnect helpers. Checks WiFi and MQTT connection before every `check_msg()` call; calls `update_device_pulses()` on every tick. Publishes a **heartbeat** (`publish_heartbeat`) every `PUBLISH_INTERVAL_S` (20 s) instead of re-announcing discovery, and runs `gc.collect()` after each publish.
+Selects the board module at the very top of the file via `sys.platform` → `boards/<name>.py` map, registers it as `sys.modules["board"]`, and calls `board.board_init()`. This happens before all other imports because `hardware.py` needs `board.LED_PIN` at module load time. Uses `board.WDT_TIMEOUT_MS` for the watchdog timeout. Loads `userconfig/client_config.json`; falls back to `start_ap()` if absent or incomplete (`client_network_ssid` or `broker_ip` missing). Pre-loads GPIO from `userconfig/device_config.json` before MQTT connects. Honors `broker_port` (default 1883). Connects MQTT, sends discovery **once on boot**, then runs the main polling loop. Activates a `machine.WDT` (timeout `WDT_TIMEOUT_MS`, 8 s) immediately before the loop — main-loop only, since AP/first-connect can legitimately wait; feeds it each tick and threads it through the reconnect helpers. Checks WiFi and MQTT connection before every `check_msg()` call; calls `update_device_pulses()` on every tick. Publishes a **heartbeat** (`publish_heartbeat`) every `PUBLISH_INTERVAL_S` (20 s) instead of re-announcing discovery, and runs `gc.collect()` after each publish.
 
 ### `mqttutils.py`
 Everything MQTT-related plus security:
@@ -104,7 +108,7 @@ Security state in module globals: `_known_devices` (set of authorised UUIDs) and
 - `tick()` — called every main loop tick (via `update_device_pulses()`); expires timed pulses using `ticks_diff` (handles 32-bit rollover correctly)
 - `feed_sleep_ms(total_ms, wdt=None, chunk_ms=FEED_SLEEP_CHUNK_MS)` — sleeps in chunks, feeding the optional watchdog between them (used by the reconnect waits)
 - `known_ids()` — returns list of registered device UUIDs
-- Module-level `led = Pin("LED", Pin.OUT)` for onboard LED
+- Module-level `led = Pin(board.LED_PIN, Pin.OUT)` — pin comes from the board module, not hardcoded.
 - **Status-LED helpers** (boot/connection feedback on the onboard LED): `led_on()`, `led_off()`, `led_toggle()`, and `status_blink(times=3, on_ms=150, off_ms=150)` (blinks, then leaves the LED off). Timing constants `STARTUP_BLINKS`, `BLINK_ON_MS`, `BLINK_OFF_MS`, `CONNECTING_TOGGLE_MS` live in the `# --- KONFIGURATION ---` block. See **Boot Status LED** below.
 
 ### `networkutils.py`
@@ -115,6 +119,19 @@ Security state in module globals: `_known_devices` (set of authorised UUIDs) and
 
 ### `accesspoint.py`
 Captive portal for first-time WiFi setup. Runs in AP mode (SSID/password from `systemconfig/accesspoint_config.json`), serves `accesspoint.html`, writes validated credentials to `userconfig/client_config.json`. Only accepts keys `client_network_ssid`, `client_network_pw`, `broker_ip`, `broker_port`. Requires `client_network_ssid` and `broker_ip`; rejects with 400 otherwise. Reboots after saving. Keep entirely separate from MQTT logic — it runs as an alternative boot path, not alongside MQTT. Calls `led_on()` (solid LED) before entering the socket loop to signal AP mode.
+
+### `boards/` (board modules)
+
+One file per supported hardware type. All files are uploaded to every device; the correct one is selected at runtime by `main.py` using `sys.platform`. Each module exports a fixed interface:
+
+| Symbol | Type | Description |
+|---|---|---|
+| `BOX_TYPE` | `str` | Canonical name sent in the discovery payload |
+| `LED_PIN` | `int` or `str` | Passed to `machine.Pin()` for the onboard LED |
+| `WDT_TIMEOUT_MS` | `int` | Watchdog timeout in milliseconds |
+| `board_init()` | function | Called once at boot; no-op if nothing board-specific is needed |
+
+`main.py` registers the selected module as `sys.modules["board"]` so other modules can do a plain `import board`. Adding support for a new board = one new file in `boards/`, no changes to core logic.
 
 ---
 
@@ -324,11 +341,10 @@ Set at flash time, controls the setup captive portal:
 
 ### `systemconfig/firmware_config.json` (read-only at runtime)
 
-Describes firmware capabilities; read when building the discovery payload:
+Describes firmware capabilities; read when building the discovery payload. The `boxType` field in the discovery payload now comes from `board.BOX_TYPE`:
 ```json
 {
   "firmware_version": "0.6",
-  "box_type": "pico2w",
   "supported_device_kinds": ["GPIO", "LED"],
   "supported_directions": ["INPUT", "OUTPUT"]
 }
@@ -421,7 +437,7 @@ Logic that doesn't need real hardware is unit-tested under CPython. From `smart-
 python -m unittest discover -s tests -t . -v
 ```
 
-`tests/_stubs.py` installs fake `machine`/`micropython`/`network`/`umqtt.simple` modules into `sys.modules` and patches a **controllable clock** (`ticks_ms`/`ticks_add`/`ticks_diff`/`sleep_ms`, advanced via `_stubs.clock.advance(ms)`) onto the real `time` module, so timing is deterministic with no real sleeps. `tests/__init__.py` puts the repo root on `sys.path` and installs the stubs before any firmware import. Covered: scheduler timing + busy-reject, security routing (allowlist/admin block), config handling, discovery/heartbeat payloads, and the watchdog-fed sleep. Hardware-only paths (`main.py`, real GPIO/WDT/WiFi) are still verified manually on the Pico 2W.
+`tests/_stubs.py` installs fake `machine`/`micropython`/`network`/`umqtt.simple` modules into `sys.modules` and patches a **controllable clock** (`ticks_ms`/`ticks_add`/`ticks_diff`/`sleep_ms`, advanced via `_stubs.clock.advance(ms)`) onto the real `time` module, so timing is deterministic with no real sleeps. `tests/__init__.py` puts the repo root on `sys.path` and installs the stubs before any firmware import. Covered: scheduler timing + busy-reject, security routing (allowlist/admin block), config handling, discovery/heartbeat payloads, and the watchdog-fed sleep. Hardware-only paths (`main.py`, real GPIO/WDT/WiFi) are still verified manually on the Pico 2W. `boards/test_board.py` provides a neutral board stub (`BOX_TYPE = "test-board"`, `LED_PIN = 0`). `tests/_stubs.py` registers it as `sys.modules["board"]` before any firmware module is imported, so `import board` in `hardware.py` and `mqttutils.py` resolves correctly under CPython.
 
 ## Known Issues & Open Work
 
