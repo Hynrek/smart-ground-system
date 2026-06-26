@@ -4,7 +4,11 @@ import sys
 # Muss VOR allen anderen Firmware-Importen geschehen, da hardware.py 'board' beim
 # Laden benötigt.
 _PLATFORM_MAP = {"rp2": "pico2w", "esp32": "xiao_esp32s3"}
-_board_name = _PLATFORM_MAP[sys.platform]
+_board_name = _PLATFORM_MAP.get(sys.platform)
+if _board_name is None:
+    print("Unbekannte Plattform:", sys.platform)
+    import machine as _machine
+    _machine.reset()
 board = __import__("boards." + _board_name, None, None, [_board_name])
 sys.modules["board"] = board
 board.board_init()
