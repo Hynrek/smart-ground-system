@@ -1,18 +1,14 @@
 import gc
 import json
-import time
 import network
-from hardware import led, gpio_manager
+from hardware import led, gpio_manager, feed_sleep_ms
 
 # --- KONFIGURATION ---
 RECONNECT_ATTEMPTS   = 12
 RECONNECT_DELAY_S    = 10
 FIRMWARE_CONFIG_PATH = "systemconfig/firmware_config.json"   # Statisch – beschreibt die Fähigkeiten der Box
 DEVICE_CONFIG_PATH   = "userconfig/device_config.json"       # Dynamisch – aktive Geräte vom Backend
-RATE_LIMIT_S         = 0.1    # Min. Sekunden zwischen Befehlen pro Gerät
-MAX_FAILED_ATTEMPTS  = 5      # Max. gescheiterte Versuche bevor Blocking
-BLOCK_DURATION_S     = 300    # Blockierungszeit nach MAX_FAILED_ATTEMPTS (5 Min)
-ADMIN_BLOCK_TOKEN    = "ADMIN"  # Spezial-Token für manuelle Admin-Blockierung (keine Auto-Freigabe)
+ADMIN_BLOCK_TOKEN    = "ADMIN"  # Token für manuelle Admin-Blockierung (keine Auto-Freigabe)
 
 try:
     from umqtt.simple import MQTTClient
@@ -28,10 +24,8 @@ _client_id   = None
 _mqtt_broker = None
 _mqtt_port   = 1883
 _mqtt_client = None     # Aktive persistente MQTT-Verbindung
-_known_devices = set()  # Authorized device IDs
-_last_command_time = {}  # Rate limiting: device_id -> last_command_timestamp
-_failed_commands = {}  # Tracking failed commands: device_id -> count
-_blocked_devices = {}  # Blocked devices: device_id -> unblock_timestamp
+_known_devices = set()  # Autorisierte Geräte-IDs
+_blocked_devices = {}   # Admin-blockierte Geräte: device_id -> ADMIN_BLOCK_TOKEN
 
 # Firmware-Konfiguration einmalig beim Modulstart laden – Version ändert sich nie zur Laufzeit
 _firmware_config = None
@@ -78,7 +72,7 @@ def load_device_config():
     Format:
         { "devices": [ { "device_id": "...", "alias": "...", "device": "GPIO",
                          "direction": "OUTPUT", "command": "15",
-                         "signal_duration_ms": 500, "delay_ms": null, "blocked": false }, ... ] }
+                         "signal_duration_ms": 500, "blocked": false }, ... ] }
     """
     try:
         with open(DEVICE_CONFIG_PATH, 'r') as f:
@@ -117,10 +111,9 @@ def save_device_config(devices):
 
 def _update_known_devices(devices):
     """
-    Aktualisiert die Liste bekannter (autorisierter) Geräte aus der Config.
-    Nur diese Geräte dürfen Befehle empfangen.
-    Entfernt veraltete Einträge aus Rate-Limit- und Fehlerzähler-Dicts,
-    damit diese bei wechselnden Geräte-IDs nicht unbegrenzt wachsen.
+    Aktualisiert die Liste autorisierter Geräte aus der Config.
+    Entfernt Admin-Blockierungen für nicht mehr konfigurierte Geräte,
+    damit _blocked_devices nicht unbegrenzt wächst.
     """
     global _known_devices
     new_ids = set()
@@ -132,71 +125,15 @@ def _update_known_devices(devices):
     # Einträge für nicht mehr konfigurierte Geräte bereinigen
     stale = _known_devices - new_ids
     for device_id in stale:
-        _last_command_time.pop(device_id, None)
-        _failed_commands.pop(device_id, None)
+        _blocked_devices.pop(device_id, None)
 
     _known_devices = new_ids
     print("Autorisierte Geräte aktualisiert: {} Gerät(e)".format(len(_known_devices)))
 
 
 def _is_device_blocked(device_id):
-    """
-    Prüft, ob ein Gerät aktuell blockiert ist.
-    - Admin-Blockierung hat kein Ablaufdatum (manuell freizugeben)
-    - Auto-Blockierung läuft ab nach BLOCK_DURATION_S
-    """
-    if device_id not in _blocked_devices:
-        return False
-
-    block_info = _blocked_devices[device_id]
-
-    # Admin-Blockierung (manuell von Backend) → läuft nicht ab
-    if block_info == ADMIN_BLOCK_TOKEN:
-        return True
-
-    # Auto-Blockierung (nach fehlgeschlagenen Versuchen) → läuft ab
-    if time.time() >= block_info:
-        _blocked_devices.pop(device_id)
-        print("Auto-Blockierung aufgehoben: device={}".format(device_id))
-        return False
-    return True
-
-
-def _check_rate_limit(device_id):
-    """
-    Prüft, ob der Befehl Rate-Limit-Anforderungen erfüllt.
-    Gibt True zurück, wenn der Befehl akzeptiert werden kann.
-    """
-    now = time.time()
-    last_time = _last_command_time.get(device_id, 0)
-    if now - last_time < RATE_LIMIT_S:
-        print("Rate-Limit überschritten: device={}".format(device_id))
-        return False
-    _last_command_time[device_id] = now
-    return True
-
-
-def _record_failed_attempt(device_id):
-    """
-    Registriert einen gescheiterten Befehlsversuch.
-    Nach MAX_FAILED_ATTEMPTS wird das Gerät blockiert.
-    """
-    count = _failed_commands.get(device_id, 0) + 1
-    _failed_commands[device_id] = count
-    print("Gescheiterter Versuch für device={}: {}/{}".format(
-        device_id, count, MAX_FAILED_ATTEMPTS))
-
-    if count >= MAX_FAILED_ATTEMPTS:
-        _blocked_devices[device_id] = time.time() + BLOCK_DURATION_S
-        print("Gerät blockiert: device={} Duration={}s".format(
-            device_id, BLOCK_DURATION_S))
-
-
-def _clear_failed_attempts(device_id):
-    """
-    Setzt den Fehlerzähler zurück nach erfolgreichem Befehl.
-    """
-    _failed_commands.pop(device_id, None)
+    """Prüft, ob ein Gerät administrativ blockiert ist (kein Auto-Block mehr)."""
+    return _blocked_devices.get(device_id) == ADMIN_BLOCK_TOKEN
 
 
 def _admin_block_device(device_id):
@@ -209,7 +146,6 @@ def _admin_block_device(device_id):
         return False
 
     _blocked_devices[device_id] = ADMIN_BLOCK_TOKEN
-    _clear_failed_attempts(device_id)
     print("Gerät administrativ blockiert: device={}".format(device_id))
     return True
 
@@ -228,7 +164,6 @@ def _admin_unblock_device(device_id):
         return False
 
     _blocked_devices.pop(device_id)
-    _clear_failed_attempts(device_id)
     print("Gerät entsperrt: device={}".format(device_id))
     return True
 
@@ -243,7 +178,7 @@ def _handle_config(payload_bytes):
 
     Payload-Schema (JSON):
         { "devices": [ { "device_id", "alias", "direction", "device",
-                         "command", "signal_duration_ms", "delay_ms", "blocked" }, ... ] }
+                         "command", "signal_duration_ms", "blocked" }, ... ] }
 
     Firmware-Informationen (Version, Box-Typ, Fähigkeiten) sind in
     systemconfig/firmware_config.json hinterlegt und werden vom Backend NICHT überschrieben.
@@ -321,10 +256,9 @@ def message_callback(topic, msg):
         { "command": "ON"|"OFF", "commandId": "...", "deviceId": "<uuid>" }
 
     SICHERHEIT:
-      - Nur bekannte (konfigurierte) Geräte werden akzeptiert
-      - Blockierte Geräte werden ignoriert
-      - Rate-Limiting pro Gerät
-      - Fehlgeschlagene Versuche werden gezählt
+      - Nur bekannte (konfigurierte) Geräte werden akzeptiert (Allowlist)
+      - Administrativ blockierte Geräte werden ignoriert (BLOCK/UNBLOCK)
+      - ON wird ignoriert, solange das Gerät beschäftigt ist (laufender Puls)
     """
     topic_str = topic.decode() if isinstance(topic, bytes) else topic
     print("Nachricht empfangen: Topic={}".format(topic_str))
@@ -340,7 +274,6 @@ def message_callback(topic, msg):
             command = data.get("command", "").upper()
             device_id = data.get("deviceId", None)
             signal_duration_ms = data.get("signalDurationMs", None)
-            delay_signal_duration_ms = data.get("delaySignalDurationMs", None)
             del data
         except (ValueError, AttributeError) as e:
             print("Fehler: Ungültiges JSON-Format:", e)
@@ -357,44 +290,35 @@ def message_callback(topic, msg):
 
         # --- Admin-Befehle (BLOCK/UNBLOCK) ---
         if command == "BLOCK":
-            success = _admin_block_device(device_id)
-            if success:
+            if _admin_block_device(device_id):
                 _send_device_command_ack(device_id)
             return
 
         if command == "UNBLOCK":
-            success = _admin_unblock_device(device_id)
-            if success:
+            if _admin_unblock_device(device_id):
                 _send_device_command_ack(device_id)
             return
 
         # --- Sicherheits-Checks für ON/OFF ---
         if device_id not in _known_devices:
             print("Fehler: Unbekanntes Gerät blockiert: device={}".format(device_id))
-            _record_failed_attempt(device_id)
             return
 
         if _is_device_blocked(device_id):
             print("Fehler: Gerät blockiert: device={}".format(device_id))
             return
 
-        if not _check_rate_limit(device_id):
-            _record_failed_attempt(device_id)
-            return
-
         # --- Befehl ausführen (ON/OFF) ---
         success = False
         if command == "ON":
-            success = gpio_manager.set(device_id, 1, signal_duration_ms, delay_signal_duration_ms)
+            success = gpio_manager.set(device_id, 1, signal_duration_ms)
         elif command == "OFF":
-            success = gpio_manager.set(device_id, 0, signal_duration_ms, delay_signal_duration_ms)
+            success = gpio_manager.set(device_id, 0, signal_duration_ms)
 
+        # ACK nur bei tatsächlicher Annahme (busy/blockiert -> success False, kein ACK)
         if success:
-            _clear_failed_attempts(device_id)
             _send_device_command_ack(device_id)
             print("Befehl erfolgreich: device={} command={}".format(device_id, command))
-        else:
-            _record_failed_attempt(device_id)
 
     finally:
         gc.collect()
@@ -432,6 +356,9 @@ def connect_mqtt(client_id, mqtt_broker, port=1883):
     try:
         client = MQTTClient(client_id, mqtt_broker, port=port, keepalive=60)
         client.set_callback(message_callback)
+        # connect() blockiert (umqtt.simple kennt kein socket_timeout). Bei einem sehr
+        # langsamen/nicht erreichbaren Broker (>WDT_TIMEOUT_MS) setzt der Watchdog die Box
+        # zurück. Das ist gewollte Recovery – identisch zum Reset bei Verbindungsfehler.
         client.connect()
         client.subscribe(command_topic)
         client.subscribe(config_topic)
@@ -444,16 +371,17 @@ def connect_mqtt(client_id, mqtt_broker, port=1883):
         return None
 
 
-def reconnect_mqtt():
+def reconnect_mqtt(wdt=None):
     """
-    Versucht die MQTT-Verbindung mit den zuletzt verwendeten Parametern wiederherzustellen.
+    Stellt die MQTT-Verbindung mit den zuletzt verwendeten Parametern wieder her.
+    Füttert den optionalen Watchdog während der Wartezeit.
     """
     for attempt in range(RECONNECT_ATTEMPTS):
         print("MQTT Wiederverbindung, Versuch", attempt + 1)
         client = connect_mqtt(_client_id, _mqtt_broker, _mqtt_port)
         if client:
             return client
-        time.sleep(RECONNECT_DELAY_S)
+        feed_sleep_ms(RECONNECT_DELAY_S * 1000, wdt)
     return None
 
 
@@ -462,19 +390,17 @@ def update_device_pulses():
     Aktualisiert alle aktiven WERFER-Pulse. Sollte regelmäßig aus der Main-Loop
     aufgerufen werden.
     """
-    gpio_manager.update_pulses()
+    gpio_manager.tick()
 
 
-def publish_discovery(broker, port, client_id):
+def publish_discovery(client_id):
     """
-    Veröffentlicht eine Discovery-Nachricht über die bestehende MQTT-Verbindung,
-    damit das Backend die Box erkennt und automatisch einen Config-Push auslöst.
-
-    Die Firmware-Version wird aus systemconfig/firmware_config.json gelesen –
-    sie wird NIE hartcodiert.
+    Veröffentlicht einmalig beim Boot eine Discovery-Nachricht über die bestehende
+    MQTT-Verbindung, damit das Backend die Box erkennt und einen Config-Push auslöst.
+    Firmware-Version/Box-Typ kommen aus systemconfig/firmware_config.json.
 
     Topic:   smartboxes/discovery
-    Payload: { "mac": "...", "firmwareVersion": "...", "boxType": "...", "ip": "..." }
+    Payload: { "mac", "firmwareVersion", "boxType", "ip" }
     """
     if _mqtt_client is None:
         print("MQTT-Verbindung nicht verfügbar – Discovery nicht möglich.")
@@ -497,4 +423,27 @@ def publish_discovery(broker, port, client_id):
         return True
     except Exception as e:
         print("Discovery fehlgeschlagen:", e)
+        return False
+
+
+def publish_heartbeat(client_id):
+    """
+    Veröffentlicht einen Heartbeat über die bestehende MQTT-Verbindung. Das Backend
+    (SmartBoxStatusHandler) aktualisiert damit lastSeen + ONLINE, OHNE einen Config-Push
+    auszulösen. Ersetzt das frühere periodische Discovery.
+
+    Topic:   smartboxes/{mac}/status
+    Payload: { "mac": "..." }
+    """
+    if _mqtt_client is None:
+        print("MQTT-Verbindung nicht verfügbar – Heartbeat nicht möglich.")
+        return False
+    try:
+        topic = "smartboxes/{}/status".format(client_id)
+        payload = json.dumps({"mac": client_id})
+        _mqtt_client.publish(topic, payload)
+        print("Heartbeat gesendet:", topic)
+        return True
+    except Exception as e:
+        print("Heartbeat fehlgeschlagen:", e)
         return False

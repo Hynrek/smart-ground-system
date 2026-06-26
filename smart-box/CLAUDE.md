@@ -76,7 +76,7 @@ smart-box/
 ## Module Responsibilities
 
 ### `main.py`
-Entry point. Loads `userconfig/client_config.json`; falls back to `start_ap()` if absent or incomplete (`client_network_ssid` or `broker_ip` missing). Pre-loads GPIO from `userconfig/device_config.json` before MQTT connects. Connects MQTT, sends initial discovery, then runs the main polling loop. Checks WiFi and MQTT connection before every `check_msg()` call; calls `update_device_pulses()` on every tick. Republishes discovery every `PUBLISH_INTERVAL_S` (20 s) and runs `gc.collect()` after each publish.
+Entry point. Loads `userconfig/client_config.json`; falls back to `start_ap()` if absent or incomplete (`client_network_ssid` or `broker_ip` missing). Pre-loads GPIO from `userconfig/device_config.json` before MQTT connects. Honors `broker_port` (default 1883). Connects MQTT, sends discovery **once on boot**, then runs the main polling loop. Activates a `machine.WDT` (timeout `WDT_TIMEOUT_MS`, 8 s) immediately before the loop — main-loop only, since AP/first-connect can legitimately wait; feeds it each tick and threads it through the reconnect helpers. Checks WiFi and MQTT connection before every `check_msg()` call; calls `update_device_pulses()` on every tick. Publishes a **heartbeat** (`publish_heartbeat`) every `PUBLISH_INTERVAL_S` (20 s) instead of re-announcing discovery, and runs `gc.collect()` after each publish.
 
 ### `mqttutils.py`
 Everything MQTT-related plus security:
@@ -86,28 +86,31 @@ Everything MQTT-related plus security:
 - `_handle_config(payload)` — resets GPIO, rebuilds device map, saves to flash, sends ACK only if ≥1 device was initialised successfully
 - `_send_config_ack()` — publishes `OK` to `smartboxes/{mac}/config/ack`
 - `_send_device_command_ack(device_id)` — publishes `OK` to `smartboxes/{mac}/device/{deviceId}/executed`
-- `publish_discovery(broker, port, client_id)` — publishes discovery payload via the persistent client; reads firmware version and box type from `systemconfig/firmware_config.json` (never hardcoded)
+- `publish_discovery(client_id)` — publishes the discovery payload **once on boot** via the persistent client; reads firmware version and box type from `systemconfig/firmware_config.json` (never hardcoded)
+- `publish_heartbeat(client_id)` — publishes `{ "mac": ... }` to `smartboxes/{mac}/status` every `PUBLISH_INTERVAL_S`; the backend uses it for liveness (lastSeen/ONLINE) without triggering a config push
+- `reconnect_mqtt(wdt=None)` — retries `connect_mqtt`; feeds the optional watchdog during the wait
 - `load_device_config()` / `save_device_config(devices)` — read/write `userconfig/device_config.json`
 - `load_firmware_config()` — reads `systemconfig/firmware_config.json` (cached in module global after first load)
-- `update_device_pulses()` — thin wrapper around `gpio_manager.update_pulses()`
-- `_update_known_devices(devices)` — rebuilds `_known_devices` set; cleans up stale rate-limit and failure-counter entries
+- `update_device_pulses()` — thin wrapper around `gpio_manager.tick()`
+- `_update_known_devices(devices)` — rebuilds `_known_devices` set; prunes stale `_blocked_devices` entries
 
-Security state in module globals: `_known_devices` (set of authorised UUIDs), `_last_command_time` (rate limiting, min `RATE_LIMIT_S` = 0.1 s), `_failed_commands` (auto-block after `MAX_FAILED_ATTEMPTS` = 5), `_blocked_devices` (timed auto-block `BLOCK_DURATION_S` = 300 s, or permanent `ADMIN_BLOCK_TOKEN` until UNBLOCK).
+Security state in module globals: `_known_devices` (set of authorised UUIDs) and `_blocked_devices` (admin BLOCK via `ADMIN_BLOCK_TOKEN`, removed only by UNBLOCK). No rate limiting and no auto-block — see **Security Model**.
 
 ### `hardware.py`
-`GpioManager` manages a `device_id → {pin, device, direction, command, signal_duration_ms, delay_ms, blocked}` mapping.
+`GpioManager` manages a `device_id → {pin, device, direction, command, signal_duration_ms, blocked}` mapping.
 - `setup(devices)` — initialises pins from config list; GPIO pins set to 0; LED devices need no pin object
 - `reset()` — turns all pins off, clears the map and pulse tracker
-- `set(device_id, value, signal_duration_ms, delay_ms)` — sets a pin; for GPIO/LED devices with `signal_duration_ms > 0`, starts a timed pulse (HIGH → auto-LOW after duration tracked via `ticks_ms`); LED devices reject `value=0`; command-level `signal_duration_ms`/`delay_ms` override config values
-- `update_pulses()` — called every main loop tick; expires timed pulses using `ticks_diff` (handles 32-bit rollover correctly)
+- `set(device_id, value, signal_duration_ms=None)` — single-phase, non-blocking. For GPIO/LED with effective `signal_duration_ms > 0`, drives HIGH and schedules auto-LOW after the duration (tracked via `ticks_ms`). **Busy-reject:** an ON command for a device with a pulse already active is ignored (returns False). OFF cancels any active pulse. LED devices reject `value=0`. Command-level `signal_duration_ms` overrides the config value. No delay handling (delay is a backend concern — see Known Issues).
+- `tick()` — called every main loop tick (via `update_device_pulses()`); expires timed pulses using `ticks_diff` (handles 32-bit rollover correctly)
+- `feed_sleep_ms(total_ms, wdt=None, chunk_ms=FEED_SLEEP_CHUNK_MS)` — sleeps in chunks, feeding the optional watchdog between them (used by the reconnect waits)
 - `known_ids()` — returns list of registered device UUIDs
 - Module-level `led = Pin("LED", Pin.OUT)` for onboard LED
 - **Status-LED helpers** (boot/connection feedback on the onboard LED): `led_on()`, `led_off()`, `led_toggle()`, and `status_blink(times=3, on_ms=150, off_ms=150)` (blinks, then leaves the LED off). Timing constants `STARTUP_BLINKS`, `BLINK_ON_MS`, `BLINK_OFF_MS`, `CONNECTING_TOGGLE_MS` live in the `# --- KONFIGURATION ---` block. See **Boot Status LED** below.
 
 ### `networkutils.py`
 - `get_mac_address()` — returns 12-char lowercase hex MAC string used as MQTT client ID and topic segment
-- `connect_wifi(ssid, password, timeout=20)` — `ticks_ms`-deadline poll loop honoring `timeout` seconds; toggles the onboard LED every `CONNECTING_TOGGLE_MS` (250 ms) while waiting and calls `led_off()` on success; returns `True` on success
-- `reconnect_wifi(ssid, pw)` — retries up to `RECONNECT_ATTEMPTS` (12) times with `RECONNECT_DELAY_S` (10 s) between attempts
+- `connect_wifi(ssid, password, timeout=20, wdt=None)` — `ticks_ms`-deadline poll loop honoring `timeout` seconds; toggles the onboard LED every `CONNECTING_TOGGLE_MS` (250 ms) while waiting, feeds the optional watchdog, and calls `led_off()` on success; returns `True` on success
+- `reconnect_wifi(ssid, pw, wdt=None)` — retries up to `RECONNECT_ATTEMPTS` (12) times with `RECONNECT_DELAY_S` (10 s) between attempts, feeding the optional watchdog during each wait (chunked via `feed_sleep_ms`)
 - `get_sta_ip()` — returns current IP or `None`
 
 ### `accesspoint.py`
@@ -150,7 +153,7 @@ The Pico 2W has **520 KB of SRAM**. MicroPython + network stack + MQTT library c
 
 3. **Avoid string concatenation in loops** — use individual `print()` calls or pre-format outside the loop
 
-4. **Avoid unbounded growing lists** — `_last_command_time`, `_failed_commands`, `_blocked_devices` are cleaned up in `_update_known_devices` on every config push
+4. **Avoid unbounded growing lists** — `_blocked_devices` is pruned in `_update_known_devices` on every config push (stale device IDs removed)
 
 5. **Use `micropython.const()` for integer constants**
 
@@ -212,8 +215,8 @@ The SmartBox MAC address (12-char lowercase hex) is used as the per-box topic se
 
 | Direction | Topic | Purpose |
 |---|---|---|
-| SmartBox → Backend | `smartboxes/discovery` | Boot announcement; triggers config push |
-| SmartBox → Backend | `smartboxes/{mac}/status` | Heartbeat / health (not yet implemented) |
+| SmartBox → Backend | `smartboxes/discovery` | Boot announcement (sent once per boot); triggers config push |
+| SmartBox → Backend | `smartboxes/{mac}/status` | Heartbeat / liveness — sent every 20 s; payload `{ "mac": "..." }` |
 | Backend → SmartBox | `smartboxes/{mac}/config` | Full device/GPIO configuration |
 | SmartBox → Backend | `smartboxes/{mac}/config/ack` | Confirms config was applied (`OK`) |
 | Backend → SmartBox | `smartboxes/{mac}/command` | Device control command |
@@ -236,33 +239,34 @@ Firmware version and box type are always read from `systemconfig/firmware_config
       "direction": "OUTPUT",
       "command": "15",
       "signal_duration_ms": 500,
-      "delay_ms": null,
       "blocked": false
     }
   ]
 }
 ```
-`device` is `"GPIO"` or `"LED"`. For GPIO, `command` is the pin number as a string. LED devices use the onboard LED.
+`device` is `"GPIO"` or `"LED"`. For GPIO, `command` is the pin number as a string. LED devices use the onboard LED. The firmware ignores any extra keys (e.g. a `delay_ms` still sent by an older backend).
 
 ### Command payload (Backend → `smartboxes/{mac}/command`)
 ```json
-{ "command": "ON", "commandId": "<uuid>", "deviceId": "<uuid>", "signalDurationMs": 500, "delaySignalDurationMs": null }
+{ "command": "ON", "commandId": "<uuid>", "deviceId": "<uuid>", "signalDurationMs": 500 }
 ```
-Valid `command` values: `ON`, `OFF`, `BLOCK`, `UNBLOCK`. `signalDurationMs` and `delaySignalDurationMs` are optional overrides for the per-device config values.
+Valid `command` values: `ON`, `OFF`, `BLOCK`, `UNBLOCK`. `signalDurationMs` is an optional override for the per-device config value. (Delay is no longer handled by firmware — see Known Issues.)
 
 ---
 
 ## Security Model
 
-Commands pass through a multi-layer check in `message_callback` before reaching hardware:
+Commands pass through these checks in `message_callback` before reaching hardware:
 
-1. **Allowlist** — `deviceId` must be in `_known_devices` (populated from the last config push). Unknown IDs are rejected and logged as failed attempts.
-2. **Admin block** — `BLOCK` command sets a permanent (`ADMIN_BLOCK_TOKEN`) block; only `UNBLOCK` removes it. No auto-expiry.
-3. **Auto-block** — after `MAX_FAILED_ATTEMPTS` (5) consecutive failures, device is blocked for `BLOCK_DURATION_S` (300 s).
-4. **Rate limiting** — minimum `RATE_LIMIT_S` (0.1 s) between commands per device.
-5. `BLOCK`/`UNBLOCK` bypass the ON/OFF security path and do not require the device to be in `_known_devices` for UNBLOCK.
+1. **Allowlist** — `deviceId` must be in `_known_devices` (populated from the last config push). Unknown IDs are rejected and dropped (no ACK).
+2. **Admin block** — `BLOCK` sets a permanent (`ADMIN_BLOCK_TOKEN`) block; only `UNBLOCK` removes it. No auto-expiry.
+3. `BLOCK`/`UNBLOCK` bypass the ON/OFF security path and do not require the device to be in `_known_devices` for UNBLOCK.
 
-Do not bypass or weaken these checks when adding new features.
+Operational (not security): an ON command for a device whose pulse is still running is ignored (**busy-reject**, in `GpioManager.set`); OFF always cancels. This replaced the former per-command rate limiter.
+
+There is **no rate limiter and no auto-block**. They were removed deliberately: the rate limiter compared against second-resolution `time.time()` (so its 0.1 s window never worked) and fed an auto-block that, in practice, locked legitimate devices on bursts/misconfig while giving unknown IDs (already rejected by the allowlist) an unbounded-growth memory vector. Do not reintroduce them; the allowlist + admin block + busy-reject are the model. Do not otherwise bypass or weaken these checks.
+
+**MQTT delivery:** commands are QoS 0 (umqtt.simple). The firmware confirms execution via the `/executed` ACK; reliable delivery is the backend's responsibility (retry on missing ACK), not the firmware's.
 
 ---
 
@@ -297,10 +301,12 @@ finally:
     print("Aufräumen abgeschlossen.")
 ```
 
-- `KeyboardInterrupt` → clean shutdown, **no** reset
+- `KeyboardInterrupt` → clean shutdown, **no** explicit reset
 - All other exceptions → `machine.reset()` after a 5-second delay
 - `finally` → always disconnect MQTT, deactivate both WLAN interfaces
 - Always create a fresh `network.WLAN()` instance in `finally` — do not rely on outer variables that may not be defined if the error happened early
+
+> **Watchdog caveat (RP2):** once the main loop has started, `machine.WDT` is active and **cannot be stopped** on the RP2. So a `KeyboardInterrupt` in normal operation runs the cleanup but the box still resets ~`WDT_TIMEOUT_MS` (8 s) later — the "no reset" guarantee only fully holds on the AP/first-connect path, where the WDT isn't running yet. This limits REPL debugging after Ctrl-C: re-flash via BOOTSEL if you need an un-watched session. Relatedly, a very slow `MQTTClient.connect()` (broker unreachable >8 s) will be cut short by a WDT reset; this is intended recovery — equivalent to the reset the reconnect path already performs on failure.
 
 ---
 
@@ -352,7 +358,6 @@ Never overwrite this file from the backend.
       "direction": "OUTPUT",
       "command": "15",
       "signal_duration_ms": 500,
-      "delay_ms": null,
       "blocked": false
     }
   ]
@@ -408,10 +413,20 @@ import network; wlan = network.WLAN(network.STA_IF); wlan.active(True); wlan.con
 
 ---
 
+## Host Tests
+
+Logic that doesn't need real hardware is unit-tested under CPython. From `smart-box/`:
+
+```bash
+python -m unittest discover -s tests -t . -v
+```
+
+`tests/_stubs.py` installs fake `machine`/`micropython`/`network`/`umqtt.simple` modules into `sys.modules` and patches a **controllable clock** (`ticks_ms`/`ticks_add`/`ticks_diff`/`sleep_ms`, advanced via `_stubs.clock.advance(ms)`) onto the real `time` module, so timing is deterministic with no real sleeps. `tests/__init__.py` puts the repo root on `sys.path` and installs the stubs before any firmware import. Covered: scheduler timing + busy-reject, security routing (allowlist/admin block), config handling, discovery/heartbeat payloads, and the watchdog-fed sleep. Hardware-only paths (`main.py`, real GPIO/WDT/WiFi) are still verified manually on the Pico 2W.
+
 ## Known Issues & Open Work
 
-### HIGH: `delay_ms` blocks the main loop
-`time.sleep_ms(delay_ms)` in `GpioManager.set()` blocks the entire polling loop for the duration. For large delays this starves MQTT keep-alive. Replace with a non-blocking delayed-pulse mechanism when this becomes a problem.
+### Delay handling moved to the backend (firmware no longer applies `delay_ms`)
+The firmware previously blocked the polling loop on `time.sleep_ms(delay_ms)` in `GpioManager.set()`. Delay is now entirely a backend concern: the firmware ignores the field and never delays. If a delayed-release / staggered-double requirement is confirmed, it is implemented backend-side (scheduling the command publish at send-time using `DeviceType.delaySignalDurationMs`, which is retained in the backend domain). Backend MQTT payloads should drop `delay_ms` (config) / `delaySignalDurationMs` (command) — tracked as a backend task.
 
 ### HIGH: Topic structure routes all devices to one topic
 All commands arrive on `smartboxes/{mac}/command`. The intended future structure is `smartboxes/{mac}/device/{deviceId}/command` — one topic per device. Coordinate with the backend before changing.

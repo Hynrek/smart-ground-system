@@ -1,7 +1,7 @@
 import network
 import time
 
-from hardware import led_off, led_toggle, CONNECTING_TOGGLE_MS
+from hardware import led_off, led_toggle, feed_sleep_ms, CONNECTING_TOGGLE_MS
 
 RECONNECT_ATTEMPTS = 12
 RECONNECT_DELAY_S = 10
@@ -13,7 +13,7 @@ def get_mac_address():
     return ''.join('{:02x}'.format(b) for b in mac)
 
 
-def connect_wifi(ssid, password, timeout=20):
+def connect_wifi(ssid, password, timeout=20, wdt=None):
     print('Try to connect to:', ssid)
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
@@ -31,6 +31,8 @@ def connect_wifi(ssid, password, timeout=20):
             return True
         led_toggle()
         time.sleep_ms(CONNECTING_TOGGLE_MS)
+        if wdt is not None:
+            wdt.feed()
 
     print('Status', wlan.status())
     return False
@@ -39,11 +41,11 @@ def get_sta_ip():
     wlan = network.WLAN(network.STA_IF)
     return wlan.ifconfig()[0] if wlan.isconnected() else None
 
-def reconnect_wifi(ssid, pw):
-    """Versucht WiFi wiederherzustellen. Gibt True bei Erfolg zurück."""
+def reconnect_wifi(ssid, pw, wdt=None):
+    """Versucht WiFi wiederherzustellen. Füttert den optionalen Watchdog. True bei Erfolg."""
     for attempt in range(RECONNECT_ATTEMPTS):
         print("WiFi Wiederverbindung, Versuch", attempt + 1)
-        if connect_wifi(ssid, pw):
+        if connect_wifi(ssid, pw, wdt=wdt):
             return True
-        time.sleep(RECONNECT_DELAY_S)
+        feed_sleep_ms(RECONNECT_DELAY_S * 1000, wdt)
     return False
