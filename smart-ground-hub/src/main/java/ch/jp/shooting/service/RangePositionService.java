@@ -192,11 +192,8 @@ public class RangePositionService {
         String mac = device.getSmartBox().getMacAddress();
         String topic = "smartboxes/" + mac + "/command";
         int signalDurationMs = device.getDeviceType().getSignalDurationMs();
-        Integer delaySignalDurationMs = device.getDelaySignalDurationMs() != null
-            ? device.getDelaySignalDurationMs()
-            : device.getDeviceType().getDelaySignalDurationMs();
 
-        mqttCommandPublisher.publishToTopic(topic, command, device.getId().toString(), signalDurationMs, delaySignalDurationMs);
+        mqttCommandPublisher.publishToTopic(topic, command, device.getId().toString(), signalDurationMs);
 
         return new CommandResponse().status("accepted");
     }

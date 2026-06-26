@@ -234,11 +234,8 @@ public class DeviceController implements DeviceApi {
         String topic = "smartboxes/" + mac + "/command";
 
         int signalDurationMs = device.getDeviceType().getSignalDurationMs();
-        Integer delaySignalDurationMs = device.getDelaySignalDurationMs() != null
-            ? device.getDelaySignalDurationMs()
-            : device.getDeviceType().getDelaySignalDurationMs();
 
-        mqttCommandPublisher.publishToTopic(topic, command, id.toString(), signalDurationMs, delaySignalDurationMs);
+        mqttCommandPublisher.publishToTopic(topic, command, id.toString(), signalDurationMs);
 
         // Statistik: gesendete Befehle hochzählen
         device.setCommandsSent(device.getCommandsSent() + 1);
