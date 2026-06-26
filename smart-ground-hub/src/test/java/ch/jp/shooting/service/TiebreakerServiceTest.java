@@ -66,6 +66,12 @@ class TiebreakerServiceTest {
         when(playInstanceService.startSerieInstance(eq(serieId), eq("Stech-Serie"), anyString(), anyList()))
                 .thenReturn(instanceResp);
 
+        var activeInst = new ch.jp.smartground.model.PlayInstanceResponse();
+        activeInst.setStatus(ch.jp.smartground.model.PlayInstanceStatus.ACTIVE);
+        activeInst.blocks(List.of(new ch.jp.smartground.model.PlayBlock()
+            .blockId(UUID.randomUUID()).steps(List.of())));
+        when(playInstanceService.getPlayInstance(any())).thenReturn(activeInst);
+
         var req = new ch.jp.smartground.model.StartTiebreakerRequest();
         req.setPlayerIds(List.of(p1, p2));
         req.setTemplateId(serieId);
@@ -149,6 +155,12 @@ class TiebreakerServiceTest {
         when(playInstanceService.startSerieInstance(eq(serieId), eq("Stech-Serie"), anyString(), anyList()))
                 .thenReturn(instanceResp);
 
+        var activeInst = new ch.jp.smartground.model.PlayInstanceResponse();
+        activeInst.setStatus(ch.jp.smartground.model.PlayInstanceStatus.ACTIVE);
+        activeInst.blocks(List.of(new ch.jp.smartground.model.PlayBlock()
+            .blockId(UUID.randomUUID()).steps(List.of())));
+        when(playInstanceService.getPlayInstance(any())).thenReturn(activeInst);
+
         var req = new ch.jp.smartground.model.StartTiebreakerRequest();
         req.setPlayerIds(List.of(p1));
         req.setTemplateId(serieId);
@@ -161,5 +173,70 @@ class TiebreakerServiceTest {
         var node = objectMapper.readTree(captor.getValue().getProgramSnapshot()).get(0);
         assertEquals(rangeId.toString(), node.get("rangeId").asText());
         assertEquals("Stand 1", node.get("rangeName").asText());
+    }
+
+    @Test
+    void listTies_completedRun_autoResolvesTiebreaker() throws Exception {
+        UUID p1 = UUID.randomUUID();
+        UUID p2 = UUID.randomUUID();
+        UUID instanceId = UUID.randomUUID();
+
+        CompetitionTiebreaker tb = new CompetitionTiebreaker(session, UUID.randomUUID(), 1, 1);
+        tb.setStatus(TiebreakerStatus.ACTIVE);
+        tb.setPlayInstanceId(instanceId);
+        tb.setParticipantsJson(objectMapper.writeValueAsString(List.of(p1.toString(), p2.toString())));
+        when(tbRepo.findBySessionId(sessionId)).thenReturn(List.of(tb));
+        when(tbRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(playerResultRepo.findBySessionId(sessionId)).thenReturn(List.of());
+
+        SessionPlayer sp1 = new SessionPlayer(); sp1.setId(p1); sp1.setDisplayName("Anna");
+        SessionPlayer sp2 = new SessionPlayer(); sp2.setId(p2); sp2.setDisplayName("Ben");
+        lenient().when(playerRepo.findAllById(anyList())).thenReturn(List.of(sp1, sp2));
+
+        var inst = new ch.jp.smartground.model.PlayInstanceResponse();
+        inst.setStatus(ch.jp.smartground.model.PlayInstanceStatus.COMPLETED);
+        var block = new ch.jp.smartground.model.PlayBlock().blockId(UUID.randomUUID());
+        block.result(new ch.jp.smartground.model.BlockResult().playerResults(List.of(
+            new ch.jp.smartground.model.PlayerResult().playerId(p1.toString()).totalPoints(9).maxPoints(10),
+            new ch.jp.smartground.model.PlayerResult().playerId(p2.toString()).totalPoints(7).maxPoints(10))));
+        inst.blocks(List.of(block));
+        when(playInstanceService.getPlayInstance(instanceId)).thenReturn(inst);
+
+        service.listTies(sessionId);
+
+        assertEquals(TiebreakerStatus.COMPLETED, tb.getStatus());
+        assertNotNull(tb.getResultsJson());
+        assertEquals(2, objectMapper.readTree(tb.getResultsJson()).size());
+        verify(playerResultRepo, never()).save(any());
+    }
+
+    @Test
+    void listTiebreakers_activeRun_attachesRunBlock() throws Exception {
+        UUID instanceId = UUID.randomUUID();
+        UUID rangeId = UUID.randomUUID();
+        UUID serieId = UUID.randomUUID();
+        UUID blockId = UUID.randomUUID();
+
+        CompetitionTiebreaker tb = new CompetitionTiebreaker(session, UUID.randomUUID(), 1, 1);
+        tb.setStatus(TiebreakerStatus.ACTIVE);
+        tb.setPlayInstanceId(instanceId);
+        tb.setParticipantsJson("[]");
+        when(tbRepo.findBySessionId(sessionId)).thenReturn(List.of(tb));
+        lenient().when(playerRepo.findAllById(anyList())).thenReturn(List.of());
+
+        var inst = new ch.jp.smartground.model.PlayInstanceResponse();
+        inst.setStatus(ch.jp.smartground.model.PlayInstanceStatus.ACTIVE);
+        inst.blocks(List.of(new ch.jp.smartground.model.PlayBlock()
+            .blockId(blockId).serieId(serieId).serieAlias("Stech-Serie")
+            .rangeId(rangeId).rangeName("Stand 1").steps(List.of())));
+        when(playInstanceService.getPlayInstance(instanceId)).thenReturn(inst);
+
+        var rounds = service.listTiebreakers(sessionId);
+
+        assertEquals(1, rounds.size());
+        var r = rounds.get(0);
+        assertEquals(blockId, r.getBlockId().orElse(null));
+        assertEquals(rangeId, r.getRun().getRangeId().orElse(null));
+        assertEquals("Stech-Serie", r.getRun().getAlias());
     }
 }

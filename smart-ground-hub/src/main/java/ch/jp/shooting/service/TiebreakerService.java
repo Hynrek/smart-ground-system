@@ -1,6 +1,7 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.exception.InvalidTiebreakerStateException;
+import ch.jp.shooting.exception.PlayInstanceNotFoundException;
 import ch.jp.shooting.exception.SerieNotFoundException;
 import ch.jp.shooting.exception.TiebreakerNotFoundException;
 import ch.jp.shooting.model.CompetitionTiebreaker;
@@ -16,7 +17,10 @@ import ch.jp.shooting.repository.LiveSessionRepository;
 import ch.jp.shooting.repository.PlayerResultRepository;
 import ch.jp.shooting.repository.SerieRepository;
 import ch.jp.shooting.repository.SessionPlayerRepository;
+import ch.jp.smartground.model.EmbeddedSerie;
 import ch.jp.smartground.model.PlayerRef;
+import ch.jp.smartground.model.PlayInstanceResponse;
+import ch.jp.smartground.model.PlayInstanceStatus;
 import ch.jp.smartground.model.SessionTiesResponse;
 import ch.jp.smartground.model.StartTiebreakerRequest;
 import ch.jp.smartground.model.TiebreakerParticipant;
@@ -31,6 +35,7 @@ import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -83,6 +88,7 @@ public class TiebreakerService {
 
     /** Ermittelt alle punktgleichen Blöcke der Session inkl. ihrer Stechen-Runden. */
     public SessionTiesResponse listTies(UUID sessionId) throws Exception {
+        reconcileActiveRuns(sessionId);
         // 1) Hauptstände je Spieler aus den PlayerResults aufbauen.
         var results = playerResultRepo.findBySessionId(sessionId);
         List<TieResolver.PlayerStanding> standings = new ArrayList<>();
@@ -257,6 +263,7 @@ public class TiebreakerService {
 
     /** Listet alle Stechen-Runden einer Session (nach Runde geordnet). */
     public List<TiebreakerResponse> listTiebreakers(UUID sessionId) throws Exception {
+        reconcileActiveRuns(sessionId);
         var tiebreakers = new ArrayList<>(tbRepo.findBySessionId(sessionId));
         tiebreakers.sort(Comparator.comparingInt(CompetitionTiebreaker::getRoundNumber));
         var out = new ArrayList<TiebreakerResponse>();
@@ -264,6 +271,46 @@ public class TiebreakerService {
             out.add(toResponse(tb));
         }
         return out;
+    }
+
+    // ── Abgeschlossene Läufe automatisch übernehmen ────────────────────────────
+
+    /**
+     * Übernimmt abgeschlossene Live-Läufe automatisch in ihre Stechen-Runde: liest die
+     * Spielerergebnisse aus der verknüpften PlayInstance und schliesst die Runde ab.
+     * Berührt bewusst NIE einen PlayerResult.
+     */
+    private void reconcileActiveRuns(UUID sessionId) throws Exception {
+        for (CompetitionTiebreaker tb : tbRepo.findBySessionId(sessionId)) {
+            if (tb.getStatus() != TiebreakerStatus.ACTIVE || tb.getPlayInstanceId() == null) {
+                continue;
+            }
+            PlayInstanceResponse inst;
+            try {
+                inst = playInstanceService.getPlayInstance(tb.getPlayInstanceId());
+            } catch (PlayInstanceNotFoundException e) {
+                continue; // Lauf entfernt — nichts zu übernehmen
+            }
+            if (inst.getStatus() != PlayInstanceStatus.COMPLETED) {
+                continue;
+            }
+            var block = inst.getBlocks().orElse(List.of()).stream().findFirst().orElse(null);
+            var result = block != null && block.getResult().isPresent() ? block.getResult().get() : null;
+            if (result == null || result.getPlayerResults() == null) {
+                continue;
+            }
+            var scores = new ArrayList<TiebreakerPlayerScore>();
+            for (var pr : result.getPlayerResults()) {
+                scores.add(new TiebreakerPlayerScore()
+                    .playerId(UUID.fromString(pr.getPlayerId()))
+                    .totalPoints(pr.getTotalPoints() != null ? pr.getTotalPoints() : 0)
+                    .maxPoints(pr.getMaxPoints() != null ? pr.getMaxPoints() : 0));
+            }
+            tb.setResultsJson(objectMapper.writeValueAsString(scores));
+            tb.setStatus(TiebreakerStatus.COMPLETED);
+            tb.setCompletedAt(Instant.now());
+            tbRepo.save(tb);
+        }
     }
 
     // ── Mapping ────────────────────────────────────────────────────────────────
@@ -281,6 +328,26 @@ public class TiebreakerService {
                 .templateName(tb.getTemplateName());
         if (tb.getPlayInstanceId() != null) {
             response.playInstanceId(tb.getPlayInstanceId());
+        }
+
+        // Aktiven Lauf für die Range-Kiosk-Anzeige anreichern (Serie + Block).
+        if (tb.getStatus() == TiebreakerStatus.ACTIVE && tb.getPlayInstanceId() != null) {
+            try {
+                var inst = playInstanceService.getPlayInstance(tb.getPlayInstanceId());
+                var block = inst.getBlocks().orElse(List.of()).stream().findFirst().orElse(null);
+                if (block != null) {
+                    response.blockId(block.getBlockId());
+                    response.run(new EmbeddedSerie()
+                        .id(block.getSerieId())
+                        .alias(block.getSerieAlias())
+                        .rangeId(block.getRangeId().orElse(null))
+                        .rangeName(block.getRangeName().orElse(null))
+                        .steps(block.getSteps())
+                        .missing(false));
+                }
+            } catch (PlayInstanceNotFoundException ignored) {
+                // Lauf nicht (mehr) vorhanden — Runde ohne run-Block ausliefern
+            }
         }
 
         // Teilnehmer auflösen (playerId → displayName über die SessionPlayer).
