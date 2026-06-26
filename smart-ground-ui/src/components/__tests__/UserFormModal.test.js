@@ -73,6 +73,7 @@ describe('UserFormModal', () => {
     await wrapper.find('[data-testid="input-nachname"]').setValue('Müller')
     await wrapper.find('[data-testid="input-email"]').setValue('hans@test.ch')
     await wrapper.find('[data-testid="input-password"]').setValue('secret123')
+    await wrapper.find('[data-testid="input-username"]').setValue('tester')
     await wrapper.find('[data-testid="submit-btn"]').trigger('click')
     await wrapper.vm.$nextTick()
     expect(mockCreate).toHaveBeenCalledOnce()
@@ -110,7 +111,7 @@ describe('UserFormModal', () => {
   it('calls updateUser and emits saved after valid edit submit', async () => {
     const UserFormModal = await importModal()
     const wrapper = mount(UserFormModal, {
-      props: { mode: 'edit', initialUser: { id: 'u1', vorname: 'Anna', nachname: 'Schmidt', email: 'anna@test.ch' } },
+      props: { mode: 'edit', initialUser: { id: 'u1', vorname: 'Anna', nachname: 'Schmidt', email: 'anna@test.ch', username: 'annas' } },
     })
     await wrapper.find('[data-testid="submit-btn"]').trigger('click')
     await wrapper.vm.$nextTick()
@@ -125,6 +126,7 @@ describe('UserFormModal', () => {
     await wrapper.find('[data-testid="input-nachname"]').setValue('Müller')
     await wrapper.find('[data-testid="input-email"]').setValue('hans@test.ch')
     await wrapper.find('[data-testid="input-password"]').setValue('secret')
+    await wrapper.find('[data-testid="input-username"]').setValue('tester')
     // All optional fields intentionally left empty
     await wrapper.find('[data-testid="submit-btn"]').trigger('click')
     await wrapper.vm.$nextTick()
@@ -134,5 +136,25 @@ describe('UserFormModal', () => {
     expect(payloadArg).not.toHaveProperty('strasse')
     expect(payloadArg).not.toHaveProperty('geburtsdatum')
     expect(payloadArg).toMatchObject({ vorname: 'Hans', nachname: 'Müller', email: 'hans@test.ch' })
+  })
+
+  it('requires username on create and includes it in the payload', async () => {
+    const UserFormModal = await importModal()
+    const wrapper = mount(UserFormModal, { props: { mode: 'create' } })
+
+    await wrapper.find('[data-testid="input-vorname"]').setValue('Hans')
+    await wrapper.find('[data-testid="input-nachname"]').setValue('Müller')
+    await wrapper.find('[data-testid="input-email"]').setValue('h@t.ch')
+    await wrapper.find('[data-testid="input-password"]').setValue('secret')
+    // username missing → submit should not call create
+    await wrapper.find('[data-testid="submit-btn"]').trigger('click')
+    expect(mockCreate).not.toHaveBeenCalled()
+
+    await wrapper.find('[data-testid="input-username"]').setValue('hansm')
+    await wrapper.find('[data-testid="submit-btn"]').trigger('click')
+
+    expect(mockCreate).toHaveBeenCalled()
+    const payload = mockCreate.mock.calls.at(-1)[0]
+    expect(payload.username).toBe('hansm')
   })
 })

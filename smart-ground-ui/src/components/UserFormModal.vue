@@ -65,6 +65,19 @@
           <span v-if="errors.email" data-testid="error-email" class="error-msg">{{ errors.email }}</span>
         </div>
 
+        <div class="form-group">
+          <label for="input-username">Benutzername *</label>
+          <input
+            id="input-username"
+            v-model="form.username"
+            data-testid="input-username"
+            type="text"
+            :class="{ 'input-error': errors.username }"
+            :disabled="userStore.isLoading"
+          />
+          <span v-if="errors.username" data-testid="error-username" class="error-msg">{{ errors.username }}</span>
+        </div>
+
         <div v-if="mode === 'create'" class="form-group">
           <label for="input-password">Passwort *</label>
           <input
@@ -248,6 +261,8 @@
 import { reactive, ref, watch, onMounted } from 'vue'
 import { useUserStore } from '@/stores/userStore.js'
 
+const USERNAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{2,29}$/
+
 const props = defineProps({
   mode: { type: String, default: 'create' },
   initialUser: { type: Object, default: null },
@@ -277,6 +292,7 @@ const form = reactive({
   vorname: '',
   nachname: '',
   email: '',
+  username: '',
   password: '',
   role: 'SHOOTER',
   geburtsdatum: '',
@@ -301,6 +317,7 @@ watch(
         vorname: user.vorname ?? '',
         nachname: user.nachname ?? '',
         email: user.email ?? '',
+        username: user.username ?? '',
         geburtsdatum: user.geburtsdatum ?? '',
         geschlecht: user.geschlecht ?? '',
         telefonnummer: user.telefonnummer ?? '',
@@ -322,6 +339,8 @@ function validate() {
   if (!form.vorname.trim()) errors.vorname = 'Pflichtfeld'
   if (!form.nachname.trim()) errors.nachname = 'Pflichtfeld'
   if (!form.email.trim()) errors.email = 'Pflichtfeld'
+  if (!form.username.trim()) errors.username = 'Pflichtfeld'
+  else if (!USERNAME_RE.test(form.username.trim())) errors.username = '3–30 Zeichen, Buchstaben/Ziffern/._-'
   if (props.mode === 'create' && !form.password) errors.password = 'Pflichtfeld'
   return Object.keys(errors).length === 0
 }
