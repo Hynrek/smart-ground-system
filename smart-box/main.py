@@ -1,3 +1,14 @@
+import sys
+
+# Board-Modul anhand von sys.platform auswählen und als 'board' registrieren.
+# Muss VOR allen anderen Firmware-Importen geschehen, da hardware.py 'board' beim
+# Laden benötigt.
+_PLATFORM_MAP = {"rp2": "pico2w", "esp32": "xiao_esp32s3"}
+_board_name = _PLATFORM_MAP[sys.platform]
+board = __import__("boards." + _board_name, None, None, [_board_name])
+sys.modules["board"] = board
+board.board_init()
+
 import gc
 import json
 import machine
@@ -14,7 +25,6 @@ from mqttutils import _update_known_devices
 DEFAULT_NODE_NAME    = "SMART_RANGE_NODE"
 CONFIG_PATH          = "userconfig/client_config.json"
 PUBLISH_INTERVAL_S   = 20      # Sekunden zwischen Heartbeat-Nachrichten
-WDT_TIMEOUT_MS       = 8000    # Watchdog-Timeout (nahe rp2-Maximum; Build-Limit beim Flashen prüfen)
 
 
 def load_config():
@@ -82,9 +92,9 @@ try:
 
             # Watchdog erst im Normalbetrieb aktivieren – AP-/Erstverbindung darf lange dauern.
             # ACHTUNG: Auf dem RP2 lässt sich der WDT nicht mehr stoppen. Ab hier setzt auch ein
-            # KeyboardInterrupt (Ctrl-C) die Box nach spätestens WDT_TIMEOUT_MS zurück, weil im
+            # KeyboardInterrupt (Ctrl-C) die Box nach spätestens board.WDT_TIMEOUT_MS zurück, weil im
             # finally-Block niemand mehr feed() aufruft – REPL-Debugging ist dadurch begrenzt.
-            wdt = machine.WDT(timeout=WDT_TIMEOUT_MS)
+            wdt = machine.WDT(timeout=board.WDT_TIMEOUT_MS)
 
             # Hauptschleife: MQTT-Nachrichten und Heartbeat kooperativ verarbeiten
             while True:
