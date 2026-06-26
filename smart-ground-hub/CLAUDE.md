@@ -119,10 +119,11 @@ docker compose up
 
 ### JWT Flow
 
-1. `POST /api/auth/login` — email + password → JWT bearer token
+1. `POST /api/auth/login` — email OR username + password → JWT bearer token (resolved via `UserRepository.findByEmailOrUsernameWithRoles`)
 2. Every request: `Authorization: Bearer <token>` header
 3. `JwtAuthenticationFilter` validates the token, sets `SecurityContext`
 4. Public endpoints: `/api/auth/login`, Swagger UI, `/actuator/health`
+5. JWT subject is always the canonical email; email and username never collide because the username pattern forbids `@`
 
 ### Dynamic RBAC
 
@@ -137,7 +138,7 @@ Roles are **DB entities** (`Role`), not a fixed enum:
 
 ### User model
 `User` is a full profile entity (not just credentials):
-- Auth: `email` (unique), `passwordHash`
+- Auth: `email` (unique), `username` (unique, required, case-insensitive via `username_lower`), `passwordHash`
 - Personal: `vorname`, `nachname`, `geburtsdatum`, `geschlecht`
 - Contact: `telefonnummer`, address fields
 - Profile: `profilbildUrl`, `biographie`, `sprache`
@@ -257,7 +258,7 @@ reservations      id, range_id→ranges, user_id→users, reserved_at, expires_a
 
 ### Auth / User tables
 ```
-users             id, email*, password_hash, vorname, nachname, geburtsdatum, geschlecht,
+users             id, email*, username*, username_lower*, password_hash, vorname, nachname, geburtsdatum, geschlecht,
                   telefonnummer, telefon_bestaetigt, strasse, hausnummer, plz, stadt, land,
                   profilbild_url, biographie, sprache, mitgliedsnummer, schiess_lizenz,
                   schiess_lizenz_verfallsdatum, status, email_bestaetigt, letzter_login,
