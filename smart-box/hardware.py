@@ -1,10 +1,11 @@
+import board
 import time
 from machine import Pin
 from micropython import const
 
 # --- KONFIGURATION ---
-# Onboard-LED einmalig definieren – bleibt für Statusanzeige verfügbar
-led = Pin("LED", Pin.OUT)
+# Onboard-LED: Pin kommt aus dem Board-Modul (board.LED_PIN), nicht hardcodiert
+led = Pin(board.LED_PIN, Pin.OUT)
 
 # Status-LED Timing (Boot-/Verbindungsanzeige)
 STARTUP_BLINKS       = const(3)    # Anzahl Blinks beim Start
