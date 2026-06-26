@@ -385,9 +385,9 @@ def message_callback(topic, msg):
         # --- Befehl ausführen (ON/OFF) ---
         success = False
         if command == "ON":
-            success = gpio_manager.set(device_id, 1, signal_duration_ms, delay_signal_duration_ms)
+            success = gpio_manager.set(device_id, 1, signal_duration_ms)
         elif command == "OFF":
-            success = gpio_manager.set(device_id, 0, signal_duration_ms, delay_signal_duration_ms)
+            success = gpio_manager.set(device_id, 0, signal_duration_ms)
 
         if success:
             _clear_failed_attempts(device_id)
@@ -462,7 +462,7 @@ def update_device_pulses():
     Aktualisiert alle aktiven WERFER-Pulse. Sollte regelmäßig aus der Main-Loop
     aufgerufen werden.
     """
-    gpio_manager.update_pulses()
+    gpio_manager.tick()
 
 
 def publish_discovery(broker, port, client_id):

@@ -21,7 +21,11 @@ def _ticks_add(t, d):
     return t + d
 
 def _ticks_diff(a, b):
-    return a - b
+    # MicroPython-Semantik: vorzeichenbehaftete Differenz modulo 2^30 (Rollover-sicher)
+    diff = (a - b) & 0x3FFFFFFF
+    if diff >= 0x20000000:
+        diff -= 0x40000000
+    return diff
 
 def _sleep_ms(d):
     clock.advance(d)

@@ -44,23 +44,23 @@ class GpioManager:
 
     Struktur der device_map:
         { "<device-uuid>": {"pin": Pin-Objekt, "device": str, "direction": str, "command": str,
-                            "signal_duration_ms": int, "delay_ms": int, "blocked": bool}, ... }
+                            "signal_duration_ms": int, "blocked": bool}, ... }
 
     Wird bei jedem Config-Push neu aufgebaut (reset() + setup() aufrufen).
     """
 
     def __init__(self):
         # Mapping: device_id (str) -> {"pin": Pin, "device": str, "direction": str, "command": str,
-        #                                "signal_duration_ms": int, "delay_ms": int, "blocked": bool}
+        #                                "signal_duration_ms": int, "blocked": bool}
         self._devices = {}
-        self._pulse_active = {}  # Tracking active pulse timers
+        self._pulse_active = {}  # Aktive Pulse: device_id -> end_ticks
 
     def setup(self, devices):
         """
         Initialisiert GPIO-Pins für alle Geräte aus der Config-Payload.
 
-        :param devices: Liste von Dicts mit 'device_id', 'device', 'direction', 'command',
-                        'signal_duration_ms', 'delay_ms', 'blocked'.
+        :param devices: Liste von Dicts mit 'device_id', 'device', 'direction',
+                        'command', 'signal_duration_ms', 'blocked'.
         """
         for dev in devices:
             device_id = dev.get("device_id", "")
@@ -68,7 +68,6 @@ class GpioManager:
             direction = dev.get("direction", "OUTPUT")
             command = dev.get("command", "")
             signal_duration_ms = dev.get("signal_duration_ms", 0)
-            delay_ms = dev.get("delay_ms")
             blocked = dev.get("blocked", False)
 
             if not device_id or not command:
@@ -76,7 +75,7 @@ class GpioManager:
                 continue
 
             try:
-                # Nur GPIO-Geräte brauchen einen Pin; LED-Befehle interpretieren den command string
+                # Nur GPIO-Geräte brauchen einen Pin; LED nutzt die Onboard-LED
                 pin = None
                 if device_kind == "GPIO":
                     gpio_pin = int(command)
@@ -89,7 +88,6 @@ class GpioManager:
                     "direction": direction,
                     "command": command,
                     "signal_duration_ms": signal_duration_ms,
-                    "delay_ms": delay_ms,
                     "blocked": blocked
                 }
                 print("GPIO initialisiert: device={} type={} cmd={} duration_ms={}".format(
@@ -113,16 +111,15 @@ class GpioManager:
         self._devices.clear()
         self._pulse_active.clear()
 
-    def set(self, device_id, value, signal_duration_ms=None, delay_ms=None):
+    def set(self, device_id, value, signal_duration_ms=None):
         """
-        Setzt den Ausgangszustand eines Pins.
-        Für GPIO-Geräte und LED-Geräte mit Signal-Duration wird automatisch timed pulse ausgelöst.
+        Setzt den Ausgangszustand eines Geräts (einphasig, nicht-blockierend).
 
-        :param device_id:         UUID des Geräts (str).
-        :param value:             1 = EIN, 0 = AUS.
+        :param device_id:          UUID des Geräts (str).
+        :param value:              1 = EIN, 0 = AUS.
         :param signal_duration_ms: Überschreibt den konfigurierten Wert, wenn angegeben.
-        :param delay_ms:          Überschreibt den konfigurierten Delay-Wert, wenn angegeben.
-        :returns:                 True bei Erfolg, False wenn device_id unbekannt, blockiert, oder OFF-Befehl für LED.
+        :returns: True bei Erfolg; False wenn unbekannt, blockiert, beschäftigt (laufender
+                  Puls) oder OFF-Befehl für LED.
         """
         entry = self._devices.get(device_id)
         if entry is None or entry["blocked"]:
@@ -133,22 +130,18 @@ class GpioManager:
             print("Fehler: OFF-Befehl für LED-Gerät blockiert: device={}".format(device_id))
             return False
 
-        # Befehlsspezifische Werte haben Vorrang vor der gespeicherten Konfiguration
-        effective_delay_ms = delay_ms if delay_ms is not None else entry["delay_ms"]
+        # Busy-Reject: laufenden Puls nicht erneut auslösen
+        if value == 1 and device_id in self._pulse_active:
+            print("Gerät beschäftigt, Befehl ignoriert: device={}".format(device_id))
+            return False
+
         effective_duration_ms = signal_duration_ms if signal_duration_ms is not None else entry["signal_duration_ms"]
-
-        # Respektiere Delay vor Ausführung
-        if effective_delay_ms:
-            time.sleep_ms(effective_delay_ms)
-
         device_kind = entry["device"]
 
         if device_kind == "GPIO":
-            # Timed pulse – fahre Pin HIGH für signal_duration_ms, dann reset
             pin = entry["pin"]
             if value == 1 and effective_duration_ms > 0:
                 pin.value(1)
-                # ticks_ms() + ticks_add/ticks_diff für ms-genaue Pulse (time.time() ist nur sekundengenau)
                 self._pulse_active[device_id] = time.ticks_add(
                     time.ticks_ms(), effective_duration_ms)
                 print("GPIO-Puls gestartet: device={} duration_ms={}".format(
@@ -158,7 +151,6 @@ class GpioManager:
             self._pulse_active.pop(device_id, None)
 
         elif device_kind == "LED":
-            # LED-Puls – fahre LED HIGH für signal_duration_ms, dann reset
             if value == 1 and effective_duration_ms > 0:
                 led.value(1)
                 self._pulse_active[device_id] = time.ticks_add(
@@ -175,12 +167,10 @@ class GpioManager:
         """Gibt alle bekannten device_ids zurück."""
         return list(self._devices.keys())
 
-    def update_pulses(self):
+    def tick(self):
         """
-        Prüft alle aktiven Pulse (GPIO und LED) und schaltet sie aus, wenn die Duration
-        überschritten wurde. Sollte regelmäßig aus dem Main-Loop aufgerufen werden.
-        Verwendet ticks_ms()/ticks_diff() für ms-genaue Auflösung und korrekte
-        Behandlung des 32-Bit-Überlaufs.
+        Läuft jeden Main-Loop-Tick: beendet abgelaufene Pulse (GPIO + LED).
+        Nutzt ticks_ms()/ticks_diff() für ms-Auflösung und korrekten 32-Bit-Überlauf.
         """
         now = time.ticks_ms()
         expired = []
