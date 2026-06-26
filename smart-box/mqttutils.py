@@ -390,16 +390,14 @@ def update_device_pulses():
     gpio_manager.tick()
 
 
-def publish_discovery(broker, port, client_id):
+def publish_discovery(client_id):
     """
-    Veröffentlicht eine Discovery-Nachricht über die bestehende MQTT-Verbindung,
-    damit das Backend die Box erkennt und automatisch einen Config-Push auslöst.
-
-    Die Firmware-Version wird aus systemconfig/firmware_config.json gelesen –
-    sie wird NIE hartcodiert.
+    Veröffentlicht einmalig beim Boot eine Discovery-Nachricht über die bestehende
+    MQTT-Verbindung, damit das Backend die Box erkennt und einen Config-Push auslöst.
+    Firmware-Version/Box-Typ kommen aus systemconfig/firmware_config.json.
 
     Topic:   smartboxes/discovery
-    Payload: { "mac": "...", "firmwareVersion": "...", "boxType": "...", "ip": "..." }
+    Payload: { "mac", "firmwareVersion", "boxType", "ip" }
     """
     if _mqtt_client is None:
         print("MQTT-Verbindung nicht verfügbar – Discovery nicht möglich.")
@@ -422,4 +420,27 @@ def publish_discovery(broker, port, client_id):
         return True
     except Exception as e:
         print("Discovery fehlgeschlagen:", e)
+        return False
+
+
+def publish_heartbeat(client_id):
+    """
+    Veröffentlicht einen Heartbeat über die bestehende MQTT-Verbindung. Das Backend
+    (SmartBoxStatusHandler) aktualisiert damit lastSeen + ONLINE, OHNE einen Config-Push
+    auszulösen. Ersetzt das frühere periodische Discovery.
+
+    Topic:   smartboxes/{mac}/status
+    Payload: { "mac": "..." }
+    """
+    if _mqtt_client is None:
+        print("MQTT-Verbindung nicht verfügbar – Heartbeat nicht möglich.")
+        return False
+    try:
+        topic = "smartboxes/{}/status".format(client_id)
+        payload = json.dumps({"mac": client_id})
+        _mqtt_client.publish(topic, payload)
+        print("Heartbeat gesendet:", topic)
+        return True
+    except Exception as e:
+        print("Heartbeat fehlgeschlagen:", e)
         return False
