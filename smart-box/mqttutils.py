@@ -1,8 +1,7 @@
 import gc
 import json
-import time
 import network
-from hardware import led, gpio_manager
+from hardware import led, gpio_manager, feed_sleep_ms
 
 # --- KONFIGURATION ---
 RECONNECT_ATTEMPTS   = 12
@@ -369,16 +368,17 @@ def connect_mqtt(client_id, mqtt_broker, port=1883):
         return None
 
 
-def reconnect_mqtt():
+def reconnect_mqtt(wdt=None):
     """
-    Versucht die MQTT-Verbindung mit den zuletzt verwendeten Parametern wiederherzustellen.
+    Stellt die MQTT-Verbindung mit den zuletzt verwendeten Parametern wieder her.
+    Füttert den optionalen Watchdog während der Wartezeit.
     """
     for attempt in range(RECONNECT_ATTEMPTS):
         print("MQTT Wiederverbindung, Versuch", attempt + 1)
         client = connect_mqtt(_client_id, _mqtt_broker, _mqtt_port)
         if client:
             return client
-        time.sleep(RECONNECT_DELAY_S)
+        feed_sleep_ms(RECONNECT_DELAY_S * 1000, wdt)
     return None
 
 
