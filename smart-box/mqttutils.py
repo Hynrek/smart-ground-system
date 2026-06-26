@@ -356,6 +356,9 @@ def connect_mqtt(client_id, mqtt_broker, port=1883):
     try:
         client = MQTTClient(client_id, mqtt_broker, port=port, keepalive=60)
         client.set_callback(message_callback)
+        # connect() blockiert (umqtt.simple kennt kein socket_timeout). Bei einem sehr
+        # langsamen/nicht erreichbaren Broker (>WDT_TIMEOUT_MS) setzt der Watchdog die Box
+        # zurück. Das ist gewollte Recovery – identisch zum Reset bei Verbindungsfehler.
         client.connect()
         client.subscribe(command_topic)
         client.subscribe(config_topic)

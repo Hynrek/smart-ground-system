@@ -80,7 +80,10 @@ try:
             # WLAN-Objekt einmalig vor der Schleife anlegen – nicht bei jedem Tick neu erzeugen
             wlan = network.WLAN(network.STA_IF)
 
-            # Watchdog erst im Normalbetrieb aktivieren – AP-/Erstverbindung darf lange dauern
+            # Watchdog erst im Normalbetrieb aktivieren – AP-/Erstverbindung darf lange dauern.
+            # ACHTUNG: Auf dem RP2 lässt sich der WDT nicht mehr stoppen. Ab hier setzt auch ein
+            # KeyboardInterrupt (Ctrl-C) die Box nach spätestens WDT_TIMEOUT_MS zurück, weil im
+            # finally-Block niemand mehr feed() aufruft – REPL-Debugging ist dadurch begrenzt.
             wdt = machine.WDT(timeout=WDT_TIMEOUT_MS)
 
             # Hauptschleife: MQTT-Nachrichten und Heartbeat kooperativ verarbeiten
@@ -121,6 +124,9 @@ try:
                 time.sleep_ms(50)
 
 except KeyboardInterrupt:
+    # Sauberes Herunterfahren ohne expliziten Reset. Hinweis: Sobald der Watchdog läuft
+    # (Normalbetrieb), setzt er die Box nach dem Aufräumen dennoch zurück – der RP2-WDT
+    # kann nicht gestoppt werden. Im AP-/Erstverbindungs-Pfad (kein WDT) gilt "kein Reset".
     print("Programm durch Benutzer beendet.")
 
 except Exception as e:

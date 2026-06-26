@@ -301,10 +301,12 @@ finally:
     print("Aufräumen abgeschlossen.")
 ```
 
-- `KeyboardInterrupt` → clean shutdown, **no** reset
+- `KeyboardInterrupt` → clean shutdown, **no** explicit reset
 - All other exceptions → `machine.reset()` after a 5-second delay
 - `finally` → always disconnect MQTT, deactivate both WLAN interfaces
 - Always create a fresh `network.WLAN()` instance in `finally` — do not rely on outer variables that may not be defined if the error happened early
+
+> **Watchdog caveat (RP2):** once the main loop has started, `machine.WDT` is active and **cannot be stopped** on the RP2. So a `KeyboardInterrupt` in normal operation runs the cleanup but the box still resets ~`WDT_TIMEOUT_MS` (8 s) later — the "no reset" guarantee only fully holds on the AP/first-connect path, where the WDT isn't running yet. This limits REPL debugging after Ctrl-C: re-flash via BOOTSEL if you need an un-watched session. Relatedly, a very slow `MQTTClient.connect()` (broker unreachable >8 s) will be cut short by a WDT reset; this is intended recovery — equivalent to the reset the reconnect path already performs on failure.
 
 ---
 
