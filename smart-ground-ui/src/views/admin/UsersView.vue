@@ -29,6 +29,7 @@
           @click="userStore.selectUser(user)"
         >
           <span class="user-item-name">{{ user.fullName }}</span>
+          <span v-if="user.username" class="user-item-username">@{{ user.username }}</span>
           <span class="user-item-badges">
             <span :class="['badge', statusBadgeClass(user.status)]">{{ statusLabel(user.status) }}</span>
             <span
@@ -131,6 +132,10 @@
           <section class="detail-section">
             <h4 class="section-label">System</h4>
             <div class="detail-grid">
+              <div class="detail-field">
+                <span class="field-label">Benutzername</span>
+                <span>{{ selectedUser.username ?? '—' }}</span>
+              </div>
               <div class="detail-field">
                 <span class="field-label">Erstellt am</span>
                 <span>{{ formatInstant(selectedUser.erstelltAm) }}</span>
@@ -343,6 +348,11 @@ const licenseExpiryClass = (dateStr) =>
 .user-item-name {
   font-size: 0.875rem;
   font-weight: 500;
+}
+
+.user-item-username {
+  font-size: 0.78rem;
+  color: var(--sg-text-faint);
 }
 
 .user-item-badges {

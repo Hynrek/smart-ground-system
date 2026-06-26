@@ -5,8 +5,8 @@ import { createPinia, setActivePinia } from 'pinia'
 vi.mock('@/stores/userStore.js', () => ({
   useUserStore: () => ({
     users: [
-      { id: 'u1', fullName: 'Hans Müller', email: 'hans@test.ch', status: 'ACTIVE' },
-      { id: 'u2', fullName: 'Anna Schmidt', email: 'anna@test.ch', status: 'ACTIVE' },
+      { id: 'u1', fullName: 'Hans Müller', email: 'hans@test.ch', status: 'ACTIVE', username: 'jonass' },
+      { id: 'u2', fullName: 'Anna Schmidt', email: 'anna@test.ch', status: 'ACTIVE', username: 'annas' },
     ],
     selectedUser: null,
     userRolesMap: { u1: [{ roleName: 'SHOOTER' }], u2: [{ roleName: 'ADMIN' }] },
@@ -61,5 +61,11 @@ describe('UsersView', () => {
     const wrapper = mount(UsersView)
     await wrapper.find('[data-testid="btn-create"]').trigger('click')
     expect(wrapper.find('[data-testid="user-form-modal"]').exists()).toBe(true)
+  })
+
+  it('renders the username for each user', async () => {
+    const { default: UsersView } = await import('@/views/admin/UsersView.vue')
+    const wrapper = mount(UsersView)
+    expect(wrapper.text()).toContain('jonass')
   })
 })
