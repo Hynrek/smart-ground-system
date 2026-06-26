@@ -636,6 +636,7 @@ Design decisions:
 - Multi-SmartBox device assignment (API not exposed)
 - Email / phone verification flows
 - Play result scoring logic (`PlayResultController` stub exists)
+- **Backend-side actuation delay.** The firmware no longer applies a delay — `delay_ms` / `delaySignalDurationMs` were removed from the config-push and command MQTT payloads. `DeviceType.delaySignalDurationMs` (and the `Device` override) are kept in the domain/REST surface as modeled intent. When a delayed-release / staggered-double requirement is confirmed, implement it here by scheduling the command publish at send-time (in `MqttCommandPublisher`/`RangePositionService`) using the retained delay value. Until then no delay is applied.
 
 ---
 
