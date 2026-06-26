@@ -2,6 +2,7 @@ import gc
 import json
 import network
 from hardware import led, gpio_manager, feed_sleep_ms
+import board as _board
 
 # --- KONFIGURATION ---
 RECONNECT_ATTEMPTS   = 12
@@ -39,11 +40,11 @@ def load_firmware_config():
     """
     Lädt die statische Firmware-Konfiguration aus dem systemconfig-Ordner.
     Diese Datei wird mit der Firmware geflasht und beschreibt die Fähigkeiten der Box
-    (Version, Box-Typ, unterstützte Gerätearten und Richtungen).
+    (Version, unterstützte Gerätearten und Richtungen).
     Gibt ein Dict zurück, oder {} bei Fehler/fehlender Datei.
 
     Format:
-        { "firmware_version": "0.6", "box_type": "pico2w",
+        { "firmware_version": "0.6",
           "supported_device_kinds": ["GPIO", "LED"],
           "supported_directions": ["INPUT", "OUTPUT"] }
     """
@@ -53,8 +54,8 @@ def load_firmware_config():
     try:
         with open(FIRMWARE_CONFIG_PATH, 'r') as f:
             data = json.load(f)
-            print("Firmware-Konfiguration geladen: v{} ({})".format(
-                data.get("firmware_version", "?"), data.get("box_type", "?")))
+            print("Firmware-Konfiguration geladen: v{}".format(
+                data.get("firmware_version", "?")))
             _firmware_config = data
             return _firmware_config
     except (OSError, ValueError) as e:
@@ -397,7 +398,7 @@ def publish_discovery(client_id):
     """
     Veröffentlicht einmalig beim Boot eine Discovery-Nachricht über die bestehende
     MQTT-Verbindung, damit das Backend die Box erkennt und einen Config-Push auslöst.
-    Firmware-Version/Box-Typ kommen aus systemconfig/firmware_config.json.
+    Firmware-Version kommt aus systemconfig/firmware_config.json, Box-Typ aus dem board-Modul.
 
     Topic:   smartboxes/discovery
     Payload: { "mac", "firmwareVersion", "boxType", "ip" }
@@ -408,14 +409,13 @@ def publish_discovery(client_id):
 
     firmware = load_firmware_config()
     firmware_version = firmware.get("firmware_version", "unknown")
-    box_type = firmware.get("box_type", "unknown")
 
     try:
         ip_address = network.WLAN(network.STA_IF).ifconfig()[0]
         payload = json.dumps({
             "mac":             client_id,
             "firmwareVersion": firmware_version,
-            "boxType":         box_type,
+            "boxType":         _board.BOX_TYPE,
             "ip":              ip_address,
         })
         _mqtt_client.publish("smartboxes/discovery", payload)

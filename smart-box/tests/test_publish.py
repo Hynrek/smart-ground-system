@@ -42,6 +42,14 @@ class PublishTest(unittest.TestCase):
         self.assertEqual(list(inspect.signature(mqttutils.publish_discovery).parameters),
                          ["client_id"])
 
+    def test_discovery_box_type_from_board(self):
+        import board as _board
+        ok = mqttutils.publish_discovery(MAC)
+        self.assertTrue(ok)
+        _, payload = mqttutils._mqtt_client.published[-1]
+        d = json.loads(payload)
+        self.assertEqual(d["boxType"], _board.BOX_TYPE)
+
 
 if __name__ == "__main__":
     unittest.main()
