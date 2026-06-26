@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '../authStore'
 import * as authApi from '../../services/authApi'
+import * as userApi from '../../services/userApi'
 
 vi.mock('../../services/authApi')
+vi.mock('../../services/userApi')
 
 const mockProfile = {
   id: 'user-1',
@@ -110,5 +112,20 @@ describe('useAuthStore', () => {
     await store.login('admin@smartground.local', 'admin123')
 
     expect(store.displayName).toBe('Max Muster')
+  })
+
+  it('updateOwnUsername updates current user and reloads profile', async () => {
+    vi.mocked(authApi.login).mockResolvedValue({ token: 'test.jwt.token' })
+    vi.mocked(authApi.getMe)
+      .mockResolvedValueOnce({ id: 'u1', vorname: 'A', nachname: 'B', username: 'old', permissions: [] })
+      .mockResolvedValueOnce({ id: 'u1', vorname: 'A', nachname: 'B', username: 'new', permissions: [] })
+    vi.mocked(userApi.updateUser).mockResolvedValue({})
+
+    const store = useAuthStore()
+    await store.login('a@b.ch', 'pw')
+    await store.updateOwnUsername('new')
+
+    expect(userApi.updateUser).toHaveBeenCalledWith('u1', { username: 'new' })
+    expect(store.profile.username).toBe('new')
   })
 })

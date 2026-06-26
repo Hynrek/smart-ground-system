@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { login as loginApi, getMe } from '../services/authApi.js';
+import { updateUser as updateUserApi } from '../services/userApi.js';
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('sg_token') || null);
@@ -46,6 +47,20 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
+  const updateOwnUsername = async (username) => {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      await updateUserApi(profile.value.id, { username });
+      await _loadProfile();
+    } catch (err) {
+      error.value = err.message;
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
   let _readyResolve;
   const readyPromise = new Promise((resolve) => { _readyResolve = resolve; });
 
@@ -83,6 +98,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     hasPermission,
     login,
+    updateOwnUsername,
     init,
     logout,
   };

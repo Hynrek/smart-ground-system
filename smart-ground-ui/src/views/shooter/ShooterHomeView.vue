@@ -5,6 +5,7 @@
       <div class="user-pill">
         <div class="user-avatar">{{ userInitial }}</div>
         <span class="user-name">{{ displayName }}</span>
+        <button class="account-edit-btn" data-testid="open-account" @click="showAccount = true">Konto</button>
       </div>
       <button class="logout-btn" aria-label="Abmelden" @click="handleLogout">
         <Icons icon="logout" :size="18" color="rgba(255,255,255,0.45)" />
@@ -52,17 +53,20 @@
         <span class="tile-coming">Bald verfügbar</span>
       </button>
     </div>
+    <UsernameEditModal v-if="showAccount" @close="showAccount = false" />
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore.js';
 import Icons from '@/components/Icons.vue';
+import UsernameEditModal from '@/components/UsernameEditModal.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const showAccount = ref(false);
 
 const displayName = computed(() => authStore.displayName ?? 'Schütze');
 const firstName = computed(() => displayName.value.split(/[\s._@]/)[0]);
@@ -114,6 +118,23 @@ const handleLogout = () => {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.5);
   font-weight: 500;
+}
+
+.account-edit-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+  padding: 3px 8px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.account-edit-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .logout-btn {
