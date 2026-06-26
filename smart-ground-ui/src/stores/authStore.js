@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { login as loginApi, createUser as createUserApi, getMe } from '../services/authApi.js';
+import { login as loginApi, getMe } from '../services/authApi.js';
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('sg_token') || null);
@@ -64,19 +64,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
-  const createUser = async (username, password, role) => {
-    isLoading.value = true;
-    error.value = null;
-    try {
-      await createUserApi(username, password, role);
-    } catch (err) {
-      error.value = err.message;
-      throw err;
-    } finally {
-      isLoading.value = false;
-    }
-  };
-
   const logout = () => {
     token.value = null;
     profile.value = null;
@@ -98,6 +85,5 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     init,
     logout,
-    createUser,
   };
 });
