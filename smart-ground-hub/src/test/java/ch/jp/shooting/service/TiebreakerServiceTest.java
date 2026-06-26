@@ -121,43 +121,6 @@ class TiebreakerServiceTest {
     }
 
     @Test
-    void submitResults_doesNotTouchPlayerResults() throws Exception {
-        UUID tbId = UUID.randomUUID();
-        UUID p1 = UUID.randomUUID();
-        CompetitionTiebreaker tb = new CompetitionTiebreaker(session, UUID.randomUUID(), 1, 1);
-        tb.setStatus(TiebreakerStatus.ACTIVE);
-        tb.setParticipantsJson(objectMapper.writeValueAsString(List.of(p1.toString())));
-        when(tbRepo.findById(tbId)).thenReturn(Optional.of(tb));
-        when(tbRepo.save(any())).thenAnswer(i -> i.getArgument(0));
-        when(tbRepo.findBySessionId(sessionId)).thenReturn(List.of(tb));
-        when(playerResultRepo.findBySessionId(sessionId)).thenReturn(List.of());
-
-        var req = new ch.jp.smartground.model.SubmitTiebreakerResultsRequest();
-        var score = new ch.jp.smartground.model.TiebreakerPlayerScore();
-        score.setPlayerId(p1); score.setTotalPoints(8); score.setMaxPoints(10);
-        req.setResults(List.of(score));
-
-        service.submitResults(sessionId, tbId, req);
-
-        assertEquals(TiebreakerStatus.COMPLETED, tb.getStatus());
-        verify(playerResultRepo, never()).save(any());
-    }
-
-    @Test
-    void submitResults_onCompletedRound_throwsInvalidState() throws Exception {
-        UUID tbId = UUID.randomUUID();
-        CompetitionTiebreaker tb = new CompetitionTiebreaker(session, UUID.randomUUID(), 1, 1);
-        tb.setStatus(TiebreakerStatus.COMPLETED);
-        when(tbRepo.findById(tbId)).thenReturn(Optional.of(tb));
-
-        var req = new ch.jp.smartground.model.SubmitTiebreakerResultsRequest();
-        req.setResults(List.of());
-
-        assertThrows(ch.jp.shooting.exception.InvalidTiebreakerStateException.class,
-                () -> service.submitResults(sessionId, tbId, req));
-    }
-
-    @Test
     void startTiebreaker_snapshotIncludesRangeWhenSeriePresent() throws Exception {
         UUID serieId = UUID.randomUUID();
         UUID rangeId = UUID.randomUUID();

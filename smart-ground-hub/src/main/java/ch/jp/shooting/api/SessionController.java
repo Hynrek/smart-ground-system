@@ -18,7 +18,6 @@ import ch.jp.smartground.model.SessionProgressResponse;
 import ch.jp.smartground.model.SessionResponse;
 import ch.jp.smartground.model.SessionTiesResponse;
 import ch.jp.smartground.model.StartTiebreakerRequest;
-import ch.jp.smartground.model.SubmitTiebreakerResultsRequest;
 import ch.jp.smartground.model.TiebreakerResponse;
 import ch.jp.smartground.model.UpdateGroupRequest;
 import ch.jp.smartground.model.UpdateSessionStatusRequest;
@@ -213,16 +212,4 @@ public class SessionController implements SessionApi {
         }
     }
 
-    @Override
-    public ResponseEntity<SessionTiesResponse> submitTiebreakerResults(
-            UUID sessionId, UUID tiebreakerId, SubmitTiebreakerResultsRequest submitTiebreakerResultsRequest) {
-        try {
-            return ResponseEntity.ok(
-                    tiebreakerService.submitResults(sessionId, tiebreakerId, submitTiebreakerResultsRequest));
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 }

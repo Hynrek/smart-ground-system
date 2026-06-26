@@ -19,7 +19,6 @@ import ch.jp.shooting.repository.SessionPlayerRepository;
 import ch.jp.smartground.model.PlayerRef;
 import ch.jp.smartground.model.SessionTiesResponse;
 import ch.jp.smartground.model.StartTiebreakerRequest;
-import ch.jp.smartground.model.SubmitTiebreakerResultsRequest;
 import ch.jp.smartground.model.TiebreakerParticipant;
 import ch.jp.smartground.model.TiebreakerPlayerScore;
 import ch.jp.smartground.model.TiebreakerResponse;
@@ -32,20 +31,18 @@ import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 /**
- * Integrations-Kern des Wettkampf-Stechens (Tiebreaker): listet Gleichstände auf,
- * startet eine Stechen-Runde als Einzel-Serie-Lauf und nimmt deren Ergebnisse entgegen.
+ * Integrations-Kern des Wettkampf-Stechens (Tiebreaker): listet Gleichstände auf
+ * und startet eine Stechen-Runde als Einzel-Serie-Lauf.
  *
  * <p>Wichtig: Stechen-Ergebnisse landen NIE in {@link PlayerResult} — sie ordnen nur
  * den gleichstehenden Block. Die Hauptpunkte bleiben unangetastet.
@@ -254,29 +251,6 @@ public class TiebreakerService {
         ArrayNode arrayNode = objectMapper.createArrayNode();
         arrayNode.add(serieNode);
         return objectMapper.writeValueAsString(arrayNode);
-    }
-
-    // ── Stechen-Ergebnisse entgegennehmen ──────────────────────────────────────
-
-    /**
-     * Speichert die Ergebnisse einer Stechen-Runde und schliesst sie ab.
-     * Verändert bewusst NIE einen PlayerResult — die Hauptpunkte bleiben unangetastet.
-     */
-    public SessionTiesResponse submitResults(UUID sessionId, UUID tiebreakerId,
-                                             SubmitTiebreakerResultsRequest req) throws Exception {
-        CompetitionTiebreaker tb = tbRepo.findById(tiebreakerId)
-                .orElseThrow(() -> new TiebreakerNotFoundException(tiebreakerId));
-        if (tb.getStatus() == TiebreakerStatus.COMPLETED) {
-            throw new InvalidTiebreakerStateException("Stechen-Runde bereits abgeschlossen");
-        }
-
-        var results = req.getResults() != null ? req.getResults() : List.<TiebreakerPlayerScore>of();
-        tb.setResultsJson(objectMapper.writeValueAsString(results));
-        tb.setStatus(TiebreakerStatus.COMPLETED);
-        tb.setCompletedAt(Instant.now());
-        tbRepo.save(tb);
-
-        return listTies(sessionId);
     }
 
     // ── Stechen auflisten ──────────────────────────────────────────────────────

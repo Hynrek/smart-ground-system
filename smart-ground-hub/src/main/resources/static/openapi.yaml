@@ -1431,28 +1431,6 @@ paths:
         '404': { description: Session not found }
         '409': { description: Session not in PRE_COMPLETE, or invalid participants }
 
-  /api/sessions/{sessionId}/tiebreakers/{tiebreakerId}/results:
-    post:
-      summary: Submit or correct Stechen results for a round
-      operationId: submitTiebreakerResults
-      tags: [Session]
-      parameters:
-        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: tiebreakerId, in: path, required: true, schema: { type: string, format: uuid } }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/SubmitTiebreakerResultsRequest' }
-      responses:
-        '200':
-          description: Results recorded; updated ties view returned
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/SessionTiesResponse' }
-        '404': { description: Session or tiebreaker not found }
-        '409': { description: Round already completed }
-
   /api/sessions/{sessionId}/groups:
     get:
       summary: List Rotten (groups) in a session
@@ -3801,14 +3779,6 @@ components:
         templateId: { type: string, format: uuid, description: Serie template id (a Stechen is always a single Serie) }
         tiePosition: { type: integer, description: Standings position the tie is for (1 = first) }
 
-    SubmitTiebreakerResultsRequest:
-      type: object
-      required: [results]
-      properties:
-        results:
-          type: array
-          items: { $ref: '#/components/schemas/TiebreakerPlayerScore' }
-
     TiebreakerPlayerScore:
       type: object
       required: [playerId, totalPoints, maxPoints]
@@ -3829,6 +3799,10 @@ components:
         templateId: { type: string, format: uuid }
         templateName: { type: string }
         playInstanceId: { type: string, format: uuid, nullable: true }
+        blockId: { type: string, format: uuid, nullable: true, description: Live-run block id for an ACTIVE round (kiosk play target) }
+        run:
+          allOf: [ { $ref: '#/components/schemas/EmbeddedSerie' } ]
+          description: The Serie being shot, for an ACTIVE round (surfaces the run on the range kiosk). Absent once resolved.
         participants:
           type: array
           items: { $ref: '#/components/schemas/TiebreakerParticipant' }
