@@ -3528,6 +3528,7 @@ components:
       properties:
         username:
           type: string
+          description: Email address or username — either may be used to log in.
         password:
           type: string
 
@@ -3537,7 +3538,7 @@ components:
       properties:
         token:
           type: string
-          description: JWT token containing username and role as claims
+          description: JWT token whose subject is the user's canonical email, plus the role as a claim.
 
     MeResponse:
       type: object
