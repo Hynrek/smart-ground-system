@@ -11,6 +11,7 @@ STARTUP_BLINKS       = const(3)    # Anzahl Blinks beim Start
 BLINK_ON_MS          = const(150)  # LED-AN-Dauer pro Blink
 BLINK_OFF_MS         = const(150)  # LED-AUS-Dauer pro Blink
 CONNECTING_TOGGLE_MS = const(250)  # Toggle-Intervall während WLAN-Verbindung
+FEED_SLEEP_CHUNK_MS  = const(4000) # Max. Schlafstück, damit der Watchdog gefüttert wird
 
 
 def led_on():
@@ -35,6 +36,20 @@ def status_blink(times=STARTUP_BLINKS, on_ms=BLINK_ON_MS, off_ms=BLINK_OFF_MS):
         time.sleep_ms(on_ms)
         led.value(0)
         time.sleep_ms(off_ms)
+
+
+def feed_sleep_ms(total_ms, wdt=None, chunk_ms=FEED_SLEEP_CHUNK_MS):
+    """
+    Schläft total_ms und füttert dabei einen optionalen Watchdog in Stücken,
+    damit lange Wartezeiten (z.B. Reconnect-Delays) keinen WDT-Reset auslösen.
+    """
+    remaining = total_ms
+    while remaining > 0:
+        step = chunk_ms if remaining > chunk_ms else remaining
+        time.sleep_ms(step)
+        if wdt is not None:
+            wdt.feed()
+        remaining -= step
 
 
 class GpioManager:
