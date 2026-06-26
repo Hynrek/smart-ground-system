@@ -4127,6 +4127,7 @@ components:
 
     UserResponse:
       type: object
+      required: [id, email, username, vorname, nachname]
       properties:
         id:
           type: string

@@ -38,33 +38,4 @@ public class UserMapper {
 
         return dto;
     }
-
-    public User toEntity(UserDTO dto) {
-        if (dto == null) return null;
-
-        User user = new User();
-        user.setId(dto.getId());
-        user.setEmail(dto.getEmail());
-        if (dto.getUsername() != null) {
-            user.setUsername(dto.getUsername());
-        }
-        user.setVorname(dto.getVorname());
-        user.setNachname(dto.getNachname());
-        user.setGeburtsdatum(dto.getGeburtsdatum());
-        user.setGeschlecht(dto.getGeschlecht());
-        user.setTelefonnummer(dto.getTelefonnummer());
-        user.setStrasse(dto.getStrasse());
-        user.setHausnummer(dto.getHausnummer());
-        user.setPlz(dto.getPlz());
-        user.setStadt(dto.getStadt());
-        user.setLand(dto.getLand());
-        user.setProfilbildUrl(dto.getProfilbildUrl());
-        user.setBiographie(dto.getBiographie());
-        user.setSprache(dto.getSprache());
-        user.setMitgliedsnummer(dto.getMitgliedsnummer());
-        user.setSchiessLizenz(dto.getSchiessLizenz());
-        user.setSchiessLizenzVerfallsdatum(dto.getSchiessLizenzVerfallsdatum());
-
-        return user;
-    }
 }
