@@ -35,12 +35,12 @@ const handleKeydown = (e) => {
 
       <form class="login-form" @submit.prevent="handleLogin">
         <div class="form-group">
-          <label for="username">Username</label>
+          <label for="username">E-Mail oder Benutzername</label>
           <input
             id="username"
             v-model="username"
             type="text"
-            placeholder="Enter your username"
+            placeholder="E-Mail oder Benutzername eingeben"
             required
             @keydown="handleKeydown"
           />
