@@ -1,27 +1,27 @@
 <template>
-  <div class="flyout-wrapper">
+  <div class="flyout-wrapper" :class="{ 'is-recording': isRecordingActive }">
     <!-- Overlay (blocks device buttons when panel open) -->
     <div v-if="isOpen && !isRecordingActive" class="flyout-overlay" @click="isOpen = false" />
 
-    <!-- Handle (visible in both throwing and recording modes) -->
+    <!-- Handle — only in normal (non-recording) mode to open the Serien list -->
     <button
-      v-if="!isOpen"
+      v-if="!isOpen && !isRecordingActive"
       class="flyout-handle"
-      :class="{ 'shrunk-mode': isRecordingActive }"
       @click="togglePanel"
     >
       <Icons icon="program" :size="15" color="rgba(255,255,255,0.8)" />
-      <Icons v-if="!isRecordingActive" icon="chevronLeft" :size="11" color="rgba(255,255,255,0.5)" />
+      <Icons icon="chevronLeft" :size="11" color="rgba(255,255,255,0.5)" />
     </button>
 
-    <!-- Panel -->
+    <!-- Panel — in shrunk/recording state the panel itself is the tap target -->
     <div
       class="flyout-panel"
       :class="{ open: isOpen, 'shrunk': isRecordingActive && !isOpen }"
+      @click="handlePanelClick"
     >
       <!-- Header -->
       <div class="flyout-header">
-        <button v-if="isOpen || !isRecordingActive" class="close-btn" @click="togglePanel">
+        <button v-if="isOpen || !isRecordingActive" class="close-btn" @click.stop="togglePanel">
           <Icons
             :icon="isOpen ? 'chevronRight' : 'chevronLeft'"
             :size="14"
@@ -48,7 +48,7 @@
               class="captured-item"
               :style="modeBadgeStyle(step.type)"
               :title="getStepTooltip(step)"
-              @click="passeStore.removeStep(0, step.id)"
+              @click.stop="passeStore.removeStep(0, step.id)"
             >
               <span class="item-code">{{ getStepLabel(step) }}</span>
             </button>
@@ -64,7 +64,7 @@
                 <div class="step-info">
                   <span class="step-index">{{ stepIdx + 1 }}</span>
                   <span class="step-label">
-                    {{ stepDisplayLabel(step) }}
+                    {{ getStepLabel(step) }}
                   </span>
                   <span class="step-type-chip" :style="modeBadgeStyle(step.type)">
                     {{ stepTypeLabel(step.type) }}
@@ -492,6 +492,10 @@ const playStechen = (item) => {
   router.push(`/remote/${currentRangeId.value}/play`);
 };
 
+const handlePanelClick = () => {
+  if (isRecordingActive.value && !isOpen.value) togglePanel();
+};
+
 const togglePanel = () => {
   if (isRecordingActive.value && !isOpen.value) {
     isOpen.value = true;
@@ -598,6 +602,12 @@ const getStepTooltip = (step) =>
   z-index: 30;
 }
 
+/* In recording/shrunk mode, pull away from header and bottom bar */
+.flyout-wrapper.is-recording {
+  top: 58px;
+  bottom: 74px;
+}
+
 /* ── Overlay ─────────────────────────────────────── */
 .flyout-overlay {
   position: fixed;
@@ -637,12 +647,6 @@ const getStepTooltip = (step) =>
   background: rgba(255, 255, 255, 0.15);
 }
 
-.flyout-handle.shrunk-mode {
-  background: rgba(252, 129, 129, 0.12);
-  border-color: rgba(252, 129, 129, 0.35);
-  width: 52px;
-  right: 52px;
-}
 
 /* ── Panel ───────────────────────────────────────── */
 .flyout-panel {
@@ -670,6 +674,11 @@ const getStepTooltip = (step) =>
   transform: translateX(0);
   width: 52px;
   border-left: 1px solid rgba(252, 129, 129, 0.25);
+  cursor: pointer;
+}
+
+.flyout-panel.shrunk:hover {
+  background: rgba(252, 129, 129, 0.06);
 }
 
 /* ── Header ──────────────────────────────────────── */
@@ -753,6 +762,7 @@ const getStepTooltip = (step) =>
 
 .captured-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   background: rgba(79, 195, 247, 0.12);
@@ -778,6 +788,8 @@ const getStepTooltip = (step) =>
   color: inherit;
   letter-spacing: -0.5px;
   text-align: center;
+  word-spacing: 9999px;
+  line-height: 1.5;
 }
 
 /* ── Sections ────────────────────────────────────── */

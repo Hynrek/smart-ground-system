@@ -1,59 +1,78 @@
 ﻿<template>
-  <div class="shooter-remote">
-    <!-- Header with integrated controls -->
+  <div class="shooter-remote" :class="[`mode--${store.mode}`, { 'session--erfassen': store.sessionMode === 'recording' }]">
+    <!-- Header: [← Back + range name (tablet)] [Lock | Notfall] [Mode Badge] -->
     <div class="page-header">
+      <!-- Left: back + range name on tablet -->
       <div class="header-left">
         <button v-if="!auth.profile?.assignedRangeId" class="back-btn" @click="goBack">
           <Icons icon="chevronLeft" :size="20" color="rgba(255,255,255,0.8)" />
         </button>
-        <div class="header-text">
-          <h1 class="page-title">{{ range?.name ?? '…' }}</h1>
-          <p v-if="range?.description" class="page-sub">{{ range.description }}</p>
-          <span v-if="rotteName" class="rotte-badge">{{ rotteName }}</span>
-        </div>
+        <span v-if="range?.name" class="range-name">{{ range.name }}</span>
+        <span v-if="rotteName" class="rotte-badge">{{ rotteName }}</span>
       </div>
 
+      <!-- Center: Lock + Notfall (truly centered) -->
       <div class="header-center">
-        <!-- Status indicator (emergency stop) -->
-        <div class="header-status">
-          <button
-            class="status-indicator"
-            :class="{ 'is-locked': isLocked, 'is-ready': !isLocked }"
-            :title="isLocked ? 'Notfallsperrung aktiv - Klick zum Freigeben' : 'Klick zum Notfall Stop'"
-            @click="toggleBlock"
-          >
-            <Icons :icon="isLocked ? 'unlock' : 'alert'" :size="16" />
-            <span class="status-text">{{ isLocked ? 'Freigeben' : 'Notfall Stop' }}</span>
-          </button>
-        </div>
-
-        <!-- Mode toggle (Throwing / Recording) -->
-        <div class="header-mode-toggle">
-          <button
-            class="erfassen-btn"
-            :class="{ 'is-recording': store.sessionMode === 'recording' }"
-            title="Erfassungs-Modus umschalten"
-            @click="toggleSessionMode"
-          >
-            <Icons
-              icon="record"
-              :size="12"
-              fill="currentColor"
-              color="transparent"
-              :stroke-width="0"
-              class="erfassen-icon"
-            />
-            Erfassen
-          </button>
-        </div>
-
+        <button class="icon-btn" title="Stand reservieren (Mock)">
+          <Icons icon="lock" :size="15" />
+        </button>
+        <button
+          class="emergency-btn"
+          :class="{ 'is-locked': isLocked }"
+          :title="isLocked ? 'Notfallsperrung aktiv – Klick zum Freigeben' : 'Klick zum Notfall Stop'"
+          @click="toggleBlock"
+        >
+          <Icons :icon="isLocked ? 'unlock' : 'alert'" :size="15" />
+          <span>{{ isLocked ? 'Freigeben' : 'Notfall' }}</span>
+        </button>
       </div>
 
+      <!-- Right: Mode badge — main indicator, opens mode flyout -->
+      <div class="header-right">
+        <button
+          class="mode-badge-btn"
+          :class="modeBadgeClass"
+          :aria-expanded="modeDrawerOpen"
+          @click="modeDrawerOpen = !modeDrawerOpen"
+        >
+          <span class="mode-dot" />
+          <span class="mode-label">{{ modeBadgeLabel }}</span>
+        </button>
+      </div>
     </div>
 
+    <!-- Mode flyout (slides down from header) -->
+    <Transition name="mode-flyout">
+      <div v-if="modeDrawerOpen" class="mode-flyout">
+        <button
+          class="mode-option"
+          :class="{ 'is-active': store.sessionMode !== 'recording' }"
+          @click="setSessionMode('throwing')"
+        >
+          <span class="option-dot option-dot--normal" />
+          <span class="option-name">Normal</span>
+          <span v-if="store.sessionMode !== 'recording'" class="option-tag">Aktiv</span>
+        </button>
+        <button
+          class="mode-option"
+          :class="{ 'is-active': store.sessionMode === 'recording' }"
+          @click="setSessionMode('recording')"
+        >
+          <span class="option-dot option-dot--erfassen" />
+          <span class="option-name">Erfassen</span>
+          <span v-if="store.sessionMode === 'recording'" class="option-tag option-tag--erfassen">Aktiv</span>
+        </button>
+        <button class="mode-option mode-option--soon" disabled>
+          <span class="option-dot option-dot--verzoegert" />
+          <span class="option-name">Verzögert</span>
+          <span class="option-tag option-tag--soon">Demnächst</span>
+        </button>
+      </div>
+    </Transition>
+    <div v-if="modeDrawerOpen" class="mode-flyout-backdrop" @click="modeDrawerOpen = false" />
 
     <!-- Device section -->
-    <div class="device-section">
+    <div class="device-section" :class="{ 'is-recording': isRecordingActive }">
       <p v-if="rangePositions.length > 0" class="section-title">
         {{ rangePositions.length }} {{ rangePositions.length === 1 ? 'Position' : 'Positionen' }}
       </p>
@@ -68,9 +87,9 @@
         <p class="state-hint">Bitte einen Administrator kontaktieren.</p>
       </div>
 
-      <div v-else class="device-grid">
+      <div v-else class="device-grid" :class="`device-grid--${store.mode}`">
         <button
-          v-for="position in rangePositions"
+          v-for="(position, idx) in rangePositions"
           :key="position.id"
           class="device-btn"
           :class="positionBtnClass(position)"
@@ -82,8 +101,8 @@
             <span class="btn-letter" :style="{ color: iconColor(position) }">
               {{ position.label }}
             </span>
+            <span class="btn-position-num">{{ idx + 1 }}</span>
           </div>
-          <span class="btn-label">{{ position.device?.alias ?? 'Kein Gerät' }}</span>
           <span class="btn-status-chip" :class="chipClass(position)">{{ chipLabel(position) }}</span>
         </button>
       </div>
@@ -197,11 +216,28 @@ onUnmounted(() => {
 
 watch(() => store.sessionMode, () => {
   store.setMode('solo');
+  modeDrawerOpen.value = false;
 });
 
-const toggleSessionMode = () => {
-  store.setSessionMode(store.sessionMode === 'recording' ? 'throwing' : 'recording');
+// ── Mode flyout ────────────────────────────────────
+const modeDrawerOpen = ref(false);
+
+const setSessionMode = (mode) => {
+  store.setSessionMode(mode);
+  modeDrawerOpen.value = false;
 };
+
+const isRecordingActive = computed(
+  () => store.sessionMode === 'recording' && store.recordingActive && passeStore.passeMode,
+);
+
+// ── Mode badge ─────────────────────────────────────
+const modeBadgeLabel = computed(() =>
+  store.sessionMode === 'recording' ? 'Erfassen' : 'Normal'
+)
+const modeBadgeClass = computed(() => ({
+  'mode-badge--recording': store.sessionMode === 'recording',
+}))
 
 // ── Range & positions ──────────────────────────────
 const range = computed(() => rangeStore.ranges.find((r) => r.id === props.rangeId));
@@ -385,198 +421,262 @@ const chipLabel = (position) => {
   min-height: 0;
 }
 
-/* ── Header mode toggle ──────────────────────────── */
-.header-mode-toggle {
-  display: flex;
-  align-items: center;
-  height: 100%;
-}
-
-.erfassen-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 100%;
-  padding: 0 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 13px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-  white-space: nowrap;
-}
-
-.erfassen-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.erfassen-btn:active {
-  transform: scale(0.95);
-}
-
-.erfassen-btn.is-recording {
-  background: rgba(252, 129, 129, 0.18);
-  border-color: rgba(252, 129, 129, 0.45);
-  color: #fc8181;
-}
-
-.erfassen-btn.is-recording .erfassen-icon {
-  animation: erfassen-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes erfassen-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.75); }
-}
-
 /* ── Header ──────────────────────────────────────── */
 .page-header {
-  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 10px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
 }
 
+/* True 3-zone centering */
 .header-left {
-  position: absolute;
-  left: 16px;
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
 .header-center {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
-  height: 36px;
 }
 
+.header-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Back button */
 .back-btn {
+  flex-shrink: 0;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
-  padding: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  flex-shrink: 0;
-  transition: all 0.15s;
   width: 36px;
   height: 36px;
+  transition: all 0.15s;
 }
 
-.back-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-}
+.back-btn:hover { background: rgba(255, 255, 255, 0.1); }
+.back-btn:active { transform: scale(0.95); }
 
-.back-btn:active {
-  transform: scale(0.95);
-}
-
-.header-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+/* Range name — tablet only */
+.range-name {
+  display: none;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   min-width: 0;
 }
 
-.page-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0;
-  letter-spacing: -0.3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+@media (min-width: 600px) {
+  .range-name { display: block; }
 }
 
-.page-sub {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
+/* Rotte badge */
 .rotte-badge {
-  display: inline-block;
+  flex-shrink: 0;
   background: var(--sg-accent-tint);
   color: var(--sg-accent);
   border-radius: 12px;
-  padding: 2px 10px;
+  padding: 2px 8px;
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
 
-.header-status {
-  position: relative;
-  height: 100%;
-}
-
-.status-indicator {
+/* Generic icon button (Lock mock) */
+.icon-btn {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 12px;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.icon-btn:hover { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.7); }
+.icon-btn:active { transform: scale(0.95); }
+
+/* Emergency button — always shows text */
+.emergency-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  height: 36px;
   border-radius: 10px;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 12px;
-  font-weight: 600;
   font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  background: rgba(252, 129, 129, 0.08);
+  border: 1.5px solid rgba(252, 129, 129, 0.3);
+  color: #fc8181;
+}
+
+.emergency-btn:hover { background: rgba(252, 129, 129, 0.14); }
+.emergency-btn:active { transform: scale(0.95); }
+
+.emergency-btn.is-locked {
+  background: rgba(72, 187, 120, 0.08);
+  border-color: rgba(72, 187, 120, 0.3);
+  color: var(--sg-color-success);
+}
+
+/* Mode badge button — main session-mode indicator */
+.mode-badge-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  height: 36px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.45);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
 }
 
-.status-indicator:hover {
+.mode-badge-btn:hover { background: rgba(255, 255, 255, 0.09); }
+.mode-badge-btn:active { transform: scale(0.95); }
+
+.mode-badge-btn.mode-badge--recording {
+  border-color: rgba(252, 129, 129, 0.45);
+  background: rgba(252, 129, 129, 0.12);
+  color: #fc8181;
+}
+
+.mode-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.mode-badge--recording .mode-dot {
+  background: #fc8181;
+  animation: mode-dot-pulse 1s ease-in-out infinite;
+}
+
+@keyframes mode-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.65); }
+}
+
+/* ── Mode flyout ─────────────────────────────────── */
+.mode-flyout {
+  position: relative;
+  z-index: 50;
+  background: rgba(14, 14, 22, 0.98);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  padding: 6px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mode-flyout-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.mode-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.mode-option:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); }
+.mode-option.is-active { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.mode-option--soon { opacity: 0.4; cursor: not-allowed; }
+
+.option-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.option-dot--normal    { background: rgba(255, 255, 255, 0.3); }
+.option-dot--erfassen  { background: #fc8181; }
+.option-dot--verzoegert { background: #FAC775; }
+
+.mode-option.is-active .option-dot--erfassen {
+  animation: mode-dot-pulse 1s ease-in-out infinite;
+}
+
+.option-name { flex: 1; }
+
+.option-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.45);
 }
 
-.status-indicator:active {
-  transform: scale(0.95);
+.option-tag--erfassen {
+  background: rgba(252, 129, 129, 0.15);
+  color: #fc8181;
 }
 
-.status-indicator.is-ready {
-  border-color: rgba(252, 129, 129, 0.3);
-  color: var(--sg-color-danger-bg);
-  background: rgba(252, 129, 129, 0.08);
+.option-tag--soon {
+  background: rgba(250, 199, 117, 0.12);
+  color: #FAC775;
 }
 
-.status-indicator.is-locked {
-  border-color: rgba(72, 187, 120, 0.3);
-  color: var(--sg-color-success);
-}
-
-.status-text {
-  display: none;
-}
-
-@media (min-width: 480px) {
-  .status-text {
-    display: inline;
-  }
-}
+/* Flyout enter/leave animation */
+.mode-flyout-enter-active { transition: opacity 0.15s ease, transform 0.15s ease; }
+.mode-flyout-leave-active { transition: opacity 0.1s ease, transform 0.1s ease; }
+.mode-flyout-enter-from,
+.mode-flyout-leave-to   { opacity: 0; transform: translateY(-6px); }
 
 /* ── Device section ──────────────────────────────── */
 .device-section {
@@ -586,12 +686,12 @@ const chipLabel = (position) => {
 }
 
 .section-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.3);
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  margin: 0 0 14px 2px;
+  margin: 0 0 8px 2px;
 }
 
 /* ── States ──────────────────────────────────────── */
@@ -622,7 +722,43 @@ const chipLabel = (position) => {
 .device-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 8px;
+}
+
+/* ── Mode-colored card borders ───────────────────── */
+/* Solo: teal */
+.device-grid--solo .device-btn:not(:disabled) {
+  border-color: rgba(29, 158, 117, 0.4);
+}
+/* Pair: blue */
+.device-grid--pair .device-btn:not(:disabled) {
+  border-color: rgba(55, 138, 221, 0.4);
+}
+/* a.Schuss: amber */
+.device-grid--a_schuss .device-btn:not(:disabled) {
+  border-color: rgba(239, 159, 39, 0.4);
+}
+/* Raffale: purple */
+.device-grid--raffale .device-btn:not(:disabled) {
+  border-color: rgba(127, 119, 221, 0.4);
+}
+
+/* Bottom bar active tab follows throw mode color */
+.mode--solo .toggle-btn.active   { background: rgba(29, 158, 117, 0.15); color: #5DCAA5; }
+.mode--pair .toggle-btn.active   { background: rgba(55, 138, 221, 0.15); color: #85B7EB; }
+.mode--a_schuss .toggle-btn.active { background: rgba(239, 159, 39, 0.15); color: #FAC775; }
+.mode--raffale .toggle-btn.active  { background: rgba(127, 119, 221, 0.15); color: #AFA9EC; }
+
+/* In erfassen session, bottom bar active tab uses recording color */
+.session--erfassen .toggle-btn.active {
+  background: rgba(252, 129, 129, 0.15);
+  color: #fc8181;
+}
+
+/* Push device grid left when recording shrunk panel is open */
+.device-section.is-recording {
+  padding-right: 60px;
+  transition: padding-right 0.2s ease;
 }
 
 /* ── Device button ───────────────────────────────── */
@@ -631,12 +767,12 @@ const chipLabel = (position) => {
   overflow: hidden;
   background: rgba(255, 255, 255, 0.06);
   border: 1.5px solid rgba(255, 255, 255, 0.1);
-  border-radius: 22px;
-  padding: 26px 16px 20px;
+  border-radius: 18px;
+  padding: 12px 10px 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   cursor: pointer;
   font-family: inherit;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
@@ -722,8 +858,8 @@ const chipLabel = (position) => {
 
 /* Icon wrap */
 .btn-icon-wrap {
-  width: 68px;
-  height: 68px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.07);
   display: flex;
@@ -734,9 +870,20 @@ const chipLabel = (position) => {
 }
 
 .btn-letter {
-  font-size: 32px;
+  font-size: 26px;
   font-weight: 700;
-  letter-spacing: -1px;
+  letter-spacing: -0.5px;
+}
+
+.btn-position-num {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.25);
+  line-height: 1;
+  pointer-events: none;
 }
 
 .device-btn--firing .btn-icon-wrap {
@@ -751,15 +898,6 @@ const chipLabel = (position) => {
 @keyframes icon-pulse {
   from { transform: scale(0.94); }
   to { transform: scale(1.06); }
-}
-
-/* Label */
-.btn-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: #ffffff;
-  text-align: center;
-  line-height: 1.2;
 }
 
 /* Status chip */
@@ -785,8 +923,7 @@ const chipLabel = (position) => {
   left: 50%;
   transform: translateX(-50%);
   z-index: 20;
-  width: 60%;
-  max-width: 320px;
+  width: min(90%, 320px);
 }
 
 .solo-pair-toggle {
