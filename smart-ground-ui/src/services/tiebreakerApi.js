@@ -13,9 +13,3 @@ export const startTiebreaker = (sessionId, { playerIds, templateId, tiePosition 
     method: 'POST',
     body: JSON.stringify({ playerIds, templateId, tiePosition }),
   })
-
-export const submitTiebreakerResults = (sessionId, tiebreakerId, results) =>
-  apiFetch(`/sessions/${sessionId}/tiebreakers/${tiebreakerId}/results`, {
-    method: 'POST',
-    body: JSON.stringify({ results }),
-  })

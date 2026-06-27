@@ -6,7 +6,10 @@ vi.mock('@/services/tiebreakerApi.js', () => ({
   getTies: vi.fn(),
   listTiebreakers: vi.fn(),
   startTiebreaker: vi.fn(),
-  submitTiebreakerResults: vi.fn(),
+}))
+vi.mock('@/services/playInstanceApi.js', () => ({
+  startBlock: vi.fn(),
+  completeBlock: vi.fn(),
 }))
 vi.mock('@/services/wettkampfApi.js', () => ({
   listSessions: vi.fn(), getSession: vi.fn(), patchStatus: vi.fn(), getProgress: vi.fn(),
@@ -17,6 +20,7 @@ vi.mock('@/services/wettkampfApi.js', () => ({
 
 import * as tb from '@/services/tiebreakerApi.js'
 import * as api from '@/services/wettkampfApi.js'
+import * as playApi from '@/services/playInstanceApi.js'
 
 describe('competitionEventStore — Stechen', () => {
   beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
@@ -38,12 +42,36 @@ describe('competitionEventStore — Stechen', () => {
     expect(tb.getTies).toHaveBeenCalledWith('s1')
   })
 
-  it('submitStechenResults posts results then stores refreshed ties', async () => {
-    tb.submitTiebreakerResults.mockResolvedValue({ sessionId: 's1', tiedBlocks: [] })
+  it('completeStechenRun completes the block then reloads ties', async () => {
+    playApi.completeBlock.mockResolvedValue({ status: 'completed' })
+    tb.getTies.mockResolvedValue({ sessionId: 's1', tiedBlocks: [] })
     const store = useCompetitionEventStore()
-    await store.submitStechenResults('s1', 'tb1', [{ playerId: 'p1', totalPoints: 8, maxPoints: 10 }])
-    expect(tb.submitTiebreakerResults).toHaveBeenCalledWith('s1', 'tb1', [{ playerId: 'p1', totalPoints: 8, maxPoints: 10 }])
-    expect(store.tiesBySession['s1'].tiedBlocks).toEqual([])
+    const results = [{ playerId: 'p1', totalPoints: 9, maxPoints: 10 }]
+    await store.completeStechenRun('inst1', 'blk1', results, 's1')
+    expect(playApi.completeBlock).toHaveBeenCalledWith('inst1', 'blk1', results)
+    expect(tb.getTies).toHaveBeenCalledWith('s1')
+  })
+
+  it('getActiveStechenForRange returns active rounds matching the range', async () => {
+    tb.getTies.mockResolvedValue({
+      sessionId: 's1',
+      tiedBlocks: [{
+        tiePosition: 1, sharedScore: 24, resolved: false,
+        players: [{ playerId: 'p1', displayName: 'Anna' }],
+        rounds: [
+          { sessionId: 's1', status: 'COMPLETED', playInstanceId: 'iX', run: { rangeId: 'r1' } },
+          { sessionId: 's1', status: 'ACTIVE', playInstanceId: 'iA', blockId: 'bA', templateName: 'Stech',
+            participants: [{ playerId: 'p1', displayName: 'Anna' }],
+            run: { id: 'se1', alias: 'Stech', rangeId: 'r1', rangeName: 'Stand 1', steps: [] } },
+        ],
+      }],
+    })
+    const store = useCompetitionEventStore()
+    await store.loadTies('s1')
+    const onR1 = store.getActiveStechenForRange('r1')
+    expect(onR1).toHaveLength(1)
+    expect(onR1[0]).toMatchObject({ instanceId: 'iA', blockId: 'bA', serieId: 'se1', sessionId: 's1', tiePosition: 1 })
+    expect(store.getActiveStechenForRange('r2')).toHaveLength(0)
   })
 
   it('finishEvent returns completed on success', async () => {

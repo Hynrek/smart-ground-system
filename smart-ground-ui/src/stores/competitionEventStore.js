@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as wettkampfApi from '@/services/wettkampfApi.js'
 import * as tiebreakerApi from '@/services/tiebreakerApi.js'
+import * as playInstanceApi from '@/services/playInstanceApi.js'
 
 export const useCompetitionEventStore = defineStore('competitionEvent', () => {
   // ── Planning state (server-synced) ─────────────────────────────────────────
@@ -54,6 +55,13 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
           console.error('[competitionEventStore] progress hydration failed:', e)
         }
       }))
+      // Stechen: load ties for PRE_COMPLETE sessions so active runs surface on the kiosk.
+      await Promise.all(
+        activeEvents
+          .filter(ev => ev.status?.toUpperCase() === 'PRE_COMPLETE')
+          .map(ev => loadTies(ev.id).catch(e =>
+            console.error('[competitionEventStore] tie load failed:', e))),
+      )
     } catch (e) {
       error.value = e.message
     } finally {
@@ -514,10 +522,42 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     return created
   }
 
-  const submitStechenResults = async (sessionId, tiebreakerId, results) => {
-    const updated = await tiebreakerApi.submitTiebreakerResults(sessionId, tiebreakerId, results)
-    tiesBySession.value = { ...tiesBySession.value, [sessionId]: updated }
-    return updated
+  // Surface active Stechen runs for a range (mirrors getActiveCompetitionRotten).
+  // Reads enriched ties: ACTIVE rounds carry run (EmbeddedSerie) + blockId.
+  const getActiveStechenForRange = (rangeId) => {
+    const result = []
+    for (const ties of Object.values(tiesBySession.value)) {
+      for (const block of (ties?.tiedBlocks ?? [])) {
+        for (const round of (block.rounds ?? [])) {
+          if (round.status !== 'ACTIVE' || !round.run || round.run.rangeId !== rangeId) continue
+          result.push({
+            instanceId: round.playInstanceId,
+            blockId: round.blockId,
+            serieId: round.run.id,
+            serieAlias: round.run.alias,
+            steps: round.run.steps ?? [],
+            rangeId: round.run.rangeId,
+            rangeName: round.run.rangeName ?? null,
+            players: (round.participants ?? []).map(p => ({ id: p.playerId, displayName: p.displayName })),
+            sessionId: round.sessionId,
+            templateName: round.templateName,
+            tiePosition: block.tiePosition,
+          })
+        }
+      }
+    }
+    return result
+  }
+
+  // Mark the Stechen run's block in progress (required before completeBlock).
+  const startStechenBlock = async (instanceId, blockId) => {
+    await playInstanceApi.startBlock(instanceId, blockId)
+  }
+
+  // Complete the Stechen run; the backend auto-resolves the tie on the next ties read.
+  const completeStechenRun = async (instanceId, blockId, results, sessionId) => {
+    await playInstanceApi.completeBlock(instanceId, blockId, results)
+    await loadTies(sessionId)
   }
 
   // Finish a competition. Returns { completed: true } on success, or
@@ -555,6 +595,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     getActiveCompetitionRotten, getBlocksForRange,
     // Stechen (tiebreaker)
     tiesBySession,
-    loadTies, startStechen, submitStechenResults, finishEvent,
+    loadTies, startStechen, finishEvent,
+    getActiveStechenForRange, startStechenBlock, completeStechenRun,
   }
 })
