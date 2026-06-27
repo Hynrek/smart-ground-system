@@ -1,5 +1,6 @@
 import gc
 import json
+import os
 import network
 from hardware import led, gpio_manager, feed_sleep_ms
 import board as _board
@@ -408,13 +409,19 @@ def publish_discovery(client_id):
         return False
 
     firmware = load_firmware_config()
-    firmware_version = firmware.get("firmware_version", "unknown")
+    app_version = firmware.get("app_version", firmware.get("firmware_version", "unknown"))
+
+    try:
+        kernel = "micropython-" + os.uname().release
+    except Exception:
+        kernel = "micropython-unknown"
 
     try:
         ip_address = network.WLAN(network.STA_IF).ifconfig()[0]
         payload = json.dumps({
             "mac":             client_id,
-            "firmwareVersion": firmware_version,
+            "appVersion":      app_version,
+            "firmwareVersion": kernel,
             "boxType":         _board.BOX_TYPE,
             "ip":              ip_address,
         })

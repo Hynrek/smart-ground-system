@@ -50,6 +50,16 @@ class PublishTest(unittest.TestCase):
         d = json.loads(payload)
         self.assertEqual(d["boxType"], _board.BOX_TYPE)
 
+    def test_discovery_reports_app_and_firmware_version(self):
+        ok = mqttutils.publish_discovery(MAC)
+        self.assertTrue(ok)
+        _, payload = mqttutils._mqtt_client.published[-1]
+        d = json.loads(payload)
+        # appVersion kommt aus firmware_config.json, firmwareVersion aus os.uname()
+        self.assertIn("appVersion", d)
+        self.assertIn("firmwareVersion", d)
+        self.assertTrue(d["firmwareVersion"].startswith("micropython"))
+
 
 if __name__ == "__main__":
     unittest.main()

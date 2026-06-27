@@ -79,6 +79,18 @@ micropython = types.ModuleType("micropython")
 micropython.const = lambda x: x
 sys.modules["micropython"] = micropython
 
+# --- os.uname (für firmwareVersion-Reporting; restliche os-Funktionen bleiben echt) ---
+import os as _os
+class _Uname:
+    # Reihenfolge wie MicroPython: (sysname, nodename, release, version, machine)
+    sysname = "esp32"
+    nodename = "esp32"
+    release = "1.23.0"
+    version = "v1.23.0 on 2025-01-01"
+    machine = "Generic ESP32S3 module with ESP32S3"
+if not hasattr(_os, "uname"):
+    _os.uname = lambda: _Uname()
+
 # --- network ---
 network = types.ModuleType("network")
 

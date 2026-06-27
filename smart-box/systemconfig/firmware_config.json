@@ -1,4 +1,5 @@
 {
+  "app_version": "0.6",
   "firmware_version": "0.6",
   "supported_device_kinds": ["GPIO", "LED"],
   "supported_directions": ["INPUT", "OUTPUT"]
