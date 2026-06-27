@@ -1567,6 +1567,7 @@ npm run lint -- --fix
 - ✅ Program/course management (shooter-side)
 - ✅ Responsive design tested at 320px–1920px
 - ✅ Router guards for role-based access
+- ✅ **Stechen auto-scoring**: The Stechen Serie is shot on the range kiosk (a "Stechen" section in `ShooterFlyoutPanel`, surfaced via `competitionEventStore.getActiveStechenForRange`). On completion the live run is scored automatically (backend reconcile-on-read); `StechenPanel` light-polls ties and shows a live status — manual score entry was removed.
 
 ### Partially Implemented / Pending
 - 🟡 **Real-Time Events (WebSocket/STOMP)**: Backend has STOMP configured at `/ws/shooting` but `SessionWebSocketService` is never called from any service/controller. Frontend `eventsApi.js` is an empty placeholder. **Do not wire the frontend until the backend emits events** — see Real-Time Events section.
