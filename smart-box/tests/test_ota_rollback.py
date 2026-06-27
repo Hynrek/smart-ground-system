@@ -53,6 +53,19 @@ class OtaRollbackTest(unittest.TestCase):
             self.assertEqual(f.read(), b"OLD\n")
         self.assertEqual(ota._load_state()["phase"], "idle")
 
+    def test_rollback_leaves_one_shot_pending_report(self):
+        ota.begin_probation("APP", "0.7", ["main.py"])
+        for _ in range(ota.MAX_PROBATION_BOOTS):
+            ota.probation_check(live_root=self.root)
+        # Nach dem Rollback liegt ein einmaliger Bericht vor
+        first = ota.take_pending_report()
+        self.assertEqual(first, ("ROLLED_BACK", "0.7"))
+        # Er wird nur einmal geliefert
+        self.assertIsNone(ota.take_pending_report())
+
+    def test_take_pending_report_none_when_absent(self):
+        self.assertIsNone(ota.take_pending_report())
+
 
 if __name__ == "__main__":
     unittest.main()

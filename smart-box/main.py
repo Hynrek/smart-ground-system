@@ -23,7 +23,8 @@ from networkutils import connect_wifi, reconnect_wifi, get_mac_address
 from accesspoint import start_ap
 from hardware import status_blink
 from mqttutils import publish_discovery, publish_heartbeat, connect_mqtt, reconnect_mqtt, load_device_config, update_device_pulses
-from mqttutils import _update_known_devices
+from mqttutils import _update_known_devices, set_watchdog, publish_ota_status
+import ota
 
 # --- KONFIGURATION ---
 DEFAULT_NODE_NAME    = "SMART_RANGE_NODE"
@@ -75,6 +76,18 @@ try:
             else:
                 print("Keine gespeicherte Gerätekonfiguration – warte auf Config-Push.")
 
+            # --- OTA Boot-Supervisor (läuft VOR dem Watchdog) ---
+            # 1. Unterbrochenen Apply (Stromverlust) aus Backup wiederherstellen
+            ota.recover_interrupted_apply()
+            # 2. Probezeit prüfen: zu viele Fehlversuche → automatischer Rollback.
+            #    Bei Rollback liegt die alte Version wieder auf Flash; sofort neu starten,
+            #    damit sie auch im RAM läuft. Der ROLLED_BACK-Bericht folgt nach dem
+            #    nächsten Connect via ota.take_pending_report().
+            if ota.probation_check():
+                print("OTA-Rollback durchgeführt – Neustart in die alte Version...")
+                time.sleep(2)
+                machine.reset()
+
             # MQTT verbinden (broker_port aus Config respektieren, Default 1883)
             try:
                 broker_port = int(config.get('broker_port') or 1883)
@@ -99,6 +112,17 @@ try:
             # KeyboardInterrupt (Ctrl-C) die Box nach spätestens board.WDT_TIMEOUT_MS zurück, weil im
             # finally-Block niemand mehr feed() aufruft – REPL-Debugging ist dadurch begrenzt.
             wdt = machine.WDT(timeout=board.WDT_TIMEOUT_MS)
+
+            # OTA-Modul den Watchdog geben (für Download-Feeding) und Boot bestätigen
+            set_watchdog(wdt)
+            # Frisch angewandte Version als gesund bestätigen (beendet Probezeit, meldet APPLIED)
+            _confirm = ota.confirm_boot_healthy()
+            if _confirm:
+                publish_ota_status(CLIENT_ID, _confirm[0], _confirm[1])
+            # Einmaligen ausstehenden Bericht (ROLLED_BACK nach Reboot) jetzt senden
+            _pending = ota.take_pending_report()
+            if _pending:
+                publish_ota_status(CLIENT_ID, _pending[0], _pending[1])
 
             # Hauptschleife: MQTT-Nachrichten und Heartbeat kooperativ verarbeiten
             while True:

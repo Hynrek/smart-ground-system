@@ -399,13 +399,32 @@ def probation_check(live_root=""):
         print("OTA: Probe-Boot {}/{}".format(st["boot_attempts"], MAX_PROBATION_BOOTS))
         return None
 
-    # Zu viele Fehlversuche → Rollback auf Backup
+    # Zu viele Fehlversuche → Rollback auf Backup. Die alte Version liegt danach wieder
+    # auf der Flash-Disk; der Aufrufer (main) startet neu, damit sie auch im RAM läuft.
+    # Der ROLLED_BACK-Bericht wird als Einmal-Bericht hinterlegt und nach dem nächsten
+    # erfolgreichen MQTT-Connect von der wiederhergestellten Version gesendet.
     version = st.get("version", "")
     _restore_backup(live_root)
     _save_state({"phase": "idle", "version": version,
-                 "type": st.get("type", ""), "boot_attempts": 0})
+                 "type": st.get("type", ""), "boot_attempts": 0,
+                 "pending_report": ["ROLLED_BACK", version]})
     print("OTA: automatischer Rollback nach {} Fehlversuchen.".format(MAX_PROBATION_BOOTS))
     return ("ROLLED_BACK", version)
+
+
+def take_pending_report():
+    """
+    Gibt einen einmaligen, über einen Reboot hinweg gespeicherten Statusbericht zurück
+    (aktuell: ROLLED_BACK nach automatischem Rollback) und löscht ihn aus dem Zustand.
+    Gibt (phase, version) zurück oder None. Nach erfolgreichem MQTT-Connect aufrufen.
+    """
+    st = _load_state()
+    rep = st.get("pending_report")
+    if not rep:
+        return None
+    st.pop("pending_report", None)
+    _save_state(st)
+    return (rep[0], rep[1])
 
 
 def _restore_backup(live_root=""):
