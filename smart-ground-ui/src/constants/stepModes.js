@@ -129,6 +129,27 @@ export function stepNotation(step, { useAlias = false } = {}) {
   }
 }
 
+// The '×2' repeat suffix shown for Raffale (one trap fired twice). Canonical
+// glyph — also used by stepNotation/stepFailCells. Never re-spell it in a view.
+export const RAFFALE_REPEAT = '×2';
+
+/**
+ * Infix connector glyph between a step's two positions: '+' (Pair, simultaneous)
+ * or '→' (a.Schuss, on report). Solo has no second position and Raffale uses the
+ * RAFFALE_REPEAT suffix instead of an infix, so both return ''. This is the same
+ * grammar stepNotation() prints — shared so chips and notation strings agree.
+ */
+export function stepConnector(type) {
+  switch (type) {
+    case StepType.PAIR:
+      return '+';
+    case StepType.A_SCHUSS:
+      return '→';
+    default:
+      return '';
+  }
+}
+
 /**
  * German aria-label for a step: mode name + position letter(s), naming a deleted
  * position explicitly. Use on the element that renders a step so assistive tech
@@ -171,6 +192,19 @@ export function modeBadgeStyle(type) {
 export function modeDotStyle(type) {
   const m = STEP_MODES[type];
   return m ? { background: m.base } : {};
+}
+
+/**
+ * Inline custom-props that color a mode notation glyph (the + / → connector on a
+ * step chip) in the mode's hue: `--mode-glyph` is the base hue for light surfaces,
+ * `--mode-glyph-dark` the lifted badge-text hue for dark kiosk surfaces. Consume
+ * with `color: var(--mode-glyph)` plus a `.results-view` override to the dark var,
+ * so the same chip reads correctly on both the admin panel and the kiosk.
+ */
+export function modeGlyphVars(type) {
+  const m = STEP_MODES[type];
+  if (!m) return {};
+  return { '--mode-glyph': m.base, '--mode-glyph-dark': m.badgeText };
 }
 
 /**

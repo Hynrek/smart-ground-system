@@ -3,7 +3,9 @@
   Per-Serie step scorecard for one shooter. Chips are grouped by Serie
   ("RangeName – SerieName") and show the shooting position letter(s); points are
   conveyed by color (no numbers). Two-result steps (pair/a_schuss/raffale) render
-  a split chip whose halves are colored independently per clay. Style-agnostic:
+  a split chip whose halves are colored independently per clay, with the mode
+  notation glyph between them ("A + B" pair, "A → B" a.Schuss, "A ×2" raffale) so
+  the step type reads the same here as on the Shooter Play view. Style-agnostic:
   semantic translucent colors read on both the light admin panel and the dark
   shooter kiosk (see the :global(.results-view) overrides).
 -->
@@ -25,7 +27,8 @@
             @click="onChipClick(serie, step)"
           >
             <span class="half" :class="halfClass(step.state, 'left')">{{ leftLabel(step) }}</span>
-            <span class="half" :class="halfClass(step.state, 'right')">{{ rightLabel(step) }}</span>
+            <span v-if="connector(step.type)" class="step-chip__op" :style="modeGlyphVars(step.type)" aria-hidden="true">{{ connector(step.type) }}</span>
+            <span class="half" :class="halfClass(step.state, 'right')">{{ rightDisplay(step) }}</span>
           </span>
           <!-- solid chip: single-target / unknown -->
           <span
@@ -45,8 +48,8 @@
 </template>
 
 <script setup>
-import { StepState } from '@/constants/playEnums.js'
-import { isMultiResultStep, stepLetters } from '@/constants/stepModes.js'
+import { StepState, StepType } from '@/constants/playEnums.js'
+import { isMultiResultStep, stepLetters, stepConnector, RAFFALE_REPEAT, modeGlyphVars } from '@/constants/stepModes.js'
 
 const props = defineProps({
   serien: { type: Array, required: true },
@@ -90,6 +93,14 @@ const solidClass = (state) => {
 // left half = first clay (letter1 / raffale shot 1); right half = second.
 const leftLabel = (step) => stepLetters(step).first
 const rightLabel = (step) => stepLetters(step).second
+
+// Type symbol shown on split chips, matching the Shooter Play notation so both
+// views read identically: Pair "A + B", a.Schuss "A → B", Raffale "A ×2".
+const connector = (type) => stepConnector(type)
+// Raffale repeats one trap, so its right half shows the ×2 repeat token rather
+// than a duplicate letter; the other doubles show the second position letter.
+const rightDisplay = (step) =>
+  step.type === StepType.RAFFALE ? RAFFALE_REPEAT : rightLabel(step)
 
 const halfClass = (state, side) => {
   if (state === StepState.PENDING) return 'half--pending'
@@ -143,6 +154,14 @@ const ariaLabel = (step) => {
 .step-chip--split .half {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 22px; height: 100%; padding: 0 6px; font-size: 12px; font-weight: 700;
+}
+/* mode connector glyph ( + / → ) — filled background in the step's mode hue,
+   symbol in black for maximum contrast */
+.step-chip--split .step-chip__op {
+  display: inline-flex; align-items: center; height: 100%; padding: 0 5px;
+  font-size: 11px; font-weight: 800;
+  background: var(--mode-glyph, #718096);
+  color: #000;
 }
 .half--done { background: rgba(72, 187, 120, 0.16); color: #2f855a; }
 .half--fail { background: rgba(229, 62, 62, 0.14); color: #c53030; }

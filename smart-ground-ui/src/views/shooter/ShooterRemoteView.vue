@@ -50,8 +50,8 @@
           @click="setSessionMode('throwing')"
         >
           <span class="option-dot option-dot--normal" />
-          <span class="option-name">Normal</span>
-          <span v-if="store.sessionMode !== 'recording'" class="option-tag">Aktiv</span>
+          <span class="option-name">Schiessen</span>
+          <span v-if="store.sessionMode !== 'recording'" class="option-tag option-tag--normal">Aktiv</span>
         </button>
         <button
           class="mode-option"
@@ -219,6 +219,10 @@ watch(() => store.sessionMode, () => {
   modeDrawerOpen.value = false;
 });
 
+watch(() => store.mode, () => {
+  store.throwPairPending = null;
+});
+
 // ── Mode flyout ────────────────────────────────────
 const modeDrawerOpen = ref(false);
 
@@ -233,7 +237,7 @@ const isRecordingActive = computed(
 
 // ── Mode badge ─────────────────────────────────────
 const modeBadgeLabel = computed(() =>
-  store.sessionMode === 'recording' ? 'Erfassen' : 'Normal'
+  store.sessionMode === 'recording' ? 'Erfassen' : 'Schiessen'
 )
 const modeBadgeClass = computed(() => ({
   'mode-badge--recording': store.sessionMode === 'recording',
@@ -413,6 +417,12 @@ const chipLabel = (position) => {
 </script>
 
 <style scoped>
+/* ── Throw-type color tokens ─────────────────────── */
+.mode--solo     { --throw-color: #1D9E75; --throw-tint: rgba(29, 158, 117, 0.18); --throw-glow: rgba(29, 158, 117, 0.22); }
+.mode--pair     { --throw-color: #378ADD; --throw-tint: rgba(55, 138, 221, 0.18); --throw-glow: rgba(55, 138, 221, 0.22); }
+.mode--a_schuss { --throw-color: #EF9F27; --throw-tint: rgba(239, 159, 39, 0.18);  --throw-glow: rgba(239, 159, 39, 0.22);  }
+.mode--raffale  { --throw-color: #7F77DD; --throw-tint: rgba(127, 119, 221, 0.18); --throw-glow: rgba(127, 119, 221, 0.22); }
+
 .shooter-remote {
   flex: 1;
   display: flex;
@@ -557,9 +567,10 @@ const chipLabel = (position) => {
   padding: 0 12px;
   height: 36px;
   border-radius: 20px;
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.45);
+  /* Schiessen (default): green tint */
+  border: 1.5px solid rgba(72, 187, 120, 0.35);
+  background: rgba(72, 187, 120, 0.08);
+  color: #48BB78;
   font-family: inherit;
   font-size: 13px;
   font-weight: 700;
@@ -568,7 +579,7 @@ const chipLabel = (position) => {
   white-space: nowrap;
 }
 
-.mode-badge-btn:hover { background: rgba(255, 255, 255, 0.09); }
+.mode-badge-btn:hover { background: rgba(72, 187, 120, 0.13); }
 .mode-badge-btn:active { transform: scale(0.95); }
 
 .mode-badge-btn.mode-badge--recording {
@@ -582,7 +593,8 @@ const chipLabel = (position) => {
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.2);
+  /* Schiessen: solid green */
+  background: #48BB78;
 }
 
 .mode-badge--recording .mode-dot {
@@ -643,7 +655,7 @@ const chipLabel = (position) => {
   flex-shrink: 0;
 }
 
-.option-dot--normal    { background: rgba(255, 255, 255, 0.3); }
+.option-dot--normal    { background: #48BB78; }
 .option-dot--erfassen  { background: #fc8181; }
 .option-dot--verzoegert { background: #FAC775; }
 
@@ -660,6 +672,11 @@ const chipLabel = (position) => {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.45);
+}
+
+.option-tag--normal {
+  background: rgba(72, 187, 120, 0.15);
+  color: #48BB78;
 }
 
 .option-tag--erfassen {
@@ -725,35 +742,21 @@ const chipLabel = (position) => {
   gap: 8px;
 }
 
-/* ── Mode-colored card borders ───────────────────── */
-/* Solo: teal */
-.device-grid--solo .device-btn:not(:disabled) {
-  border-color: rgba(29, 158, 117, 0.4);
+/* ── Card borders follow session/view mode ───────── */
+/* Schiessen (default): green */
+.device-btn:not(:disabled) {
+  border-color: rgba(72, 187, 120, 0.35);
 }
-/* Pair: blue */
-.device-grid--pair .device-btn:not(:disabled) {
-  border-color: rgba(55, 138, 221, 0.4);
-}
-/* a.Schuss: amber */
-.device-grid--a_schuss .device-btn:not(:disabled) {
-  border-color: rgba(239, 159, 39, 0.4);
-}
-/* Raffale: purple */
-.device-grid--raffale .device-btn:not(:disabled) {
-  border-color: rgba(127, 119, 221, 0.4);
+/* Erfassen: red */
+.session--erfassen .device-btn:not(:disabled) {
+  border-color: rgba(252, 129, 129, 0.4);
 }
 
-/* Bottom bar active tab follows throw mode color */
-.mode--solo .toggle-btn.active   { background: rgba(29, 158, 117, 0.15); color: #5DCAA5; }
-.mode--pair .toggle-btn.active   { background: rgba(55, 138, 221, 0.15); color: #85B7EB; }
+/* ── Bottom bar active tab follows throw-type color ─ */
+.mode--solo .toggle-btn.active     { background: rgba(29, 158, 117, 0.15); color: #5DCAA5; }
+.mode--pair .toggle-btn.active     { background: rgba(55, 138, 221, 0.15); color: #85B7EB; }
 .mode--a_schuss .toggle-btn.active { background: rgba(239, 159, 39, 0.15); color: #FAC775; }
 .mode--raffale .toggle-btn.active  { background: rgba(127, 119, 221, 0.15); color: #AFA9EC; }
-
-/* In erfassen session, bottom bar active tab uses recording color */
-.session--erfassen .toggle-btn.active {
-  background: rgba(252, 129, 129, 0.15);
-  color: #fc8181;
-}
 
 /* Push device grid left when recording shrunk panel is open */
 .device-section.is-recording {
@@ -796,19 +799,19 @@ const chipLabel = (position) => {
 }
 
 .device-btn--pair-pending {
-  background: rgba(72, 187, 120, 0.1) !important;
-  border-color: rgba(72, 187, 120, 0.45) !important;
+  background: var(--throw-tint) !important;
+  border-color: color-mix(in srgb, var(--throw-color) 50%, transparent) !important;
 }
 
 .device-btn--fired {
-  background: rgba(72, 187, 120, 0.12) !important;
-  border-color: rgba(72, 187, 120, 0.4) !important;
+  background: var(--throw-tint) !important;
+  border-color: color-mix(in srgb, var(--throw-color) 40%, transparent) !important;
   animation: fired-pulse 0.35s ease-out;
 }
 
 .device-btn--firing {
-  background: var(--sg-accent-tint) !important;
-  border-color: color-mix(in srgb, var(--sg-accent) 40%, transparent) !important;
+  background: var(--throw-tint) !important;
+  border-color: color-mix(in srgb, var(--throw-color) 40%, transparent) !important;
 }
 
 .device-btn--error {
@@ -821,8 +824,8 @@ const chipLabel = (position) => {
 }
 
 .device-btn--recording {
-  animation: record-flash 500ms ease-out;
-  border-color: color-mix(in srgb, var(--sg-accent) 50%, transparent) !important;
+  background: transparent !important;
+  border-color: color-mix(in srgb, var(--throw-color) 55%, transparent) !important;
 }
 
 @keyframes fired-pulse {
@@ -831,17 +834,12 @@ const chipLabel = (position) => {
   100% { transform: scale(1); }
 }
 
-@keyframes record-flash {
-  0% { background: color-mix(in srgb, var(--sg-accent) 20%, transparent); }
-  100% { background: rgba(255, 255, 255, 0.06); }
-}
-
 /* Glow */
 .btn-glow {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(circle at 50% 40%, var(--sg-accent-tint) 0%, transparent 70%);
+  background: radial-gradient(circle at 50% 40%, var(--throw-glow) 0%, transparent 70%);
   opacity: 0;
   transition: opacity 0.3s;
   pointer-events: none;
@@ -850,10 +848,6 @@ const chipLabel = (position) => {
 .device-btn--firing .btn-glow,
 .device-btn--fired .btn-glow {
   opacity: 1;
-}
-
-.device-btn--fired .btn-glow {
-  background: radial-gradient(circle at 50% 40%, rgba(72, 187, 120, 0.22) 0%, transparent 70%);
 }
 
 /* Icon wrap */
@@ -887,13 +881,14 @@ const chipLabel = (position) => {
 }
 
 .device-btn--firing .btn-icon-wrap {
-  background: var(--sg-accent-tint);
+  background: var(--throw-tint);
   animation: icon-pulse 0.7s ease-in-out infinite alternate;
 }
 
-.device-btn--fired .btn-icon-wrap { background: rgba(72, 187, 120, 0.15); }
+.device-btn--fired .btn-icon-wrap { background: var(--throw-tint); }
 .device-btn--error .btn-icon-wrap { background: rgba(252, 129, 129, 0.15); }
-.device-btn--pair-pending .btn-icon-wrap { background: rgba(72, 187, 120, 0.15); }
+.device-btn--pair-pending .btn-icon-wrap { background: var(--throw-tint); }
+.device-btn--pair-pending { border-color: color-mix(in srgb, var(--throw-color) 50%, transparent) !important; }
 
 @keyframes icon-pulse {
   from { transform: scale(0.94); }

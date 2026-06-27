@@ -40,6 +40,31 @@ describe('StepScorecard', () => {
     expect(halves[1].classes()).toContain('half--done')
   })
 
+  it('shows the mode notation glyph on split chips, matching the Shooter Play view', () => {
+    const typed = [
+      { key: '0:t', passeIndex: 0, rangeName: null, serieName: 'Typen', sortIndex: 0, steps: [
+        { stepIndex: 0, type: 'pair', letter: null, letter1: 'A', letter2: 'B', state: 'pending' },
+        { stepIndex: 1, type: 'a_schuss', letter: null, letter1: 'C', letter2: 'D', state: 'pending' },
+        { stepIndex: 2, type: 'raffale', letter: 'E', letter1: null, letter2: null, state: 'pending' },
+      ] },
+    ]
+    const wrapper = mount(StepScorecard, { props: { serien: typed } })
+    const [pair, aschuss, raffale] = wrapper.findAll('.step-chip')
+
+    // pair "A + B", glyph tinted in the Pair mode hue
+    expect(pair.find('.step-chip__op').text()).toBe('+')
+    expect(pair.find('.step-chip__op').attributes('style')).toContain('--mode-glyph: #378ADD')
+    expect(pair.findAll('.half').map(h => h.text())).toEqual(['A', 'B'])
+
+    // a.Schuss "C → D"
+    expect(aschuss.find('.step-chip__op').text()).toBe('→')
+    expect(aschuss.findAll('.half').map(h => h.text())).toEqual(['C', 'D'])
+
+    // raffale "E ×2" — one trap, repeat token instead of a connector / duplicate letter
+    expect(raffale.find('.step-chip__op').exists()).toBe(false)
+    expect(raffale.findAll('.half').map(h => h.text())).toEqual(['E', '×2'])
+  })
+
   it('renders pending halves grey', () => {
     const wrapper = mount(StepScorecard, { props: { serien } })
     const pendingChip = wrapper.findAll('.step-chip')[2] // E/F pending
