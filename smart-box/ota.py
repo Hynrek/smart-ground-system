@@ -82,3 +82,133 @@ def verify_file(path, expected_hex):
         return False
     finally:
         gc.collect()
+
+
+class OtaError(Exception):
+    """Fehler während eines OTA-Vorgangs (Download/Verify/Apply)."""
+    pass
+
+
+# --- HTTP-Seam: auf dem Gerät über urequests, in Tests ersetzbar ---
+
+def _default_http_stream(url, on_chunk, wdt=None):
+    import urequests
+    r = urequests.get(url)
+    try:
+        sock = r.raw
+        while True:
+            chunk = sock.read(CHUNK_SIZE)
+            if not chunk:
+                break
+            on_chunk(chunk)
+            if wdt is not None:
+                wdt.feed()
+    finally:
+        r.close()
+
+
+http_stream = _default_http_stream    # in Tests überschreibbar
+
+
+def _ensure_dir(path):
+    """Legt ein Verzeichnis (rekursiv) an, falls es fehlt."""
+    parts = path.split("/")
+    cur = ""
+    for p in parts:
+        if not p:
+            continue
+        cur = cur + "/" + p if cur else p
+        try:
+            os.mkdir(cur)
+        except OSError:
+            pass  # existiert bereits
+
+
+def _ensure_parent(path):
+    """Stellt sicher, dass das Elternverzeichnis einer Datei existiert."""
+    idx = path.rfind("/")
+    if idx > 0:
+        _ensure_dir(path[:idx])
+
+
+def _rmtree(path):
+    """Löscht eine Datei oder ein Verzeichnis rekursiv (best effort)."""
+    try:
+        mode = os.stat(path)[0]
+    except OSError:
+        return
+    if mode & 0x4000:  # Verzeichnis (S_IFDIR)
+        for name in os.listdir(path):
+            _rmtree(path + "/" + name)
+        try:
+            os.rmdir(path)
+        except OSError:
+            pass
+    else:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+def _download_to(url, dest, wdt=None):
+    """Streamt eine URL in eine Datei; legt das Elternverzeichnis an."""
+    _ensure_parent(dest)
+    f = open(dest, "wb")
+    try:
+        http_stream(url, lambda c: f.write(c), wdt)
+    finally:
+        f.close()
+
+
+def download_app(base_url, manifest_sha256="", wdt=None):
+    """
+    Lädt Manifest + alle App-Code-Dateien nach OTA_STAGING_DIR herunter und
+    verifiziert sie. Wirft OtaError bei Fehler.
+
+    base_url: z.B. "http://host/api/ota/app/0.7"
+              Manifest:  {base_url}/manifest.json
+              Dateien:   {base_url}/files/{path}
+    manifest_sha256: erwarteter SHA-256 des Manifests (über MQTT geliefert,
+              Vertrauensanker). Leer = Manifest-Prüfung überspringen.
+
+    Gibt das Manifest-Dict zurück.
+    """
+    _rmtree(OTA_STAGING_DIR)
+    _ensure_dir(OTA_STAGING_DIR)
+
+    manifest_path = OTA_STAGING_DIR + "/manifest.json"
+    try:
+        _download_to(base_url + "/manifest.json", manifest_path, wdt)
+    except Exception as e:
+        raise OtaError("Manifest-Download fehlgeschlagen: {}".format(e))
+
+    # Manifest-Integrität gegen den über MQTT gelieferten Hash prüfen
+    if manifest_sha256 and not verify_file(manifest_path, manifest_sha256):
+        raise OtaError("Manifest-SHA-256 stimmt nicht")
+
+    try:
+        with open(manifest_path, "r") as f:
+            manifest = json.load(f)
+    except (OSError, ValueError) as e:
+        raise OtaError("Manifest nicht lesbar: {}".format(e))
+
+    files = manifest.get("files", [])
+    if not files:
+        raise OtaError("Manifest enthält keine Dateien")
+
+    for entry in files:
+        rel = entry.get("path", "")
+        expected = entry.get("sha256", "")
+        if not rel:
+            raise OtaError("Manifest-Eintrag ohne 'path'")
+        dest = OTA_STAGING_DIR + "/" + rel
+        try:
+            _download_to(base_url + "/files/" + rel, dest, wdt)
+        except Exception as e:
+            raise OtaError("Download fehlgeschlagen für {}: {}".format(rel, e))
+        if not verify_file(dest, expected):
+            raise OtaError("SHA-256 stimmt nicht für {}".format(rel))
+        gc.collect()
+
+    return manifest
