@@ -62,6 +62,20 @@ class OtaDownloadTest(unittest.TestCase):
         with self.assertRaises(ota.OtaError):
             ota.download_app("http://srv/api/ota/app/0.7", new_sha, wdt=None)
 
+    def test_download_rejects_path_traversal(self):
+        self.manifest["files"].append({"path": "../evil.py", "sha256": "ab" * 32, "size": 1})
+        self._holder["b"] = json.dumps(self.manifest).encode()
+        new_sha = hashlib.sha256(self._holder["b"]).hexdigest()
+        with self.assertRaises(ota.OtaError):
+            ota.download_app("http://srv/api/ota/app/0.7", new_sha, wdt=None)
+
+    def test_download_rejects_missing_file_sha(self):
+        self.manifest["files"].append({"path": "extra.py", "size": 1})
+        self._holder["b"] = json.dumps(self.manifest).encode()
+        new_sha = hashlib.sha256(self._holder["b"]).hexdigest()
+        with self.assertRaises(ota.OtaError):
+            ota.download_app("http://srv/api/ota/app/0.7", new_sha, wdt=None)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -95,6 +95,8 @@ def _default_http_stream(url, on_chunk, wdt=None):
     import urequests
     r = urequests.get(url)
     try:
+        if r.status_code != 200:
+            raise OSError("HTTP {} für {}".format(r.status_code, url))
         sock = r.raw
         while True:
             chunk = sock.read(CHUNK_SIZE)
@@ -202,6 +204,11 @@ def download_app(base_url, manifest_sha256="", wdt=None):
         expected = entry.get("sha256", "")
         if not rel:
             raise OtaError("Manifest-Eintrag ohne 'path'")
+        # Pfad-Traversal verhindern (Datei darf das Staging-Verzeichnis nicht verlassen)
+        if ".." in rel or rel.startswith("/"):
+            raise OtaError("Ungültiger Pfad im Manifest: {}".format(rel))
+        if not expected:
+            raise OtaError("Manifest-Eintrag ohne 'sha256' für {}".format(rel))
         dest = OTA_STAGING_DIR + "/" + rel
         try:
             _download_to(base_url + "/files/" + rel, dest, wdt)
