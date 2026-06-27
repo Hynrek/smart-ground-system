@@ -65,6 +65,7 @@ public class DataInitializer {
         seedUsers();
         seedGroups();
         seedFirmware("0.6", "pico2w");
+        seedFirmware("0.6", "xiao-esp32s3");
     }
 
     private void seedGroups() {
