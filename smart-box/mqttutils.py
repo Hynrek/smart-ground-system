@@ -402,7 +402,7 @@ def publish_discovery(client_id):
     Firmware-Version kommt aus systemconfig/firmware_config.json, Box-Typ aus dem board-Modul.
 
     Topic:   smartboxes/discovery
-    Payload: { "mac", "firmwareVersion", "boxType", "ip" }
+    Payload: { "mac", "appVersion", "firmwareVersion", "boxType", "ip" }
     """
     if _mqtt_client is None:
         print("MQTT-Verbindung nicht verfügbar – Discovery nicht möglich.")
@@ -413,7 +413,8 @@ def publish_discovery(client_id):
 
     try:
         kernel = "micropython-" + os.uname().release
-    except Exception:
+    except Exception as e:
+        print("Kernel-Version nicht lesbar:", e)
         kernel = "micropython-unknown"
 
     try:

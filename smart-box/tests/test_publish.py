@@ -58,6 +58,7 @@ class PublishTest(unittest.TestCase):
         # appVersion kommt aus firmware_config.json, firmwareVersion aus os.uname()
         self.assertIn("appVersion", d)
         self.assertIn("firmwareVersion", d)
+        self.assertEqual(d["appVersion"], "0.6")
         self.assertTrue(d["firmwareVersion"].startswith("micropython"))
 
 
