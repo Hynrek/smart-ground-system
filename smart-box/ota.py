@@ -333,3 +333,94 @@ def _cleanup_markers():
             os.remove(m)
         except OSError:
             pass
+
+
+def _load_state():
+    """Liest userconfig/ota_state.json. Default: idle, wenn nicht vorhanden."""
+    try:
+        with open(OTA_STATE_PATH, "r") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {"phase": "idle", "version": "", "type": "", "boot_attempts": 0}
+
+
+def _save_state(state):
+    try:
+        with open(OTA_STATE_PATH, "w") as f:
+            json.dump(state, f)
+    except OSError as e:
+        print("OTA-Zustand konnte nicht gespeichert werden:", e)
+
+
+def begin_probation(ota_type, version, paths):
+    """Markiert eine frisch angewandte Version als 'auf Probe'. Vor dem Reboot aufrufen."""
+    _save_state({"phase": "probation", "type": ota_type,
+                 "version": version, "boot_attempts": 0})
+
+
+def confirm_boot_healthy():
+    """
+    Wird nach erfolgreichem MQTT-Connect aufgerufen. Beendet die Probezeit:
+    Backup löschen, Zustand auf idle. Gibt ("APPLIED", version) zurück, wenn eine
+    Probezeit bestätigt wurde, sonst None.
+    Für FIRMWARE zusätzlich esp32.Partition.mark_app_valid_cancel_rollback().
+    """
+    st = _load_state()
+    if st.get("phase") != "probation":
+        return None
+    version = st.get("version", "")
+    if st.get("type") == "FIRMWARE":
+        try:
+            import esp32
+            esp32.Partition.mark_app_valid_cancel_rollback()
+        except Exception as e:
+            print("Partition-Bestätigung fehlgeschlagen:", e)
+    _rmtree(OTA_BACKUP_DIR)
+    _save_state({"phase": "idle", "version": version,
+                 "type": st.get("type", ""), "boot_attempts": 0})
+    print("OTA: Version {} bestätigt (gesund).".format(version))
+    return ("APPLIED", version)
+
+
+def probation_check(live_root=""):
+    """
+    Wird beim Boot aufgerufen (vor dem Watchdog), NACH recover_interrupted_apply().
+    Zählt Boot-Versuche während der Probezeit. Übersteigt der Zähler
+    MAX_PROBATION_BOOTS, wird automatisch auf die Backup-Version zurückgerollt.
+    Gibt ("ROLLED_BACK", version) zurück, wenn zurückgerollt wurde, sonst None.
+    """
+    st = _load_state()
+    if st.get("phase") != "probation":
+        return None
+
+    st["boot_attempts"] = st.get("boot_attempts", 0) + 1
+    if st["boot_attempts"] < MAX_PROBATION_BOOTS:
+        _save_state(st)
+        print("OTA: Probe-Boot {}/{}".format(st["boot_attempts"], MAX_PROBATION_BOOTS))
+        return None
+
+    # Zu viele Fehlversuche → Rollback auf Backup
+    version = st.get("version", "")
+    _restore_backup(live_root)
+    _save_state({"phase": "idle", "version": version,
+                 "type": st.get("type", ""), "boot_attempts": 0})
+    print("OTA: automatischer Rollback nach {} Fehlversuchen.".format(MAX_PROBATION_BOOTS))
+    return ("ROLLED_BACK", version)
+
+
+def _restore_backup(live_root=""):
+    """Spielt alle Dateien aus OTA_BACKUP_DIR rekursiv über die Live-Dateien zurück."""
+    def _walk(rel):
+        full = OTA_BACKUP_DIR + ("/" + rel if rel else "")
+        try:
+            mode = os.stat(full)[0]
+        except OSError:
+            return
+        if mode & 0x4000:
+            for name in os.listdir(full):
+                _walk(rel + "/" + name if rel else name)
+        else:
+            dst = (live_root + "/" + rel) if live_root else rel
+            _copy_file(full, dst)
+    _walk("")
+    _rmtree(OTA_BACKUP_DIR)
