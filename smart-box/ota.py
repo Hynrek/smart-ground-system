@@ -31,6 +31,8 @@ def parse_command(payload_bytes):
           "sha256": "<hex>", "size": <int> }
 
     Gibt ein normalisiertes Dict zurück. Wirft ValueError bei ungültiger Payload.
+
+    # sha256 ist der Hash des herunterzuladenden Manifests (APP) bzw. Images (FIRMWARE); er wird beim Download geprüft, nicht hier. Optional in diesem Parser.
     """
     try:
         data = json.loads(payload_bytes)
@@ -44,8 +46,10 @@ def parse_command(payload_bytes):
 
     if ota_type not in _VALID_TYPES:
         raise ValueError("Ungültiger OTA-Typ: {}".format(ota_type))
-    if not version or not url:
-        raise ValueError("OTA-Befehl benötigt 'version' und 'url'")
+    if not version:
+        raise ValueError("OTA-Befehl: 'version' fehlt oder leer")
+    if not url:
+        raise ValueError("OTA-Befehl: 'url' fehlt oder leer")
 
     return {
         "type": ota_type,
