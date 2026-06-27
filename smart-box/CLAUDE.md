@@ -509,6 +509,12 @@ All OTA logic lives here (the one module allowed to `import os`, for directory o
 - Status `smartboxes/{mac}/ota/status`: `{ "version", "phase", "progress", "detail" }`, phase ∈ `DOWNLOADING|VERIFYING|APPLYING|APPLIED|FAILED|ROLLED_BACK`.
 - App manifest `GET {url}/manifest.json`: `{ "appVersion", "files": [ { "path", "sha256", "size" } ] }`; files at `GET {url}/files/{path}`. Firmware image at `GET {url}`.
 
+### Known OTA limitations
+
+- **Health = "boots and runs", not "broker reachable".** `confirm_boot_healthy()` runs right after WiFi connects (before MQTT), so a temporarily unreachable broker does **not** trigger a false rollback of a healthy new version. The flip side: probation ends (backup deleted) once the box reaches the main path, so a new version that boots+runs but is functionally broken in a way that survives WiFi connect won't auto-rollback — always test a build on hardware before pushing it to a fleet.
+- **Unreachable HTTP server during download → watchdog reset.** `urequests.get()` blocks on DNS/TCP connect with no watchdog feed. If the OTA URL host is unreachable, the connect timeout can exceed `WDT_TIMEOUT_MS` (8 s) and the WDT resets the box mid-OTA. This is safe recovery (same as an unreachable broker): `recover_interrupted_apply()` restores any half-applied state on the next boot; no `FAILED` status is published in this case.
+- **Newly-added files are not crash-safe during apply.** `apply_app` only backs up files that already exist. A file the update *adds* (no live counterpart) has no backup, so a power loss while copying it leaves it partial. The previous code is fully restored, so this is safe **unless** the update adds a brand-new module that the restored old `main.py` imports — avoid OTA updates that both add a new imported module and depend on it in the same release, or split into two releases.
+
 ### Manual (cable) re-flash — still the recovery path
 
 If a box is bricked (e.g. before OTA is deployed, or a kernel that won't boot): on the ESP32-S3, re-flash MicroPython over USB with `esptool`, then re-upload project files via `mpremote`/Thonny.

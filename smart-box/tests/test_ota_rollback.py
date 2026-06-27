@@ -24,14 +24,14 @@ class OtaRollbackTest(unittest.TestCase):
         shutil.rmtree(self.root, ignore_errors=True)
 
     def test_begin_probation_writes_state(self):
-        ota.begin_probation("APP", "0.7", ["main.py"])
+        ota.begin_probation("APP", "0.7")
         st = ota._load_state()
         self.assertEqual(st["phase"], "probation")
         self.assertEqual(st["version"], "0.7")
         self.assertEqual(st["boot_attempts"], 0)
 
     def test_confirm_clears_probation_and_deletes_backup(self):
-        ota.begin_probation("APP", "0.7", ["main.py"])
+        ota.begin_probation("APP", "0.7")
         report = ota.confirm_boot_healthy()
         self.assertEqual(report, ("APPLIED", "0.7"))
         self.assertEqual(ota._load_state()["phase"], "idle")
@@ -41,7 +41,7 @@ class OtaRollbackTest(unittest.TestCase):
         self.assertIsNone(ota.confirm_boot_healthy())
 
     def test_probation_check_increments_until_rollback(self):
-        ota.begin_probation("APP", "0.7", ["main.py"])
+        ota.begin_probation("APP", "0.7")
         # erste zwei Boots: weiter in Probation, kein Rollback
         self.assertIsNone(ota.probation_check(live_root=self.root))
         self.assertIsNone(ota.probation_check(live_root=self.root))
@@ -54,7 +54,7 @@ class OtaRollbackTest(unittest.TestCase):
         self.assertEqual(ota._load_state()["phase"], "idle")
 
     def test_rollback_leaves_one_shot_pending_report(self):
-        ota.begin_probation("APP", "0.7", ["main.py"])
+        ota.begin_probation("APP", "0.7")
         for _ in range(ota.MAX_PROBATION_BOOTS):
             ota.probation_check(live_root=self.root)
         # Nach dem Rollback liegt ein einmaliger Bericht vor

@@ -293,6 +293,7 @@ def recover_interrupted_apply(live_root=""):
     try:
         os.stat(OTA_MARKER_PENDING)
     except OSError:
+        _cleanup_markers()  # evtl. verwaisten applied-Marker aufräumen
         return False  # kein unterbrochener Apply
 
     try:
@@ -352,7 +353,7 @@ def _save_state(state):
         print("OTA-Zustand konnte nicht gespeichert werden:", e)
 
 
-def begin_probation(ota_type, version, paths):
+def begin_probation(ota_type, version):
     """Markiert eine frisch angewandte Version als 'auf Probe'. Vor dem Reboot aufrufen."""
     _save_state({"phase": "probation", "type": ota_type,
                  "version": version, "boot_attempts": 0})
@@ -481,15 +482,18 @@ def handle_command(payload_bytes, publish_status, wdt=None,
             publish_status("VERIFYING", version, 50, "")
             # download_app hat bereits jede Datei verifiziert; hier nur Phasenmeldung
             publish_status("APPLYING", version, 80, "")
-            paths = [e.get("path", "") for e in manifest.get("files", []) if e.get("path")]
             apply_app(manifest, live_root)
-            begin_probation("APP", version, paths)
+            begin_probation("APP", version)
             reset()
         elif cmd["type"] == "FIRMWARE":
             _do_firmware_update(cmd, publish_status, wdt, reset)
     except OtaError as e:
         print("OTA fehlgeschlagen:", e)
         publish_status("FAILED", version, 0, str(e))
+        # Nur das Staging-Verzeichnis verwerfen. Marker (pending/applied) werden bewusst
+        # NICHT entfernt: falls der Fehler während apply_app NACH dem Überschreiben einer
+        # Live-Datei auftrat, ist der pending-Marker genau das, was beim nächsten Boot die
+        # Wiederherstellung aus dem Backup auslöst.
         _rmtree(OTA_STAGING_DIR)
     except Exception as e:
         print("OTA unerwarteter Fehler:", e)
@@ -512,6 +516,7 @@ def _do_firmware_update(cmd, publish_status, wdt=None, reset=_default_reset):
     """
     import esp32
     version = cmd["version"]
+    expected = cmd.get("sha256", "")
     publish_status("DOWNLOADING", version, 0, "")
 
     part = esp32.Partition(esp32.Partition.RUNNING).get_next_update()
@@ -519,8 +524,10 @@ def _do_firmware_update(cmd, publish_status, wdt=None, reset=_default_reset):
 
     publish_status("APPLYING", version, 50, "")
     state = {"block": 0, "buf": bytearray()}
+    h = hashlib.sha256()  # Hash über die tatsächlich empfangenen Image-Bytes (ohne Padding)
 
     def _on_chunk(chunk):
+        h.update(chunk)
         state["buf"].extend(chunk)
         # In Blockgrösse-Einheiten schreiben
         while len(state["buf"]) >= block_size:
@@ -539,7 +546,14 @@ def _do_firmware_update(cmd, publish_status, wdt=None, reset=_default_reset):
             state["buf"].extend(b"\xff" * pad)
         part.writeblocks(state["block"], bytes(state["buf"]))
 
+    # Image-Integrität prüfen, BEVOR diese Partition als Boot-Ziel gesetzt wird.
+    # Bei Mismatch bleibt die laufende Firmware aktiv (set_boot wird nie aufgerufen).
+    if expected:
+        digest = "".join("{:02x}".format(b) for b in h.digest())
+        if digest != expected:
+            raise OtaError("Firmware-SHA-256 stimmt nicht")
+
     part.set_boot()
     # Probezeit für die Firmware aktivieren (Bestätigung via confirm_boot_healthy)
-    begin_probation("FIRMWARE", version, [])
+    begin_probation("FIRMWARE", version)
     reset()
