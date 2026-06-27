@@ -58,3 +58,27 @@ def parse_command(payload_bytes):
         "sha256": sha256,
         "size": data.get("size", 0),
     }
+
+
+def verify_file(path, expected_hex):
+    """
+    Berechnet den SHA-256 einer Datei im Streaming-Verfahren und vergleicht ihn
+    mit dem erwarteten Hex-Digest. Gibt True/False zurück, niemals Exception nach aussen.
+    """
+    if not expected_hex:
+        return False
+    try:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            while True:
+                chunk = f.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                h.update(chunk)
+        digest = "".join("{:02x}".format(b) for b in h.digest())
+        return digest == expected_hex
+    except OSError as e:
+        print("Verify fehlgeschlagen für {}: {}".format(path, e))
+        return False
+    finally:
+        gc.collect()
