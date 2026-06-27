@@ -7,7 +7,7 @@ import { usePasseStore } from '@/stores/passeStore.js'
 
 vi.mock('@/components/Icons.vue', () => ({ default: { template: '<span />' } }))
 
-const STUBS = { Icons: true, Badge: { template: '<span><slot /></span>' }, Button: { template: '<button><slot /></button>' } }
+const STUBS = { Icons: true, Badge: { template: '<span><slot /></span>' }, Button: { inheritAttrs: false, template: '<button @click="$attrs.onClick?.()"><slot /></button>' } }
 
 const tiedBlock = () => ({
   tiePosition: 1,
@@ -17,7 +17,18 @@ const tiedBlock = () => ({
     { playerId: 'p1', displayName: 'Anna' },
     { playerId: 'p2', displayName: 'Ben' },
   ],
-  rounds: [],
+  rounds: [
+    {
+      id: 'tb1', roundNumber: 1, status: 'ACTIVE', templateName: 'Stech-Serie',
+      playInstanceId: 'iA', blockId: 'bA',
+      run: { id: 'se1', alias: 'Stech-Serie', rangeId: 'r1', rangeName: 'Stand 1', steps: [] },
+      participants: [
+        { playerId: 'p1', displayName: 'Anna' },
+        { playerId: 'p2', displayName: 'Ben' },
+      ],
+      results: [],
+    },
+  ],
 })
 
 const setup = async () => {
@@ -25,6 +36,7 @@ const setup = async () => {
   const store = useCompetitionEventStore()
   store.tiesBySession = { s1: { sessionId: 's1', tiedBlocks: [tiedBlock()] } }
   vi.spyOn(store, 'startStechen').mockResolvedValue({ id: 'tb1' })
+  vi.spyOn(store, 'loadTies').mockResolvedValue()
 
   const passeStore = usePasseStore()
   passeStore.savedSerien = [
@@ -53,6 +65,14 @@ describe('StechenPanel — Serie picker', () => {
     expect(options).toContain('Stech-Serie')
     expect(options).not.toContain('Entwurf')
     expect(options).not.toContain('Privat')
+  })
+
+  it('shows a live run status for an ACTIVE round and no manual entry inputs', async () => {
+    const { wrapper } = await setup()
+    expect(wrapper.find('.result-form').exists()).toBe(false)
+    expect(wrapper.findAll('input.result-input')).toHaveLength(0)
+    expect(wrapper.find('.round-live').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Stand 1')
   })
 
   it('starts a Stechen with a templateType-free Serie payload', async () => {

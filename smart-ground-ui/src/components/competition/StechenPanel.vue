@@ -64,58 +64,14 @@
             <Badge :color="statusColor(round.status)">{{ statusLabel(round.status) }}</Badge>
           </div>
 
-          <p v-if="round.playInstanceId" class="round-instance-note">
-            Live-Lauf bereit — Instanz-ID
-            <code class="instance-id">{{ round.playInstanceId }}</code>.
-            Lauf am Bereich durchführen, danach die Ergebnisse unten eintragen.
-          </p>
-
-          <!-- Editable result entry for an ACTIVE round -->
-          <form
-            v-if="round.status === 'ACTIVE'"
-            class="result-form"
-            @submit.prevent="saveResults(round)"
-          >
-            <div
-              v-for="participant in round.participants"
-              :key="participant.playerId"
-              class="result-row"
-            >
-              <span class="result-name">{{ participant.displayName }}</span>
-              <div class="result-inputs">
-                <label
-                  :for="`pts-${round.id}-${participant.playerId}`"
-                  class="result-label"
-                >Punkte</label>
-                <input
-                  :id="`pts-${round.id}-${participant.playerId}`"
-                  v-model.number="drafts[round.id][participant.playerId].totalPoints"
-                  type="number"
-                  min="0"
-                  class="result-input"
-                  inputmode="numeric"
-                />
-                <span class="result-sep">/</span>
-                <label
-                  :for="`max-${round.id}-${participant.playerId}`"
-                  class="result-label"
-                >Max</label>
-                <input
-                  :id="`max-${round.id}-${participant.playerId}`"
-                  v-model.number="drafts[round.id][participant.playerId].maxPoints"
-                  type="number"
-                  min="0"
-                  class="result-input"
-                  inputmode="numeric"
-                />
-              </div>
-            </div>
-            <div class="result-actions">
-              <Button variant="primary" size="sm" :disabled="saving">
-                {{ saving ? 'Speichern…' : 'Speichern' }}
-              </Button>
-            </div>
-          </form>
+          <!-- Live run status for an ACTIVE round (auto-scored from the range) -->
+          <div v-if="round.status === 'ACTIVE'" class="round-live">
+            <span class="round-live-dot" aria-hidden="true"></span>
+            <span class="round-live-text">
+              Läuft am Bereich{{ round.run?.rangeName ? ` ${round.run.rangeName}` : '' }} —
+              Ergebnis wird automatisch übernommen.
+            </span>
+          </div>
 
           <!-- Read-only results for a COMPLETED round -->
           <div v-else-if="(round.results ?? []).length > 0" class="result-readonly">
@@ -187,7 +143,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import Badge from '@/components/Badge.vue'
 import Button from '@/components/Button.vue'
@@ -218,51 +174,6 @@ const statusColor = (status) =>
 
 const nameFor = (round, playerId) =>
   (round.participants ?? []).find(p => p.playerId === playerId)?.displayName ?? '–'
-
-// ── Result entry drafts ─────────────────────────────────────────────────────
-// One editable draft per ACTIVE round, keyed by round id → playerId → score.
-const drafts = reactive({})
-
-const syncDrafts = () => {
-  for (const block of tiedBlocks.value) {
-    for (const round of block.rounds ?? []) {
-      if (round.status !== 'ACTIVE') continue
-      if (!drafts[round.id]) drafts[round.id] = {}
-      for (const participant of round.participants ?? []) {
-        if (!drafts[round.id][participant.playerId]) {
-          const existing = (round.results ?? []).find(r => r.playerId === participant.playerId)
-          drafts[round.id][participant.playerId] = {
-            totalPoints: existing?.totalPoints ?? 0,
-            maxPoints: existing?.maxPoints ?? 0,
-          }
-        }
-      }
-    }
-  }
-}
-
-watch(tiedBlocks, syncDrafts, { immediate: true, deep: true })
-
-const saving = ref(false)
-
-const saveResults = async (round) => {
-  if (saving.value) return
-  saving.value = true
-  try {
-    const results = (round.participants ?? []).map(p => ({
-      playerId: p.playerId,
-      totalPoints: drafts[round.id]?.[p.playerId]?.totalPoints ?? 0,
-      maxPoints: drafts[round.id]?.[p.playerId]?.maxPoints ?? 0,
-    }))
-    await store.submitStechenResults(props.sessionId, round.id, results)
-    // Refresh ties so the leaderboard re-orders after the round resolves.
-    await store.loadTies(props.sessionId)
-  } catch (e) {
-    console.error('[StechenPanel] submit results failed:', e)
-  } finally {
-    saving.value = false
-  }
-}
 
 // ── Start modal ─────────────────────────────────────────────────────────────
 const startModal = reactive({ open: false, block: null, serieId: null })
@@ -302,10 +213,23 @@ const confirmStart = async () => {
   }
 }
 
+let pollTimer = null
+const anyRoundActive = () =>
+  tiedBlocks.value.some(b => (b.rounds ?? []).some(r => r.status === 'ACTIVE'))
+
 onMounted(async () => {
   if (passeStore.savedSerien.length === 0) {
     await passeStore.loadSerienFromStorage().catch(() => {})
   }
+  await store.loadTies(props.sessionId).catch(() => {})
+  // Light-poll while a run is active so auto-resolution surfaces without a manual refresh.
+  pollTimer = setInterval(() => {
+    if (anyRoundActive()) store.loadTies(props.sessionId).catch(() => {})
+  }, 4000)
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
 })
 </script>
 
@@ -439,28 +363,32 @@ onMounted(async () => {
   flex: 1;
 }
 
-.round-instance-note {
+.round-live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
   color: var(--sg-text-muted);
-  margin: 0;
-  line-height: 1.4;
 }
 
-.instance-id {
-  font-size: 11px;
-  background: var(--sg-bg-card);
-  border: 1px solid var(--sg-border);
-  border-radius: 4px;
-  padding: 1px 5px;
+.round-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sg-color-warning);
+  animation: round-live-pulse 1.2s ease-in-out infinite;
 }
 
-/* ── Result entry ── */
-.result-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+@keyframes round-live-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .round-live-dot { animation: none; }
+}
+
+/* ── Result read-only ── */
 .result-row {
   display: flex;
   align-items: center;
@@ -485,49 +413,10 @@ onMounted(async () => {
   flex: 1;
 }
 
-.result-inputs {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.result-label {
-  font-size: 11px;
-  color: var(--sg-text-faint);
-}
-
-.result-input {
-  width: 56px;
-  min-height: 40px;
-  padding: 6px 8px;
-  font-family: inherit;
-  font-size: 13px;
-  text-align: center;
-  color: var(--sg-brand);
-  background: var(--sg-bg-card);
-  border: 1px solid var(--sg-border-input, var(--sg-border));
-  border-radius: 8px;
-}
-
-.result-input:focus-visible {
-  outline: 2px solid var(--sg-accent);
-  outline-offset: 1px;
-}
-
-.result-sep {
-  font-size: 13px;
-  color: var(--sg-text-faint);
-}
-
 .result-score {
   font-size: 13px;
   font-weight: 700;
   color: var(--sg-text-muted);
-}
-
-.result-actions {
-  display: flex;
-  justify-content: flex-end;
 }
 
 /* ── Modal ── */
