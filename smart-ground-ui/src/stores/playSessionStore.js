@@ -550,6 +550,9 @@ export const usePlaySessionStore = defineStore('playSession', () => {
       if (ctx.instanceType === 'competition') {
         const { useCompetitionEventStore } = await import('@/stores/competitionEventStore.js')
         useCompetitionEventStore().markBlockDone(ctx.instanceId, ctx.blockId, results, ctx.rotteId ?? null)
+      } else if (ctx.instanceType === 'stechen') {
+        const { useCompetitionEventStore } = await import('@/stores/competitionEventStore.js')
+        await useCompetitionEventStore().completeStechenRun(ctx.instanceId, ctx.blockId, results, ctx.sessionId)
       } else {
         const { useActivePasseStore } = await import('@/stores/activePasseStore.js')
         useActivePasseStore().markBlockDone(ctx.instanceId, ctx.blockId, results)
@@ -594,7 +597,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     pendingGroupSerien.value = null;
   };
 
-  const startGroupPlay = async (players, rangeId = null, rangeName = null, instanceId = null, blockId = null, rotteId = null, instanceType = null) => {
+  const startGroupPlay = async (players, rangeId = null, rangeName = null, instanceId = null, blockId = null, rotteId = null, instanceType = null, sessionId = null) => {
     if (!pendingGroupSerien.value) return;
     const serien = pendingGroupSerien.value;
 
@@ -659,10 +662,13 @@ export const usePlaySessionStore = defineStore('playSession', () => {
 
     // Set block context when playing from an active passe/competition instance
     if (instanceId && blockId) {
-      activeBlockContext.value = { instanceId, blockId, rotteId: rotteId ?? null, instanceType: instanceType ?? null }
+      activeBlockContext.value = { instanceId, blockId, rotteId: rotteId ?? null, instanceType: instanceType ?? null, sessionId: sessionId ?? null }
       if (instanceType === 'competition') {
         const { useCompetitionEventStore } = await import('@/stores/competitionEventStore.js')
         useCompetitionEventStore().markBlockInProgress(instanceId, blockId, rotteId ?? null)
+      } else if (instanceType === 'stechen') {
+        const { useCompetitionEventStore } = await import('@/stores/competitionEventStore.js')
+        await useCompetitionEventStore().startStechenBlock(instanceId, blockId)
       } else {
         const { useActivePasseStore } = await import('@/stores/activePasseStore.js')
         useActivePasseStore().markBlockInProgress(instanceId, blockId)

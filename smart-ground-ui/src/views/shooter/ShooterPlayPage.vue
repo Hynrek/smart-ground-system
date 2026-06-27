@@ -452,7 +452,7 @@ if (store.pendingPasseInfo) {
   const info = store.pendingPasseInfo;
   store.setPendingGroupSerien([info.serie]);
   if (info.instanceId && info.blockId) {
-    _blockContext.value = { instanceId: info.instanceId, blockId: info.blockId, rotteId: info.rotteId ?? null, instanceType: info.instanceType ?? null };
+    _blockContext.value = { instanceId: info.instanceId, blockId: info.blockId, rotteId: info.rotteId ?? null, instanceType: info.instanceType ?? null, sessionId: info.sessionId ?? null };
   }
   if (info.rotteName) {
     _rotteName.value = info.rotteName;
@@ -487,6 +487,7 @@ const beginGroupPlay = () => {
     _blockContext.value?.blockId ?? null,
     _blockContext.value?.rotteId ?? null,
     _blockContext.value?.instanceType ?? null,
+    _blockContext.value?.sessionId ?? null,
   );
   if (store.isMultiPlayer) {
     pendingFirstShooter.value = true;

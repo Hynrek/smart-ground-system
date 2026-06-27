@@ -149,6 +149,34 @@
             </div>
           </template>
 
+          <!-- Stechen -->
+          <template v-if="stechenBlocks.length > 0">
+            <div class="section">
+              <span class="section-label">Stechen</span>
+              <div class="serien-list">
+                <div
+                  v-for="item in stechenBlocks"
+                  :key="`${item.instanceId}-${item.blockId}`"
+                  class="serie-card"
+                  data-testid="stechen-card"
+                >
+                  <button class="serie-header-btn" @click="playStechen(item)">
+                    <div class="block-info">
+                      <span class="rotte-instance-name">Platz {{ item.tiePosition }} · Stechen</span>
+                      <span class="serie-name">{{ item.serieAlias }}</span>
+                    </div>
+                    <Icons icon="play" :size="12" color="rgba(79,195,247,0.6)" />
+                  </button>
+                  <div class="serie-actions">
+                    <div class="session-meta">
+                      {{ (item.players ?? []).map(p => p.displayName).join(', ') }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
           <!-- Offene Trainings -->
           <template v-if="trainingBlocks.length > 0">
             <div class="section">
@@ -262,7 +290,7 @@
 
           <!-- Empty state -->
           <div
-            v-if="passenBlocks.length === 0 && competitionSerien.length === 0 && trainingBlocks.length === 0 && userSerien.length === 0 && globalSerien.length === 0"
+            v-if="passenBlocks.length === 0 && competitionSerien.length === 0 && stechenBlocks.length === 0 && trainingBlocks.length === 0 && userSerien.length === 0 && globalSerien.length === 0"
             class="empty-state"
           >
             <Icons icon="program" :size="32" color="rgba(255,255,255,0.1)" />
@@ -376,14 +404,23 @@ const competitionSerien = computed(() =>
   competitionEventStore.getActiveCompetitionRotten(currentRangeId.value),
 );
 
+const stechenBlocks = computed(() =>
+  competitionEventStore.getActiveStechenForRange(currentRangeId.value),
+);
+
 const trainingBlocks = computed(() =>
   activePasseStore.getBlocksForRange(currentRangeId.value)
     .filter(b => b.instanceType === 'training')
 );
 
+// A Stechen run is a passe-type PlayInstance; when the kiosk operator also owns it,
+// activePasseStore surfaces it too. Exclude those — they belong in the Stechen section.
+const stechenInstanceIds = computed(() => new Set(stechenBlocks.value.map(s => s.instanceId)))
+
 const passenBlocks = computed(() =>
   activePasseStore.getBlocksForRange(currentRangeId.value)
-    .filter(b => b.instanceType !== 'training' && b.instanceType !== 'competition')
+    .filter(b => b.instanceType !== 'training' && b.instanceType !== 'competition'
+      && !stechenInstanceIds.value.has(b.instanceId))
 );
 
 const playBlock = (block) => {
@@ -428,6 +465,28 @@ const playCompetitionRotte = (item) => {
     rotteName: item.rotteName,
     serieName: firstBlock.serieAlias ?? null,
     instanceType: 'competition',
+  };
+  isOpen.value = false;
+  router.push(`/remote/${currentRangeId.value}/play`);
+};
+
+const playStechen = (item) => {
+  playStore.pendingPasseInfo = {
+    serie: {
+      id: item.serieId,
+      name: item.serieAlias,
+      alias: item.serieAlias,
+      steps: item.steps,
+      rangeId: item.rangeId,
+      rangeName: item.rangeName,
+    },
+    rangeId: currentRangeId.value,
+    instanceId: item.instanceId,
+    blockId: item.blockId,
+    players: item.players,
+    instanceType: 'stechen',
+    sessionId: item.sessionId,
+    serieName: item.serieAlias,
   };
   isOpen.value = false;
   router.push(`/remote/${currentRangeId.value}/play`);
