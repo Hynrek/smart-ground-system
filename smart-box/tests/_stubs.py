@@ -157,3 +157,29 @@ _board_stub.LED_ON         = 1
 _board_stub.WDT_TIMEOUT_MS = 8000
 _board_stub.board_init     = lambda: None
 sys.modules["board"] = _board_stub
+
+# --- esp32.Partition (Firmware-A/B-OTA; nur Logik wird auf dem Host getestet) ---
+esp32 = types.ModuleType("esp32")
+
+class Partition:
+    RUNNING = 0
+    # Klassen-Spies für Tests
+    booted = []
+    validated = []
+    def __init__(self, which):
+        self.which = which
+    def get_next_update(self):
+        return Partition(99)  # "andere" Partition
+    def ioctl(self, cmd, arg):
+        # 4 = Anzahl Blöcke, 5 = Blockgröße (vereinfachte Werte)
+        return 4096 if cmd == 4 else 4096
+    def writeblocks(self, block_num, buf):
+        Partition.written = getattr(Partition, "written", 0) + len(buf)
+    def set_boot(self):
+        Partition.booted.append(self.which)
+    @staticmethod
+    def mark_app_valid_cancel_rollback():
+        Partition.validated.append(True)
+
+esp32.Partition = Partition
+sys.modules["esp32"] = esp32

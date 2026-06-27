@@ -482,5 +482,45 @@ def handle_command(payload_bytes, publish_status, wdt=None,
 
 
 def _do_firmware_update(cmd, publish_status, wdt=None, reset=_default_reset):
-    """Platzhalter – vollständig implementiert in Task 9."""
-    raise OtaError("Firmware-OTA noch nicht implementiert")
+    """
+    Schreibt ein neues MicroPython-Image in die inaktive OTA-Partition und bootet hinein.
+    Die ESP-IDF-Bootloader-Logik rollt automatisch zurück, falls die neue Firmware sich
+    beim nächsten Boot nicht via mark_app_valid_cancel_rollback() bestätigt
+    (das macht confirm_boot_healthy() nach erfolgreichem MQTT-Connect).
+
+    Hardware-Pfad: auf dem ESP32-S3 manuell verifiziert. Host-Tests prüfen nur die
+    Aufruf-Reihenfolge über den esp32-Stub.
+    """
+    import esp32
+    version = cmd["version"]
+    publish_status("DOWNLOADING", version, 0, "")
+
+    part = esp32.Partition(esp32.Partition.RUNNING).get_next_update()
+    block_size = part.ioctl(5, 0) or 4096
+
+    publish_status("APPLYING", version, 50, "")
+    state = {"block": 0, "buf": bytearray()}
+
+    def _on_chunk(chunk):
+        state["buf"].extend(chunk)
+        # In Blockgrösse-Einheiten schreiben
+        while len(state["buf"]) >= block_size:
+            part.writeblocks(state["block"], bytes(state["buf"][:block_size]))
+            del state["buf"][:block_size]
+            state["block"] += 1
+            if wdt is not None:
+                wdt.feed()
+
+    http_stream(cmd["url"], _on_chunk, wdt)
+
+    # Restpuffer auf Blockgrösse auffüllen und schreiben
+    if state["buf"]:
+        pad = block_size - (len(state["buf"]) % block_size)
+        if pad != block_size:
+            state["buf"].extend(b"\xff" * pad)
+        part.writeblocks(state["block"], bytes(state["buf"]))
+
+    part.set_boot()
+    # Probezeit für die Firmware aktivieren (Bestätigung via confirm_boot_healthy)
+    begin_probation("FIRMWARE", version, [])
+    reset()
