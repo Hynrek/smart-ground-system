@@ -45,10 +45,11 @@ Do not leave decisions only in commit messages or conversation history — this 
 ## Language & Runtime
 
 - **MicroPython 1.23+** only — no CPython-specific syntax or libraries
-- Allowed stdlib modules: `network`, `time`, `machine`, `json`, `sys`, `gc`
+- Allowed stdlib modules: `network`, `time`, `machine`, `json`, `sys`, `gc`, `os` (only in `ota.py`), `hashlib` (only in `ota.py`)
 - MQTT: `umqtt.simple` (preferred); fall back to `umqtt.robust`
+- OTA HTTP download uses `urequests` (lazy-imported inside `ota.py`'s `_default_http_stream`)
 - No `asyncio` / `uasyncio` — all logic is synchronous and polling-based
-- No `import os` for file I/O — use `open()` directly
+- No `import os` for **file I/O** — use `open()` directly. Exception: `ota.py` imports `os` for **directory operations** (`mkdir`/`listdir`/`rename`/`remove`/`stat`) that `open()` cannot do, and `mqttutils.py` reads `os.uname()` for the kernel version. Neither is plain file read/write.
 - Do not import modules you don't use — every imported module stays in RAM for the lifetime of the process
 
 ---
@@ -57,8 +58,9 @@ Do not leave decisions only in commit messages or conversation history — this 
 
 ```
 smart-box/
-├── main.py                             # Entry point; auto-runs on Pico boot
-├── mqttutils.py                        # MQTT connection, message routing, security, config persistence
+├── main.py                             # Entry point; auto-runs on boot (incl. OTA boot supervisor)
+├── mqttutils.py                        # MQTT connection, message routing, security, config persistence, OTA status
+├── ota.py                              # OTA: download/verify/stage/apply App Code + esp32.Partition firmware update
 ├── hardware.py                         # GpioManager class + onboard LED
 ├── networkutils.py                     # WiFi connect/reconnect helpers
 ├── accesspoint.py                      # Captive portal for first-time WiFi setup
@@ -72,7 +74,8 @@ smart-box/
 │   └── firmware_config.json            # Firmware version + capability registry (read-only at runtime)
 └── userconfig/
     ├── client_config.json              # WiFi credentials + broker IP (written by setup portal)
-    └── device_config.json              # Active device/GPIO config (written after each config push)
+    ├── device_config.json              # Active device/GPIO config (written after each config push)
+    └── ota_state.json                  # OTA probation state (phase, version, boot_attempts) — written during updates
 ```
 
 ---
@@ -238,11 +241,13 @@ The SmartBox MAC address (12-char lowercase hex) is used as the per-box topic se
 | SmartBox → Backend | `smartboxes/{mac}/config/ack` | Confirms config was applied (`OK`) |
 | Backend → SmartBox | `smartboxes/{mac}/command` | Device control command |
 | SmartBox → Backend | `smartboxes/{mac}/device/{deviceId}/executed` | Per-device command ACK (`OK`) |
+| Backend → SmartBox | `smartboxes/{mac}/ota` | OTA update trigger (`{ type, version, url, sha256, size }`) |
+| SmartBox → Backend | `smartboxes/{mac}/ota/status` | OTA progress (`{ version, phase, progress, detail }`) |
 
 ### Discovery payload (SmartBox → `smartboxes/discovery`)
-Firmware version and box type are always read from `systemconfig/firmware_config.json`.
+`appVersion` (App Code) comes from `systemconfig/firmware_config.json`; `firmwareVersion` (the MicroPython kernel) comes from `os.uname().release`; box type comes from the board module.
 ```json
-{ "mac": "aabbccddeeff", "firmwareVersion": "0.6", "boxType": "pico2w", "ip": "192.168.1.42" }
+{ "mac": "aabbccddeeff", "appVersion": "0.6", "firmwareVersion": "micropython-1.23.0", "boxType": "xiao-esp32s3", "ip": "192.168.1.42" }
 ```
 
 ### Config payload (Backend → `smartboxes/{mac}/config`)
@@ -341,9 +346,10 @@ Set at flash time, controls the setup captive portal:
 
 ### `systemconfig/firmware_config.json` (read-only at runtime)
 
-Describes firmware capabilities; read when building the discovery payload. The `boxType` field in the discovery payload now comes from `board.BOX_TYPE`:
+Describes firmware capabilities; read when building the discovery payload. `app_version` is the App Code version reported as `appVersion` (the OTA target the backend compares against); `firmware_version` is retained for backward compatibility. The `boxType` field in the discovery payload comes from `board.BOX_TYPE`; `firmwareVersion` (the MicroPython kernel) comes from `os.uname()`, not this file:
 ```json
 {
+  "app_version": "0.6",
   "firmware_version": "0.6",
   "supported_device_kinds": ["GPIO", "LED"],
   "supported_directions": ["INPUT", "OUTPUT"]
@@ -466,12 +472,43 @@ Before merging any changes:
 
 ---
 
-## Firmware Updates
+## OTA Updates (cable-free, over the LAN)
 
-No OTA update yet. To update firmware:
+The firmware can update itself over the network — no cable needed. Two distinct things can be updated, with deliberately different mechanisms:
 
-1. Put board in bootloader mode (hold BOOTSEL, replug)
-2. Re-flash MicroPython kernel if needed
-3. Re-upload project files via mpremote or Thonny
+| Term | What it is | Mechanism |
+|---|---|---|
+| **App Code** | the SmartBox `.py` logic (`main.py`, `mqttutils.py`, `ota.py`, `boards/`, configs) | file-level: download → verify → stage → atomic swap + backup |
+| **Firmware** | the MicroPython kernel image | native `esp32.Partition` A/B OTA (ESP-IDF bootloader auto-rollback) |
 
-Future: Implement OTA via MQTT for remote updates.
+App Code OTA is the everyday path; Firmware OTA is rare (kernel bumps). Both share the MQTT control channel and the HTTP download transport. Firmware OTA only works on the ESP32-S3 (the RP2350/Pico needs physical BOOTSEL for the kernel).
+
+### `ota.py` module
+
+All OTA logic lives here (the one module allowed to `import os`, for directory operations). Key functions:
+
+- `handle_command(payload, publish_status, wdt, reset, live_root)` — entry from the MQTT router; orchestrates the APP path (download → verify → apply → `begin_probation` → reset) or the FIRMWARE path. Rejects a second command while one is in progress (`is_busy`).
+- `download_app(base_url, manifest_sha256, wdt)` — streams `manifest.json` to `OTA_STAGING_DIR`, verifies it against the **MQTT-supplied hash** (the trust anchor, since per-file hashes live inside the HTTP-fetched manifest), then streams + per-file-SHA-256-verifies each file. Rejects path traversal (`..`). Raises `OtaError` on any failure — **live code is never touched until everything is downloaded and verified.**
+- `verify_file(path, expected_hex)` — streaming SHA-256 (manual hex; MicroPython `hashlib` has no `hexdigest()`).
+- `apply_app(manifest, live_root)` — writes a `pending` marker (file list), backs up each live file to `OTA_BACKUP_DIR`, copies staging over live, writes an `applied` marker, cleans up.
+- `recover_interrupted_apply(live_root)` — boot-time: if `pending` exists without `applied` (power lost mid-apply), restores from backup.
+- `probation_check(live_root)` — boot-time: counts probation boots; after `MAX_PROBATION_BOOTS` without a healthy confirm, restores the backup and leaves a one-shot `pending_report`. The new version gets the boots before that to prove itself.
+- `confirm_boot_healthy()` — called after a successful MQTT connect; ends probation, deletes the backup, returns `("APPLIED", version)`. For FIRMWARE also calls `Partition.mark_app_valid_cancel_rollback()`.
+- `take_pending_report()` — returns and clears the one-shot `ROLLED_BACK` report after a rollback reboot.
+- HTTP is the replaceable seam `http_stream` (real impl uses `urequests`; host tests inject a fake).
+
+`http_stream`/`esp32.Partition`/real flash writes are verified manually on the ESP32-S3; all other logic is host-tested under CPython via `tests/_stubs.py` (which now also stubs `esp32.Partition` and `os.uname`).
+
+### Boot flow (in `main.py`, before the watchdog starts)
+
+`ota.recover_interrupted_apply()` → `ota.probation_check()` (on rollback: reset into the restored old version) → connect MQTT → `set_watchdog(wdt)` → `ota.confirm_boot_healthy()` (publish `APPLIED`) → `ota.take_pending_report()` (publish `ROLLED_BACK` after a rollback reboot).
+
+### Topics & payloads
+
+- Trigger `smartboxes/{mac}/ota`: `{ "type": "APP"|"FIRMWARE", "version", "url", "sha256", "size" }` (`sha256` = manifest/image hash).
+- Status `smartboxes/{mac}/ota/status`: `{ "version", "phase", "progress", "detail" }`, phase ∈ `DOWNLOADING|VERIFYING|APPLYING|APPLIED|FAILED|ROLLED_BACK`.
+- App manifest `GET {url}/manifest.json`: `{ "appVersion", "files": [ { "path", "sha256", "size" } ] }`; files at `GET {url}/files/{path}`. Firmware image at `GET {url}`.
+
+### Manual (cable) re-flash — still the recovery path
+
+If a box is bricked (e.g. before OTA is deployed, or a kernel that won't boot): on the ESP32-S3, re-flash MicroPython over USB with `esptool`, then re-upload project files via `mpremote`/Thonny.
