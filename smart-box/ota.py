@@ -219,3 +219,117 @@ def download_app(base_url, manifest_sha256="", wdt=None):
         gc.collect()
 
     return manifest
+
+
+def _copy_file(src, dst):
+    """Kopiert eine Datei in CHUNK_SIZE-Blöcken (rename geht nicht über alle FS-Grenzen)."""
+    _ensure_parent(dst)
+    with open(src, "rb") as fin:
+        with open(dst, "wb") as fout:
+            while True:
+                chunk = fin.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                fout.write(chunk)
+
+
+def _write_marker(path, text):
+    with open(path, "w") as f:
+        f.write(text)
+
+
+def apply_app(manifest, live_root=""):
+    """
+    Aktiviert die in OTA_STAGING_DIR liegende, bereits verifizierte App-Code-Version:
+      1. pending-Marker schreiben (Liste der betroffenen Dateien)
+      2. jede Live-Datei nach OTA_BACKUP_DIR sichern
+      3. jede Staging-Datei über die Live-Datei kopieren
+      4. applied-Marker schreiben, dann beide Marker + Staging aufräumen
+
+    live_root erlaubt Tests, eine andere Wurzel zu verwenden (auf dem Gerät: "" = FS-Wurzel).
+    """
+    paths = [e.get("path", "") for e in manifest.get("files", []) if e.get("path")]
+
+    _rmtree(OTA_BACKUP_DIR)
+    _ensure_dir(OTA_BACKUP_DIR)
+    _write_marker(OTA_MARKER_PENDING, "\n".join(paths))
+
+    def _live(p):
+        return (live_root + "/" + p) if live_root else p
+
+    # Schritt 2: vorhandene Live-Dateien sichern
+    for p in paths:
+        live = _live(p)
+        try:
+            os.stat(live)
+        except OSError:
+            continue  # Datei existiert noch nicht (Neuzugang) – nichts zu sichern
+        _copy_file(live, OTA_BACKUP_DIR + "/" + p)
+
+    # Schritt 3: Staging über Live kopieren
+    for p in paths:
+        _copy_file(OTA_STAGING_DIR + "/" + p, _live(p))
+
+    # Schritt 4: Abschluss markieren und aufräumen
+    _write_marker(OTA_MARKER_APPLIED, "ok")
+    _rmtree(OTA_STAGING_DIR)
+    try:
+        os.remove(OTA_MARKER_PENDING)
+    except OSError:
+        pass
+    try:
+        os.remove(OTA_MARKER_APPLIED)
+    except OSError:
+        pass
+
+
+def recover_interrupted_apply(live_root=""):
+    """
+    Wird beim Boot aufgerufen, BEVOR der Watchdog läuft. Wenn ein pending-Marker
+    ohne applied-Marker existiert, wurde ein Apply durch Stromverlust unterbrochen:
+    die gesicherten Backup-Dateien werden über die (evtl. korrupten) Live-Dateien
+    zurückgespielt. Gibt True zurück, wenn eine Wiederherstellung stattfand.
+    """
+    try:
+        os.stat(OTA_MARKER_PENDING)
+    except OSError:
+        return False  # kein unterbrochener Apply
+
+    try:
+        os.stat(OTA_MARKER_APPLIED)
+        applied = True
+    except OSError:
+        applied = False
+
+    if applied:
+        # Apply war eigentlich fertig, nur die Marker blieben liegen → nur aufräumen
+        _cleanup_markers()
+        return False
+
+    # Backup-Dateien zurückspielen
+    def _live(p):
+        return (live_root + "/" + p) if live_root else p
+    try:
+        with open(OTA_MARKER_PENDING, "r") as f:
+            paths = [ln.strip() for ln in f.read().split("\n") if ln.strip()]
+    except OSError:
+        paths = []
+    for p in paths:
+        backup = OTA_BACKUP_DIR + "/" + p
+        try:
+            os.stat(backup)
+        except OSError:
+            continue
+        _copy_file(backup, _live(p))
+
+    _cleanup_markers()
+    print("OTA: unterbrochener Apply wiederhergestellt ({} Datei(en)).".format(len(paths)))
+    return True
+
+
+def _cleanup_markers():
+    for m in (OTA_MARKER_PENDING, OTA_MARKER_APPLIED):
+        try:
+            os.remove(m)
+        except OSError:
+            pass
