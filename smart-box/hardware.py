@@ -4,8 +4,10 @@ from machine import Pin
 from micropython import const
 
 # --- KONFIGURATION ---
-# Onboard-LED: Pin kommt aus dem Board-Modul (board.LED_PIN), nicht hardcodiert
-led = Pin(board.LED_PIN, Pin.OUT)
+# Onboard-LED: Pin und Aktivierungspegel kommen aus dem Board-Modul
+led    = Pin(board.LED_PIN, Pin.OUT)
+_LED_ON  = board.LED_ON        # 1 = aktiv-high (Pico 2W), 0 = aktiv-low (XIAO ESP32-S3)
+_LED_OFF = 1 - board.LED_ON
 
 # Status-LED Timing (Boot-/Verbindungsanzeige)
 STARTUP_BLINKS       = const(3)    # Anzahl Blinks beim Start
@@ -17,12 +19,12 @@ FEED_SLEEP_CHUNK_MS  = const(4000) # Max. Schlafstück, damit der Watchdog gefü
 
 def led_on():
     """Schaltet die Onboard-LED dauerhaft ein."""
-    led.value(1)
+    led.value(_LED_ON)
 
 
 def led_off():
     """Schaltet die Onboard-LED aus."""
-    led.value(0)
+    led.value(_LED_OFF)
 
 
 def led_toggle():
@@ -33,9 +35,9 @@ def led_toggle():
 def status_blink(times=STARTUP_BLINKS, on_ms=BLINK_ON_MS, off_ms=BLINK_OFF_MS):
     """Blinkt die Onboard-LED `times` mal und lässt sie danach ausgeschaltet."""
     for _ in range(times):
-        led.value(1)
+        led.value(_LED_ON)
         time.sleep_ms(on_ms)
-        led.value(0)
+        led.value(_LED_OFF)
         time.sleep_ms(off_ms)
 
 
@@ -121,7 +123,7 @@ class GpioManager:
                 if dev_info["device"] == "GPIO" and dev_info["pin"] is not None:
                     dev_info["pin"].value(0)
                 elif dev_info["device"] == "LED":
-                    led.value(0)
+                    led.value(_LED_OFF)
             except Exception:
                 pass
         self._devices.clear()
@@ -168,13 +170,13 @@ class GpioManager:
 
         elif device_kind == "LED":
             if value == 1 and effective_duration_ms > 0:
-                led.value(1)
+                led.value(_LED_ON)
                 self._pulse_active[device_id] = time.ticks_add(
                     time.ticks_ms(), effective_duration_ms)
                 print("LED-Puls gestartet: device={} duration_ms={}".format(
                     device_id, effective_duration_ms))
                 return True
-            led.value(value)
+            led.value(_LED_ON)
             self._pulse_active.pop(device_id, None)
 
         return True
@@ -197,7 +199,7 @@ class GpioManager:
                     if dev_info["device"] == "GPIO":
                         dev_info["pin"].value(0)
                     elif dev_info["device"] == "LED":
-                        led.value(0)
+                        led.value(_LED_OFF)
                     print("Puls beendet: device={} type={}".format(device_id, dev_info["device"]))
                 expired.append(device_id)
 

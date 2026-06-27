@@ -141,6 +141,7 @@ sys.modules["umqtt.simple"] = umqtt_simple
 _board_stub = types.ModuleType("board")
 _board_stub.BOX_TYPE       = "test-board"
 _board_stub.LED_PIN        = 0
+_board_stub.LED_ON         = 1
 _board_stub.WDT_TIMEOUT_MS = 8000
 _board_stub.board_init     = lambda: None
 sys.modules["board"] = _board_stub
