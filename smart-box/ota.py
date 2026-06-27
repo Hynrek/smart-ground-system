@@ -424,3 +424,63 @@ def _restore_backup(live_root=""):
             _copy_file(full, dst)
     _walk("")
     _rmtree(OTA_BACKUP_DIR)
+
+
+def _default_reset():
+    import machine
+    machine.reset()
+
+
+def handle_command(payload_bytes, publish_status, wdt=None,
+                   reset=_default_reset, live_root=""):
+    """
+    Einstiegspunkt aus dem MQTT-Router. Verarbeitet einen /ota-Befehl:
+      APP:      download → verify → apply → begin_probation → reset
+      FIRMWARE: siehe _do_firmware_update (Task 9)
+
+    publish_status(phase, version, progress=0, detail="") meldet den Fortschritt
+    zurück (injiziert, damit ota.py nicht von mqttutils abhängt → kein Importzyklus).
+    Bei Fehler wird FAILED gemeldet und der Live-Code bleibt unangetastet.
+    """
+    global _busy
+    if _busy:
+        print("OTA bereits aktiv – Befehl ignoriert.")
+        return
+    try:
+        cmd = parse_command(payload_bytes)
+    except ValueError as e:
+        print("OTA-Befehl ungültig:", e)
+        return
+
+    _busy = True
+    version = cmd["version"]
+    try:
+        if cmd["type"] == "APP":
+            publish_status("DOWNLOADING", version, 0, "")
+            # cmd["sha256"] ist der über MQTT gelieferte Manifest-Hash (Vertrauensanker)
+            manifest = download_app(cmd["url"], cmd["sha256"], wdt)
+            publish_status("VERIFYING", version, 50, "")
+            # download_app hat bereits jede Datei verifiziert; hier nur Phasenmeldung
+            publish_status("APPLYING", version, 80, "")
+            paths = [e.get("path", "") for e in manifest.get("files", []) if e.get("path")]
+            apply_app(manifest, live_root)
+            begin_probation("APP", version, paths)
+            reset()
+        elif cmd["type"] == "FIRMWARE":
+            _do_firmware_update(cmd, publish_status, wdt, reset)
+    except OtaError as e:
+        print("OTA fehlgeschlagen:", e)
+        publish_status("FAILED", version, 0, str(e))
+        _rmtree(OTA_STAGING_DIR)
+    except Exception as e:
+        print("OTA unerwarteter Fehler:", e)
+        publish_status("FAILED", version, 0, str(e))
+        _rmtree(OTA_STAGING_DIR)
+    finally:
+        _busy = False
+        gc.collect()
+
+
+def _do_firmware_update(cmd, publish_status, wdt=None, reset=_default_reset):
+    """Platzhalter – vollständig implementiert in Task 9."""
+    raise OtaError("Firmware-OTA noch nicht implementiert")
