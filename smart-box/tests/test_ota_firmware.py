@@ -1,6 +1,9 @@
 from tests import _stubs
+import os
 import json
 import hashlib
+import shutil
+import tempfile
 import unittest
 import ota
 
@@ -8,6 +11,9 @@ import ota
 class OtaFirmwareTest(unittest.TestCase):
     def setUp(self):
         ota._busy = False
+        # OTA-Zustand isolieren, damit begin_probation nicht ins echte userconfig/ schreibt
+        self.root = tempfile.mkdtemp()
+        ota.OTA_STATE_PATH = os.path.join(self.root, "ota_state.json")
         _stubs.esp32.Partition.booted = []
         _stubs.esp32.Partition.written = 0
         self.statuses = []
@@ -17,6 +23,7 @@ class OtaFirmwareTest(unittest.TestCase):
 
     def tearDown(self):
         ota._busy = False
+        shutil.rmtree(self.root, ignore_errors=True)
 
     def _publish(self, phase, version, progress=0, detail=""):
         self.statuses.append(phase)
