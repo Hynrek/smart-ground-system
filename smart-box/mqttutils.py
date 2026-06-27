@@ -28,6 +28,7 @@ _mqtt_port   = 1883
 _mqtt_client = None     # Aktive persistente MQTT-Verbindung
 _known_devices = set()  # Autorisierte Geräte-IDs
 _blocked_devices = {}   # Admin-blockierte Geräte: device_id -> ADMIN_BLOCK_TOKEN
+_wdt = None             # vom main gesetzt, für OTA-Download-Watchdog-Feeding
 
 # Firmware-Konfiguration einmalig beim Modulstart laden – Version ändert sich nie zur Laufzeit
 _firmware_config = None
@@ -101,6 +102,12 @@ def save_device_config(devices):
         print("Gerätekonfiguration gespeichert ({} Gerät(e)).".format(len(devices)))
     except OSError as e:
         print("Fehler beim Speichern der Gerätekonfiguration:", e)
+
+
+def set_watchdog(wdt):
+    """Reicht den Watchdog aus main.py ins MQTT-Modul, damit OTA ihn füttern kann."""
+    global _wdt
+    _wdt = wdt
 
 
 # =============================================================================
@@ -270,6 +277,15 @@ def message_callback(topic, msg):
             _handle_config(msg)
             return
 
+        if topic_str.endswith("/ota"):
+            import ota
+            ota.handle_command(
+                msg,
+                lambda phase, version, progress=0, detail="":
+                    publish_ota_status(_client_id, phase, version, progress, detail),
+                _wdt)
+            return
+
         # --- Befehl parsen ---
         try:
             data = json.loads(msg)
@@ -354,6 +370,7 @@ def connect_mqtt(client_id, mqtt_broker, port=1883):
 
     command_topic = "smartboxes/{}/command".format(client_id)
     config_topic  = "smartboxes/{}/config".format(client_id)
+    ota_topic     = "smartboxes/{}/ota".format(client_id)
 
     try:
         client = MQTTClient(client_id, mqtt_broker, port=port, keepalive=60)
@@ -364,8 +381,9 @@ def connect_mqtt(client_id, mqtt_broker, port=1883):
         client.connect()
         client.subscribe(command_topic)
         client.subscribe(config_topic)
+        client.subscribe(ota_topic)
         _mqtt_client = client  # Globale Referenz für ACK/Discovery-Publishes
-        print("MQTT verbunden. Abonniert:", command_topic, "und", config_topic)
+        print("MQTT verbunden. Abonniert:", command_topic, ",", config_topic, "und", ota_topic)
         return client
     except Exception as e:
         print("MQTT-Verbindung fehlgeschlagen:", e)
@@ -454,4 +472,26 @@ def publish_heartbeat(client_id):
         return True
     except Exception as e:
         print("Heartbeat fehlgeschlagen:", e)
+        return False
+
+
+def publish_ota_status(client_id, phase, version, progress=0, detail=""):
+    """
+    Meldet den OTA-Fortschritt an das Backend.
+
+    Topic:   smartboxes/{mac}/ota/status
+    Payload: { "version", "phase", "progress", "detail" }
+    """
+    if _mqtt_client is None:
+        print("MQTT-Verbindung nicht verfügbar – OTA-Status nicht möglich.")
+        return False
+    try:
+        topic = "smartboxes/{}/ota/status".format(client_id)
+        payload = json.dumps({"version": version, "phase": phase,
+                              "progress": progress, "detail": detail})
+        _mqtt_client.publish(topic, payload)
+        print("OTA-Status gesendet:", phase, version)
+        return True
+    except Exception as e:
+        print("OTA-Status Fehler:", e)
         return False
