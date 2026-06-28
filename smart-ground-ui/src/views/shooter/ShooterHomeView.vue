@@ -14,7 +14,7 @@
 
     <!-- Greeting -->
     <div class="greeting">
-      <h1 class="greeting-title">Hallo2, {{ firstName }}</h1>
+      <h1 class="greeting-title">Hallo, {{ firstName }}</h1>
       <p class="greeting-sub">Was möchtest du tun?</p>
     </div>
 
