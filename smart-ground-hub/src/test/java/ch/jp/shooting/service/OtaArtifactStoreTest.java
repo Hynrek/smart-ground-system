@@ -74,4 +74,23 @@ class OtaArtifactStoreTest {
         assertThatThrownBy(() -> store.readAppFile("9.9", "manifest.json"))
             .isInstanceOf(InvalidOtaArtifactException.class);
     }
+
+    @Test
+    void rejectsInvalidVersion(@TempDir Path dir) {
+        OtaArtifactStore store = new OtaArtifactStore(dir.toString());
+        assertThatThrownBy(() -> store.storeFirmwareImage("../evil", new byte[]{1}))
+            .isInstanceOf(InvalidOtaArtifactException.class);
+        assertThatThrownBy(() -> store.storeAppBundle("../firmware", zip("main.py", new byte[]{1})))
+            .isInstanceOf(InvalidOtaArtifactException.class);
+    }
+
+    @Test
+    void reuploadReplacesStaleFiles(@TempDir Path dir) throws Exception {
+        OtaArtifactStore store = new OtaArtifactStore(dir.toString());
+        store.storeAppBundle("0.7", zip("old.py", new byte[]{1}));
+        store.storeAppBundle("0.7", zip("main.py", new byte[]{2}));
+        assertThatThrownBy(() -> store.readAppFile("0.7", "files/old.py"))
+            .isInstanceOf(InvalidOtaArtifactException.class);
+        assertThat(store.readAppFile("0.7", "files/main.py")).isEqualTo(new byte[]{2});
+    }
 }
