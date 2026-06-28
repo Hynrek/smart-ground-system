@@ -18,16 +18,19 @@ public class SmartBoxMqttRouter implements MessageHandler {
     private final SmartBoxStatusHandler         statusHandler;
     private final SmartBoxConfigAckHandler      configAckHandler;
     private final SmartBoxDeviceExecutedHandler deviceExecutedHandler;
+    private final SmartBoxOtaStatusHandler      otaStatusHandler;
 
     public SmartBoxMqttRouter(
             SmartBoxDiscoveryHandler discoveryHandler,
             SmartBoxStatusHandler statusHandler,
             SmartBoxConfigAckHandler configAckHandler,
-            SmartBoxDeviceExecutedHandler deviceExecutedHandler) {
+            SmartBoxDeviceExecutedHandler deviceExecutedHandler,
+            SmartBoxOtaStatusHandler otaStatusHandler) {
         this.discoveryHandler      = discoveryHandler;
         this.statusHandler         = statusHandler;
         this.configAckHandler      = configAckHandler;
         this.deviceExecutedHandler = deviceExecutedHandler;
+        this.otaStatusHandler      = otaStatusHandler;
     }
 
     @Override
@@ -40,6 +43,8 @@ public class SmartBoxMqttRouter implements MessageHandler {
 
         if (topic.endsWith("/discovery")) {
             discoveryHandler.handleMessage(message);
+        } else if (topic.endsWith("/ota/status")) {     // VOR /status prüfen!
+            otaStatusHandler.handleMessage(message);
         } else if (topic.endsWith("/status")) {
             statusHandler.handleMessage(message);
         } else if (topic.endsWith("/config/ack")) {
