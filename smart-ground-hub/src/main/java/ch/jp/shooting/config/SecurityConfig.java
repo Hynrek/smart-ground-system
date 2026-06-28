@@ -43,6 +43,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/login").permitAll()
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/h2-console/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
+                // Box-zugewandte OTA-Downloads: die SmartBox hat kein JWT (nur lesende GETs)
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/ota/app/**", "/api/ota/firmware/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
