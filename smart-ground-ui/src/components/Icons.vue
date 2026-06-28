@@ -76,6 +76,8 @@ const iconPaths = {
   logout: 'M10 2H6a2 2 0 00-2 2v8a2 2 0 002 2h4M11 6l3-3m0 0l-3-3m3 3H7',
   record: 'M8 4.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z',
   moreH: 'M3.5 8a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm4.5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm4.5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3z',
+  award: 'M3 2h10l-1 6c0 1.5-2 2.5-4 2.5S4 9.5 4 8L3 2zm5 8.5V13M5 13h6M1 4h2M13 4h2',
+  clock: 'M8 2a6 6 0 100 12A6 6 0 008 2zm0 2.5V8l2.5 2.5',
 };
 
 const iconPath = computed(() => iconPaths[props.icon] || '');

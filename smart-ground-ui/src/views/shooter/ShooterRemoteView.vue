@@ -1,5 +1,14 @@
 ﻿<template>
-  <div class="shooter-remote" :class="[`mode--${store.mode}`, { 'session--erfassen': store.sessionMode === 'recording' }]">
+  <div
+    class="shooter-remote"
+    :class="[
+      `mode--${store.mode}`,
+      {
+        'session--erfassen': store.sessionMode === 'recording',
+        'session--verzoegert': store.sessionMode === 'delayed',
+      },
+    ]"
+  >
     <!-- Header: [← Back + range name (tablet)] [Lock | Notfall] [Mode Badge] -->
     <div class="page-header">
       <!-- Left: back + range name on tablet -->
@@ -11,8 +20,19 @@
         <span v-if="rotteName" class="rotte-badge">{{ rotteName }}</span>
       </div>
 
-      <!-- Center: Lock + Notfall (truly centered) -->
+      <!-- Center: [Verzögerung] Lock + Notfall (truly centered) -->
       <div class="header-center">
+        <!-- Verzögert: delay-timer button (left of lock, in view-mode color) -->
+        <button
+          v-if="store.sessionMode === 'delayed'"
+          class="delay-btn"
+          :class="{ 'is-counting': queuedIds.length > 0 }"
+          title="Verzögerung einstellen"
+          @click="delayModalOpen = true"
+        >
+          <Icons icon="clock" :size="14" />
+          <span>{{ store.delaySeconds }}s</span>
+        </button>
         <button class="icon-btn" title="Stand reservieren (Mock)">
           <Icons icon="lock" :size="15" />
         </button>
@@ -62,9 +82,18 @@
           <span class="option-name">Erfassen</span>
           <span v-if="store.sessionMode === 'recording'" class="option-tag option-tag--erfassen">Aktiv</span>
         </button>
-        <button class="mode-option mode-option--soon" disabled>
+        <button
+          class="mode-option"
+          :class="{ 'is-active': store.sessionMode === 'delayed' }"
+          @click="setSessionMode('delayed')"
+        >
           <span class="option-dot option-dot--verzoegert" />
           <span class="option-name">Verzögert</span>
+          <span v-if="store.sessionMode === 'delayed'" class="option-tag option-tag--verzoegert">Aktiv</span>
+        </button>
+        <button class="mode-option mode-option--soon" disabled>
+          <span class="option-dot option-dot--rufausloesung" />
+          <span class="option-name">Rufauslösung</span>
           <span class="option-tag option-tag--soon">Demnächst</span>
         </button>
       </div>
@@ -98,7 +127,10 @@
         >
           <div class="btn-glow" />
           <div class="btn-icon-wrap">
-            <span class="btn-letter" :style="{ color: iconColor(position) }">
+            <!-- Verzögert: countdown ring + remaining seconds over the queued position -->
+            <div v-if="isQueued(position)" class="btn-countdown-ring" :style="countdownRingStyle" />
+            <span v-if="isQueued(position)" class="btn-countdown-num">{{ countdownLabel }}</span>
+            <span v-else class="btn-letter" :style="{ color: iconColor(position) }">
               {{ position.label }}
             </span>
             <span class="btn-position-num">{{ idx + 1 }}</span>
@@ -147,6 +179,36 @@
 
     <!-- Flyout panel -->
     <ShooterFlyoutPanel />
+
+    <!-- Verzögert: delay-config modal (slider 1–10 s) -->
+    <Transition name="delay-modal">
+      <div v-if="delayModalOpen" class="delay-modal-backdrop" @click.self="delayModalOpen = false">
+        <div class="delay-modal" role="dialog" aria-modal="true" aria-labelledby="delay-modal-title">
+          <div class="delay-modal-head">
+            <h2 id="delay-modal-title" class="delay-modal-title">Verzögerung</h2>
+            <button class="delay-modal-close" title="Schliessen" @click="delayModalOpen = false">
+              <Icons icon="x" :size="14" />
+            </button>
+          </div>
+          <p class="delay-modal-hint">Zeit zwischen Tastendruck und Auslösung des Werfers.</p>
+          <div class="delay-value">{{ draftDelay }}<span class="delay-value-unit">s</span></div>
+          <input
+            v-model.number="draftDelay"
+            class="delay-slider"
+            type="range"
+            min="1"
+            max="10"
+            step="1"
+            aria-label="Verzögerung in Sekunden"
+          />
+          <div class="delay-scale">
+            <span>1s</span>
+            <span>10s</span>
+          </div>
+          <button class="delay-save-btn" @click="saveDelay">Speichern</button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -236,11 +298,14 @@ const isRecordingActive = computed(
 );
 
 // ── Mode badge ─────────────────────────────────────
-const modeBadgeLabel = computed(() =>
-  store.sessionMode === 'recording' ? 'Erfassen' : 'Schiessen'
-)
+const modeBadgeLabel = computed(() => {
+  if (store.sessionMode === 'recording') return 'Erfassen';
+  if (store.sessionMode === 'delayed') return 'Verzögert';
+  return 'Schiessen';
+})
 const modeBadgeClass = computed(() => ({
   'mode-badge--recording': store.sessionMode === 'recording',
+  'mode-badge--delayed': store.sessionMode === 'delayed',
 }))
 
 // ── Range & positions ──────────────────────────────
@@ -264,8 +329,102 @@ const firingIds = ref(new Set());
 const firedIds = ref(new Set());
 const errorIds = ref(new Set());
 
+// ── Verzögert (delayed mode) ───────────────────────
+// Delay-config modal.
+const delayModalOpen = ref(false);
+const draftDelay = ref(store.delaySeconds);
+
+watch(delayModalOpen, (open) => {
+  if (open) draftDelay.value = store.delaySeconds;
+});
+
+const saveDelay = () => {
+  store.setDelaySeconds(draftDelay.value);
+  delayModalOpen.value = false;
+};
+
+// Command queue — only ONE command may be queued at a time. While the countdown
+// runs, every other button is locked; the queued button(s) stay tappable to abort.
+const queuedIds = ref([]);
+const queueTotalMs = ref(0);
+const queueRemainingMs = ref(0);
+let queueTimeout = null;
+let queueInterval = null;
+
+const clearQueueTimers = () => {
+  if (queueTimeout) { clearTimeout(queueTimeout); queueTimeout = null; }
+  if (queueInterval) { clearInterval(queueInterval); queueInterval = null; }
+};
+
+const cancelQueue = () => {
+  clearQueueTimers();
+  queuedIds.value = [];
+  queueRemainingMs.value = 0;
+  queueTotalMs.value = 0;
+};
+
+const scheduleDelayedFire = (ids, fireFn) => {
+  if (queuedIds.value.length) return; // one command at a time
+  const totalMs = store.delaySeconds * 1000;
+  const startedAt = Date.now();
+  queuedIds.value = ids;
+  queueTotalMs.value = totalMs;
+  queueRemainingMs.value = totalMs;
+  queueInterval = setInterval(() => {
+    queueRemainingMs.value = Math.max(0, totalMs - (Date.now() - startedAt));
+  }, 50);
+  queueTimeout = setTimeout(async () => {
+    clearQueueTimers();
+    queuedIds.value = [];
+    queueRemainingMs.value = 0;
+    queueTotalMs.value = 0;
+    await fireFn();
+  }, totalMs);
+};
+
+const isQueued = (position) => queuedIds.value.includes(position.id);
+const countdownLabel = computed(() => `${Math.ceil(queueRemainingMs.value / 1000)}s`);
+const countdownRingStyle = computed(() => {
+  const pct = queueTotalMs.value ? (queueRemainingMs.value / queueTotalMs.value) * 360 : 0;
+  return {
+    background: `conic-gradient(var(--delay-color, #EF9F27) ${pct}deg, rgba(255,255,255,0.12) ${pct}deg)`,
+  };
+});
+
+const handleDelayedTap = (position) => {
+  // A command is already queued: tapping the queued position aborts it; the
+  // others are locked (isPositionDisabled) so they never reach here.
+  if (queuedIds.value.length) {
+    if (isQueued(position)) cancelQueue();
+    return;
+  }
+  if (store.mode === 'pair' || store.mode === 'a_schuss') {
+    if (!store.throwPairPending) {
+      store.throwPairPending = { id: position.id, alias: position.device?.alias ?? position.label };
+    } else if (store.throwPairPending.id === position.id) {
+      store.throwPairPending = null;
+    } else {
+      const pendingId = store.throwPairPending.id;
+      store.throwPairPending = null;
+      scheduleDelayedFire([pendingId, position.id], () => firePairPositions(pendingId, position.id));
+    }
+    return;
+  }
+  scheduleDelayedFire([position.id], () => fireSinglePosition(position.id));
+};
+
+// Abort a pending countdown whenever delayed mode is left or the range is locked.
+watch(() => store.sessionMode, () => cancelQueue());
+watch(isLocked, (locked) => { if (locked) cancelQueue(); });
+onUnmounted(() => cancelQueue());
+
 const handlePositionTap = async (position) => {
   if (isPositionDisabled(position)) return;
+
+  if (store.sessionMode === 'delayed') {
+    handleDelayedTap(position);
+    return;
+  }
 
   if (store.sessionMode === 'recording' && passeStore.passeMode) {
     passeStore.addStep(position.id, position, position.label);
@@ -370,6 +529,9 @@ const isPositionDisabled = (position) => {
   if (position.device.blocked || position.device.healthy === false) return true;
   if (isLocked.value) return true;
   if (!store.reservedByMe) return true;
+  // Verzögert: while a command is queued, lock every button except the queued
+  // one(s) — those stay tappable so the shooter can abort the countdown.
+  if (queuedIds.value.length) return !isQueued(position);
   if (firingIds.value.has(position.id)) return true;
   return false;
 };
@@ -387,6 +549,7 @@ const positionBtnClass = (position) => ({
   'device-btn--pair-pending':
     isThrowPairPending(position) ||
     (passeStore.passeMode && passeStore.pairPending?.id === position.id),
+  'device-btn--queued': isQueued(position),
   'device-btn--inactive': !store.reservedByMe && !isLocked.value,
 });
 
@@ -401,6 +564,8 @@ const chipClass = (position) => {
   if (!position.device) return 'chip--no-device';
   if (position.device.blocked || isLocked.value) return 'chip--blocked';
   if (!store.reservedByMe) return 'chip--free';
+  if (isQueued(position)) return 'chip--queued';
+  if (queuedIds.value.length) return 'chip--waiting';
   if (errorIds.value.has(position.id)) return 'chip--error';
   if (firedIds.value.has(position.id)) return 'chip--fired';
   if (passeStore.recording[position.id]) return 'chip--recording';
@@ -414,6 +579,8 @@ const chipLabel = (position) => {
   if (position.device.blocked) return 'Gesperrt';
   if (isLocked.value) return 'Notfall';
   if (!store.reservedByMe) return 'Frei';
+  if (isQueued(position)) return 'Abbrechen';
+  if (queuedIds.value.length) return 'Warten';
   if (errorIds.value.has(position.id)) return 'Fehler';
   if (firedIds.value.has(position.id)) return 'Ausgelöst';
   if (passeStore.recording[position.id]) return 'Erfasst';
@@ -429,6 +596,9 @@ const chipLabel = (position) => {
 .mode--pair     { --throw-color: #378ADD; --throw-tint: rgba(55, 138, 221, 0.18); --throw-glow: rgba(55, 138, 221, 0.22); }
 .mode--a_schuss { --throw-color: #EF9F27; --throw-tint: rgba(239, 159, 39, 0.18);  --throw-glow: rgba(239, 159, 39, 0.22);  }
 .mode--raffale  { --throw-color: #7F77DD; --throw-tint: rgba(127, 119, 221, 0.18); --throw-glow: rgba(127, 119, 221, 0.22); }
+
+/* Verzögert identity colour (amber), shared by header button, badge, countdown. */
+.shooter-remote { --delay-color: #EF9F27; --delay-text: #FAC775; }
 
 .shooter-remote {
   flex: 1;
@@ -565,6 +735,35 @@ const chipLabel = (position) => {
   color: var(--sg-color-success);
 }
 
+/* Verzögert — delay-timer button (left of lock, view-mode amber) */
+.delay-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  height: 36px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  background: rgba(239, 159, 39, 0.1);
+  border: 1.5px solid rgba(239, 159, 39, 0.35);
+  color: var(--delay-text);
+}
+
+.delay-btn:hover { background: rgba(239, 159, 39, 0.16); }
+.delay-btn:active { transform: scale(0.95); }
+.delay-btn.is-counting { animation: delay-btn-pulse 1s ease-in-out infinite; }
+
+@keyframes delay-btn-pulse {
+  0%, 100% { border-color: rgba(239, 159, 39, 0.35); }
+  50% { border-color: rgba(239, 159, 39, 0.9); }
+}
+
 /* Mode badge button — main session-mode indicator */
 .mode-badge-btn {
   flex-shrink: 0;
@@ -594,6 +793,14 @@ const chipLabel = (position) => {
   background: rgba(252, 129, 129, 0.12);
   color: #fc8181;
 }
+
+.mode-badge-btn.mode-badge--delayed {
+  border-color: rgba(239, 159, 39, 0.45);
+  background: rgba(239, 159, 39, 0.12);
+  color: var(--delay-text);
+}
+
+.mode-badge--delayed .mode-dot { background: var(--delay-color); }
 
 .mode-dot {
   width: 8px;
@@ -665,8 +872,10 @@ const chipLabel = (position) => {
 .option-dot--normal    { background: #48BB78; }
 .option-dot--erfassen  { background: #fc8181; }
 .option-dot--verzoegert { background: #FAC775; }
+.option-dot--rufausloesung { background: #56C8D8; }
 
-.mode-option.is-active .option-dot--erfassen {
+.mode-option.is-active .option-dot--erfassen,
+.mode-option.is-active .option-dot--verzoegert {
   animation: mode-dot-pulse 1s ease-in-out infinite;
 }
 
@@ -689,6 +898,11 @@ const chipLabel = (position) => {
 .option-tag--erfassen {
   background: rgba(252, 129, 129, 0.15);
   color: #fc8181;
+}
+
+.option-tag--verzoegert {
+  background: rgba(239, 159, 39, 0.15);
+  color: var(--delay-text);
 }
 
 .option-tag--soon {
@@ -757,6 +971,10 @@ const chipLabel = (position) => {
 /* Erfassen: red */
 .session--erfassen .device-btn:not(:disabled) {
   border-color: rgba(252, 129, 129, 0.4);
+}
+/* Verzögert: amber */
+.session--verzoegert .device-btn:not(:disabled) {
+  border-color: rgba(239, 159, 39, 0.4);
 }
 
 /* ── Bottom bar active tab follows throw-type color ─ */
@@ -835,6 +1053,13 @@ const chipLabel = (position) => {
   border-color: color-mix(in srgb, var(--throw-color) 55%, transparent) !important;
 }
 
+/* Verzögert: the queued (counting-down) button — amber, stays tappable to abort */
+.device-btn--queued {
+  background: rgba(239, 159, 39, 0.12) !important;
+  border-color: rgba(239, 159, 39, 0.6) !important;
+  opacity: 1 !important;
+}
+
 @keyframes fired-pulse {
   0% { transform: scale(1); }
   40% { transform: scale(0.95); }
@@ -876,6 +1101,26 @@ const chipLabel = (position) => {
   letter-spacing: -0.5px;
 }
 
+/* Verzögert: circular countdown ring filling the icon-wrap (set inline via
+   conic-gradient), with a punched-out centre so it reads as a ring. */
+.btn-countdown-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  -webkit-mask: radial-gradient(circle, transparent 56%, #000 58%);
+  mask: radial-gradient(circle, transparent 56%, #000 58%);
+  transition: background 0.05s linear;
+  pointer-events: none;
+}
+
+.btn-countdown-num {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--delay-text);
+  font-variant-numeric: tabular-nums;
+  z-index: 1;
+}
+
 .btn-position-num {
   position: absolute;
   bottom: 2px;
@@ -914,6 +1159,8 @@ const chipLabel = (position) => {
 .chip--fired { background: rgba(72,187,120,0.2); color: var(--sg-color-success); }
 .chip--recording { background: var(--sg-accent-tint); color: var(--sg-accent); }
 .chip--pending { background: color-mix(in srgb, var(--throw-color) 18%, transparent); color: var(--throw-color); }
+.chip--queued { background: rgba(239, 159, 39, 0.18); color: var(--delay-text); }
+.chip--waiting { background: rgba(255, 255, 255, 0.06); color: rgba(250, 199, 117, 0.55); }
 .chip--error { background: rgba(252,129,129,0.15); color: var(--sg-color-danger-bg); }
 .chip--blocked { background: rgba(252,129,129,0.12); color: rgba(252,129,129,0.7); }
 .chip--free { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.35); }
@@ -977,4 +1224,120 @@ const chipLabel = (position) => {
 
 .chip--no-device { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.2); }
 .device-btn--no-device { opacity: 0.3; }
+
+/* ── Verzögert: delay-config modal ───────────────── */
+.delay-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.delay-modal {
+  width: min(100%, 340px);
+  background: rgba(20, 20, 30, 0.98);
+  border: 1px solid rgba(239, 159, 39, 0.3);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: var(--sg-shadow-md);
+}
+
+.delay-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.delay-modal-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.delay-modal-close {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.delay-modal-close:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+.delay-modal-hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.4;
+}
+
+.delay-value {
+  text-align: center;
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--delay-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.delay-value-unit {
+  font-size: 22px;
+  font-weight: 700;
+  margin-left: 2px;
+  color: rgba(250, 199, 117, 0.6);
+}
+
+.delay-slider {
+  width: 100%;
+  margin: 18px 0 6px;
+  accent-color: var(--delay-color);
+  cursor: pointer;
+}
+
+.delay-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 18px;
+}
+
+.delay-save-btn {
+  width: 100%;
+  padding: 13px 0;
+  border: none;
+  border-radius: 12px;
+  background: rgba(239, 159, 39, 0.18);
+  border: 1.5px solid rgba(239, 159, 39, 0.45);
+  color: var(--delay-text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.delay-save-btn:hover { background: rgba(239, 159, 39, 0.26); }
+.delay-save-btn:active { transform: scale(0.97); }
+
+.delay-modal-enter-active,
+.delay-modal-leave-active { transition: opacity 0.15s ease; }
+.delay-modal-enter-from,
+.delay-modal-leave-to { opacity: 0; }
+.delay-modal-enter-active .delay-modal { transition: transform 0.15s ease; }
+.delay-modal-enter-from .delay-modal { transform: scale(0.95); }
 </style>
