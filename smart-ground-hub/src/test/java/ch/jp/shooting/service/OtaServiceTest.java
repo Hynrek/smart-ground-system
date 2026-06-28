@@ -1,8 +1,10 @@
 package ch.jp.shooting.service;
 
+import ch.jp.shooting.config.OtaPublishService;
 import ch.jp.shooting.model.OtaRelease;
 import ch.jp.shooting.model.OtaType;
 import ch.jp.shooting.repository.OtaReleaseRepository;
+import ch.jp.shooting.repository.SmartBoxRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -18,6 +20,8 @@ class OtaServiceTest {
 
     @Mock OtaArtifactStore store;
     @Mock OtaReleaseRepository repository;
+    @Mock SmartBoxRepository smartBoxRepository;
+    @Mock OtaPublishService publishService;
     @InjectMocks OtaService service;
 
     @Test
