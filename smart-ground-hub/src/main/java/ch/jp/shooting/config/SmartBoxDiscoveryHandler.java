@@ -27,6 +27,7 @@ public class SmartBoxDiscoveryHandler implements MessageHandler {
     record DiscoveryPayload(
         String mac,
         @Nullable String ip,
+        @Nullable String appVersion,
         @Nullable String firmwareVersion,
         @Nullable String boxType
     ) {}
@@ -78,6 +79,10 @@ public class SmartBoxDiscoveryHandler implements MessageHandler {
 
         box.setStatus(SmartBoxStates.ONLINE);
         box.setLastSeen(Instant.now());
+
+        if (payload.appVersion() != null) {
+            box.setAppVersion(payload.appVersion());
+        }
 
         if (payload.firmwareVersion() != null) {
             box.setFirmwareVersion(payload.firmwareVersion());

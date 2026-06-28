@@ -39,6 +39,31 @@ public class SmartBox {
     @Nullable
     private String firmwareVersion;
 
+    @Column(name = "app_version")
+    @Nullable
+    private String appVersion;
+
+    // Letzter über smartboxes/{mac}/ota/status gemeldeter OTA-Zustand
+    @Column(name = "ota_phase")
+    @Nullable
+    private String otaPhase;
+
+    @Column(name = "ota_version")
+    @Nullable
+    private String otaVersion;
+
+    @Column(name = "ota_progress")
+    @Nullable
+    private Integer otaProgress;
+
+    @Column(name = "ota_detail")
+    @Nullable
+    private String otaDetail;
+
+    @Column(name = "ota_updated_at")
+    @Nullable
+    private Instant otaUpdatedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "firmware_config_id")
     @Nullable
@@ -66,6 +91,18 @@ public class SmartBox {
     public void setLastSeen(@Nullable Instant lastSeen) { this.lastSeen = lastSeen; }
     public @Nullable String getFirmwareVersion() { return firmwareVersion; }
     public void setFirmwareVersion(@Nullable String firmwareVersion) { this.firmwareVersion = firmwareVersion; }
+    public @Nullable String getAppVersion() { return appVersion; }
+    public void setAppVersion(@Nullable String appVersion) { this.appVersion = appVersion; }
+    public @Nullable String getOtaPhase() { return otaPhase; }
+    public void setOtaPhase(@Nullable String otaPhase) { this.otaPhase = otaPhase; }
+    public @Nullable String getOtaVersion() { return otaVersion; }
+    public void setOtaVersion(@Nullable String otaVersion) { this.otaVersion = otaVersion; }
+    public @Nullable Integer getOtaProgress() { return otaProgress; }
+    public void setOtaProgress(@Nullable Integer otaProgress) { this.otaProgress = otaProgress; }
+    public @Nullable String getOtaDetail() { return otaDetail; }
+    public void setOtaDetail(@Nullable String otaDetail) { this.otaDetail = otaDetail; }
+    public @Nullable Instant getOtaUpdatedAt() { return otaUpdatedAt; }
+    public void setOtaUpdatedAt(@Nullable Instant otaUpdatedAt) { this.otaUpdatedAt = otaUpdatedAt; }
     public @Nullable FirmwareConfig getFirmwareConfig() { return firmwareConfig; }
     public void setFirmwareConfig(@Nullable FirmwareConfig firmwareConfig) { this.firmwareConfig = firmwareConfig; }
     public @Nullable String getMqttUsername() { return mqttUsername; }
