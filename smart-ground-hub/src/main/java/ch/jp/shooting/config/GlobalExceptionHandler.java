@@ -173,6 +173,22 @@ public class GlobalExceptionHandler {
         return detail;
     }
 
+    // ── OTA Exceptions ──
+
+    @ExceptionHandler(OtaReleaseNotFoundException.class)
+    ProblemDetail handleOtaReleaseNotFound(OtaReleaseNotFoundException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        detail.setType(URI.create("/errors/ota-release-not-found"));
+        return detail;
+    }
+
+    @ExceptionHandler(InvalidOtaArtifactException.class)
+    ProblemDetail handleInvalidOtaArtifact(InvalidOtaArtifactException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        detail.setType(URI.create("/errors/invalid-ota-artifact"));
+        return detail;
+    }
+
     // ── Play/Passe Exceptions ──
 
     @ExceptionHandler(BlockStateException.class)
