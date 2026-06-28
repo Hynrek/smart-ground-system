@@ -243,7 +243,9 @@ When players share a main score, a **Stechen** (shoot-off) breaks the tie. The `
 ### IoT / Device tables
 ```
 smart_boxes       id, mac_address*, alias, status, last_seen, firmware_version,
+                  app_version, ota_phase, ota_version, ota_progress, ota_detail, ota_updated_at,
                   mqtt_username, config_synced, firmware_config_id→firmware_configs
+ota_releases      id, type(APP|FIRMWARE), version, sha256, size_bytes, created_at  UNIQUE(type, version)
 firmware_configs  id, version, box_type  UNIQUE(version, box_type)
 signal_types      id, firmware_config_id, communication_direction, device, command
 device_type_groups id, name*
@@ -333,9 +335,13 @@ smartboxes/{mac}/config                     # Backend → SmartBox: full device/
 smartboxes/{mac}/config/ack                 # SmartBox → Backend: confirm config received
 smartboxes/{mac}/command                    # Backend → SmartBox: fire a device
 smartboxes/{mac}/device/{deviceId}/executed # SmartBox → Backend: command executed ACK
+smartboxes/{mac}/ota                        # Backend → SmartBox: OTA update trigger
+smartboxes/{mac}/ota/status                 # SmartBox → Backend: OTA progress
 ```
 
 Do not hardcode topic strings outside of `SmartBoxMqttRouter` and its handlers.
+
+> **Routing note:** `smartboxes/{mac}/ota/status` also ends with `/status`, so `SmartBoxMqttRouter` checks `endsWith("/ota/status")` **before** `endsWith("/status")`. The inbound adapter subscribes `smartboxes/+/ota/status` (`MqttConfig.TOPIC_OTA_STATUS`), handled by `SmartBoxOtaStatusHandler`.
 
 ### Architecture
 ```
@@ -350,9 +356,19 @@ Service layer → Database
 
 ### SmartBox payloads
 
-Discovery (published to `smartboxes/discovery` on boot):
+Discovery (published to `smartboxes/discovery` on boot). `appVersion` is the App-Code version (the OTA target the backend compares against); `firmwareVersion` is the MicroPython kernel. The discovery handler stores both on `SmartBox` (`appVersion`, `firmwareVersion`):
 ```json
-{ "mac": "aabbccddeeff", "firmwareVersion": "0.6", "boxType": "pico2w", "ip": "192.168.1.42" }
+{ "mac": "aabbccddeeff", "appVersion": "0.6", "firmwareVersion": "micropython-1.23.0", "boxType": "xiao-esp32s3", "ip": "192.168.1.42" }
+```
+
+OTA trigger (published to `smartboxes/{mac}/ota` by `OtaPublishService`):
+```json
+{ "type": "APP", "version": "0.7", "url": "http://{ota.base-url}/api/ota/app/0.7", "sha256": "<manifest-or-image-hash>", "size": 12345 }
+```
+
+OTA status (published by the box to `smartboxes/{mac}/ota/status`, handled by `SmartBoxOtaStatusHandler`):
+```json
+{ "version": "0.7", "phase": "DOWNLOADING", "progress": 40, "detail": "" }
 ```
 
 Config push (published to `smartboxes/{mac}/config`):
@@ -415,6 +431,8 @@ OK
 - **No controller that declares its own routing.** Controllers must implement the generated interface (e.g. `class FooController implements FooApi`). The interface owns all routing, path variables, and request/response types. Never add `@RequestMapping` on the class, and never add `@GetMapping` / `@PostMapping` / `@PutMapping` / `@PatchMapping` / `@DeleteMapping` on individual methods to bypass or supplement the spec.
 - Never modify generated files under `ch.jp.smartground.*`
 
+> **The single documented exception: `OtaDownloadController`.** It uses plain Spring `@GetMapping` (incl. a `{*path}` catch-all) and has **no** OpenAPI entry. Justification: it streams binary/file content (manifest, nested App-Code files, firmware `.bin`) to the **unauthenticated firmware**, and the multi-segment catch-all path cannot be expressed in OpenAPI codegen. It is read-only GETs and permitted without JWT in `SecurityConfig` (`/api/ota/app/**`, `/api/ota/firmware/**`). The admin-facing OTA endpoints (`OtaController`) remain fully contract-first. Do not add further exceptions.
+
 **Practical checklist before committing a controller:**
 1. The endpoint is declared in `openapi.yaml` ✅
 2. `./mvnw generate-sources` has been run and the interface exists in `target/generated-sources/openapi/ch/jp/smartground/api/` ✅
@@ -432,6 +450,8 @@ OK
 | `RoleController` | GET /api/roles | List dynamic roles (ADMIN only) |
 | `GuestController` | GET/POST/DELETE /api/guests | Guest shooter management |
 | `SmartBoxController` | GET /api/smart-boxes, PATCH alias, POST push-config | SmartBox registration and management |
+| `OtaController` | GET/POST /api/ota/releases, POST/GET /api/smart-boxes/{id}/ota | OTA release upload + listing, update trigger, status (implements `OtaApi`) |
+| `OtaDownloadController` | GET /api/ota/app/{version}/manifest.json, /files/**, /api/ota/firmware/{version} | Box-facing artifact download (**not** OpenAPI — see exception note) |
 | `DeviceController` | GET/POST/PATCH/DELETE /api/devices, POST /api/devices/{id}/command | Device CRUD and MQTT command routing |
 | `DeviceTypeController` | GET /api/device-types | Device type registry |
 | `DeviceTypeGroupController` | GET /api/device-type-groups | Device type group listing |
@@ -483,6 +503,8 @@ All exceptions are mapped in `GlobalExceptionHandler` and return `ProblemDetail`
 | `DeviceNotFoundException` | 404 | `/errors/device-not-found` |
 | `DeviceTemplateNotFoundException` | 404 | `/errors/device-type-not-found` |
 | `RangeNotFoundException` | 404 | `/errors/range-not-found` |
+| `OtaReleaseNotFoundException` | 404 | `/errors/ota-release-not-found` |
+| `InvalidOtaArtifactException` | 400 | `/errors/invalid-ota-artifact` |
 | `SmartBoxNotFoundException` | 404 | `/errors/smartbox-not-found` |
 | `SessionNotFoundException` | 404 | `/errors/session-not-found` |
 | `SerieNotFoundException` | 404 | `/errors/serie-not-found` |
@@ -617,6 +639,7 @@ Update the relevant section of this file (e.g. the domain section, DB schema, co
 - Career stats
 - WebSocket (STOMP/SockJS) at `/ws/shooting`
 - OpenAPI v3.0 contract (contract-first, generated interfaces)
+- **OTA update delivery** (implemented 2026-06-28) — admin uploads an App-Code zip / firmware `.bin` (`POST /api/ota/releases`), stored + hashed + manifest-generated by `OtaArtifactStore` and registered as an `OtaRelease`. Admin triggers an update (`POST /api/smart-boxes/{id}/ota`), which `OtaPublishService` publishes to `smartboxes/{mac}/ota`. The box pulls artifacts from `OtaDownloadController` (unauthenticated) and reports progress on `smartboxes/{mac}/ota/status` (→ `SmartBoxOtaStatusHandler` → `SmartBox.ota*` fields, read via `GET /api/smart-boxes/{id}/ota`). Config: `ota.base-url` (URL the box fetches from), `ota.artifact-dir` (filesystem store).
 
 ### Device Stats (implemented 2026-06-04)
 
@@ -632,7 +655,6 @@ Design decisions:
 - The MQTT ACK topic was previously misconfigured as `smartboxes/+/devices/ack`; corrected to `smartboxes/+/device/+/executed` to match what the firmware actually publishes
 
 ### ❌ Not Yet Implemented
-- OTA firmware update delivery
 - INPUT signal handling end-to-end (sensor → backend → trigger)
 - Multi-SmartBox device assignment (API not exposed)
 - Email / phone verification flows
