@@ -675,10 +675,14 @@ const getStepTooltip = (step) =>
   width: 52px;
   border-left: 1px solid rgba(252, 129, 129, 0.25);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.flyout-panel.shrunk:hover {
-  background: rgba(252, 129, 129, 0.06);
+@media (hover: hover) and (pointer: fine) {
+  .flyout-panel.shrunk:hover {
+    background: rgba(252, 129, 129, 0.06);
+  }
 }
 
 /* ── Header ──────────────────────────────────────── */
@@ -771,15 +775,23 @@ const getStepTooltip = (step) =>
   padding: 8px;
   min-height: 32px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.15s, border-color 0.15s;
   font-family: inherit;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.captured-item:hover {
-  background: rgba(79, 195, 247, 0.2);
-  border-color: rgba(79, 195, 247, 0.4);
-  transform: scale(1.05);
+/* Hover only on true pointer devices — avoids flash-then-snap on touch */
+@media (hover: hover) and (pointer: fine) {
+  .captured-item:hover {
+    background: rgba(79, 195, 247, 0.2);
+    border-color: rgba(79, 195, 247, 0.4);
+  }
+}
+
+.captured-item:active {
+  background: rgba(79, 195, 247, 0.22);
+  border-color: rgba(79, 195, 247, 0.45);
 }
 
 .item-code {

@@ -374,6 +374,9 @@ const isPositionDisabled = (position) => {
   return false;
 };
 
+const isThrowPairPending = (position) =>
+  !passeStore.passeMode && store.throwPairPending?.id === position.id;
+
 const positionBtnClass = (position) => ({
   'device-btn--firing': firingIds.value.has(position.id),
   'device-btn--fired': firedIds.value.has(position.id),
@@ -381,7 +384,9 @@ const positionBtnClass = (position) => ({
   'device-btn--blocked': (position.device?.blocked ?? false) || isLocked.value,
   'device-btn--no-device': !position.device,
   'device-btn--recording': !!passeStore.recording[position.id],
-  'device-btn--pair-pending': passeStore.passeMode && passeStore.pairPending?.id === position.id,
+  'device-btn--pair-pending':
+    isThrowPairPending(position) ||
+    (passeStore.passeMode && passeStore.pairPending?.id === position.id),
   'device-btn--inactive': !store.reservedByMe && !isLocked.value,
 });
 
@@ -399,6 +404,7 @@ const chipClass = (position) => {
   if (errorIds.value.has(position.id)) return 'chip--error';
   if (firedIds.value.has(position.id)) return 'chip--fired';
   if (passeStore.recording[position.id]) return 'chip--recording';
+  if (isThrowPairPending(position)) return 'chip--pending';
   if (passeStore.passeMode && passeStore.pairPending?.id === position.id) return 'chip--pending';
   return 'chip--ready';
 };
@@ -411,6 +417,7 @@ const chipLabel = (position) => {
   if (errorIds.value.has(position.id)) return 'Fehler';
   if (firedIds.value.has(position.id)) return 'Ausgelöst';
   if (passeStore.recording[position.id]) return 'Erfasst';
+  if (isThrowPairPending(position)) return 'Gewählt';
   if (passeStore.passeMode && passeStore.pairPending?.id === position.id) return 'Gewählt';
   return 'Bereit';
 };
@@ -906,7 +913,7 @@ const chipLabel = (position) => {
 .chip--ready { background: rgba(72,187,120,0.15); color: var(--sg-color-success); }
 .chip--fired { background: rgba(72,187,120,0.2); color: var(--sg-color-success); }
 .chip--recording { background: var(--sg-accent-tint); color: var(--sg-accent); }
-.chip--pending { background: rgba(72,187,120,0.15); color: var(--sg-color-success); }
+.chip--pending { background: color-mix(in srgb, var(--throw-color) 18%, transparent); color: var(--throw-color); }
 .chip--error { background: rgba(252,129,129,0.15); color: var(--sg-color-danger-bg); }
 .chip--blocked { background: rgba(252,129,129,0.12); color: rgba(252,129,129,0.7); }
 .chip--free { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.35); }
