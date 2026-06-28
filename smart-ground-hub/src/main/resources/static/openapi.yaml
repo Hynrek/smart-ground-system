@@ -1885,6 +1885,89 @@ paths:
         '404':
           description: Smart box not found
 
+  /api/ota/releases:
+    get:
+      summary: List uploaded OTA releases
+      operationId: listOtaReleases
+      tags: [Ota]
+      responses:
+        '200':
+          description: Releases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OtaReleaseResponse'
+    post:
+      summary: Upload an OTA release (App Code zip or firmware .bin)
+      operationId: uploadOtaRelease
+      tags: [Ota]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [type, version, file]
+              properties:
+                type:
+                  $ref: '#/components/schemas/OtaTypeValue'
+                version:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Release stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtaReleaseResponse'
+        '400':
+          description: Invalid artifact
+
+  /api/smart-boxes/{id}/ota:
+    post:
+      summary: Trigger an OTA update on a smart box
+      operationId: triggerSmartBoxOta
+      tags: [Ota]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerOtaRequest'
+      responses:
+        '202':
+          description: OTA command published
+        '404':
+          description: Smart box or release not found
+    get:
+      summary: Get the latest OTA status reported by a smart box
+      operationId: getSmartBoxOtaStatus
+      tags: [Ota]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OTA status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtaStatusResponse'
+        '404':
+          description: Smart box not found
+
   # ─────────────────────────────────────────────────────────────────────────────
   # Guests
   # ─────────────────────────────────────────────────────────────────────────────
@@ -3436,6 +3519,38 @@ components:
           description: >
             true once the SmartBox has ACK'd the latest config push via
             smartboxes/{mac}/config/ack
+
+    # ───── OTA ────────────────────────────────────────────────────────────────
+
+    OtaTypeValue:
+      type: string
+      enum: [APP, FIRMWARE]
+
+    OtaReleaseResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/OtaTypeValue' }
+        version: { type: string }
+        sha256: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+
+    TriggerOtaRequest:
+      type: object
+      required: [type, version]
+      properties:
+        type: { $ref: '#/components/schemas/OtaTypeValue' }
+        version: { type: string }
+
+    OtaStatusResponse:
+      type: object
+      properties:
+        version: { type: string }
+        phase: { type: string }
+        progress: { type: integer }
+        detail: { type: string }
+        updatedAt: { type: string, format: date-time }
 
     CreateDeviceRequest:
       type: object
