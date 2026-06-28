@@ -155,13 +155,12 @@ const ariaLabel = (step) => {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 22px; height: 100%; padding: 0 6px; font-size: 12px; font-weight: 700;
 }
-/* mode connector glyph ( + / → ) — filled background in the step's mode hue,
-   symbol in black for maximum contrast */
+/* mode connector glyph ( + / → ) — light mode-hue tint background, neutral text */
 .step-chip--split .step-chip__op {
   display: inline-flex; align-items: center; height: 100%; padding: 0 5px;
   font-size: 11px; font-weight: 800;
-  background: var(--mode-glyph, #718096);
-  color: #000;
+  background: var(--mode-glyph-bg, rgba(160, 174, 192, 0.18));
+  color: #718096;
 }
 .half--done { background: rgba(72, 187, 120, 0.16); color: #2f855a; }
 .half--fail { background: rgba(229, 62, 62, 0.14); color: #c53030; }
@@ -171,4 +170,5 @@ const ariaLabel = (step) => {
 :global(.results-view) .step-chip.is-done, :global(.results-view) .half--done { color: #9ae6b4; }
 :global(.results-view) .step-chip.is-fail, :global(.results-view) .half--fail { color: #feb2b2; }
 :global(.results-view) .step-chip.is-pending, :global(.results-view) .half--pending { color: #cbd5e0; }
+:global(.results-view) .step-chip__op { color: #a0aec0; }
 </style>

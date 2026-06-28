@@ -204,7 +204,11 @@ export function modeDotStyle(type) {
 export function modeGlyphVars(type) {
   const m = STEP_MODES[type];
   if (!m) return {};
-  return { '--mode-glyph': m.base, '--mode-glyph-dark': m.badgeText };
+  return {
+    '--mode-glyph': m.base,
+    '--mode-glyph-dark': m.badgeText,
+    '--mode-glyph-bg': hexToRgba(m.base, 0.18),
+  };
 }
 
 /**
