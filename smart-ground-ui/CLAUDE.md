@@ -831,6 +831,20 @@ Global UI and app-level settings.
 - `toggleSidebar()` — Collapse/expand sidebar
 - `showNotification(message, type)` — Queue toast message
 
+#### 16. **otaStore** — OTA Updates
+SmartBox firmware/App-Code OTA: uploaded releases + per-box update status. **api-mode only** (like `smartBoxStore`).
+
+**State:**
+- `releases` — Array of uploaded releases `{ id, type, version, sha256, sizeBytes, createdAt }`
+- `statusByBox` — Map `boxId → { version, phase, progress, detail, updatedAt }` (last reported OTA status)
+- `isLoading`, `uploading`, `error` — Request state
+
+**Actions:**
+- `fetchReleases()` / `uploadRelease({type,version,file})` — list + multipart upload (then refetch)
+- `triggerUpdate(boxId, type, version)` — POST the OTA command, then start polling that box
+- `fetchStatus(boxId)` — read one box's OTA status
+- `startPolling(boxId)` / `stopPolling(boxId)` / `stopAllPolling()` — poll `GET /smart-boxes/{id}/ota` every 3 s; auto-stops at a terminal phase (`APPLIED`/`FAILED`/`ROLLED_BACK`). Views call `stopAllPolling()` on unmount.
+
 ### Vue 3 Composables
 
 The project includes reusable composition functions for common patterns:
@@ -1045,6 +1059,7 @@ All API communication goes through a service layer in `src/services/`. Each serv
 | `competitionService.js` | Competition CRUD | GET /sessions, POST /sessions, PUT /sessions/{id} |
 | `bracketService.js` | Bracket logic & seeding | (calculates locally or calls backend) |
 | `userApi.js` | User management | GET /users, POST /users, DELETE /users/{id} |
+| `otaApi.js` | OTA releases + per-box trigger/status | GET/POST /ota/releases (upload is multipart via `apiUpload`), POST/GET /smart-boxes/{id}/ota |
 | `eventsApi.js` | Placeholder for future STOMP WebSocket client — **not yet implemented, not yet needed** | — |
 | `reservationApi.js` | Range reservations | GET /reservations, POST /reservations |
 
@@ -1236,6 +1251,7 @@ Vue Router config in `src/router/index.js` uses **role-based route guards** to e
 - `/smartboxes` — SmartBox registry and status
 - `/device-type-groups` — Device type category management
 - `/admin/firmware-configs` — Firmware capability registry (admin-only)
+- `/admin/firmware-updates` — OTA release upload + per-box update trigger/status (`MANAGE_RANGES`)
 - `/users` — User account management
 - `/profile` — Current user profile
 - `/player-setup` — Manage registered players/shooters
@@ -1567,6 +1583,7 @@ npm run lint -- --fix
 - ✅ Program/course management (shooter-side)
 - ✅ Responsive design tested at 320px–1920px
 - ✅ Router guards for role-based access
+- ✅ **OTA updates** (`otaApi`, `otaStore`, `/admin/firmware-updates` page + `OtaUpdatePanel` on each SmartBox card): upload App-Code/firmware releases, trigger a per-box update, and watch live progress via 3 s polling (`DOWNLOADING → … → APPLIED/ROLLED_BACK`). Shows the box's `appVersion` if the backend exposes it (degrades to `—` until `SmartBoxResponse.appVersion` is added — a noted 1-line backend follow-up).
 - ✅ **Stechen auto-scoring**: The Stechen Serie is shot on the range kiosk (a "Stechen" section in `ShooterFlyoutPanel`, surfaced via `competitionEventStore.getActiveStechenForRange`). On completion the live run is scored automatically (backend reconcile-on-read); `StechenPanel` light-polls ties and shows a live status — manual score entry was removed.
 
 ### Partially Implemented / Pending
@@ -1577,7 +1594,6 @@ npm run lint -- --fix
 - 🟡 **Program snapshot capture**: Program selection during competition setup doesn't yet snapshot program state to session
 
 ### Not Yet Implemented
-- ❌ OTA firmware updates (separate from this UI)
 - ❌ Multi-box device assignment UI (backend supports; frontend API not exposed)
 - ❌ Advanced filtering & search for large device/user lists
 - ❌ Internationalization (i18n) — all text is English
