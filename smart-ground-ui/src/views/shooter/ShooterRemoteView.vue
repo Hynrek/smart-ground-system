@@ -421,6 +421,7 @@ const armPositions = (ids) => {
 const beginListening = (ids) => {
   rufPhase.value = 'listening';
   startListening(() => {
+    if (rufPhase.value !== 'listening') return;
     if (ids.length === 1) {
       fireSinglePosition(ids[0]);
     } else {
@@ -813,6 +814,7 @@ const chipClass = (position) => {
   if (queuedIds.value.length) return 'chip--waiting';
   if (rufArmedIds.value.includes(position.id) && rufPhase.value === 'listening') return 'chip--listening';
   if (rufArmedIds.value.includes(position.id) && rufPhase.value === 'waiting-pair') return 'chip--pending';
+  // totzeit + listening fallback: ring/pulse provides phase-specific feedback
   if (rufArmedIds.value.includes(position.id)) return 'chip--waiting';
   if (rufArmedIds.value.length > 0 && !rufArmedIds.value.includes(position.id)) return 'chip--waiting';
   if (errorIds.value.has(position.id)) return 'chip--error';
@@ -844,6 +846,7 @@ const chipLabel = (position) => {
   if (queuedIds.value.length) return 'Warten';
   if (rufArmedIds.value.includes(position.id) && rufPhase.value === 'listening') return 'Lauscht';
   if (rufArmedIds.value.includes(position.id) && rufPhase.value === 'waiting-pair') return 'Gewählt';
+  // totzeit + listening fallback: ring/pulse provides phase-specific feedback
   if (rufArmedIds.value.includes(position.id)) return 'Warten';
   if (rufArmedIds.value.length > 0 && !rufArmedIds.value.includes(position.id)) return 'Warten';
   if (errorIds.value.has(position.id)) return 'Fehler';
