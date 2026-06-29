@@ -1,6 +1,8 @@
+/* global setInterval, clearInterval */
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import * as otaApi from '@/services/otaApi.js';
+import { isTerminalPhase } from '@/constants/ota.js';
 
 export const useOtaStore = defineStore('ota', () => {
   // ── State ──
@@ -41,6 +43,54 @@ export const useOtaStore = defineStore('ota', () => {
     }
   };
 
+  // ── Actions: per-box status + polling ──
+  const fetchStatus = async (boxId) => {
+    try {
+      const status = await otaApi.fetchOtaStatus(boxId);
+      statusByBox.value = { ...statusByBox.value, [boxId]: status };
+      return status;
+    } catch (e) {
+      console.error('OTA-Status konnte nicht geladen werden:', e);
+      return null;
+    }
+  };
+
+  const stopPolling = (boxId) => {
+    const handle = pollers.get(boxId);
+    if (handle !== undefined) {
+      clearInterval(handle);
+      pollers.delete(boxId);
+    }
+  };
+
+  const startPolling = (boxId, intervalMs = 3000) => {
+    stopPolling(boxId);
+    const tick = async () => {
+      const status = await fetchStatus(boxId);
+      if (status && isTerminalPhase(status.phase)) {
+        stopPolling(boxId);
+      }
+    };
+    tick();
+    pollers.set(boxId, setInterval(tick, intervalMs));
+  };
+
+  const stopAllPolling = () => {
+    for (const handle of pollers.values()) clearInterval(handle);
+    pollers.clear();
+  };
+
+  const triggerUpdate = async (boxId, type, version) => {
+    error.value = null;
+    try {
+      await otaApi.triggerOta(boxId, type, version);
+      startPolling(boxId);
+    } catch (e) {
+      error.value = e.message ?? 'Update konnte nicht gestartet werden';
+      throw e;
+    }
+  };
+
   return {
     releases,
     statusByBox,
@@ -49,6 +99,11 @@ export const useOtaStore = defineStore('ota', () => {
     error,
     fetchReleases,
     uploadRelease,
+    fetchStatus,
+    startPolling,
+    stopPolling,
+    stopAllPolling,
+    triggerUpdate,
     _pollers: pollers,
   };
 });
