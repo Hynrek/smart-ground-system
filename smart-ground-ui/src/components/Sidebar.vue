@@ -49,6 +49,7 @@ const router = useRouter();
 const authStore = useAuthStore();
 
 const allNavItems = [
+  { id: 'home', label: 'Startseite', icon: 'home', requiredPermission: 'VIEW_REMOTE' },
   { id: 'ranges', label: 'Plätze', icon: 'target', requiredPermission: 'MANAGE_RANGES' },
   { id: 'smartboxes', label: 'SmartBoxen', icon: 'wifi', requiredPermission: 'MANAGE_RANGES' },
   { id: 'competition', path: '/admin/wettkampf', label: 'Wettkampf', icon: 'award', requiredPermission: 'MANAGE_COMPETITIONS' },
