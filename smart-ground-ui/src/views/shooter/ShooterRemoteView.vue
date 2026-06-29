@@ -4,8 +4,9 @@
     :class="[
       `mode--${store.mode}`,
       {
-        'session--erfassen': store.sessionMode === 'recording',
-        'session--verzoegert': store.sessionMode === 'delayed',
+        'session--erfassen':      store.sessionMode === 'recording',
+        'session--verzoegert':    store.sessionMode === 'delayed',
+        'session--rufausloesung': store.sessionMode === 'rufausloesung',
       },
     ]"
   >
@@ -91,10 +92,14 @@
           <span class="option-name">Verzögert</span>
           <span v-if="store.sessionMode === 'delayed'" class="option-tag option-tag--verzoegert">Aktiv</span>
         </button>
-        <button class="mode-option mode-option--soon" disabled>
+        <button
+          class="mode-option"
+          :class="{ 'is-active': store.sessionMode === 'rufausloesung' }"
+          @click="setSessionMode('rufausloesung')"
+        >
           <span class="option-dot option-dot--rufausloesung" />
           <span class="option-name">Rufauslösung</span>
-          <span class="option-tag option-tag--soon">Demnächst</span>
+          <span v-if="store.sessionMode === 'rufausloesung'" class="option-tag option-tag--rufausloesung">Aktiv</span>
         </button>
       </div>
     </Transition>
@@ -296,13 +301,15 @@ const isRecordingActive = computed(
 
 // ── Mode badge ─────────────────────────────────────
 const modeBadgeLabel = computed(() => {
-  if (store.sessionMode === 'recording') return 'Erfassen';
-  if (store.sessionMode === 'delayed') return 'Verzögert';
+  if (store.sessionMode === 'recording')     return 'Erfassen';
+  if (store.sessionMode === 'delayed')       return 'Verzögert';
+  if (store.sessionMode === 'rufausloesung') return 'Rufauslösung';
   return 'Schiessen';
 })
 const modeBadgeClass = computed(() => ({
-  'mode-badge--recording': store.sessionMode === 'recording',
-  'mode-badge--delayed': store.sessionMode === 'delayed',
+  'mode-badge--recording':     store.sessionMode === 'recording',
+  'mode-badge--delayed':       store.sessionMode === 'delayed',
+  'mode-badge--rufausloesung': store.sessionMode === 'rufausloesung',
 }))
 
 // ── Range & positions ──────────────────────────────
@@ -595,7 +602,7 @@ const chipLabel = (position) => {
 .mode--raffale  { --throw-color: #7F77DD; --throw-tint: rgba(127, 119, 221, 0.18); --throw-glow: rgba(127, 119, 221, 0.22); }
 
 /* Verzögert identity colour (amber), shared by header button, badge, countdown. */
-.shooter-remote { --delay-color: #EF9F27; --delay-text: #FAC775; }
+.shooter-remote { --delay-color: #EF9F27; --delay-text: #FAC775; --ruf-color: #56C8D8; --ruf-text: #7AD8E4; }
 
 .shooter-remote {
   flex: 1;
@@ -799,6 +806,17 @@ const chipLabel = (position) => {
 
 .mode-badge--delayed .mode-dot { background: var(--delay-color); }
 
+.mode-badge-btn.mode-badge--rufausloesung {
+  border-color: rgba(86, 200, 216, 0.45);
+  background: rgba(86, 200, 216, 0.12);
+  color: var(--ruf-text);
+}
+
+.mode-badge--rufausloesung .mode-dot {
+  background: var(--ruf-color);
+  animation: mode-dot-pulse 1s ease-in-out infinite;
+}
+
 .mode-dot {
   width: 8px;
   height: 8px;
@@ -902,6 +920,11 @@ const chipLabel = (position) => {
   color: var(--delay-text);
 }
 
+.option-tag--rufausloesung {
+  background: rgba(86, 200, 216, 0.15);
+  color: var(--ruf-text);
+}
+
 .option-tag--soon {
   background: rgba(250, 199, 117, 0.12);
   color: #FAC775;
@@ -968,6 +991,11 @@ const chipLabel = (position) => {
 .session--verzoegert .device-btn:not(:disabled) {
   border-color: rgba(239, 159, 39, 0.75);
   box-shadow: 0 0 12px rgba(239, 159, 39, 0.32), inset 0 0 0 1px rgba(239, 159, 39, 0.2);
+}
+/* Rufauslösung: cyan glow on device buttons */
+.session--rufausloesung .device-btn:not(:disabled) {
+  border-color: rgba(86, 200, 216, 0.75);
+  box-shadow: 0 0 12px rgba(86, 200, 216, 0.32), inset 0 0 0 1px rgba(86, 200, 216, 0.2);
 }
 
 /* ── Bottom bar active tab follows throw-type color ─ */
@@ -1154,6 +1182,11 @@ const chipLabel = (position) => {
 .chip--pending { background: color-mix(in srgb, var(--throw-color) 18%, transparent); color: var(--throw-color); }
 .chip--queued { background: rgba(239, 159, 39, 0.18); color: var(--delay-text); }
 .chip--waiting { background: rgba(255, 255, 255, 0.06); color: rgba(250, 199, 117, 0.55); }
+.chip--listening {
+  background: rgba(86, 200, 216, 0.18);
+  color: var(--ruf-text);
+  animation: mode-dot-pulse 1s ease-in-out infinite;
+}
 .chip--error { background: rgba(252,129,129,0.15); color: var(--sg-color-danger-bg); }
 .chip--blocked { background: rgba(252,129,129,0.12); color: rgba(252,129,129,0.7); }
 .chip--free { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.35); }
