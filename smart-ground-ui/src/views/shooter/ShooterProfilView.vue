@@ -72,7 +72,7 @@
           <span class="char-count">{{ profilForm.biographie?.length ?? 0 }} / 500</span>
         </div>
       </div>
-      <div v-if="saveError" class="save-error">{{ saveError }}</div>
+      <div v-if="profilError" class="save-error">{{ profilError }}</div>
       <button class="save-btn" :disabled="authStore.isLoading" @click="saveProfilTab">
         {{ profilSaved ? 'Gespeichert ✓' : 'Speichern' }}
       </button>
@@ -120,7 +120,7 @@
           <input id="land" v-model="kontaktForm.land" type="text" />
         </div>
       </div>
-      <div v-if="saveError" class="save-error">{{ saveError }}</div>
+      <div v-if="kontaktError" class="save-error">{{ kontaktError }}</div>
       <button class="save-btn" :disabled="authStore.isLoading" @click="saveKontaktTab">
         {{ kontaktSaved ? 'Gespeichert ✓' : 'Speichern' }}
       </button>
@@ -157,7 +157,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore.js'
 import Icons from '@/components/Icons.vue'
@@ -176,29 +176,48 @@ const activeTab = ref('profil')
 
 const profilSaved = ref(false)
 const kontaktSaved = ref(false)
-const saveError = ref('')
+const profilError = ref('')
+const kontaktError = ref('')
 const usernameError = ref('')
 
-const p = authStore.profile
-
 const profilForm = reactive({
-  vorname: p?.vorname ?? '',
-  nachname: p?.nachname ?? '',
-  username: p?.username ?? '',
-  geburtsdatum: p?.geburtsdatum ?? '',
-  geschlecht: p?.geschlecht ?? '',
-  sprache: p?.sprache ?? '',
-  biographie: p?.biographie ?? '',
+  vorname: '',
+  nachname: '',
+  username: '',
+  geburtsdatum: '',
+  geschlecht: '',
+  sprache: '',
+  biographie: '',
 })
 
 const kontaktForm = reactive({
-  email: p?.email ?? '',
-  telefonnummer: p?.telefonnummer ?? '',
-  strasse: p?.strasse ?? '',
-  hausnummer: p?.hausnummer ?? '',
-  plz: p?.plz ?? '',
-  stadt: p?.stadt ?? '',
-  land: p?.land ?? '',
+  email: '',
+  telefonnummer: '',
+  strasse: '',
+  hausnummer: '',
+  plz: '',
+  stadt: '',
+  land: '',
+})
+
+watchEffect(() => {
+  const p = authStore.profile
+  if (!p) return
+  profilForm.vorname = p.vorname ?? ''
+  profilForm.nachname = p.nachname ?? ''
+  profilForm.username = p.username ?? ''
+  profilForm.geburtsdatum = p.geburtsdatum ?? ''
+  profilForm.geschlecht = p.geschlecht ?? ''
+  profilForm.sprache = p.sprache ?? ''
+  profilForm.biographie = p.biographie ?? ''
+
+  kontaktForm.email = p.email ?? ''
+  kontaktForm.telefonnummer = p.telefonnummer ?? ''
+  kontaktForm.strasse = p.strasse ?? ''
+  kontaktForm.hausnummer = p.hausnummer ?? ''
+  kontaktForm.plz = p.plz ?? ''
+  kontaktForm.stadt = p.stadt ?? ''
+  kontaktForm.land = p.land ?? ''
 })
 
 const fullName = computed(() => `${authStore.profile?.vorname ?? ''} ${authStore.profile?.nachname ?? ''}`.trim())
@@ -216,7 +235,7 @@ function buildPayload(form) {
 
 async function saveProfilTab() {
   usernameError.value = ''
-  saveError.value = ''
+  profilError.value = ''
   if (!USERNAME_RE.test(profilForm.username.trim())) {
     usernameError.value = '3–30 Zeichen, Buchstaben/Ziffern/._-'
     return
@@ -226,18 +245,18 @@ async function saveProfilTab() {
     profilSaved.value = true
     setTimeout(() => { profilSaved.value = false }, 1500)
   } catch {
-    saveError.value = authStore.error ?? 'Speichern fehlgeschlagen'
+    profilError.value = authStore.error ?? 'Speichern fehlgeschlagen'
   }
 }
 
 async function saveKontaktTab() {
-  saveError.value = ''
+  kontaktError.value = ''
   try {
     await authStore.updateProfile(buildPayload(kontaktForm))
     kontaktSaved.value = true
     setTimeout(() => { kontaktSaved.value = false }, 1500)
   } catch {
-    saveError.value = authStore.error ?? 'Speichern fehlgeschlagen'
+    kontaktError.value = authStore.error ?? 'Speichern fehlgeschlagen'
   }
 }
 
