@@ -28,7 +28,7 @@ export function useVoiceTrigger(settings) {
     wouldTrigger.value = false
   }
 
-  const startAnalysis = (onTrigger) => {
+  const startAnalysis = (onTrigger, threshold, dauer) => {
     const dataArray = new Uint8Array(analyser.frequencyBinCount)
 
     const tick = () => {
@@ -40,20 +40,12 @@ export function useVoiceTrigger(settings) {
       const level = Math.min(100, Math.round((rms / 128) * 100))
       micLevel.value = level
 
-      const threshold = typeof settings === 'object' && 'rufPeak' in settings
-        ? settings.rufPeak
-        : (settings?.value?.rufPeak ?? 70)
-      const dauer = typeof settings === 'object' && 'rufDauer' in settings
-        ? settings.rufDauer
-        : (settings?.value?.rufDauer ?? 120)
-
       if (level >= threshold) {
         if (!peakStart) peakStart = Date.now()
         const held = Date.now() - peakStart
         wouldTrigger.value = held >= dauer
         if (!triggered && held >= dauer) {
           triggered = true
-          wouldTrigger.value = true
           stopListening()
           onTrigger()
           return
@@ -70,24 +62,26 @@ export function useVoiceTrigger(settings) {
   }
 
   const startListening = async (onTrigger, overrides = {}) => {
+    // Guard against re-entry during an active Totzeit wait
+    if (totzeitTimer) { clearTimeout(totzeitTimer); totzeitTimer = null }
+
     const totzeit = overrides.totzeit !== undefined
       ? overrides.totzeit
-      : (typeof settings === 'object' && 'rufTotzeit' in settings
-          ? settings.rufTotzeit
-          : (settings?.value?.rufTotzeit ?? 1000))
+      : ('rufTotzeit' in settings ? settings.rufTotzeit : (settings?.value?.rufTotzeit ?? 1000))
 
     const begin = async () => {
+      triggered = false
       micDenied.value = false
       try {
+        const threshold = 'rufPeak' in settings ? settings.rufPeak : (settings?.value?.rufPeak ?? 70)
+        const dauer     = 'rufDauer' in settings ? settings.rufDauer : (settings?.value?.rufDauer ?? 120)
         stream   = await navigator.mediaDevices.getUserMedia({ audio: true })
-        // Vitest 4.x stubs AudioContext with a non-constructable arrow fn;
-        // try new first (real browsers), fall back to plain call (test env).
-        try { audioCtx = new AudioContext() } catch { audioCtx = AudioContext() }
+        audioCtx = new AudioContext()
         analyser = audioCtx.createAnalyser()
         analyser.fftSize = 256
         const source = audioCtx.createMediaStreamSource(stream)
         source.connect(analyser)
-        startAnalysis(onTrigger)
+        startAnalysis(onTrigger, threshold, dauer)
       } catch {
         micDenied.value = true
       }

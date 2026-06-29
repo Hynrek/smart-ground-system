@@ -30,16 +30,12 @@ const setupMocks = (frequencyData = new Uint8Array(128).fill(0)) => {
   }
   mockStream = { getTracks: () => [{ stop: mockTrackStop }] }
 
-  vi.stubGlobal('AudioContext', vi.fn().mockImplementation(() => mockCtx))
+  vi.stubGlobal('AudioContext', vi.fn(function () { return mockCtx }))
   vi.stubGlobal('navigator', {
     mediaDevices: {
       getUserMedia: vi.fn().mockResolvedValue(mockStream),
     },
   })
-
-  // Replace requestAnimationFrame with a synchronous single-shot call
-  vi.stubGlobal('requestAnimationFrame', vi.fn().mockImplementation((cb) => { cb(); return 1; }))
-  vi.stubGlobal('cancelAnimationFrame', vi.fn())
 }
 
 describe('useVoiceTrigger', () => {
@@ -101,7 +97,7 @@ describe('useVoiceTrigger', () => {
     const { startListening } = useVoiceTrigger({ rufPeak: 10, rufDauer: 50, rufTotzeit: 0 })
     await startListening(onTrigger)
     vi.advanceTimersByTime(100)
-    // RAF loop is synchronous in tests, so trigger should have been called
+    // setInterval tick fires after rufDauer has elapsed, so trigger should have been called
     expect(onTrigger).toHaveBeenCalledTimes(1)
   })
 
@@ -121,5 +117,15 @@ describe('useVoiceTrigger', () => {
     const { startListening, micDenied } = useVoiceTrigger({ rufPeak: 70, rufDauer: 120, rufTotzeit: 0 })
     await startListening(vi.fn())
     expect(micDenied.value).toBe(true)
+  })
+
+  it('stopListening during Totzeit prevents getUserMedia from being called', async () => {
+    setupMocks()
+    const onTrigger = vi.fn()
+    const { startListening, stopListening } = useVoiceTrigger({ rufPeak: 70, rufDauer: 120, rufTotzeit: 2000 })
+    startListening(onTrigger)
+    stopListening()
+    vi.advanceTimersByTime(3000) // Totzeit would have elapsed
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
   })
 })
