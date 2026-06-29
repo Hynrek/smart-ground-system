@@ -125,7 +125,7 @@
       </div>
 
       <!-- Part 3: Completed steps (bottom, scrollable) -->
-      <div v-if="completedSteps.length > 0" class="carousel-section done-section">
+      <div v-if="completedSteps.length > 0 && !showFinalScore" class="carousel-section done-section">
         <div class="section-label">Abgeschlossene Schritte</div>
         <div class="completed-steps-scroll">
           <div
@@ -714,8 +714,10 @@ const handlePlayerComplete = () => {
 };
 
 const handleFailStep = (failType) => {
+  // Just record the fail. Like Treffer/No Bird, this must not auto-complete at
+  // program end — the "Fertig" card stays up so the operator taps to finish,
+  // instead of jumping straight to the score view.
   store.failStep(failType);
-  if (store.isAtProgramEnd) handlePlayerComplete();
 };
 
 const goBack = async () => {
@@ -1726,20 +1728,14 @@ watch(
 }
 
 /* ── Score card adjustments for ScoreTable ──────────────────────── */
-.solo-score-card {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
+/* The carousel-area is the single scroll container for the score screen, so
+   the cards must not scroll on their own — a nested overflow here produced a
+   second scrollbar. */
+.solo-score-card,
 .group-score-card {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-height: 80vh;
-  overflow-y: auto;
 }
 
 /* ── Next-shooter overlay ──────────────────────────────── */
