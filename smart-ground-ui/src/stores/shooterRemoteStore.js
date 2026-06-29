@@ -8,6 +8,26 @@ const DELAY_MIN = 1;
 const DELAY_MAX = 10;
 const DELAY_DEFAULT = 3;
 
+// Rufauslösung settings — persisted mic trigger configuration.
+const RUF_PEAK_KEY    = 'sg_ruf_peak';
+const RUF_DAUER_KEY   = 'sg_ruf_dauer';
+const RUF_TOTZEIT_KEY = 'sg_ruf_totzeit';
+
+const clampRuf = (v, min, max, def) => {
+  const n = Math.round(Number(v));
+  if (Number.isNaN(n)) return def;
+  return Math.min(max, Math.max(min, n));
+};
+
+const loadRuf = (key, min, max, def) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw == null ? def : clampRuf(raw, min, max, def);
+  } catch {
+    return def;
+  }
+};
+
 const clampDelay = (n) => {
   const v = Math.round(Number(n));
   if (Number.isNaN(v)) return DELAY_DEFAULT;
@@ -42,6 +62,30 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
 
   // Verzögert: saveable delay (seconds) applied before a command fires.
   const delaySeconds = ref(loadDelay());
+
+  // Rufauslösung settings
+  const rufPeak    = ref(loadRuf(RUF_PEAK_KEY,    0,  100,  70));
+  const rufDauer   = ref(loadRuf(RUF_DAUER_KEY,   50, 500,  120));
+  const rufTotzeit = ref(loadRuf(RUF_TOTZEIT_KEY, 0,  8000, 1000));
+
+  const persistRuf = (key, value) => {
+    try { localStorage.setItem(key, String(value)); } catch { /* ignore */ }
+  };
+
+  const setRufPeak = (v) => {
+    rufPeak.value = clampRuf(v, 0, 100, 70);
+    persistRuf(RUF_PEAK_KEY, rufPeak.value);
+  };
+
+  const setRufDauer = (v) => {
+    rufDauer.value = clampRuf(v, 50, 500, 120);
+    persistRuf(RUF_DAUER_KEY, rufDauer.value);
+  };
+
+  const setRufTotzeit = (v) => {
+    rufTotzeit.value = clampRuf(v, 0, 8000, 1000);
+    persistRuf(RUF_TOTZEIT_KEY, rufTotzeit.value);
+  };
 
   const setDelaySeconds = (n) => {
     delaySeconds.value = clampDelay(n);
@@ -137,6 +181,12 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     throwPairPending,
     delaySeconds,
     setDelaySeconds,
+    rufPeak,
+    rufDauer,
+    rufTotzeit,
+    setRufPeak,
+    setRufDauer,
+    setRufTotzeit,
     isReserved,
     reservePlatz,
     ensureReserved,
