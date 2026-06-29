@@ -23,6 +23,16 @@
 
       <!-- Center: [Verzögerung] Lock + Notfall (truly centered) -->
       <div class="header-center">
+        <!-- Rufauslösung: mic-config button -->
+        <button
+          v-if="store.sessionMode === 'rufausloesung'"
+          class="ruf-btn"
+          title="Empfindlichkeit einstellen"
+          @click="rufModalOpen = true"
+        >
+          <Icons icon="mic" :size="14" />
+          <span>{{ store.rufPeak }}</span>
+        </button>
         <!-- Verzögert: delay-timer button (left of lock, in view-mode color) -->
         <button
           v-if="store.sessionMode === 'delayed'"
@@ -211,6 +221,94 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Rufauslösung: config modal -->
+    <Transition name="delay-modal">
+      <div v-if="rufModalOpen" class="delay-modal-backdrop" @click.self="rufModalOpen = false">
+        <div class="ruf-modal" role="dialog" aria-modal="true" aria-labelledby="ruf-modal-title">
+          <div class="delay-modal-head">
+            <h2 id="ruf-modal-title" class="delay-modal-title">Rufauslösung</h2>
+            <button class="delay-modal-close" title="Schliessen" @click="rufModalOpen = false">
+              <Icons icon="x" :size="14" />
+            </button>
+          </div>
+
+          <!-- Empfindlichkeit (Peak) -->
+          <div class="ruf-slider-group">
+            <div class="ruf-slider-header">
+              <span class="ruf-slider-label">Empfindlichkeit</span>
+              <span class="ruf-slider-value">{{ draftRufPeak }}</span>
+            </div>
+            <input
+              v-model.number="draftRufPeak"
+              class="ruf-slider"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              aria-label="Empfindlichkeit (Peak)"
+            />
+            <div class="ruf-slider-scale"><span>Leise</span><span>Laut</span></div>
+          </div>
+
+          <!-- Haltedauer -->
+          <div class="ruf-slider-group">
+            <div class="ruf-slider-header">
+              <span class="ruf-slider-label">Haltedauer</span>
+              <span class="ruf-slider-value">{{ draftRufDauer }} ms</span>
+            </div>
+            <input
+              v-model.number="draftRufDauer"
+              class="ruf-slider"
+              type="range"
+              min="50"
+              max="500"
+              step="10"
+              aria-label="Haltedauer in Millisekunden"
+            />
+            <div class="ruf-slider-scale"><span>50 ms</span><span>500 ms</span></div>
+          </div>
+
+          <!-- Totzeit -->
+          <div class="ruf-slider-group">
+            <div class="ruf-slider-header">
+              <span class="ruf-slider-label">Totzeit</span>
+              <span class="ruf-slider-value">{{ draftRufTotzeit.toFixed(1) }} s</span>
+            </div>
+            <input
+              v-model.number="draftRufTotzeit"
+              class="ruf-slider"
+              type="range"
+              min="0"
+              max="8"
+              step="0.5"
+              aria-label="Totzeit in Sekunden"
+            />
+            <div class="ruf-slider-scale"><span>0 s</span><span>8 s</span></div>
+          </div>
+
+          <!-- Live level bar -->
+          <div class="ruf-level-wrap" aria-label="Mikrofon-Pegel">
+            <div v-if="micDenied" class="ruf-denied">
+              Mikrofon-Zugriff verweigert — bitte in den Browser-Einstellungen freigeben.
+            </div>
+            <template v-else>
+              <div class="ruf-level-bar-track">
+                <div
+                  class="ruf-level-bar-fill"
+                  :class="{ 'ruf-level--trigger': wouldTrigger }"
+                  :style="{ width: `${micLevel}%` }"
+                />
+                <div class="ruf-level-threshold" :style="{ left: `${draftRufPeak}%` }" />
+              </div>
+              <div class="ruf-level-hint">{{ wouldTrigger ? 'Würde auslösen' : 'Kein Auslösen' }}</div>
+            </template>
+          </div>
+
+          <button class="ruf-save-btn" @click="saveRuf">Speichern</button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -226,6 +324,7 @@ import { useAuthStore } from '@/stores/authStore.js';
 import { fetchRange } from '@/services/rangeApi.js';
 import Icons from '@/components/Icons.vue';
 import ShooterFlyoutPanel from '@/components/shooter-remote/ShooterFlyoutPanel.vue';
+import { useVoiceTrigger } from '@/composables/useVoiceTrigger.js';
 
 const props = defineProps({ rangeId: { type: String, required: true } });
 
@@ -236,6 +335,8 @@ const store = useShooterRemoteStore();
 const auth = useAuthStore();
 const passeStore = usePasseStore();
 const activePasseStore = useActivePasseStore();
+
+const { startListening, stopListening, micLevel, wouldTrigger, micDenied } = useVoiceTrigger(store);
 
 // Optional competition context query params
 const rotteId = computed(() => route.query.rotteId ?? null);
@@ -345,6 +446,30 @@ watch(delayModalOpen, (open) => {
 const saveDelay = () => {
   store.setDelaySeconds(draftDelay.value);
   delayModalOpen.value = false;
+};
+
+// Rufauslösung: config modal state
+const rufModalOpen    = ref(false);
+const draftRufPeak    = ref(store.rufPeak);
+const draftRufDauer   = ref(store.rufDauer);
+const draftRufTotzeit = ref(store.rufTotzeit / 1000); // display in seconds
+
+watch(rufModalOpen, async (open) => {
+  if (open) {
+    draftRufPeak.value    = store.rufPeak;
+    draftRufDauer.value   = store.rufDauer;
+    draftRufTotzeit.value = store.rufTotzeit / 1000;
+    await startListening(() => { /* preview only — no fire */ }, { totzeit: 0 });
+  } else {
+    stopListening();
+  }
+});
+
+const saveRuf = () => {
+  store.setRufPeak(draftRufPeak.value);
+  store.setRufDauer(draftRufDauer.value);
+  store.setRufTotzeit(Math.round(draftRufTotzeit.value * 1000));
+  rufModalOpen.value = false;
 };
 
 // Command queue — only ONE command may be queued at a time. While the countdown
@@ -1359,6 +1484,145 @@ const chipLabel = (position) => {
 
 .delay-save-btn:hover { background: rgba(239, 159, 39, 0.26); }
 .delay-save-btn:active { transform: scale(0.97); }
+
+/* Rufauslösung — mic header button */
+.ruf-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  height: 36px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  background: rgba(86, 200, 216, 0.10);
+  border: 1.5px solid rgba(86, 200, 216, 0.35);
+  color: var(--ruf-text);
+}
+
+.ruf-btn:hover  { background: rgba(86, 200, 216, 0.16); }
+.ruf-btn:active { transform: scale(0.95); }
+
+/* Rufauslösung config modal */
+.ruf-modal {
+  width: min(100%, 360px);
+  background: rgba(20, 20, 30, 0.98);
+  border: 1px solid rgba(86, 200, 216, 0.3);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: var(--sg-shadow-md);
+}
+
+.ruf-slider-group {
+  margin-bottom: 18px;
+}
+
+.ruf-slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.ruf-slider-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.ruf-slider-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ruf-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ruf-slider {
+  width: 100%;
+  accent-color: var(--ruf-color);
+  cursor: pointer;
+}
+
+.ruf-slider-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 2px;
+}
+
+/* Live level bar */
+.ruf-level-wrap {
+  margin-bottom: 18px;
+}
+
+.ruf-level-bar-track {
+  position: relative;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  overflow: visible;
+}
+
+.ruf-level-bar-fill {
+  height: 100%;
+  background: var(--ruf-color);
+  border-radius: 6px;
+  transition: width 0.05s linear;
+}
+
+.ruf-level-bar-fill.ruf-level--trigger {
+  background: #48BB78;
+  animation: mode-dot-pulse 0.4s ease-out;
+}
+
+.ruf-level-threshold {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 2px;
+  transform: translateX(-50%);
+}
+
+.ruf-level-hint {
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+}
+
+.ruf-denied {
+  font-size: 12px;
+  color: #fc8181;
+  text-align: center;
+  padding: 10px 0;
+}
+
+.ruf-save-btn {
+  width: 100%;
+  padding: 13px 0;
+  border-radius: 12px;
+  background: rgba(86, 200, 216, 0.18);
+  border: 1.5px solid rgba(86, 200, 216, 0.45);
+  color: var(--ruf-text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ruf-save-btn:hover  { background: rgba(86, 200, 216, 0.26); }
+.ruf-save-btn:active { transform: scale(0.97); }
 
 .delay-modal-enter-active,
 .delay-modal-leave-active { transition: opacity 0.15s ease; }

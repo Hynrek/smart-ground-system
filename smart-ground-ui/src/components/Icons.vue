@@ -80,6 +80,7 @@ const iconPaths = {
   clock: 'M8 2a6 6 0 100 12A6 6 0 008 2zm0 2.5V8l2.5 2.5',
   stats: 'M2 13.5h12M5 13.5V9M8 13.5V4.5M11 13.5V7',
   home: 'M2 7l6-5 6 5M4 6.5V13h8V6.5M6.5 13V9.5h3V13',
+  mic: 'M8 1a2 2 0 00-2 2v5a2 2 0 004 0V3a2 2 0 00-2-2zM4.5 7A3.5 3.5 0 008 10.5 3.5 3.5 0 0011.5 7M8 10.5V13M6 13h4',
 };
 
 const iconPath = computed(() => iconPaths[props.icon] || '');
