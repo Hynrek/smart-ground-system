@@ -201,6 +201,9 @@
       </table>
     </div>
 
+    <!-- OTA update panel -->
+    <OtaUpdatePanel :box="box" />
+
     <!-- Add device form / button -->
     <div class="add-device-section">
       <div v-if="isAdding" class="add-form">
@@ -266,6 +269,7 @@ import StatusDot from './StatusDot.vue';
 import Badge from './Badge.vue';
 import TypeChip from './TypeChip.vue';
 import Icons from './Icons.vue';
+import OtaUpdatePanel from './OtaUpdatePanel.vue';
 
 const props = defineProps({
   box: {

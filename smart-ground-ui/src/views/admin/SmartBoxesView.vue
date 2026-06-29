@@ -93,10 +93,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useSmartBoxStore } from '@/stores/smartBoxStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useDeviceTypeStore } from '@/stores/deviceTypeStore.js';
+import { useOtaStore } from '@/stores/otaStore.js';
 import * as deviceApi from '@/services/deviceApi.js';
 import Button from '@/components/Button.vue';
 import Icons from '@/components/Icons.vue';
@@ -107,6 +108,7 @@ import { useUrlTab } from '@/composables/useUrlTab.js';
 const smartBoxStore = useSmartBoxStore();
 const deviceStore = useDeviceStore();
 const deviceTypeStore = useDeviceTypeStore();
+const otaStore = useOtaStore();
 
 const { activeTab, setTab } = useUrlTab('smartboxen', ['smartboxen', 'geraetetypen']);
 
@@ -117,6 +119,25 @@ watch(
   },
   { immediate: true },
 );
+
+const OTA_TERMINAL = ['APPLIED', 'FAILED', 'ROLLED_BACK'];
+
+onMounted(() => otaStore.fetchReleases());
+
+watch(
+  () => smartBoxStore.smartboxes,
+  async (boxes) => {
+    for (const box of boxes) {
+      const status = await otaStore.fetchStatus(box.id);
+      if (status && status.phase && !OTA_TERMINAL.includes(status.phase)) {
+        otaStore.startPolling(box.id);
+      }
+    }
+  },
+  { immediate: true },
+);
+
+onUnmounted(() => otaStore.stopAllPolling());
 
 const typeFilter = ref('Alle');
 const actionMode = ref(false);
