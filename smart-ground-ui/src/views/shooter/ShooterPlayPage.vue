@@ -82,8 +82,8 @@
         <div class="section-label">Aktueller Schritt</div>
 
         <!-- Regular step card -->
-        <div v-if="currentStep" class="step-card" :class="`is-${currentStep.type}`" @click="handleCurrentStepClick">
-          <span class="card-badge" :class="`badge-${currentStep.type}`">
+        <div v-if="currentStep" class="step-card" :class="`is-${currentStep.type}`" :style="{ borderColor: modeBadgeStyle(currentStep.type).borderColor }" @click="handleCurrentStepClick">
+          <span class="card-badge" :style="modeBadgeStyle(currentStep.type)">
             {{ getTypeLabel(currentStep.type) }}
           </span>
 
@@ -91,20 +91,15 @@
           <div v-if="currentStep.type === 'a_schuss'" class="aschuss-display">
             <div class="aschuss-item" :class="{ active: store.playPartialStep === null }">
               <span class="aschuss-main">{{ currentStep.letter1 ?? '?' }}</span>
-              <span class="aschuss-sub">{{ currentStep.alias1 }}</span>
             </div>
-            <span class="separator">+</span>
+            <span class="separator">{{ stepConnector(currentStep.type) }}</span>
             <div class="aschuss-item" :class="{ active: store.playPartialStep === 'first' }">
               <span class="aschuss-main">{{ currentStep.letter2 ?? '?' }}</span>
-              <span class="aschuss-sub">{{ currentStep.alias2 }}</span>
             </div>
           </div>
 
-          <!-- solo / pair / raffale: letter big, alias below -->
-          <template v-else>
-            <div class="card-label">{{ getStepLetter(currentStep) }}</div>
-            <div class="card-alias">{{ getStepAliasDisplay(currentStep) }}</div>
-          </template>
+          <!-- solo / pair / raffale: position notation is the hero label -->
+          <div v-else class="card-label">{{ getStepLetter(currentStep) }}</div>
 
           <!-- Raffale timer -->
           <div v-if="currentStep.type === 'raffale' && store.playRaffaleStarted" class="raffale-bar">
@@ -351,7 +346,7 @@ import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import { StepState, StepType } from '@/constants/playEnums.js';
-import { stepModeLabel, stepNotation, isMultiResultStep, stepFailCells } from '@/constants/stepModes.js';
+import { stepModeLabel, stepNotation, isMultiResultStep, stepFailCells, modeBadgeStyle, stepConnector } from '@/constants/stepModes.js';
 import Icons from '@/components/Icons.vue';
 import ScoreTable from '@/components/shooter/ScoreTable.vue';
 
@@ -649,12 +644,6 @@ const getTypeLabel = (type) => (type === 'fertig' ? 'Fertig' : stepModeLabel(typ
 const getStepLetter = (step) => {
   if (!step || step.type === 'fertig') return '';
   return stepNotation(step);
-};
-
-// Alias-based display (secondary, smaller text under the letter)
-const getStepAliasDisplay = (step) => {
-  if (!step || step.type === 'fertig') return '';
-  return stepNotation(step, { useAlias: true });
 };
 
 // Letter-based display for the next-step preview card
@@ -1108,15 +1097,6 @@ watch(
   transform: scale(0.97);
 }
 
-.step-card.is-raffale {
-  border-color: rgba(168, 85, 247, 0.35);
-}
-
-.step-card.is-pair,
-.step-card.is-a\.schuss {
-  border-color: rgba(72, 187, 120, 0.35);
-}
-
 @keyframes slideInUp {
   from {
     transform: translateY(40px);
@@ -1128,41 +1108,25 @@ watch(
   }
 }
 
+/* Mode badge: fill/text/border come from modeBadgeStyle() (shared stepModes
+   source) so the kiosk play card matches the flyout and admin views. */
 .card-badge {
-  font-size: 10px;
-  font-weight: 600;
-  color: color-mix(in srgb, var(--sg-accent) 70%, transparent);
+  font-size: 14px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
-  background: var(--sg-accent-tint);
-  padding: 3px 10px;
+  letter-spacing: 1px;
+  border: 1.5px solid transparent;
+  padding: 7px 18px;
   border-radius: 20px;
 }
 
-.badge-pair,
-.badge-a\.schuss {
-  color: rgba(72, 187, 120, 0.7);
-  background: rgba(72, 187, 120, 0.1);
-}
-
-.badge-raffale {
-  color: rgba(168, 85, 247, 0.7);
-  background: rgba(168, 85, 247, 0.1);
-}
-
 .card-label {
-  font-size: 24px;
+  font-size: 46px;
   font-weight: 700;
   color: #ffffff;
   text-align: center;
-  line-height: 1.2;
-}
-
-.card-alias {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.35);
-  text-align: center;
-  margin-top: -4px;
+  line-height: 1.1;
+  letter-spacing: 1px;
 }
 
 /* Getroffen card (program complete) */
@@ -1201,20 +1165,15 @@ watch(
 }
 
 .aschuss-main {
-  font-size: 28px;
+  font-size: 40px;
   font-weight: 700;
-  color: var(--sg-accent);
+  color: #ffffff;
   line-height: 1;
 }
 
-.aschuss-sub {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
 .aschuss-display .separator {
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 18px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 26px;
 }
 
 .raffale-bar {
@@ -1246,10 +1205,11 @@ watch(
 }
 
 .hint {
-  font-size: 13px;
-  color: color-mix(in srgb, var(--sg-accent) 60%, transparent);
+  font-size: 14px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--sg-accent) 70%, transparent);
   margin: 0;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 
