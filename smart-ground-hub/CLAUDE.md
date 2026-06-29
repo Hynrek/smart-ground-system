@@ -361,6 +361,8 @@ Discovery (published to `smartboxes/discovery` on boot). `appVersion` is the App
 { "mac": "aabbccddeeff", "appVersion": "0.6", "firmwareVersion": "micropython-1.23.0", "boxType": "xiao-esp32s3", "ip": "192.168.1.42" }
 ```
 
+> **FirmwareConfig resolution is keyed on `appVersion`, not `firmwareVersion`.** `firmware_configs` rows (the capability registry, e.g. `seedFirmware("0.6", "xiao-esp32s3")`) are versioned by the **App-Code** version. `SmartBoxDiscoveryHandler` resolves `box.firmwareConfig` via `findByVersionAndBoxType(appVersion, boxType)` (falling back to `firmwareVersion` only for legacy firmware that sends no `appVersion`). Keying on the kernel string (`micropython-1.23.0`) would never match, leaving `firmwareConfig` null → `SmartBoxConfigPushService` throws `FirmwareNotResolvedException` → no config push → the box rejects every command (`Unbekanntes Gerät blockiert`). `SmartBoxResponse` exposes `appVersion` for the UI.
+
 OTA trigger (published to `smartboxes/{mac}/ota` by `OtaPublishService`):
 ```json
 { "type": "APP", "version": "0.7", "url": "http://{ota.base-url}/api/ota/app/0.7", "sha256": "<manifest-or-image-hash>", "size": 12345 }

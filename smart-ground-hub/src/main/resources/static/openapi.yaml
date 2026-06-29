@@ -3512,8 +3512,14 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/SmartBoxStatus'
+        appVersion:
+          type: string
+          description: >
+            App-Code version reported at discovery (the OTA target / capability
+            version the FirmwareConfig is keyed on). Null if never reported.
         firmwareVersion:
           type: string
+          description: MicroPython kernel version reported at discovery (e.g. micropython-1.23.0).
         configSynced:
           type: boolean
           description: >

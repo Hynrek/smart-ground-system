@@ -21,3 +21,6 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# OTA artifact store (runtime, ota.artifact-dir default)
+ota-artifacts/

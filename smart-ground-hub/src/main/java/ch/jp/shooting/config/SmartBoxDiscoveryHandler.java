@@ -83,12 +83,21 @@ public class SmartBoxDiscoveryHandler implements MessageHandler {
         if (payload.appVersion() != null) {
             box.setAppVersion(payload.appVersion());
         }
-
         if (payload.firmwareVersion() != null) {
             box.setFirmwareVersion(payload.firmwareVersion());
+        }
+
+        // Die FirmwareConfig (Capability-Registry) ist unter der App-Code-Version registriert
+        // (z.B. "0.6"), NICHT unter der MicroPython-Kernel-Version ("micropython-1.23.0").
+        // Auflösung daher über appVersion; Fallback auf firmwareVersion für alte Firmware,
+        // die noch keine appVersion sendet.
+        String capabilityVersion = payload.appVersion() != null
+            ? payload.appVersion()
+            : payload.firmwareVersion();
+        if (capabilityVersion != null) {
             String boxType = payload.boxType() != null ? payload.boxType() : "UNKNOWN";
             firmwareConfigRepository
-                .findByVersionAndBoxType(payload.firmwareVersion(), boxType)
+                .findByVersionAndBoxType(capabilityVersion, boxType)
                 .ifPresent(box::setFirmwareConfig);
         }
         return smartBoxRepository.save(box);

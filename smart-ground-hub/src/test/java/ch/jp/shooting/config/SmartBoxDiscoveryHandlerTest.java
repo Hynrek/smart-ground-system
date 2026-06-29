@@ -1,5 +1,6 @@
 package ch.jp.shooting.config;
 
+import ch.jp.shooting.model.FirmwareConfig;
 import ch.jp.shooting.model.SmartBox;
 import ch.jp.shooting.repository.FirmwareConfigRepository;
 import ch.jp.shooting.repository.SmartBoxRepository;
@@ -38,5 +39,28 @@ class SmartBoxDiscoveryHandlerTest {
         verify(smartBoxRepository).save(cap.capture());
         assertThat(cap.getValue().getAppVersion()).isEqualTo("0.7");
         assertThat(cap.getValue().getFirmwareVersion()).isEqualTo("micropython-1.23.0");
+    }
+
+    @Test
+    void resolvesFirmwareConfigByAppVersionNotKernelVersion() {
+        var handler = new SmartBoxDiscoveryHandler(
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService);
+        FirmwareConfig fc = new FirmwareConfig();
+        when(smartBoxRepository.findByMacAddress("aabbccddeeff")).thenReturn(Optional.empty());
+        when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
+        // Capability-Registry ist unter der App-Code-Version (0.6) registriert, nicht unter dem Kernel-String
+        when(firmwareConfigRepository.findByVersionAndBoxType("0.6", "xiao-esp32s3"))
+            .thenReturn(Optional.of(fc));
+
+        String json = "{\"mac\":\"aabbccddeeff\",\"appVersion\":\"0.6\","
+                    + "\"firmwareVersion\":\"micropython-1.23.0\",\"boxType\":\"xiao-esp32s3\",\"ip\":\"1.2.3.4\"}";
+        handler.handleMessage(MessageBuilder.withPayload(json.getBytes()).build());
+
+        ArgumentCaptor<SmartBox> cap = ArgumentCaptor.forClass(SmartBox.class);
+        verify(smartBoxRepository).save(cap.capture());
+        assertThat(cap.getValue().getFirmwareConfig()).isSameAs(fc);
+        // Darf NICHT über die Kernel-Version aufgelöst werden
+        verify(firmwareConfigRepository, never())
+            .findByVersionAndBoxType("micropython-1.23.0", "xiao-esp32s3");
     }
 }

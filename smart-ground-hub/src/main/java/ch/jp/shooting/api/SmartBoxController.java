@@ -85,6 +85,7 @@ public class SmartBoxController implements SmartBoxApi {
             .macAddress(box.getMacAddress())
             .alias(box.getAlias())
             .status(statusEnum)
+            .appVersion(box.getAppVersion())
             .firmwareVersion(box.getFirmwareVersion())
             .configSynced(box.isConfigSynced());
     }
