@@ -7,12 +7,17 @@
 #   docker compose down -v          # stop and wipe the DB
 #
 # Image names + tag come from .env (copy .env.example -> .env first).
-# Frontend:  http://localhost:5173
+# Frontend:  http://localhost       (nginx on port 80)
 # Backend:   http://localhost:8080   (Swagger: /swagger-ui.html)
+#
+# Names carry a "_deploy" postfix and the project is "smartground-deploy" so this
+# stack stays separate from any dev containers and never recreates them.
+name: smartground-deploy
+
 services:
   db:
     image: postgres:16
-    container_name: smartground-db
+    container_name: smartground-db_deploy
     environment:
       POSTGRES_DB: smartground
       POSTGRES_USER: postgres
@@ -31,7 +36,7 @@ services:
 
   mosquitto:
     image: eclipse-mosquitto:2
-    container_name: smartground-mosquitto
+    container_name: smartground-mosquitto_deploy
     ports:
       - "1883:1883"
       - "9001:9001"
@@ -42,7 +47,7 @@ services:
 
   app:
     image: ${REGISTRY}/smart-ground-backend:${TAG:-latest}
-    container_name: smartground-app
+    container_name: smartground-app_deploy
     ports:
       - "8080:8080"
     environment:
@@ -57,9 +62,9 @@ services:
 
   web:
     image: ${REGISTRY}/smart-ground-ui:${TAG:-latest}
-    container_name: smartground-web
+    container_name: smartground-web_deploy
     ports:
-      - "5173:80"
+      - "80:80"
     depends_on:
       - app
     networks:
@@ -70,4 +75,4 @@ volumes:
 
 networks:
   smartground:
-    name: smartground-network
+    name: smartground-network_deploy

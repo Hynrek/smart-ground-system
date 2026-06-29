@@ -70,7 +70,7 @@ version or git SHA instead of `latest` (e.g. `:2026-06-24`) so you can pin/rollb
    ```
 
 5. Open:
-   - Frontend → http://localhost:5173
+   - Frontend → http://localhost
    - Backend / Swagger → http://localhost:8080/swagger-ui.html
 
 Stop with `docker compose down` (keeps the database) or `docker compose down -v`
@@ -82,8 +82,13 @@ Stop with `docker compose down` (keeps the database) or `docker compose down -v`
 
 - Backend is published on **8080** because the frontend (a browser app) has its API URL
   baked in at build time to `http://localhost:8080`.
-- Frontend is published on **5173** because the backend's CORS only allows
-  `http://localhost:5173` / `:5174`.
+- Frontend is published on **80** (standard HTTP) so the app is reachable at
+  `http://localhost` with no port suffix. The deploy image serves the SPA via nginx,
+  which also proxies `/api` to the backend container on the internal Docker network.
+
+> **Note:** the dev server (`npm run dev` in `smart-ground-ui`) still runs on **5173** —
+> that's Vite's default and what the backend's CORS allows. Only this prebuilt-image
+> deploy publishes on 80.
 
 Open the browser **on the same machine** running Docker. To reach the app from another
 device on the network, the frontend image must be rebuilt with a `VITE_API_BASE_URL`
