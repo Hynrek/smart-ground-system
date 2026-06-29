@@ -21,9 +21,9 @@ Add `'rufausloesung'` as a valid `sessionMode` value alongside `'throwing'`, `'r
 
 | Setting | Key | Range | Default | Meaning |
 |---|---|---|---|---|
-| `rufPeak` | `sg_ruf_peak` | 0–100 | 60 | Amplitude threshold (0 = silent, 100 = very loud) |
-| `rufDauer` | `sg_ruf_dauer` | 50–500 ms | 80 ms | Minimum duration peak must be sustained |
-| `rufTotzeit` | `sg_ruf_totzeit` | 0–3 s | 1 s | Dead time after arming before mic starts listening |
+| `rufPeak` | `sg_ruf_peak` | 0–100 | 70 | Amplitude threshold (0 = silent, 100 = very loud) |
+| `rufDauer` | `sg_ruf_dauer` | 50–500 ms | 120 ms | Minimum duration peak must be sustained |
+| `rufTotzeit` | `sg_ruf_totzeit` | 0–8 s | 1 s | Dead time after arming before mic starts listening |
 
 **Mode flyout:**  
 Activate the existing disabled `mode-option--soon` entry for Rufauslösung (remove `disabled` attribute and `option-tag--soon`). Color: Cyan `#56C8D8` / `#7AD8E4` (already defined as `option-dot--rufausloesung`).
@@ -82,7 +82,7 @@ Opened via the mic header button. Styled in Cyan (border, slider accent, level b
 2. **Three sliders:**
    - *Empfindlichkeit (Peak)* — range 0–100, displays current value above slider
    - *Haltedauer* — range 50–500 ms, displays current value in ms
-   - *Totzeit* — range 0–3 s, displays current value in s
+   - *Totzeit* — range 0–8 s, displays current value in s
 3. **Live level bar:** Horizontal bar showing real-time mic amplitude (0–100). A vertical marker line shows the current `rufPeak` threshold. When peak + duration condition would be satisfied, the bar flashes Cyan-green ("Würde auslösen").
 4. **Save button** (Cyan style)
 
@@ -138,13 +138,13 @@ No open mic stream persists in the background.
 ### Store additions (`shooterRemoteStore`)
 
 ```js
-const rufPeak    = ref(loadRufSetting('sg_ruf_peak',    60))
-const rufDauer   = ref(loadRufSetting('sg_ruf_dauer',   80))
+const rufPeak    = ref(loadRufSetting('sg_ruf_peak',    70))
+const rufDauer   = ref(loadRufSetting('sg_ruf_dauer',   120))
 const rufTotzeit = ref(loadRufSetting('sg_ruf_totzeit', 1000))
 
 const setRufPeak    = (v) => { rufPeak.value    = clamp(v, 0, 100);    persist('sg_ruf_peak',    rufPeak.value) }
 const setRufDauer   = (v) => { rufDauer.value   = clamp(v, 50, 500);  persist('sg_ruf_dauer',   rufDauer.value) }
-const setRufTotzeit = (v) => { rufTotzeit.value = clamp(v, 0, 3000);  persist('sg_ruf_totzeit', rufTotzeit.value) }
+const setRufTotzeit = (v) => { rufTotzeit.value = clamp(v, 0, 8000);  persist('sg_ruf_totzeit', rufTotzeit.value) }
 ```
 
 ---
