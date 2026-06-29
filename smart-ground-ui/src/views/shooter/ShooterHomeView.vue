@@ -5,7 +5,7 @@
       <div class="user-pill">
         <div class="user-avatar">{{ userInitial }}</div>
         <span class="user-name">{{ displayName }}</span>
-        <button class="account-edit-btn" data-testid="open-account" @click="showAccount = true">Konto</button>
+        <button class="account-edit-btn" data-testid="open-account" @click="router.push('/profil')">Konto</button>
       </div>
       <button class="logout-btn" aria-label="Abmelden" @click="handleLogout">
         <Icons icon="logout" :size="18" color="rgba(255,255,255,0.45)" />
@@ -36,7 +36,7 @@
         <span class="tile-desc">Serien & Passen vorbereiten</span>
       </button>
 
-      <button class="app-tile app-tile--available" data-testid="open-profile" @click="showAccount = true">
+      <button class="app-tile app-tile--available" data-testid="open-profile" @click="router.push('/profil')">
         <div class="tile-icon-wrap tile-icon-wrap--purple">
           <Icons icon="user" :size="36" color="#C084FC" />
         </div>
@@ -70,20 +70,17 @@
         <span class="tile-coming">Bald verfügbar</span>
       </button>
     </div>
-    <UsernameEditModal v-if="showAccount" @close="showAccount = false" />
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore.js';
 import Icons from '@/components/Icons.vue';
-import UsernameEditModal from '@/components/UsernameEditModal.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
-const showAccount = ref(false);
 
 const displayName = computed(() => authStore.displayName ?? 'Schütze');
 const firstName = computed(() => displayName.value.split(/[\s._@]/)[0]);
