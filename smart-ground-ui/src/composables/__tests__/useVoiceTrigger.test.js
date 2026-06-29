@@ -1,3 +1,4 @@
+/* global navigator */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useVoiceTrigger } from '../useVoiceTrigger'

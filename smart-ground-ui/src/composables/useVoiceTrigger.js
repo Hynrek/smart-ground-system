@@ -1,3 +1,4 @@
+/* global navigator, AudioContext, clearTimeout, clearInterval, setInterval */
 import { ref } from 'vue'
 
 // Tick interval in ms — short enough for responsive detection, testable via fake timers
