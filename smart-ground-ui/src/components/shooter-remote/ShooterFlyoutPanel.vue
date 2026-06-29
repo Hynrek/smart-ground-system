@@ -41,15 +41,20 @@
           v-if="isRecordingActive && !isOpen && currentSteps.length > 0"
           class="recording-summary"
         >
+          <!-- Green save affordance: expands into the save view -->
+          <button class="shrunk-save-btn" title="Serie speichern" @click.stop="expandToSave">
+            <Icons icon="check" :size="16" color="#48bb78" />
+          </button>
           <div class="captured-items">
             <button
-              v-for="step in currentSteps"
+              v-for="step in shrunkSteps"
               :key="step.id"
               class="captured-item"
               :style="modeBadgeStyle(step.type)"
               :title="getStepTooltip(step)"
               @click.stop="passeStore.removeStep(0, step.id)"
             >
+              <span class="delete-x" aria-hidden="true">×</span>
               <span class="item-code">{{ getStepLabel(step) }}</span>
             </button>
           </div>
@@ -58,7 +63,7 @@
         <!-- Draft steps (full mode, recording active) -->
         <template v-if="passeStore.passeMode && currentSteps.length > 0 && isOpen">
           <div class="section">
-            <span class="section-label">Erfasste Schritte</span>
+            <span class="section-label">{{ passeStore.editingId ? `Bearbeiten: ${editingName}` : 'Erfasste Schritte' }}</span>
             <div class="serie-list">
               <div v-for="(step, stepIdx) in currentSteps" :key="step.id" class="serie-item">
                 <div class="step-info">
@@ -315,10 +320,10 @@
               @keyup.enter="confirmSaveSerie"
               @keyup.escape="namingMode = false"
             />
-            <button class="btn-save" @click="confirmSaveSerie">
+            <button class="btn-save" @click.stop="confirmSaveSerie">
               <Icons icon="check" :size="13" color="#48bb78" />
             </button>
-            <button class="btn-clear btn-clear--icon" @click="namingMode = false">
+            <button class="btn-clear btn-clear--icon" @click.stop="cancelToInit">
               <Icons icon="x" :size="13" color="#fc8181" />
             </button>
           </div>
@@ -328,8 +333,8 @@
           </label>
         </template>
         <template v-else>
-          <button class="btn-clear" @click="passeStore.cancelCapture">Abbrechen</button>
-          <button class="btn-save" @click="openNamingMode">Speichern</button>
+          <button class="btn-clear" @click.stop="cancelToInit">Abbrechen</button>
+          <button class="btn-save" @click.stop="openNamingMode">Speichern</button>
         </template>
       </div>
     </div>
@@ -377,6 +382,12 @@ const isRecordingActive = computed(
 );
 
 const currentSteps = computed(() => passeStore.editingSerie[0]?.steps ?? []);
+
+// Shrunk capture column shows the newest step on top (reverse chronological).
+const shrunkSteps = computed(() => [...currentSteps.value].reverse());
+
+// Name of the serie currently being edited (empty for a fresh capture).
+const editingName = computed(() => passeStore.editingSerie[0]?.alias ?? '');
 
 const currentRangeId = computed(() => store.selectedRangeId);
 
@@ -548,6 +559,9 @@ const editSerie = (serieId) => {
   passeStore.editingId = serieId;
   passeStore.editingSerie = [{ id: serie.id, alias: serie.name, steps: [...serie.steps] }];
   passeStore.passeMode = true;
+  // A2: editing only makes sense in capture mode — force the recording session
+  // (without startCapture, which would wipe the steps we just loaded).
+  store.enterRecordingForEdit();
   isOpen.value = true;
   expandedSerieId.value = null;
 };
@@ -561,21 +575,49 @@ const deleteSerie = (serieId) => {
 
 // ── Naming mode ────────────────────────────────────────────────────────────
 const openNamingMode = () => {
-  serieNameInput.value = '';
+  // When editing, prefill the existing name so it stays editable and visible.
+  serieNameInput.value = passeStore.editingId ? editingName.value : '';
   saveAsRange.value = false;
   namingMode.value = true;
   nextTick(() => nameInputRef.value?.focus());
 };
 
-const confirmSaveSerie = () => {
+// Expand the shrunk panel straight into the save view (green save affordance).
+const expandToSave = () => {
+  isOpen.value = true;
+  openNamingMode();
+};
+
+const confirmSaveSerie = async () => {
   const rangeId = store.selectedRangeId;
   const range = rangeStore.ranges.find((r) => r.id === rangeId);
-  const ownership = saveAsRange.value ? 'range' : 'user';
-  passeStore.saveSerie(serieNameInput.value, rangeId, range?.name ?? null, ownership);
+  const steps = passeStore.editingSerie[0]?.steps ?? [];
+  if (passeStore.editingId) {
+    // A1: editing updates the existing serie in place (stable ID), never a copy.
+    const name = serieNameInput.value?.trim() || editingName.value;
+    await passeStore.updateSerie(passeStore.editingId, name, steps);
+    passeStore.cancelCapture();
+  } else {
+    const ownership = saveAsRange.value ? 'range' : 'user';
+    await passeStore.saveSerie(serieNameInput.value, rangeId, range?.name ?? null, ownership);
+  }
   namingMode.value = false;
   serieNameInput.value = '';
   saveAsRange.value = false;
   expandedSerieId.value = null;
+  // A4: after a successful save, drop back to shooting mode and collapse the panel.
+  store.setSessionMode('throwing');
+  isOpen.value = false;
+};
+
+// A3: cancelling (incl. cancelling the save) clears the capture list and shrinks
+// the flyout back to the recording init state — it does not leave recording mode.
+const cancelToInit = () => {
+  passeStore.clearEditingSteps();
+  namingMode.value = false;
+  serieNameInput.value = '';
+  saveAsRange.value = false;
+  isOpen.value = false;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -765,6 +807,7 @@ const getStepTooltip = (step) =>
 }
 
 .captured-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -779,6 +822,45 @@ const getStepTooltip = (step) =>
   font-family: inherit;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+}
+
+/* Delete indicator: a small red × in the corner signals the bubble is removable. */
+.delete-x {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #e24b4a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Green save affordance shown above the capture column in shrunk mode. */
+.shrunk-save-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 32px;
+  background: rgba(72, 187, 120, 0.18);
+  border: 1px solid rgba(72, 187, 120, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background 0.15s;
+}
+
+.shrunk-save-btn:active { background: rgba(72, 187, 120, 0.3); }
+
+@media (hover: hover) and (pointer: fine) {
+  .shrunk-save-btn:hover { background: rgba(72, 187, 120, 0.26); }
 }
 
 /* Hover only on true pointer devices — avoids flash-then-snap on touch */

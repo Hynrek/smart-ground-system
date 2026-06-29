@@ -142,6 +142,16 @@ export const usePasseStore = defineStore('passe', () => {
     editingId.value = null;
   };
 
+  // Drop the current capture/edit but stay in recording mode: returns to the
+  // empty init state (fresh draft serie, no steps) so the operator can keep
+  // capturing without leaving the recording session.
+  const clearEditingSteps = () => {
+    pairPending.value = null;
+    editingId.value = null;
+    activeSerieIndex.value = 0;
+    editingSerie.value = [{ id: generateUUID(), alias: null, steps: [] }];
+  };
+
   // ── Step recording (in-memory) ────────────────────────────────────────────
 
   const addStep = (positionId, position, positionLabel) => {
@@ -374,7 +384,7 @@ export const usePasseStore = defineStore('passe', () => {
     // Persisted state
     savedSerien, savedPassen, pendingPasseId, savedGlobalPassen,
     // Capture lifecycle
-    resetCapture, startCapture, cancelCapture,
+    resetCapture, startCapture, cancelCapture, clearEditingSteps,
     // Step recording
     addStep, removeStep,
     // Serie actions

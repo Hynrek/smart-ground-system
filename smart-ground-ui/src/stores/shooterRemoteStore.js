@@ -93,6 +93,15 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     throwPairPending.value = null;
   };
 
+  // Enter recording mode for an in-progress edit. Unlike setSessionMode('recording'),
+  // this never calls startCapture(), so an already-loaded editingSerie (the serie
+  // being edited) is preserved rather than reset to an empty draft.
+  const enterRecordingForEdit = () => {
+    recordingActive.value = true;
+    recordingPaused.value = false;
+    sessionMode.value = 'recording';
+  };
+
   const setSessionMode = (newMode) => {
     const passeStore = usePasseStore();
     if (newMode === 'recording') {
@@ -135,6 +144,7 @@ export const useShooterRemoteStore = defineStore('shooterRemote', () => {
     setGroupId,
     setMode,
     setSessionMode,
+    enterRecordingForEdit,
     setCompetitionContext,
   };
 });
