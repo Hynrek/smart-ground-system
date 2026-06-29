@@ -78,6 +78,8 @@ const iconPaths = {
   moreH: 'M3.5 8a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm4.5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm4.5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3z',
   award: 'M3 2h10l-1 6c0 1.5-2 2.5-4 2.5S4 9.5 4 8L3 2zm5 8.5V13M5 13h6M1 4h2M13 4h2',
   clock: 'M8 2a6 6 0 100 12A6 6 0 008 2zm0 2.5V8l2.5 2.5',
+  stats: 'M2 13.5h12M5 13.5V9M8 13.5V4.5M11 13.5V7',
+  home: 'M2 7l6-5 6 5M4 6.5V13h8V6.5M6.5 13V9.5h3V13',
 };
 
 const iconPath = computed(() => iconPaths[props.icon] || '');

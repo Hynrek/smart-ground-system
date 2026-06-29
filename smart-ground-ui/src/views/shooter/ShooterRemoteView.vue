@@ -102,9 +102,6 @@
 
     <!-- Device section -->
     <div class="device-section" :class="{ 'is-recording': isRecordingActive }">
-      <p v-if="rangePositions.length > 0" class="section-title">
-        {{ rangePositions.length }} {{ rangePositions.length === 1 ? 'Position' : 'Positionen' }}
-      </p>
 
       <div v-if="positionsLoading" class="state-center">
         <p class="state-text">Lade Positionen…</p>
@@ -921,15 +918,6 @@ const chipLabel = (position) => {
   flex: 1;
   padding: 0 16px;
   min-height: 0;
-}
-
-.section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.3);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  margin: 0 0 8px 2px;
 }
 
 /* ── States ──────────────────────────────────────── */

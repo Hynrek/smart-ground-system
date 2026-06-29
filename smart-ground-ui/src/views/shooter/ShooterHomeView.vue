@@ -22,31 +22,48 @@
     <div class="app-grid">
       <button class="app-tile app-tile--available" @click="router.push('/remote')">
         <div class="tile-icon-wrap tile-icon-wrap--cyan">
-          <Icons icon="program" :size="36" color="var(--sg-accent)" />
+          <Icons icon="target" :size="36" color="var(--sg-accent)" />
         </div>
-        <span class="tile-label">Remote</span>
-        <span class="tile-desc">Geräte steuern</span>
+        <span class="tile-label">Schiessplätze</span>
+        <span class="tile-desc">Plätze & Geräte</span>
       </button>
 
       <button class="app-tile app-tile--available" @click="router.push('/meine-passen')">
         <div class="tile-icon-wrap tile-icon-wrap--orange">
-          <Icons icon="program" :size="36" />
+          <Icons icon="program" :size="36" color="#F6AD55" />
         </div>
-        <span class="tile-label">Passen</span>
-        <span class="tile-desc">Serien & Trainings</span>
+        <span class="tile-label">Trainings</span>
+        <span class="tile-desc">Serien & Passen vorbereiten</span>
       </button>
 
-      <button class="app-tile app-tile--available" @click="router.push('/wettkampf')">
-        <div class="tile-icon-wrap tile-icon-wrap--green">
-          <Icons icon="target" :size="36" />
+      <button class="app-tile app-tile--available" data-testid="open-profile" @click="showAccount = true">
+        <div class="tile-icon-wrap tile-icon-wrap--purple">
+          <Icons icon="user" :size="36" color="#C084FC" />
         </div>
-        <span class="tile-label">Wettkämpfe</span>
-        <span class="tile-desc">Teilnehmen & Ergebnisse</span>
+        <span class="tile-label">Mein Profil</span>
+        <span class="tile-desc">Konto & Daten</span>
+      </button>
+
+      <button v-if="canManage" class="app-tile app-tile--available" data-testid="open-admin" @click="router.push('/ranges')">
+        <div class="tile-icon-wrap tile-icon-wrap--green">
+          <Icons icon="templates" :size="36" color="#48BB78" />
+        </div>
+        <span class="tile-label">Verwaltung</span>
+        <span class="tile-desc">Schiessplätze verwalten</span>
       </button>
 
       <button class="app-tile app-tile--soon" disabled>
         <div class="tile-icon-wrap tile-icon-wrap--muted">
-          <Icons icon="target" :size="36" color="rgba(255,255,255,0.2)" />
+          <Icons icon="award" :size="36" color="rgba(255,255,255,0.2)" />
+        </div>
+        <span class="tile-label">Wettkämpfe</span>
+        <span class="tile-desc">Teilnehmen & Ergebnisse</span>
+        <span class="tile-coming">Bald verfügbar</span>
+      </button>
+
+      <button class="app-tile app-tile--soon" disabled>
+        <div class="tile-icon-wrap tile-icon-wrap--muted">
+          <Icons icon="stats" :size="36" color="rgba(255,255,255,0.2)" />
         </div>
         <span class="tile-label">Karriere</span>
         <span class="tile-desc">Meine Statistiken</span>
@@ -71,6 +88,9 @@ const showAccount = ref(false);
 const displayName = computed(() => authStore.displayName ?? 'Schütze');
 const firstName = computed(() => displayName.value.split(/[\s._@]/)[0]);
 const userInitial = computed(() => firstName.value.charAt(0).toUpperCase());
+
+// Admin entry to the management area is permission-gated, mirroring the router guard on /ranges
+const canManage = computed(() => authStore.hasPermission('MANAGE_RANGES'));
 
 const handleLogout = () => {
   authStore.logout();
