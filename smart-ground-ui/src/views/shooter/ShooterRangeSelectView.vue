@@ -33,7 +33,7 @@
           'range-card--locked': range.locked,
           'range-card--reserved': isReservedByOther(range),
         }"
-        :disabled="range.locked || isReservedByOther(range)"
+        :disabled="isReservedByOther(range)"
         @click="selectRange(range)"
       >
         <div
@@ -59,7 +59,8 @@
                 Reserviert
               </span>
             </div>
-            <p v-if="range.description" class="card-desc">{{ range.description }}</p>
+            <p v-if="range.locked" class="locked-hint">Tippen zum Freigeben</p>
+            <p v-else-if="range.description" class="card-desc">{{ range.description }}</p>
             <span class="device-count">
               <Icons icon="bolt" :size="11" color="rgba(255,255,255,0.35)" />
               {{ getDeviceCount(range.id) }} Geräte
@@ -98,7 +99,9 @@ const isReservedByOther = (range) =>
   !!range.assignedUserId && range.assignedUserId !== auth.profile?.id;
 
 const selectRange = (range) => {
-  if (range.locked) return;
+  // A locked range stays enterable so the lock can be released from inside;
+  // only a range reserved by another user is off-limits.
+  if (isReservedByOther(range)) return;
   shooterStore.reservePlatz(range.id);
   router.push(`/remote/${range.id}`);
 };
@@ -214,10 +217,14 @@ const selectRange = (range) => {
   background: rgba(255, 255, 255, 0.07);
 }
 
+/* Locked stays interactive — tapping enters the range to release the lock. */
 .range-card--locked {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
+  background: rgba(252, 129, 129, 0.07);
+  border-color: rgba(252, 129, 129, 0.2);
+}
+
+.range-card--locked:hover {
+  background: rgba(252, 129, 129, 0.11);
 }
 
 .range-card--reserved {
@@ -304,6 +311,13 @@ const selectRange = (range) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.locked-hint {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sg-color-danger-bg);
+  margin: 0;
 }
 
 .device-count {
