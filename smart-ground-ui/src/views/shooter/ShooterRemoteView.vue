@@ -66,12 +66,12 @@
       <div v-if="modeDrawerOpen" class="mode-flyout">
         <button
           class="mode-option"
-          :class="{ 'is-active': store.sessionMode !== 'recording' }"
+          :class="{ 'is-active': store.sessionMode === 'throwing' }"
           @click="setSessionMode('throwing')"
         >
           <span class="option-dot option-dot--normal" />
           <span class="option-name">Schiessen</span>
-          <span v-if="store.sessionMode !== 'recording'" class="option-tag option-tag--normal">Aktiv</span>
+          <span v-if="store.sessionMode === 'throwing'" class="option-tag option-tag--normal">Aktiv</span>
         </button>
         <button
           class="mode-option"
@@ -951,18 +951,23 @@ const chipLabel = (position) => {
   gap: 8px;
 }
 
-/* ── Card borders follow session/view mode ───────── */
+/* ── Card borders + glow follow session/view mode ───────── */
+/* Saturated border plus a coloured outer glow so the buttons stay legible on a
+   tablet in direct sunlight, where the previous faint borders washed out. */
 /* Schiessen (default): green */
 .device-btn:not(:disabled) {
-  border-color: rgba(72, 187, 120, 0.35);
+  border-color: rgba(72, 187, 120, 0.7);
+  box-shadow: 0 0 12px rgba(72, 187, 120, 0.3), inset 0 0 0 1px rgba(72, 187, 120, 0.18);
 }
 /* Erfassen: red */
 .session--erfassen .device-btn:not(:disabled) {
-  border-color: rgba(252, 129, 129, 0.4);
+  border-color: rgba(252, 129, 129, 0.75);
+  box-shadow: 0 0 12px rgba(252, 129, 129, 0.32), inset 0 0 0 1px rgba(252, 129, 129, 0.2);
 }
 /* Verzögert: amber */
 .session--verzoegert .device-btn:not(:disabled) {
-  border-color: rgba(239, 159, 39, 0.4);
+  border-color: rgba(239, 159, 39, 0.75);
+  box-shadow: 0 0 12px rgba(239, 159, 39, 0.32), inset 0 0 0 1px rgba(239, 159, 39, 0.2);
 }
 
 /* ── Bottom bar active tab follows throw-type color ─ */
@@ -981,8 +986,8 @@ const chipLabel = (position) => {
 .device-btn {
   position: relative;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.09);
+  border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: 18px;
   padding: 12px 10px 10px;
   display: flex;
