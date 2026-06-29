@@ -52,6 +52,7 @@ const allNavItems = [
   { id: 'home', label: 'Startseite', icon: 'home', requiredPermission: 'VIEW_REMOTE' },
   { id: 'ranges', label: 'Plätze', icon: 'target', requiredPermission: 'MANAGE_RANGES' },
   { id: 'smartboxes', label: 'SmartBoxen', icon: 'wifi', requiredPermission: 'MANAGE_RANGES' },
+  { id: 'firmware-updates', path: '/admin/firmware-updates', label: 'Firmware-Updates', icon: 'download', requiredPermission: 'MANAGE_RANGES' },
   { id: 'competition', path: '/admin/wettkampf', label: 'Wettkampf', icon: 'award', requiredPermission: 'MANAGE_COMPETITIONS' },
   { id: 'passen', label: 'Passen', icon: 'program', requiredPermission: 'MANAGE_PASSE_TEMPLATES' },
   { id: 'users', label: 'Benutzer', icon: 'user', requiredPermission: 'MANAGE_USERS' },

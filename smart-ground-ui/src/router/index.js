@@ -4,6 +4,7 @@ import RangesView from '@/views/admin/RangesView.vue';
 import RangeDetailView from '@/views/admin/RangeDetailView.vue';
 import SmartBoxesView from '@/views/admin/SmartBoxesView.vue';
 import FirmwareConfigsView from '@/views/admin/FirmwareConfigsView.vue';
+import FirmwareUpdatesView from '@/views/admin/FirmwareUpdatesView.vue';
 import UsersView from '@/views/admin/UsersView.vue';
 import PassenAdminView from '@/views/admin/PassenAdminView.vue';
 import PlayerSetupView from '@/views/admin/PlayerSetupView.vue';
@@ -30,6 +31,7 @@ const routes = [
   { path: '/ranges/:id',           component: RangeDetailView, props: route => ({ id: route.params.id }), meta: { layout: 'admin', permission: 'MANAGE_RANGES' } },
   { path: '/smartboxes',           component: SmartBoxesView,               meta: { layout: 'admin', permission: 'MANAGE_RANGES' } },
   { path: '/admin/firmware-configs', component: FirmwareConfigsView,        meta: { layout: 'admin', permission: 'MANAGE_RANGES' } },
+  { path: '/admin/firmware-updates', component: FirmwareUpdatesView,        meta: { layout: 'admin', permission: 'MANAGE_RANGES' } },
   { path: '/users',                component: UsersView,                    meta: { layout: 'admin', permission: 'MANAGE_USERS' } },
   { path: '/player-setup',         component: PlayerSetupView,              meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/admin/wettkampf',       component: WettkampfListView,            meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
