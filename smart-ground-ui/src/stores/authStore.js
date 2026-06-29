@@ -47,11 +47,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
-  const updateOwnUsername = async (username) => {
+  const updateProfile = async (data) => {
     isLoading.value = true;
     error.value = null;
     try {
-      await updateUserApi(profile.value.id, { username });
+      await updateUserApi(profile.value.id, data);
       await _loadProfile();
     } catch (err) {
       error.value = err.message;
@@ -98,7 +98,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     hasPermission,
     login,
-    updateOwnUsername,
+    updateProfile,
     init,
     logout,
   };
