@@ -142,6 +142,15 @@
             <!-- Verzögert: countdown ring + remaining seconds over the queued position -->
             <div v-if="isQueued(position)" class="btn-countdown-ring" :style="countdownRingStyle" />
             <span v-if="isQueued(position)" class="btn-countdown-num">{{ countdownLabel }}</span>
+            <div
+              v-else-if="rufArmedIds.includes(position.id) && rufPhase === 'totzeit'"
+              class="btn-countdown-ring"
+              :style="rufCountdownRingStyle"
+            />
+            <span
+              v-else-if="rufArmedIds.includes(position.id) && rufPhase === 'totzeit'"
+              class="btn-countdown-num btn-countdown-num--ruf"
+            >{{ rufCountdownLabel }}</span>
             <span v-else class="btn-letter" :style="{ color: iconColor(position) }">
               {{ position.label }}
             </span>
@@ -158,14 +167,14 @@
         <button
           class="toggle-btn"
           :class="{ active: store.mode === 'solo' }"
-          @click="store.setMode('solo')"
+          @click="onModeButtonTap('solo')"
         >
           Solo
         </button>
         <button
           class="toggle-btn"
           :class="{ active: store.mode === 'pair' }"
-          @click="store.setMode('pair')"
+          @click="onModeButtonTap('pair')"
         >
           Pair
         </button>
@@ -338,6 +347,97 @@ const activePasseStore = useActivePasseStore();
 
 const { startListening, stopListening, micLevel, wouldTrigger, micDenied } = useVoiceTrigger(store);
 
+// Rufauslösung: arming state
+const rufArmedIds  = ref([]);   // position ids currently armed
+const rufPhase     = ref(null); // 'totzeit' | 'listening' | 'waiting-pair' | null
+
+// Totzeit countdown (for the ring animation — mirrors the delay countdown)
+const rufTotzeitTotalMs     = ref(0);
+const rufTotzeitRemainingMs = ref(0);
+let rufTotzeitInterval = null;
+let rufTotzeitTimeout  = null;
+
+const clearRufTimers = () => {
+  if (rufTotzeitInterval) { clearInterval(rufTotzeitInterval); rufTotzeitInterval = null; }
+  if (rufTotzeitTimeout)  { clearTimeout(rufTotzeitTimeout);  rufTotzeitTimeout  = null; }
+};
+
+const cancelRuf = () => {
+  clearRufTimers();
+  stopListening();
+  rufArmedIds.value = [];
+  rufPhase.value    = null;
+  rufTotzeitRemainingMs.value = 0;
+  rufTotzeitTotalMs.value     = 0;
+};
+
+const handleRufTap = (position) => {
+  // Re-tapping an armed position aborts
+  if (rufArmedIds.value.includes(position.id)) {
+    cancelRuf();
+    return;
+  }
+
+  if (store.mode === 'pair') {
+    if (rufArmedIds.value.length === 0) {
+      rufArmedIds.value = [position.id];
+      rufPhase.value    = 'waiting-pair';
+      return;
+    }
+    const ids = [...rufArmedIds.value, position.id];
+    armPositions(ids);
+    return;
+  }
+
+  // Solo
+  armPositions([position.id]);
+};
+
+const armPositions = (ids) => {
+  rufArmedIds.value = ids;
+  const totzeitMs   = store.rufTotzeit;
+
+  if (totzeitMs > 0) {
+    rufPhase.value              = 'totzeit';
+    rufTotzeitTotalMs.value     = totzeitMs;
+    rufTotzeitRemainingMs.value = totzeitMs;
+    const startedAt = Date.now();
+
+    rufTotzeitInterval = setInterval(() => {
+      rufTotzeitRemainingMs.value = Math.max(0, totzeitMs - (Date.now() - startedAt));
+    }, 50);
+
+    rufTotzeitTimeout = setTimeout(() => {
+      clearRufTimers();
+      rufTotzeitRemainingMs.value = 0;
+      rufTotzeitTotalMs.value     = 0;
+      beginListening(ids);
+    }, totzeitMs);
+  } else {
+    beginListening(ids);
+  }
+};
+
+const beginListening = (ids) => {
+  rufPhase.value = 'listening';
+  startListening(() => {
+    if (ids.length === 1) {
+      fireSinglePosition(ids[0]);
+    } else {
+      firePairPositions(ids[0], ids[1]);
+    }
+    rufArmedIds.value = [];
+    rufPhase.value    = null;
+  });
+};
+
+const onModeButtonTap = (newMode) => {
+  if (store.sessionMode === 'rufausloesung' && rufArmedIds.value.length > 0) {
+    cancelRuf();
+  }
+  store.setMode(newMode);
+};
+
 // Optional competition context query params
 const rotteId = computed(() => route.query.rotteId ?? null);
 const instanceId = computed(() => route.query.instanceId ?? null);
@@ -377,11 +477,15 @@ onMounted(async () => {
 onUnmounted(() => {
   store.releasePlatz();
   store.setCompetitionContext(null, null);
+  cancelQueue();
+  cancelRuf();
 });
 
 watch(() => store.sessionMode, () => {
   store.setMode('solo');
   modeDrawerOpen.value = false;
+  cancelQueue();
+  cancelRuf();
 });
 
 watch(() => store.mode, () => {
@@ -543,12 +647,20 @@ const handleDelayedTap = (position) => {
 };
 
 // Abort a pending countdown whenever delayed mode is left or the range is locked.
-watch(() => store.sessionMode, () => cancelQueue());
-watch(isLocked, (locked) => { if (locked) cancelQueue(); });
-onUnmounted(() => cancelQueue());
+watch(isLocked, (locked) => {
+  if (locked) {
+    cancelQueue();
+    cancelRuf();
+  }
+});
 
 const handlePositionTap = async (position) => {
   if (isPositionDisabled(position)) return;
+
+  if (store.sessionMode === 'rufausloesung') {
+    handleRufTap(position);
+    return;
+  }
 
   if (store.sessionMode === 'delayed') {
     handleDelayedTap(position);
@@ -661,6 +773,9 @@ const isPositionDisabled = (position) => {
   // Verzögert: while a command is queued, lock every button except the queued
   // one(s) — those stay tappable so the shooter can abort the countdown.
   if (queuedIds.value.length) return !isQueued(position);
+  if (rufArmedIds.value.length > 0 && rufPhase.value !== 'waiting-pair') {
+    return !rufArmedIds.value.includes(position.id);
+  }
   if (firingIds.value.has(position.id)) return true;
   return false;
 };
@@ -669,17 +784,18 @@ const isThrowPairPending = (position) =>
   !passeStore.passeMode && store.throwPairPending?.id === position.id;
 
 const positionBtnClass = (position) => ({
-  'device-btn--firing': firingIds.value.has(position.id),
-  'device-btn--fired': firedIds.value.has(position.id),
-  'device-btn--error': errorIds.value.has(position.id),
-  'device-btn--blocked': (position.device?.blocked ?? false) || isLocked.value,
-  'device-btn--no-device': !position.device,
-  'device-btn--recording': !!passeStore.recording[position.id],
+  'device-btn--firing':      firingIds.value.has(position.id),
+  'device-btn--fired':       firedIds.value.has(position.id),
+  'device-btn--error':       errorIds.value.has(position.id),
+  'device-btn--blocked':     (position.device?.blocked ?? false) || isLocked.value,
+  'device-btn--no-device':   !position.device,
+  'device-btn--recording':   !!passeStore.recording[position.id],
   'device-btn--pair-pending':
     isThrowPairPending(position) ||
     (passeStore.passeMode && passeStore.pairPending?.id === position.id),
-  'device-btn--queued': isQueued(position),
-  'device-btn--inactive': !store.reservedByMe && !isLocked.value,
+  'device-btn--queued':     isQueued(position),
+  'device-btn--ruf-armed':  rufArmedIds.value.includes(position.id),
+  'device-btn--inactive':    !store.reservedByMe && !isLocked.value,
 });
 
 const iconColor = (position) => {
@@ -695,6 +811,10 @@ const chipClass = (position) => {
   if (!store.reservedByMe) return 'chip--free';
   if (isQueued(position)) return 'chip--queued';
   if (queuedIds.value.length) return 'chip--waiting';
+  if (rufArmedIds.value.includes(position.id) && rufPhase.value === 'listening') return 'chip--listening';
+  if (rufArmedIds.value.includes(position.id) && rufPhase.value === 'waiting-pair') return 'chip--pending';
+  if (rufArmedIds.value.includes(position.id)) return 'chip--waiting';
+  if (rufArmedIds.value.length > 0 && !rufArmedIds.value.includes(position.id)) return 'chip--waiting';
   if (errorIds.value.has(position.id)) return 'chip--error';
   if (firedIds.value.has(position.id)) return 'chip--fired';
   if (passeStore.recording[position.id]) return 'chip--recording';
@@ -703,6 +823,18 @@ const chipClass = (position) => {
   return 'chip--ready';
 };
 
+const rufCountdownLabel = computed(() =>
+  `${Math.ceil(rufTotzeitRemainingMs.value / 1000)}s`
+);
+const rufCountdownRingStyle = computed(() => {
+  const pct = rufTotzeitTotalMs.value
+    ? (rufTotzeitRemainingMs.value / rufTotzeitTotalMs.value) * 360
+    : 0;
+  return {
+    background: `conic-gradient(var(--ruf-color, #56C8D8) ${pct}deg, rgba(255,255,255,0.12) ${pct}deg)`,
+  };
+});
+
 const chipLabel = (position) => {
   if (!position.device) return 'Kein Gerät';
   if (position.device.blocked) return 'Gesperrt';
@@ -710,6 +842,10 @@ const chipLabel = (position) => {
   if (!store.reservedByMe) return 'Frei';
   if (isQueued(position)) return 'Abbrechen';
   if (queuedIds.value.length) return 'Warten';
+  if (rufArmedIds.value.includes(position.id) && rufPhase.value === 'listening') return 'Lauscht';
+  if (rufArmedIds.value.includes(position.id) && rufPhase.value === 'waiting-pair') return 'Gewählt';
+  if (rufArmedIds.value.includes(position.id)) return 'Warten';
+  if (rufArmedIds.value.length > 0 && !rufArmedIds.value.includes(position.id)) return 'Warten';
   if (errorIds.value.has(position.id)) return 'Fehler';
   if (firedIds.value.has(position.id)) return 'Ausgelöst';
   if (passeStore.recording[position.id]) return 'Erfasst';
@@ -1205,6 +1341,14 @@ const chipLabel = (position) => {
   border-color: rgba(239, 159, 39, 0.6) !important;
   opacity: 1 !important;
 }
+
+.device-btn--ruf-armed {
+  background: rgba(86, 200, 216, 0.12) !important;
+  border-color: rgba(86, 200, 216, 0.6) !important;
+  opacity: 1 !important;
+}
+
+.btn-countdown-num--ruf { color: var(--ruf-text); }
 
 @keyframes fired-pulse {
   0% { transform: scale(1); }
