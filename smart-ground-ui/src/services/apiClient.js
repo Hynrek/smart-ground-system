@@ -9,7 +9,7 @@ export const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
 export async function handleResponse(response) {
   if (response.ok) {
-    if (response.status === 204) return null;
+    if (response.status === 204 || response.status === 202) return null;
     return response.json();
   }
   if (response.status === 401) {
@@ -36,6 +36,19 @@ export async function handleResponse(response) {
   error.status = response.status;
   error.body = body;
   throw error;
+}
+
+// Multipart upload: send FormData with the auth token but WITHOUT a Content-Type
+// header, so the browser sets multipart/form-data + boundary automatically.
+export async function apiUpload(path, formData) {
+  const token = localStorage.getItem('sg_token');
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  return handleResponse(response);
 }
 
 export async function apiFetch(path, options = {}) {
