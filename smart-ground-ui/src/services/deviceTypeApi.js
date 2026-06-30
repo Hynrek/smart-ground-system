@@ -47,3 +47,17 @@ export async function updateDeviceType(id, payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export async function createSignalType(payload) {
+  return apiFetch('/signal-types', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function createDeviceType(payload) {
+  return apiFetch('/device-types', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

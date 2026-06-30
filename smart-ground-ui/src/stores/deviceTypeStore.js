@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { fetchDeviceTypes, fetchDeviceTypeGroups, fetchFirmwareConfigs, updateDeviceType as updateDeviceTypeApi } from '../services/deviceTypeApi.js';
+import { fetchDeviceTypes, fetchDeviceTypeGroups, fetchFirmwareConfigs, updateDeviceType as updateDeviceTypeApi, createSignalType, createDeviceType as createDeviceTypeApi } from '../services/deviceTypeApi.js';
 
 export const useDeviceTypeStore = defineStore('deviceType', () => {
   const deviceTypes = ref([]);
@@ -41,6 +41,30 @@ export const useDeviceTypeStore = defineStore('deviceType', () => {
     }
   };
 
+  const createDeviceConfig = async (firmwareConfigId, { name, groupId, pin, signalDurationMs }) => {
+    error.value = null;
+    try {
+      const signalType = await createSignalType({
+        firmwareConfigId,
+        direction: 'OUTPUT',
+        device: 'GPIO',
+        command: String(pin),
+      });
+      const deviceType = await createDeviceTypeApi({
+        name,
+        groupId,
+        signalTypeId: signalType.id,
+        signalDurationMs,
+      });
+      deviceTypes.value.push(deviceType);
+      return deviceType;
+    } catch (e) {
+      console.error('Failed to create device config:', e);
+      error.value = e.message ?? 'Unbekannter Fehler';
+      throw e;
+    }
+  };
+
   return {
     deviceTypes,
     deviceTypeGroups,
@@ -50,5 +74,6 @@ export const useDeviceTypeStore = defineStore('deviceType', () => {
     initialize,
     loadApiData,
     updateDeviceType,
+    createDeviceConfig,
   };
 });
