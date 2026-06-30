@@ -39,7 +39,20 @@ describe('deviceStore block/unblock', () => {
     await store.unblockDevice('d1');
 
     expect(deviceApi.sendDeviceCommand).toHaveBeenCalledWith('d1', 'UNBLOCK');
+    expect(deviceApi.fetchDevice).toHaveBeenCalledWith('d1');
     expect(store.devices[0].blocked).toBe(false);
+  });
+
+  it('unblockDevice sets error on failure', async () => {
+    vi.mocked(deviceApi.sendDeviceCommand).mockRejectedValue(new Error('timeout'));
+
+    const store = useDeviceStore();
+    store.devices = [{ id: 'd1', blocked: true }];
+
+    await store.unblockDevice('d1');
+
+    expect(store.error).toBe('timeout');
+    expect(store.devices[0].blocked).toBe(true);
   });
 
   it('blockDevice sets error on failure', async () => {

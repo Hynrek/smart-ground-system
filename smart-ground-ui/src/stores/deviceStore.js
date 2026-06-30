@@ -85,6 +85,7 @@ export const useDeviceStore = defineStore('device', () => {
   };
 
   const blockDevice = async (deviceId) => {
+    error.value = null;
     try {
       await deviceApi.sendDeviceCommand(deviceId, 'BLOCK');
       const updated = await deviceApi.fetchDevice(deviceId);
@@ -96,6 +97,7 @@ export const useDeviceStore = defineStore('device', () => {
   };
 
   const unblockDevice = async (deviceId) => {
+    error.value = null;
     try {
       await deviceApi.sendDeviceCommand(deviceId, 'UNBLOCK');
       const updated = await deviceApi.fetchDevice(deviceId);
