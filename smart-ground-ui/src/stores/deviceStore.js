@@ -84,12 +84,35 @@ export const useDeviceStore = defineStore('device', () => {
     );
   };
 
+  const blockDevice = async (deviceId) => {
+    try {
+      await deviceApi.sendDeviceCommand(deviceId, 'BLOCK');
+      const updated = await deviceApi.fetchDevice(deviceId);
+      updateDeviceLocal(deviceId, updated);
+    } catch (e) {
+      console.error('Failed to block device:', e);
+      error.value = e.message ?? 'Unbekannter Fehler';
+    }
+  };
+
+  const unblockDevice = async (deviceId) => {
+    try {
+      await deviceApi.sendDeviceCommand(deviceId, 'UNBLOCK');
+      const updated = await deviceApi.fetchDevice(deviceId);
+      updateDeviceLocal(deviceId, updated);
+    } catch (e) {
+      console.error('Failed to unblock device:', e);
+      error.value = e.message ?? 'Unbekannter Fehler';
+    }
+  };
+
   const applyDeviceEvent = (event) => {
     if (event.type !== 'device.health') return;
     const device = devices.value.find((d) => d.id === event.deviceId);
     if (device) {
       device.healthy = event.healthy;
       device.blocked = event.blocked;
+      device.adminBlocked = event.adminBlocked ?? device.adminBlocked ?? false;
     }
   };
 
@@ -102,6 +125,8 @@ export const useDeviceStore = defineStore('device', () => {
     updateDevice,
     updateDeviceLocal,
     createDevice,
+    blockDevice,
+    unblockDevice,
     applyDeviceEvent,
     initialize,
     loadDevices,
