@@ -60,6 +60,8 @@ export const useDeviceTypeStore = defineStore('deviceType', () => {
       return deviceType;
     } catch (e) {
       console.error('Failed to create device config:', e);
+      // If createSignalType succeeded but createDeviceType failed, a dangling
+      // signal type may exist on the backend. No rollback API is available yet.
       error.value = e.message ?? 'Unbekannter Fehler';
       throw e;
     }

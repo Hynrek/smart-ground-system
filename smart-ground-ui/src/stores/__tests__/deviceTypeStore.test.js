@@ -56,4 +56,19 @@ describe('deviceTypeStore createDeviceConfig', () => {
     expect(store.deviceTypes).toHaveLength(0);
     expect(store.error).toBe('forbidden');
   });
+
+  it('sets error and does not append if device type creation fails', async () => {
+    vi.mocked(deviceTypeApi.createSignalType).mockResolvedValue({ id: 'st1' });
+    vi.mocked(deviceTypeApi.createDeviceType).mockRejectedValue(new Error('conflict'));
+
+    const store = useDeviceTypeStore();
+    store.deviceTypes = [];
+
+    await expect(store.createDeviceConfig('fc1', {
+      name: 'X', groupId: 'g1', pin: 5, signalDurationMs: 100,
+    })).rejects.toThrow('conflict');
+
+    expect(store.deviceTypes).toHaveLength(0);
+    expect(store.error).toBe('conflict');
+  });
 });
