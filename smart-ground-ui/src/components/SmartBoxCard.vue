@@ -127,49 +127,12 @@
                     <input v-model="editForm.alias" />
                   </div>
                   <div class="form-group">
-                    <label>Gruppe</label>
-                    <select v-model="editForm.groupId">
-                      <option value="" disabled>Gruppe wählen</option>
-                      <option v-for="g in deviceTypeGroups" :key="g.id" :value="g.id">
-                        {{ g.name }}
-                      </option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label>Typ</label>
-                    <select v-model="editForm.deviceTypeId">
-                      <option value="" disabled>Typ wählen</option>
-                      <option v-for="t in editFilteredDeviceTypes" :key="t.id" :value="t.id">
-                        {{ t.name }}
-                      </option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label>GPIO-Pin</label>
-                    <input
-                      v-model="editForm.pin"
-                      type="number"
-                      min="0"
-                      max="40"
-                      placeholder="z.B. 17"
-                    />
-                  </div>
-                  <div class="form-group">
                     <label>Signaldauer (ms)</label>
                     <input
                       v-model="editForm.signalDurationMs"
                       type="number"
                       min="10"
                       placeholder="z.B. 100"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label>Verzögerung (ms)</label>
-                    <input
-                      v-model="editForm.delaySignalDurationMs"
-                      type="number"
-                      min="0"
-                      placeholder="z.B. 0"
                     />
                   </div>
                   <div class="form-group">
@@ -216,33 +179,28 @@
           />
         </div>
         <div class="form-group">
-          <label>Gruppe *</label>
-          <select
-            v-model="newDeviceForm.groupId"
-            @change="newDeviceForm.deviceTypeId = ''"
-          >
-            <option value="" disabled>Gruppe wählen</option>
-            <option v-for="g in deviceTypeGroups" :key="g.id" :value="g.id">
-              {{ g.name }}
-            </option>
-          </select>
-        </div>
-        <div class="form-group">
           <label>Typ *</label>
-          <select v-model="newDeviceForm.deviceTypeId" :disabled="!newDeviceForm.groupId">
+          <select v-model="newDeviceForm.deviceTypeId">
             <option value="" disabled>Typ wählen</option>
-            <option v-for="t in filteredDeviceTypes" :key="t.id" :value="t.id">
-              {{ t.name }}
+            <option v-for="t in availableDeviceTypes" :key="t.id" :value="t.id">
+              {{ t.name }}{{ groupNameForType(t) ? ` (${groupNameForType(t)})` : '' }}
             </option>
           </select>
         </div>
+        <button
+          v-if="isAdmin"
+          type="button"
+          class="debug-toggle"
+          @click="showDebugTypes = !showDebugTypes"
+        >
+          {{ showDebugTypes ? 'Debug-Geräte ausblenden' : 'Debug-Geräte anzeigen' }}
+        </button>
         <div class="form-actions">
           <button
             class="add-btn"
-            :disabled="!newDeviceForm.name.trim() || !newDeviceForm.groupId || !newDeviceForm.deviceTypeId"
+            :disabled="!newDeviceForm.name.trim() || !newDeviceForm.deviceTypeId"
             @click="handleAddDevice"
           >
-            <Icons icon="plus" :size="12" />
             Erfassen
           </button>
           <button class="cancel-btn" @click="toggleAddMode">Abbrechen</button>
@@ -264,7 +222,8 @@ import { useSmartBoxStore } from '../stores/smartBoxStore.js';
 import { useRangeStore } from '../stores/rangeStore.js';
 import { useDeviceTypeGroupStore } from '../stores/deviceTypeGroupStore.js';
 import { useDeviceTypeStore } from '../stores/deviceTypeStore.js';
-import { STATUS_LABELS } from '../constants/deviceTypes.js';
+import { useAuthStore } from '../stores/authStore.js';
+import { ADMIN_PERMISSION, DEBUG_GROUP_NAMES, STATUS_LABELS } from '../constants/deviceTypes.js';
 import StatusDot from './StatusDot.vue';
 import Badge from './Badge.vue';
 import TypeChip from './TypeChip.vue';
@@ -303,22 +262,33 @@ const smartBoxStore = useSmartBoxStore();
 const rangeStore = useRangeStore();
 const deviceTypeGroupStore = useDeviceTypeGroupStore();
 const deviceTypeStore = useDeviceTypeStore();
-const deviceTypeGroups = computed(() => deviceTypeGroupStore.groups);
-const filteredDeviceTypes = computed(() =>
-  deviceTypeStore.deviceTypes.filter((t) => t.groupId === newDeviceForm.value.groupId),
-);
-const editFilteredDeviceTypes = computed(() =>
-  deviceTypeStore.deviceTypes.filter(
-    (t) => !editForm.value.groupId || t.groupId === editForm.value.groupId,
-  ),
-);
+const authStore = useAuthStore();
+
+const isAdmin = computed(() => authStore.hasPermission(ADMIN_PERMISSION));
+
+const availableDeviceTypes = computed(() => {
+  return deviceTypeStore.deviceTypes.filter((t) => {
+    const group = deviceTypeGroupStore?.groups?.find?.((g) => g.id === t.groupId)
+      ?? deviceTypeStore.deviceTypeGroups?.find?.((g) => g.id === t.groupId);
+    const isDebug = DEBUG_GROUP_NAMES.includes((group?.name ?? '').toUpperCase());
+    if (isDebug) return showDebugTypes.value && isAdmin.value;
+    return true;
+  });
+});
+
+const groupNameForType = (t) => {
+  const group = deviceTypeGroupStore?.groups?.find?.((g) => g.id === t.groupId)
+    ?? deviceTypeStore.deviceTypeGroups?.find?.((g) => g.id === t.groupId);
+  return group?.name ?? '';
+};
 
 const renamingBox = ref(false);
 const aliasInput = ref(props.box.alias);
 const isAdding = ref(false);
+const showDebugTypes = ref(false);
 const editingId = ref(null);
 const editForm = ref({});
-const newDeviceForm = ref({ name: '', groupId: '', deviceTypeId: '' });
+const newDeviceForm = ref({ name: '', deviceTypeId: '' });
 const confirmingDelete = ref(null);
 
 const boxes = computed(() => smartBoxStore.smartboxes);
@@ -336,11 +306,8 @@ const firmwareConflict = computed(() => {
 });
 
 const resetNewDeviceForm = () => {
-  newDeviceForm.value = {
-    name: '',
-    groupId: '',
-    deviceTypeId: '',
-  };
+  newDeviceForm.value = { name: '', deviceTypeId: '' };
+  showDebugTypes.value = false;
 };
 
 const formatCommandTime = (iso) => {
@@ -369,33 +336,18 @@ const startEdit = (device) => {
   editForm.value = {
     alias: device.alias ?? device.name ?? '',
     deviceTypeId: device.deviceTypeId ?? '',
-    groupId: device.groupId ?? '',
-    pin: device.pin ?? '',
     signalDurationMs: device.signalDurationMs ?? '',
-    delaySignalDurationMs: device.delaySignalDurationMs ?? '',
     smartBoxId: device.smartBoxId ?? device.boxId ?? props.box.id,
   };
 };
 
 const saveEdit = (deviceId) => {
   const updates = {
-    alias: editForm.value.alias.trim(),
+    alias: editForm.value.alias?.trim() ?? '',
     smartBoxId: editForm.value.smartBoxId,
   };
-  if (editForm.value.deviceTypeId) {
-    updates.deviceTypeId = editForm.value.deviceTypeId;
-  }
-  if (editForm.value.groupId) {
-    updates.groupId = editForm.value.groupId;
-  }
-  if (editForm.value.pin !== '') {
-    updates.pin = parseInt(editForm.value.pin);
-  }
-  if (editForm.value.signalDurationMs !== '') {
+  if (editForm.value.signalDurationMs !== '' && editForm.value.signalDurationMs !== null) {
     updates.signalDurationMs = parseInt(editForm.value.signalDurationMs);
-  }
-  if (editForm.value.delaySignalDurationMs !== '') {
-    updates.delaySignalDurationMs = parseInt(editForm.value.delaySignalDurationMs);
   }
   emit('update-device', { deviceId, updates });
   editingId.value = null;
@@ -424,12 +376,11 @@ const toggleAddMode = () => {
 };
 
 const handleAddDevice = () => {
-  if (!newDeviceForm.value.name.trim() || !newDeviceForm.value.groupId || !newDeviceForm.value.deviceTypeId) return;
+  if (!newDeviceForm.value.name.trim() || !newDeviceForm.value.deviceTypeId) return;
   emit('add-device', {
     boxId: props.box.id,
     device: {
       name: newDeviceForm.value.name,
-      groupId: newDeviceForm.value.groupId,
       deviceTypeId: newDeviceForm.value.deviceTypeId,
     },
   });
@@ -926,6 +877,17 @@ const deleteDevice = (deviceId) => {
   gap: 10px;
   flex-wrap: wrap;
   border-top: 1px dashed #e2e8f0;
+}
+
+.debug-toggle {
+  background: none;
+  border: none;
+  color: #718096;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 0;
+  text-decoration: underline;
+  font-family: inherit;
 }
 
 .stat-col {
