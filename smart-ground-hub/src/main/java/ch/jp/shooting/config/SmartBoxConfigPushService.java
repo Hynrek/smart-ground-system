@@ -118,7 +118,7 @@ public class SmartBoxConfigPushService {
                 signal.getDevice().name(),
                 signal.getCommand(),
                 deviceType.getSignalDurationMs(),
-                device.isBlocked()
+                device.isBlocked() || device.isAdminBlocked()
             ));
         }
 

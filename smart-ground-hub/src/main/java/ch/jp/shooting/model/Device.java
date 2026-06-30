@@ -60,6 +60,9 @@ public class Device {
     @Column(nullable = false)
     private boolean blocked = false;
 
+    @Column(name = "admin_blocked", nullable = false)
+    private boolean adminBlocked = false;
+
     @Column(nullable = false)
     private boolean healthy = true;
 
@@ -105,6 +108,8 @@ public class Device {
     public void setFireDelayMs(Integer fireDelayMs) { this.fireDelayMs = fireDelayMs; }
     public boolean isBlocked() { return blocked; }
     public void setBlocked(boolean blocked) { this.blocked = blocked; }
+    public boolean isAdminBlocked() { return adminBlocked; }
+    public void setAdminBlocked(boolean adminBlocked) { this.adminBlocked = adminBlocked; }
     public boolean isHealthy() { return healthy; }
     public void setHealthy(boolean healthy) { this.healthy = healthy; }
 
