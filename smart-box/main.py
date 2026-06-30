@@ -22,7 +22,7 @@ import network
 from networkutils import connect_wifi, reconnect_wifi, get_mac_address
 from accesspoint import start_ap
 from hardware import status_blink
-from mqttutils import publish_discovery, publish_heartbeat, connect_mqtt, reconnect_mqtt, load_device_config, update_device_pulses
+from mqttutils import publish_discovery, publish_heartbeat, connect_mqtt, reconnect_mqtt, load_device_config, load_firmware_config, update_device_pulses
 from mqttutils import _update_known_devices, set_watchdog, publish_ota_status
 import ota
 
@@ -67,15 +67,22 @@ try:
             # Gespeicherte Gerätekonfiguration laden und GPIO-Pins initialisieren.
             # Läuft vor dem MQTT-Connect, damit die Box sofort einsatzbereit ist,
             # auch wenn der Backend-Config-Push noch aussteht.
+            # Bei Schema-Inkompatibilität (OTA-Update mit neuer Config-Version) wird die
+            # gespeicherte Config verworfen und auf den Config-Push gewartet.
             from hardware import gpio_manager
-            saved_config = load_device_config()
-            saved_devices = saved_config.get("devices", []) if saved_config else []
-            if saved_devices:
-                _update_known_devices(saved_devices)  # Sicherheit: bekannte Geräte initialisieren
-                gpio_manager.setup(saved_devices)
-                print("GPIO-Pins aus gespeicherter Config initialisiert.")
+            firmware_cfg = load_firmware_config()
+            expected_schema = firmware_cfg.get("config_schema_version", "1")
+            saved = load_device_config()
+            if saved and saved.get("config_schema_version") == expected_schema:
+                saved_devices = saved.get("devices", [])
+                if saved_devices:
+                    _update_known_devices(saved_devices)
+                    gpio_manager.setup(saved_devices)
+                    print("GPIO-Pins aus gespeicherter Config initialisiert.")
+                else:
+                    print("Gespeicherte Config leer – warte auf Config-Push.")
             else:
-                print("Keine gespeicherte Gerätekonfiguration – warte auf Config-Push.")
+                print("Config-Schema inkompatibel oder fehlend – warte auf Config-Push.")
 
             # --- OTA Boot-Supervisor (läuft VOR dem Watchdog, direkt nach WiFi-Connect) ---
             # 1. Unterbrochenen Apply (Stromverlust) aus Backup wiederherstellen
