@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { fetchDeviceTypes, fetchDeviceTypeGroups, fetchFirmwareConfigs, updateDeviceType as updateDeviceTypeApi, createSignalType, createDeviceType as createDeviceTypeApi } from '../services/deviceTypeApi.js';
+import { fetchDeviceTypes, fetchDeviceTypeGroups, fetchFirmwareConfigs, fetchDeviceTypesByFirmware, updateDeviceType as updateDeviceTypeApi, createSignalType, createDeviceType as createDeviceTypeApi } from '../services/deviceTypeApi.js';
 
 export const useDeviceTypeStore = defineStore('deviceType', () => {
   const deviceTypes = ref([]);
+  const deviceTypesByFirmware = ref({});
   const deviceTypeGroups = ref([]);
   const firmwareConfigs = ref([]);
   const isLoading = ref(false);
@@ -41,6 +42,15 @@ export const useDeviceTypeStore = defineStore('deviceType', () => {
     }
   };
 
+  const loadDeviceTypesForFirmware = async (firmwareConfigId) => {
+    try {
+      const types = await fetchDeviceTypesByFirmware(firmwareConfigId);
+      deviceTypesByFirmware.value[firmwareConfigId] = types;
+    } catch (e) {
+      console.error('Failed to load device types for firmware:', e);
+    }
+  };
+
   const createDeviceConfig = async (firmwareConfigId, { name, groupId, pin, signalDurationMs }) => {
     error.value = null;
     try {
@@ -57,6 +67,10 @@ export const useDeviceTypeStore = defineStore('deviceType', () => {
         signalDurationMs,
       });
       deviceTypes.value.push(deviceType);
+      // Also update the per-firmware map
+      if (deviceTypesByFirmware.value[firmwareConfigId]) {
+        deviceTypesByFirmware.value[firmwareConfigId].push(deviceType);
+      }
       return deviceType;
     } catch (e) {
       console.error('Failed to create device config:', e);
@@ -69,6 +83,7 @@ export const useDeviceTypeStore = defineStore('deviceType', () => {
 
   return {
     deviceTypes,
+    deviceTypesByFirmware,
     deviceTypeGroups,
     firmwareConfigs,
     isLoading,
@@ -77,5 +92,6 @@ export const useDeviceTypeStore = defineStore('deviceType', () => {
     loadApiData,
     updateDeviceType,
     createDeviceConfig,
+    loadDeviceTypesForFirmware,
   };
 });

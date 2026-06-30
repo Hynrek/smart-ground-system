@@ -140,7 +140,7 @@
           <div class="form-actions">
             <button
               class="save-btn"
-              :disabled="creating || !createForm.name.trim() || !createForm.groupId || createForm.signalDurationMs === null || createForm.signalDurationMs === undefined"
+              :disabled="creating || !createForm.name.trim() || !createForm.groupId || createForm.signalDurationMs == null || (!isDebugGroup(createForm.groupId) && createForm.pin == null)"
               @click="submitCreate(fc.id)"
             >
               Erstellen
@@ -154,16 +154,16 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useDeviceTypeStore } from '@/stores/deviceTypeStore.js';
 import { useAuthStore } from '@/stores/authStore.js';
-import { ADMIN_PERMISSION, DEBUG_GROUP_NAMES } from '@/constants/deviceTypes.js';
+import { ADMIN_PERMISSION, DEBUG_GROUP_NAMES, MANAGE_RANGES_PERMISSION } from '@/constants/deviceTypes.js';
 
 const deviceTypeStore = useDeviceTypeStore();
 const authStore = useAuthStore();
 
 const isAdmin = computed(() => authStore.hasPermission(ADMIN_PERMISSION));
-const canEdit = computed(() => authStore.hasPermission('MANAGE_RANGES') || isAdmin.value);
+const canEdit = computed(() => authStore.hasPermission(MANAGE_RANGES_PERMISSION) || isAdmin.value);
 
 const isDebugGroupName = (name) =>
   DEBUG_GROUP_NAMES.includes((name ?? '').toUpperCase());
@@ -178,7 +178,18 @@ const groupName = (groupId) =>
   deviceTypeStore.deviceTypeGroups.find((g) => g.id === groupId)?.name ?? '–';
 
 const typesForFirmware = (firmwareConfigId) =>
-  deviceTypeStore.deviceTypes.filter((dt) => dt.firmwareConfigId === firmwareConfigId);
+  deviceTypeStore.deviceTypesByFirmware[firmwareConfigId] ?? [];
+
+onMounted(async () => {
+  // Ensure firmware configs and groups are loaded
+  if (deviceTypeStore.firmwareConfigs.length === 0) {
+    await deviceTypeStore.loadApiData?.();
+  }
+  // Load device types per firmware config
+  for (const fc of deviceTypeStore.firmwareConfigs) {
+    await deviceTypeStore.loadDeviceTypesForFirmware(fc.id);
+  }
+});
 
 // ── Inline edit ──────────────────────────────────────────────────────────────
 const editingId = ref(null);
