@@ -63,20 +63,9 @@ export const useDeviceStore = defineStore('device', () => {
     }
   };
 
-  const saveDevice = async (deviceId) => {
-    const device = devices.value.find(d => d.id === deviceId);
-    if (!device) return;
+  const createDevice = async (smartBoxId, deviceTypeId, alias, rangeId = null) => {
     try {
-      await deviceApi.sendDeviceCommand(deviceId);
-    } catch (e) {
-      console.error('Failed to save device:', e);
-      throw e;
-    }
-  };
-
-  const createDevice = async (smartBoxId, groupId, deviceTypeId, alias, rangeId = null, delaySignalDurationMs = null) => {
-    try {
-      const created = await deviceApi.createDevice(smartBoxId, groupId, deviceTypeId, alias, rangeId, delaySignalDurationMs);
+      const created = await deviceApi.createDevice(smartBoxId, deviceTypeId, alias, rangeId);
       devices.value.push(created);
       return created;
     } catch (e) {
@@ -89,16 +78,10 @@ export const useDeviceStore = defineStore('device', () => {
   const addDevice = async (device) => {
     return createDevice(
       device.smartBoxId || device.boxId,
-      device.groupId,
       device.deviceTypeId,
       device.name || device.alias,
       device.rangeId ?? null,
-      device.fireDelayMs ?? device.delaySignalDurationMs ?? null,
     );
-  };
-
-  const registerDevice = async (boxId, { groupId, deviceTypeId, alias, rangeId, delaySignalDurationMs }) => {
-    return createDevice(boxId, groupId, deviceTypeId, alias, rangeId, delaySignalDurationMs);
   };
 
   const applyDeviceEvent = (event) => {
@@ -118,9 +101,7 @@ export const useDeviceStore = defineStore('device', () => {
     removeDevice,
     updateDevice,
     updateDeviceLocal,
-    saveDevice,
     createDevice,
-    registerDevice,
     applyDeviceEvent,
     initialize,
     loadDevices,

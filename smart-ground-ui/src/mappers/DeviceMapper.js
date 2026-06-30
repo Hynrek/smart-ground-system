@@ -1,22 +1,23 @@
-/**
- * Device Mapper
- * Maps between API responses and application models
- */
-
 export function toDevice(data) {
   return {
     id: data.id,
-    boxId: data.boxId ?? null,
+    alias: data.alias ?? data.name ?? null,
     name: data.name ?? null,
+    boxId: data.boxId ?? data.smartBoxId ?? null,
+    smartBoxId: data.smartBoxId ?? data.boxId ?? null,
     type: data.type ?? null,
-    pin: data.pin ?? null,
+    pin: data.pin ?? data.command ?? null,
     status: data.status ?? 'offline',
     rangeId: data.rangeId ?? null,
     commandsProcessed: data.commandsProcessed ?? null,
     lastCommandProcessedAt: data.lastCommandProcessedAt ?? null,
-    fireDelayMs: data.fireDelayMs ?? 0,
-    templateId: data.templateId ?? null,
-    pinConfig: data.pinConfig ?? null,
+    groupId: data.groupId ?? null,
+    groupName: data.groupName ?? null,
+    deviceTypeId: data.deviceTypeId ?? null,
+    signalDurationMs: data.signalDurationMs ?? null,
+    blocked: data.blocked ?? false,
+    adminBlocked: data.adminBlocked ?? false,
+    healthy: data.healthy ?? null,
   };
 }
 
@@ -24,13 +25,8 @@ export function toDeviceList(data) {
   return Array.isArray(data) ? data.map(toDevice) : [];
 }
 
-export function toRegisterDeviceRequest({ templateId, alias, pinConfig, fireDelayMs = 0 }) {
-  return {
-    templateId,
-    alias,
-    pinConfig,
-    fireDelayMs,
-  };
+export function toRegisterDeviceRequest({ deviceTypeId, alias, rangeId }) {
+  return { deviceTypeId, alias, rangeId };
 }
 
 export function toDeviceCommandRequest(command) {

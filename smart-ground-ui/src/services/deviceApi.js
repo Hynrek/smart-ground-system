@@ -12,10 +12,10 @@ export async function fetchDevice(id) {
   return apiFetch(`/devices/${id}`);
 }
 
-export async function createDevice(smartBoxId, groupId, deviceTypeId, alias, rangeId = null, delaySignalDurationMs = null) {
+export async function createDevice(smartBoxId, deviceTypeId, alias, rangeId = null) {
   return apiFetch('/devices', {
     method: 'POST',
-    body: JSON.stringify({ smartBoxId, groupId, deviceTypeId, alias, rangeId, delaySignalDurationMs }),
+    body: JSON.stringify({ smartBoxId, deviceTypeId, alias, rangeId }),
   });
 }
 
