@@ -1,6 +1,21 @@
 {
-  "app_version": "0.6",
-  "firmware_version": "0.6",
-  "supported_device_kinds": ["GPIO", "LED"],
-  "supported_directions": ["INPUT", "OUTPUT"]
+  "app_version": "1.0",
+  "firmware_version": "1.0",
+  "config_schema_version": "1",
+  "capabilities": {
+    "GPIO": {
+      "directions": ["INPUT", "OUTPUT"],
+      "commands": ["ON", "OFF"],
+      "config_fields": {
+        "signal_duration_ms": {"type": "int", "default": 0}
+      }
+    },
+    "LED": {
+      "directions": ["OUTPUT"],
+      "commands": ["ON"],
+      "config_fields": {
+        "signal_duration_ms": {"type": "int", "default": 150}
+      }
+    }
+  }
 }
