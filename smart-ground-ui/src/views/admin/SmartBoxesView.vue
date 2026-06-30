@@ -87,7 +87,7 @@
       </template>
 
       <!-- Gerätetypen tab -->
-      <DeviceTypeGroupsPanel v-else-if="activeTab === 'geraetetypen'" />
+      <DeviceConfigPanel v-else-if="activeTab === 'geraetetypen'" />
     </div>
   </div>
 </template>
@@ -102,7 +102,7 @@ import * as deviceApi from '@/services/deviceApi.js';
 import Button from '@/components/Button.vue';
 import Icons from '@/components/Icons.vue';
 import SmartBoxCard from '@/components/SmartBoxCard.vue';
-import DeviceTypeGroupsPanel from '@/components/DeviceTypeGroupsPanel.vue';
+import DeviceConfigPanel from '@/components/DeviceConfigPanel.vue';
 import { useUrlTab } from '@/composables/useUrlTab.js';
 
 const smartBoxStore = useSmartBoxStore();
