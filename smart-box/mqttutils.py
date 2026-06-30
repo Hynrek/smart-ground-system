@@ -68,37 +68,33 @@ def load_firmware_config():
 def load_device_config():
     """
     Lädt die zuletzt gespeicherte Gerätekonfiguration von der Flash-Disk.
-    Diese Datei wird vom Backend via MQTT-Config-Push geschrieben und enthält
-    ausschliesslich die aktiven Geräte dieser SmartBox.
-    Gibt eine Liste von Geräte-Dicts zurück, oder [] bei Fehler/fehlender Datei.
-
-    Format:
-        { "devices": [ { "device_id": "...", "alias": "...", "device": "GPIO",
-                         "direction": "OUTPUT", "command": "15",
-                         "signal_duration_ms": 500, "blocked": false }, ... ] }
+    Gibt ein Dict {"config_schema_version": "...", "devices": [...]} zurück,
+    oder None bei Fehler/fehlender Datei.
     """
     try:
         with open(DEVICE_CONFIG_PATH, 'r') as f:
             data = json.load(f)
             devices = data.get("devices", [])
             print("Gerätekonfiguration geladen ({} Gerät(e)).".format(len(devices)))
-            return devices
+            return data
     except (OSError, ValueError) as e:
         print("Keine gespeicherte Gerätekonfiguration gefunden:", e)
-        return []
+        return None
 
 
 def save_device_config(devices):
     """
     Speichert die aktiven Geräte als JSON auf der Flash-Disk.
-    Firmware-Informationen gehören NICHT in diese Datei – sie liegen in
-    systemconfig/firmware_config.json.
+    Schreibt config_schema_version aus firmware_config.json mit, damit
+    der Boot-Supervisor beim nächsten Start die Kompatibilität prüfen kann.
 
     :param devices: Liste von Geräte-Dicts aus dem Backend-Config-Push.
     """
+    firmware = load_firmware_config()
+    schema_version = firmware.get("config_schema_version", "1")
     try:
         with open(DEVICE_CONFIG_PATH, 'w') as f:
-            json.dump({"devices": devices}, f)
+            json.dump({"config_schema_version": schema_version, "devices": devices}, f)
         print("Gerätekonfiguration gespeichert ({} Gerät(e)).".format(len(devices)))
     except OSError as e:
         print("Fehler beim Speichern der Gerätekonfiguration:", e)

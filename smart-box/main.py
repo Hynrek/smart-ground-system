@@ -68,7 +68,8 @@ try:
             # Läuft vor dem MQTT-Connect, damit die Box sofort einsatzbereit ist,
             # auch wenn der Backend-Config-Push noch aussteht.
             from hardware import gpio_manager
-            saved_devices = load_device_config()
+            saved_config = load_device_config()
+            saved_devices = saved_config.get("devices", []) if saved_config else []
             if saved_devices:
                 _update_known_devices(saved_devices)  # Sicherheit: bekannte Geräte initialisieren
                 gpio_manager.setup(saved_devices)
