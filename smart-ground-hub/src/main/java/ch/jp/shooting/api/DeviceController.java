@@ -1,13 +1,17 @@
 package ch.jp.shooting.api;
 
 import ch.jp.shooting.config.MqttCommandPublisher;
+import ch.jp.shooting.config.SecurityHelper;
 import ch.jp.shooting.config.SmartBoxConfigPushService;
 import ch.jp.shooting.exception.ConflictException;
 import ch.jp.shooting.exception.DeviceAlreadyAssignedException;
 import ch.jp.shooting.exception.DeviceNotFoundException;
+import ch.jp.shooting.exception.ForbiddenException;
 import ch.jp.shooting.exception.RangeNotFoundException;
 import ch.jp.shooting.exception.SmartBoxNotFoundException;
+import ch.jp.shooting.model.auth.Permission;
 import ch.jp.shooting.service.ReservationService;
+import ch.jp.shooting.service.auth.PermissionService;
 import ch.jp.shooting.mapper.EntityMappers;
 import ch.jp.shooting.model.Device;
 import ch.jp.shooting.model.DeviceTypeGroup;
@@ -32,6 +36,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.core.Authentication;
@@ -52,6 +57,8 @@ public class DeviceController implements DeviceApi {
     private final MqttCommandPublisher mqttCommandPublisher;
     private final SmartBoxConfigPushService configPushService;
     private final ReservationService reservationService;
+    private final SecurityHelper securityHelper;
+    private final PermissionService permissionService;
 
     public DeviceController(
             DeviceRepository deviceRepository,
@@ -61,7 +68,9 @@ public class DeviceController implements DeviceApi {
             RangeRepository rangeRepository,
             MqttCommandPublisher mqttCommandPublisher,
             SmartBoxConfigPushService configPushService,
-            ReservationService reservationService) {
+            ReservationService reservationService,
+            SecurityHelper securityHelper,
+            PermissionService permissionService) {
         this.deviceRepository = deviceRepository;
         this.smartBoxRepository = smartBoxRepository;
         this.deviceTypeGroupRepository = deviceTypeGroupRepository;
@@ -70,6 +79,8 @@ public class DeviceController implements DeviceApi {
         this.mqttCommandPublisher = mqttCommandPublisher;
         this.configPushService = configPushService;
         this.reservationService = reservationService;
+        this.securityHelper = securityHelper;
+        this.permissionService = permissionService;
     }
 
     @Override
@@ -100,6 +111,7 @@ public class DeviceController implements DeviceApi {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DeviceResponse> createDevice(
             @Valid @RequestBody CreateDeviceRequest request) {
 
@@ -161,17 +173,33 @@ public class DeviceController implements DeviceApi {
         Device device = deviceRepository.findById(id)
             .orElseThrow(() -> new DeviceNotFoundException(id));
 
+        // Gruppe neu zuordnen erfordert ADMIN (strukturelle Änderung analog zu GPIO-Pin)
+        boolean changesGroup = request.getGroupId() != null;
+        if (changesGroup) {
+            var currentUser = securityHelper.currentUser();
+            boolean isAdmin = SecurityContextHolder.getContext().getAuthentication().getAuthorities()
+                .stream().map(GrantedAuthority::getAuthority).anyMatch(a -> a.equals("ROLE_ADMIN"));
+            if (!isAdmin) {
+                throw new ForbiddenException("ADMIN erforderlich um Gerätegruppe zu ändern");
+            }
+        }
+
+        // Signal-Dauer ändern erfordert MANAGE_RANGES
+        boolean changesSignalDuration = request.getSignalDurationMs() != null && request.getSignalDurationMs().isPresent()
+            && request.getSignalDurationMs().get() != null;
+        if (changesSignalDuration) {
+            var currentUser = securityHelper.currentUser();
+            permissionService.require(currentUser.getId(), Permission.MANAGE_RANGES);
+        }
+
         // Alias aktualisieren
         if (request.getAlias() != null) {
             device.setAlias(request.getAlias());
         }
 
         // Signal-Dauer aktualisieren
-        if (request.getSignalDurationMs() != null && request.getSignalDurationMs().isPresent()) {
-            Integer duration = request.getSignalDurationMs().get();
-            if (duration != null) {
-                device.getDeviceType().setSignalDurationMs(duration);
-            }
+        if (changesSignalDuration) {
+            device.getDeviceType().setSignalDurationMs(request.getSignalDurationMs().get());
         }
 
         // Verzögerung aktualisieren
@@ -183,7 +211,7 @@ public class DeviceController implements DeviceApi {
         }
 
         // Gruppe neu zuordnen
-        if (request.getGroupId() != null) {
+        if (changesGroup) {
             DeviceTypeGroup newGroup = deviceTypeGroupRepository.findById(request.getGroupId())
                 .orElseThrow(() -> new IllegalArgumentException("DeviceTypeGroup nicht gefunden: " + request.getGroupId()));
             device.setDeviceTypeGroup(newGroup);
@@ -277,5 +305,49 @@ public class DeviceController implements DeviceApi {
         device.setRange(null);
         deviceRepository.save(device);
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<DeviceResponse> blockDevice(@PathVariable UUID id) {
+        Device device = deviceRepository.findById(id)
+            .orElseThrow(() -> new DeviceNotFoundException(id));
+
+        // Jeder authentifizierte Benutzer darf sperren; ADMIN setzt adminBlocked zusätzlich
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+            .map(GrantedAuthority::getAuthority)
+            .anyMatch(a -> a.equals("ROLE_ADMIN"));
+
+        device.setBlocked(true);
+        if (isAdmin) {
+            device.setAdminBlocked(true);
+        }
+
+        Device saved = deviceRepository.save(device);
+        return ResponseEntity.ok(EntityMappers.toDeviceResponse(saved));
+    }
+
+    @Override
+    public ResponseEntity<DeviceResponse> unblockDevice(@PathVariable UUID id) {
+        Device device = deviceRepository.findById(id)
+            .orElseThrow(() -> new DeviceNotFoundException(id));
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+            .map(GrantedAuthority::getAuthority)
+            .anyMatch(a -> a.equals("ROLE_ADMIN"));
+
+        // Entsperren wenn adminBlocked erfordert ADMIN
+        if (device.isAdminBlocked() && !isAdmin) {
+            throw new ForbiddenException("ADMIN erforderlich um admin-gesperrtes Gerät freizugeben");
+        }
+
+        device.setBlocked(false);
+        if (isAdmin) {
+            device.setAdminBlocked(false);
+        }
+
+        Device saved = deviceRepository.save(device);
+        return ResponseEntity.ok(EntityMappers.toDeviceResponse(saved));
     }
 }

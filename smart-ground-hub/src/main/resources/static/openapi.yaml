@@ -708,6 +708,52 @@ paths:
         '404':
           description: Device not found
 
+  /api/devices/{id}/block:
+    post:
+      summary: Block a device (prevent it from receiving commands)
+      operationId: blockDevice
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device blocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '404':
+          description: Device not found
+
+  /api/devices/{id}/unblock:
+    post:
+      summary: Unblock a device (ADMIN required if adminBlocked is true)
+      operationId: unblockDevice
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device unblocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '403':
+          description: ADMIN required to unblock an admin-blocked device
+        '404':
+          description: Device not found
+
   /api/devices/{id}/range:
     post:
       summary: Assign device to a range
@@ -3304,6 +3350,10 @@ components:
           type: string
         blocked:
           type: boolean
+        adminBlocked:
+          type: boolean
+          description: Set by ADMIN only. Cannot be cleared by regular users.
+          readOnly: true
         healthy:
           type: boolean
         signalDurationMs:

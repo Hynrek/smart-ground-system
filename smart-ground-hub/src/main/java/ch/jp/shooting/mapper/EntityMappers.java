@@ -44,6 +44,7 @@ public final class EntityMappers {
             .command(signalType != null ? signalType.getCommand() : null)
             .boxType(smartBox != null ? smartBox.getMacAddress() : null)
             .blocked(device.isBlocked())
+            .adminBlocked(device.isAdminBlocked())
             .healthy(device.isHealthy())
             .signalDurationMs(deviceType != null ? deviceType.getSignalDurationMs() : null)
             .delaySignalDurationMs(device.getDelaySignalDurationMs())
