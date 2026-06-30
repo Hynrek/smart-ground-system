@@ -24,6 +24,14 @@ public class FirmwareConfig {
     @Column(name = "box_type", nullable = false)
     private String boxType = "";
 
+    @Column(name = "capabilities_json", columnDefinition = "TEXT")
+    @Nullable
+    private String capabilitiesJson;
+
+    @Column(name = "config_schema_version")
+    @Nullable
+    private String configSchemaVersion;
+
     @OneToMany(mappedBy = "firmwareConfig", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SignalType> signalTypes = new ArrayList<>();
 
@@ -65,5 +73,21 @@ public class FirmwareConfig {
 
     public void setSignalTypes(List<SignalType> signalTypes) {
         this.signalTypes = signalTypes;
+    }
+
+    public @Nullable String getCapabilitiesJson() {
+        return capabilitiesJson;
+    }
+
+    public void setCapabilitiesJson(@Nullable String capabilitiesJson) {
+        this.capabilitiesJson = capabilitiesJson;
+    }
+
+    public @Nullable String getConfigSchemaVersion() {
+        return configSchemaVersion;
+    }
+
+    public void setConfigSchemaVersion(@Nullable String configSchemaVersion) {
+        this.configSchemaVersion = configSchemaVersion;
     }
 }
