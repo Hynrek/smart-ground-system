@@ -1,9 +1,11 @@
 package ch.jp.shooting.config;
 
+import ch.jp.shooting.model.FirmwareConfig;
 import ch.jp.shooting.model.SmartBox;
 import ch.jp.shooting.model.SmartBoxStates;
 import ch.jp.shooting.repository.FirmwareConfigRepository;
 import ch.jp.shooting.repository.SmartBoxRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -29,7 +31,9 @@ public class SmartBoxDiscoveryHandler implements MessageHandler {
         @Nullable String ip,
         @Nullable String appVersion,
         @Nullable String firmwareVersion,
-        @Nullable String boxType
+        @Nullable String boxType,
+        @Nullable String configSchemaVersion,
+        @Nullable JsonNode capabilities
     ) {}
 
     private final SmartBoxRepository smartBoxRepository;
@@ -87,18 +91,33 @@ public class SmartBoxDiscoveryHandler implements MessageHandler {
             box.setFirmwareVersion(payload.firmwareVersion());
         }
 
-        // Die FirmwareConfig (Capability-Registry) ist unter der App-Code-Version registriert
-        // (z.B. "0.6"), NICHT unter der MicroPython-Kernel-Version ("micropython-1.23.0").
-        // Auflösung daher über appVersion; Fallback auf firmwareVersion für alte Firmware,
-        // die noch keine appVersion sendet.
+        // Capability-Registry immer aus dem Discovery-Payload upserten.
+        // Neue Versionen werden automatisch angelegt – kein manuelles Seeden erforderlich.
         String capabilityVersion = payload.appVersion() != null
             ? payload.appVersion()
             : payload.firmwareVersion();
         if (capabilityVersion != null) {
             String boxType = payload.boxType() != null ? payload.boxType() : "UNKNOWN";
-            firmwareConfigRepository
+            FirmwareConfig fc = firmwareConfigRepository
                 .findByVersionAndBoxType(capabilityVersion, boxType)
-                .ifPresent(box::setFirmwareConfig);
+                .orElseGet(() -> {
+                    log.info("Unbekannte AppVersion {} – neue FirmwareConfig wird erstellt.", capabilityVersion);
+                    return new FirmwareConfig(capabilityVersion, boxType);
+                });
+
+            if (payload.capabilities() != null) {
+                try {
+                    fc.setCapabilitiesJson(objectMapper.writeValueAsString(payload.capabilities()));
+                } catch (Exception e) {
+                    log.warn("Capabilities konnten nicht serialisiert werden: {}", e.getMessage());
+                }
+            }
+            if (payload.configSchemaVersion() != null) {
+                fc.setConfigSchemaVersion(payload.configSchemaVersion());
+            }
+
+            FirmwareConfig savedFc = firmwareConfigRepository.save(fc);
+            box.setFirmwareConfig(savedFc);
         }
         return smartBoxRepository.save(box);
     }

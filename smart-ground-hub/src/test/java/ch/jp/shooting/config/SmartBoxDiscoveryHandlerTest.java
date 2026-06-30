@@ -15,6 +15,7 @@ import org.springframework.messaging.support.MessageBuilder;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -51,6 +52,7 @@ class SmartBoxDiscoveryHandlerTest {
         // Capability-Registry ist unter der App-Code-Version (0.6) registriert, nicht unter dem Kernel-String
         when(firmwareConfigRepository.findByVersionAndBoxType("0.6", "xiao-esp32s3"))
             .thenReturn(Optional.of(fc));
+        when(firmwareConfigRepository.save(any(FirmwareConfig.class))).thenAnswer(i -> i.getArgument(0));
 
         String json = "{\"mac\":\"aabbccddeeff\",\"appVersion\":\"0.6\","
                     + "\"firmwareVersion\":\"micropython-1.23.0\",\"boxType\":\"xiao-esp32s3\",\"ip\":\"1.2.3.4\"}";
@@ -62,5 +64,78 @@ class SmartBoxDiscoveryHandlerTest {
         // Darf NICHT über die Kernel-Version aufgelöst werden
         verify(firmwareConfigRepository, never())
             .findByVersionAndBoxType("micropython-1.23.0", "xiao-esp32s3");
+    }
+
+    @Test
+    void createsNewFirmwareConfigWhenVersionUnknown() {
+        var handler = new SmartBoxDiscoveryHandler(
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService);
+        when(smartBoxRepository.findByMacAddress("aabbccddeeff")).thenReturn(Optional.empty());
+        when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
+        when(firmwareConfigRepository.findByVersionAndBoxType("1.0", "xiao-esp32s3"))
+            .thenReturn(Optional.empty());
+        when(firmwareConfigRepository.save(any(FirmwareConfig.class)))
+            .thenAnswer(i -> i.getArgument(0));
+
+        String json = """
+            {"mac":"aabbccddeeff","appVersion":"1.0","boxType":"xiao-esp32s3",
+             "firmwareVersion":"micropython-1.23.0","ip":"1.2.3.4",
+             "configSchemaVersion":"1",
+             "capabilities":{"GPIO":{"commands":["ON","OFF"]},"LED":{"commands":["ON"]}}}
+            """;
+        handler.handleMessage(MessageBuilder.withPayload(json.getBytes()).build());
+
+        ArgumentCaptor<FirmwareConfig> cap = ArgumentCaptor.forClass(FirmwareConfig.class);
+        verify(firmwareConfigRepository).save(cap.capture());
+        assertThat(cap.getValue().getVersion()).isEqualTo("1.0");
+        assertThat(cap.getValue().getBoxType()).isEqualTo("xiao-esp32s3");
+        assertThat(cap.getValue().getCapabilitiesJson()).contains("GPIO");
+        assertThat(cap.getValue().getConfigSchemaVersion()).isEqualTo("1");
+    }
+
+    @Test
+    void updatesExistingFirmwareConfigCapabilitiesOnRediscovery() {
+        var handler = new SmartBoxDiscoveryHandler(
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService);
+        FirmwareConfig existing = new FirmwareConfig("0.6", "xiao-esp32s3");
+        when(smartBoxRepository.findByMacAddress("aabbccddeeff")).thenReturn(Optional.empty());
+        when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
+        when(firmwareConfigRepository.findByVersionAndBoxType("0.6", "xiao-esp32s3"))
+            .thenReturn(Optional.of(existing));
+        when(firmwareConfigRepository.save(any(FirmwareConfig.class)))
+            .thenAnswer(i -> i.getArgument(0));
+
+        String json = """
+            {"mac":"aabbccddeeff","appVersion":"0.6","boxType":"xiao-esp32s3",
+             "firmwareVersion":"micropython-1.23.0","ip":"1.2.3.4",
+             "configSchemaVersion":"1",
+             "capabilities":{"GPIO":{"commands":["ON","OFF"]}}}
+            """;
+        handler.handleMessage(MessageBuilder.withPayload(json.getBytes()).build());
+
+        verify(firmwareConfigRepository).save(existing);
+        assertThat(existing.getCapabilitiesJson()).contains("GPIO");
+    }
+
+    @Test
+    void firmwareConfigAlwaysSetOnBoxAfterDiscovery() {
+        var handler = new SmartBoxDiscoveryHandler(
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService);
+        when(smartBoxRepository.findByMacAddress("aabbccddeeff")).thenReturn(Optional.empty());
+        when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
+        when(firmwareConfigRepository.findByVersionAndBoxType(any(), any()))
+            .thenReturn(Optional.empty());
+        when(firmwareConfigRepository.save(any(FirmwareConfig.class)))
+            .thenAnswer(i -> i.getArgument(0));
+
+        String json = """
+            {"mac":"aabbccddeeff","appVersion":"2.0","boxType":"xiao-esp32s3",
+             "firmwareVersion":"micropython-1.24.0","ip":"1.2.3.4"}
+            """;
+        handler.handleMessage(MessageBuilder.withPayload(json.getBytes()).build());
+
+        ArgumentCaptor<SmartBox> boxCap = ArgumentCaptor.forClass(SmartBox.class);
+        verify(smartBoxRepository).save(boxCap.capture());
+        assertThat(boxCap.getValue().getFirmwareConfig()).isNotNull();
     }
 }
