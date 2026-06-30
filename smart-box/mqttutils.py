@@ -412,11 +412,13 @@ def update_device_pulses():
 def publish_discovery(client_id):
     """
     Veröffentlicht einmalig beim Boot eine Discovery-Nachricht über die bestehende
-    MQTT-Verbindung, damit das Backend die Box erkennt und einen Config-Push auslöst.
-    Firmware-Version kommt aus systemconfig/firmware_config.json, Box-Typ aus dem board-Modul.
+    MQTT-Verbindung. Enthält neben Version und Box-Typ auch das vollständige
+    Capability-Manifest und die Config-Schema-Version, damit das Backend die
+    Fähigkeiten der Box ohne manuelle Konfiguration lernt.
 
     Topic:   smartboxes/discovery
-    Payload: { "mac", "appVersion", "firmwareVersion", "boxType", "ip" }
+    Payload: { "mac", "appVersion", "configSchemaVersion", "capabilities",
+               "firmwareVersion", "boxType", "ip" }
     """
     if _mqtt_client is None:
         print("MQTT-Verbindung nicht verfügbar – Discovery nicht möglich.")
@@ -424,6 +426,8 @@ def publish_discovery(client_id):
 
     firmware = load_firmware_config()
     app_version = firmware.get("app_version", firmware.get("firmware_version", "unknown"))
+    config_schema_version = firmware.get("config_schema_version", "1")
+    capabilities = firmware.get("capabilities", {})
 
     try:
         kernel = "micropython-" + os.uname().release
@@ -434,11 +438,13 @@ def publish_discovery(client_id):
     try:
         ip_address = network.WLAN(network.STA_IF).ifconfig()[0]
         payload = json.dumps({
-            "mac":             client_id,
-            "appVersion":      app_version,
-            "firmwareVersion": kernel,
-            "boxType":         _board.BOX_TYPE,
-            "ip":              ip_address,
+            "mac":                 client_id,
+            "appVersion":          app_version,
+            "configSchemaVersion": config_schema_version,
+            "capabilities":        capabilities,
+            "firmwareVersion":     kernel,
+            "boxType":             _board.BOX_TYPE,
+            "ip":                  ip_address,
         })
         _mqtt_client.publish("smartboxes/discovery", payload)
         print("Discovery gesendet:", payload)

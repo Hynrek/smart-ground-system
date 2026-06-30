@@ -58,8 +58,44 @@ class PublishTest(unittest.TestCase):
         # appVersion kommt aus firmware_config.json, firmwareVersion aus os.uname()
         self.assertIn("appVersion", d)
         self.assertIn("firmwareVersion", d)
-        self.assertEqual(d["appVersion"], "0.6")
+        self.assertEqual(d["appVersion"], "1.0")
         self.assertTrue(d["firmwareVersion"].startswith("micropython"))
+
+
+    def test_discovery_includes_capabilities(self):
+        ok = mqttutils.publish_discovery(MAC)
+        self.assertTrue(ok)
+        _, payload = mqttutils._mqtt_client.published[-1]
+        d = json.loads(payload)
+        self.assertIn("capabilities", d)
+        self.assertIn("GPIO", d["capabilities"])
+        self.assertIn("LED", d["capabilities"])
+
+    def test_discovery_includes_config_schema_version(self):
+        ok = mqttutils.publish_discovery(MAC)
+        self.assertTrue(ok)
+        _, payload = mqttutils._mqtt_client.published[-1]
+        d = json.loads(payload)
+        self.assertIn("configSchemaVersion", d)
+        self.assertIsInstance(d["configSchemaVersion"], str)
+
+    def test_gpio_capability_has_expected_commands(self):
+        ok = mqttutils.publish_discovery(MAC)
+        self.assertTrue(ok)
+        _, payload = mqttutils._mqtt_client.published[-1]
+        d = json.loads(payload)
+        gpio = d["capabilities"]["GPIO"]
+        self.assertIn("ON", gpio["commands"])
+        self.assertIn("OFF", gpio["commands"])
+
+    def test_led_capability_has_no_off_command(self):
+        ok = mqttutils.publish_discovery(MAC)
+        self.assertTrue(ok)
+        _, payload = mqttutils._mqtt_client.published[-1]
+        d = json.loads(payload)
+        led = d["capabilities"]["LED"]
+        self.assertNotIn("OFF", led["commands"])
+        self.assertIn("ON", led["commands"])
 
 
 if __name__ == "__main__":
