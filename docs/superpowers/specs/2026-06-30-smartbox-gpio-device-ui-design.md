@@ -165,11 +165,15 @@ Block/Unblock sends `POST /api/devices/{id}/command` with body `{ "command": "BL
 
 ---
 
-## 4. "Add Device" Form — LED Exclusion
+## 4. "Add Device" Form — Simplified Type Selection
 
-The group dropdown in SmartBoxCard's "Add device" form (`newDeviceForm.groupId`) filters out LED/debug groups by default using the same `DEBUG_GROUP_NAMES` constant.
+The two-step "Gruppe → Typ" cascade (select group first, then type filters) is removed. The form shows a single **Typ** dropdown listing all DeviceTypes directly, removing the Gruppe selector entirely.
 
-A `v-if="authStore.hasPermission('ADMIN_PERMISSION')"` toggle link — "Debug-Geräte anzeigen" — below the group select reveals LED groups when activated. This allows ADMIN to assign LED devices for debugging without cluttering the normal flow.
+Each option in the list displays as `"{name} ({groupName})"` so the group context is still visible without requiring a separate step — e.g. "Werfer 1 (Wurfmaschine)", "Werfer 2 (Wurfmaschine)".
+
+**LED exclusion:** LED/debug types are excluded from this flat list by default using `DEBUG_GROUP_NAMES`. A `v-if="authStore.hasPermission('ADMIN_PERMISSION')"` toggle link — "Debug-Geräte anzeigen" — appended below the dropdown reveals them when activated.
+
+**SmartBoxCard changes:** remove `newDeviceForm.groupId` state and the Gruppe `<select>`. The `filteredDeviceTypes` computed that filters by groupId is replaced with a flat `availableDeviceTypes` computed (all types, minus debug groups unless toggled).
 
 ---
 
