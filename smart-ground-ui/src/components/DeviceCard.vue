@@ -22,25 +22,27 @@
       <TypeChip :type="device.groupName ?? device.deviceType" />
       <div class="card-actions">
         <!-- Block/Unblock -->
-        <template v-if="device.adminBlocked">
-          <button
-            class="block-action-btn"
-            :disabled="!isAdmin || blocking"
-            :title="isAdmin ? 'Admin-Sperre aufheben' : 'Nur Admin kann aufheben'"
-            @click="handleUnblock"
-          >
-            Entsperren
-          </button>
-        </template>
-        <template v-else-if="device.blocked">
-          <button class="block-action-btn" :disabled="blocking" @click="handleUnblock">
-            Entsperren
-          </button>
-        </template>
-        <template v-else>
-          <button class="block-action-btn block-action-btn--block" :disabled="blocking" @click="handleBlock">
-            Sperren
-          </button>
+        <template v-if="showBlockControls">
+          <template v-if="device.adminBlocked">
+            <button
+              class="block-action-btn"
+              :disabled="!isAdmin || blocking"
+              :title="isAdmin ? 'Admin-Sperre aufheben' : 'Nur Admin kann aufheben'"
+              @click="handleUnblock"
+            >
+              Entsperren
+            </button>
+          </template>
+          <template v-else-if="device.blocked">
+            <button class="block-action-btn" :disabled="blocking" @click="handleUnblock">
+              Entsperren
+            </button>
+          </template>
+          <template v-else>
+            <button class="block-action-btn block-action-btn--block" :disabled="blocking" @click="handleBlock">
+              Sperren
+            </button>
+          </template>
         </template>
         <!-- Fire button -->
         <button v-if="actionMode" class="fire-btn" :class="{ fired }" @click="$emit('fire')">
@@ -69,6 +71,7 @@ const props = defineProps({
   },
   fired: Boolean,
   actionMode: Boolean,
+  showBlockControls: { type: Boolean, default: true },
 });
 
 defineEmits(['fire']);

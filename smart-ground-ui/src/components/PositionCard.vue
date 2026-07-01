@@ -67,6 +67,7 @@
           :device="position.device"
           :fired="fired"
           :action-mode="false"
+          :show-block-controls="false"
         />
         <div
           v-if="isAdmin"
