@@ -220,7 +220,6 @@
 import { ref, computed } from 'vue';
 import { useSmartBoxStore } from '../stores/smartBoxStore.js';
 import { useRangeStore } from '../stores/rangeStore.js';
-import { useDeviceTypeGroupStore } from '../stores/deviceTypeGroupStore.js';
 import { useDeviceTypeStore } from '../stores/deviceTypeStore.js';
 import { useAuthStore } from '../stores/authStore.js';
 import { ADMIN_PERMISSION, DEBUG_GROUP_NAMES, STATUS_LABELS } from '../constants/deviceTypes.js';
@@ -260,16 +259,15 @@ const emit = defineEmits([
 
 const smartBoxStore = useSmartBoxStore();
 const rangeStore = useRangeStore();
-const deviceTypeGroupStore = useDeviceTypeGroupStore();
 const deviceTypeStore = useDeviceTypeStore();
 const authStore = useAuthStore();
 
 const isAdmin = computed(() => authStore.hasPermission(ADMIN_PERMISSION));
+const showDebugTypes = ref(false);
 
 const availableDeviceTypes = computed(() => {
   return deviceTypeStore.deviceTypes.filter((t) => {
-    const group = deviceTypeGroupStore?.groups?.find?.((g) => g.id === t.groupId)
-      ?? deviceTypeStore.deviceTypeGroups?.find?.((g) => g.id === t.groupId);
+    const group = deviceTypeStore.deviceTypeGroups.find((g) => g.id === t.groupId);
     const isDebug = DEBUG_GROUP_NAMES.includes((group?.name ?? '').toUpperCase());
     if (isDebug) return showDebugTypes.value && isAdmin.value;
     return true;
@@ -277,15 +275,13 @@ const availableDeviceTypes = computed(() => {
 });
 
 const groupNameForType = (t) => {
-  const group = deviceTypeGroupStore?.groups?.find?.((g) => g.id === t.groupId)
-    ?? deviceTypeStore.deviceTypeGroups?.find?.((g) => g.id === t.groupId);
+  const group = deviceTypeStore.deviceTypeGroups.find((g) => g.id === t.groupId);
   return group?.name ?? '';
 };
 
 const renamingBox = ref(false);
 const aliasInput = ref(props.box.alias);
 const isAdding = ref(false);
-const showDebugTypes = ref(false);
 const editingId = ref(null);
 const editForm = ref({});
 const newDeviceForm = ref({ name: '', deviceTypeId: '' });
@@ -335,9 +331,8 @@ const startEdit = (device) => {
   editingId.value = device.id;
   editForm.value = {
     alias: device.alias ?? device.name ?? '',
-    deviceTypeId: device.deviceTypeId ?? '',
     signalDurationMs: device.signalDurationMs ?? '',
-    smartBoxId: device.smartBoxId ?? device.boxId ?? props.box.id,
+    smartBoxId: device.smartBoxId ?? device.boxId ?? props.box?.id ?? '',
   };
 };
 
