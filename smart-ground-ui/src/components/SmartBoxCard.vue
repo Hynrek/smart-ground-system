@@ -53,6 +53,7 @@
             <th class="stat-col">Befehle</th>
             <th class="stat-col">Letzter Befehl</th>
             <th v-if="actionMode">Aktion</th>
+            <th>Status</th>
             <th />
           </tr>
         </thead>
@@ -92,6 +93,63 @@
                   {{ firedDevices[device.id] ? 'Ausgelöst!' : 'Auslösen' }}
                 </button>
               </td>
+              <!-- Status indicator -->
+              <td class="status-cell">
+                <span
+                  v-if="deviceStatus(device) === 'admin-blocked'"
+                  class="status-pill status-pill--admin"
+                  title="Admin-gesperrt"
+                >
+                  🔒 Admin-gesperrt
+                </span>
+                <span
+                  v-else-if="deviceStatus(device) === 'user-blocked'"
+                  class="status-pill status-pill--blocked"
+                  title="Gesperrt"
+                >
+                  🔒 Gesperrt
+                </span>
+                <span
+                  v-else-if="deviceStatus(device) === 'unhealthy'"
+                  class="status-pill status-pill--warn"
+                  title="Nicht reagiert"
+                >
+                  Nicht reagiert
+                </span>
+              </td>
+
+              <!-- Block/Unblock actions -->
+              <td class="block-cell">
+                <template v-if="device.adminBlocked">
+                  <button
+                    class="unblock-btn"
+                    :disabled="!isAdmin || blockingId === device.id"
+                    :title="isAdmin ? 'Admin-Sperre aufheben' : 'Nur Admin kann aufheben'"
+                    @click="handleUnblock(device)"
+                  >
+                    Entsperren
+                  </button>
+                </template>
+                <template v-else-if="device.blocked">
+                  <button
+                    class="unblock-btn"
+                    :disabled="blockingId === device.id"
+                    @click="handleUnblock(device)"
+                  >
+                    Entsperren
+                  </button>
+                </template>
+                <template v-else>
+                  <button
+                    class="block-btn"
+                    :disabled="blockingId === device.id"
+                    @click="handleBlock(device)"
+                  >
+                    Sperren
+                  </button>
+                </template>
+              </td>
+
               <td class="actions-cell">
                 <div v-if="confirmingDelete === device.id" class="confirm-delete">
                   <span class="confirm-text">Löschen?</span>
@@ -120,7 +178,7 @@
 
             <!-- Inline edit row -->
             <tr v-if="editingId === device.id" class="edit-row">
-              <td :colspan="actionMode ? 7 : 6">
+              <td :colspan="actionMode ? 9 : 8">
                 <div class="edit-form">
                   <div class="form-group">
                     <label>Name</label>
@@ -222,6 +280,7 @@ import { useSmartBoxStore } from '../stores/smartBoxStore.js';
 import { useRangeStore } from '../stores/rangeStore.js';
 import { useDeviceTypeStore } from '../stores/deviceTypeStore.js';
 import { useAuthStore } from '../stores/authStore.js';
+import { useDeviceStore } from '../stores/deviceStore.js';
 import { ADMIN_PERMISSION, DEBUG_GROUP_NAMES, STATUS_LABELS } from '../constants/deviceTypes.js';
 import StatusDot from './StatusDot.vue';
 import Badge from './Badge.vue';
@@ -261,8 +320,36 @@ const smartBoxStore = useSmartBoxStore();
 const rangeStore = useRangeStore();
 const deviceTypeStore = useDeviceTypeStore();
 const authStore = useAuthStore();
+const deviceStore = useDeviceStore();
 
 const isAdmin = computed(() => authStore.hasPermission(ADMIN_PERMISSION));
+
+const blockingId = ref(null);
+
+const deviceStatus = (device) => {
+  if (device.adminBlocked) return 'admin-blocked';
+  if (device.blocked) return 'user-blocked';
+  if (device.healthy === false) return 'unhealthy';
+  return 'ok';
+};
+
+const handleBlock = async (device) => {
+  blockingId.value = device.id;
+  try {
+    await deviceStore.blockDevice(device.id);
+  } finally {
+    blockingId.value = null;
+  }
+};
+
+const handleUnblock = async (device) => {
+  blockingId.value = device.id;
+  try {
+    await deviceStore.unblockDevice(device.id);
+  } finally {
+    blockingId.value = null;
+  }
+};
 const showDebugTypes = ref(false);
 
 const availableDeviceTypes = computed(() => {
@@ -922,6 +1009,62 @@ const deleteDevice = (deviceId) => {
   color: #a0aec0;
   font-weight: 400;
   margin-top: 2px;
+}
+
+.status-cell { white-space: nowrap; }
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+.status-pill--admin {
+  background: rgba(226,75,74,.12);
+  color: #c53030;
+}
+.status-pill--blocked {
+  background: rgba(237,137,54,.12);
+  color: #c05621;
+}
+.status-pill--warn {
+  background: rgba(237,137,54,.12);
+  color: #c05621;
+}
+.block-cell { white-space: nowrap; }
+.block-btn, .unblock-btn {
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all .15s;
+}
+.block-btn {
+  border-color: #e2e8f0;
+  background: #fff;
+  color: #718096;
+}
+.block-btn:hover:not(:disabled) {
+  border-color: #c05621;
+  color: #c05621;
+  background: rgba(237,137,54,.06);
+}
+.unblock-btn {
+  border-color: #c3dafe;
+  background: #ebf4ff;
+  color: #2b6cb0;
+}
+.unblock-btn:hover:not(:disabled) {
+  background: #bee3f8;
+}
+.block-btn:disabled, .unblock-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
 }
 
 /* ── Responsive ───────────────────────────────── */
