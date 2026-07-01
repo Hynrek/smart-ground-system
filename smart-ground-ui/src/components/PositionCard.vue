@@ -82,6 +82,37 @@
           <span>Gerät entfernen</span>
         </div>
       </div>
+      <!-- Block/Unblock controls for assigned device -->
+      <div class="pos-block-row">
+        <template v-if="position.device.adminBlocked">
+          <button
+            class="pos-unblock-btn"
+            :disabled="!isAdminForBlock || blocking"
+            :title="isAdminForBlock ? 'Admin-Sperre aufheben' : 'Nur Admin kann aufheben'"
+            @click="handleUnblockDevice(position.device)"
+          >
+            Entsperren
+          </button>
+        </template>
+        <template v-else-if="position.device.blocked">
+          <button
+            class="pos-unblock-btn"
+            :disabled="blocking"
+            @click="handleUnblockDevice(position.device)"
+          >
+            Entsperren
+          </button>
+        </template>
+        <template v-else>
+          <button
+            class="pos-block-btn"
+            :disabled="blocking"
+            @click="handleBlockDevice(position.device.id)"
+          >
+            Sperren
+          </button>
+        </template>
+      </div>
       <!-- Fire button in action mode -->
       <button
         v-if="actionMode"
@@ -114,6 +145,8 @@ import { ref, nextTick, computed } from 'vue';
 import DeviceCard from './DeviceCard.vue';
 import Icons from './Icons.vue';
 import { useAuthStore } from '../stores/authStore.js';
+import { useDeviceStore } from '../stores/deviceStore.js';
+import { ADMIN_PERMISSION } from '../constants/deviceTypes.js';
 
 const props = defineProps({
   /** null = ghost card */
@@ -134,7 +167,22 @@ const emit = defineEmits([
 ]);
 
 const authStore = useAuthStore();
+const deviceStore = useDeviceStore();
 const isAdmin = computed(() => authStore.hasPermission('MANAGE_RANGES'));
+const isAdminForBlock = computed(() => authStore.hasPermission(ADMIN_PERMISSION));
+const blocking = ref(false);
+
+const handleBlockDevice = async (deviceId) => {
+  blocking.value = true;
+  try { await deviceStore.blockDevice(deviceId); }
+  finally { blocking.value = false; }
+};
+
+const handleUnblockDevice = async (device) => {
+  blocking.value = true;
+  try { await deviceStore.unblockDevice(device.id); }
+  finally { blocking.value = false; }
+};
 
 // ── Drag & drop ───────────────────────────────────────────────────────────────
 const dragOver = ref(false);
@@ -373,4 +421,21 @@ function cancelRename() {
   color: #cbd5e0;
   cursor: not-allowed;
 }
+
+/* ── Block / Unblock ── */
+.pos-block-row {
+  display: flex;
+}
+
+.pos-block-btn, .pos-unblock-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid;
+  cursor: pointer;
+  font-family: inherit;
+}
+.pos-block-btn { border-color: #e2e8f0; background: #fff; color: #718096; }
+.pos-unblock-btn { border-color: #c3dafe; background: #ebf4ff; color: #2b6cb0; }
+.pos-block-btn:disabled, .pos-unblock-btn:disabled { opacity: .45; cursor: not-allowed; }
 </style>
