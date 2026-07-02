@@ -166,6 +166,7 @@
           Code erneuern
         </button>
         <p class="qr-rotate-hint">Beim Erneuern wird der alte Code sofort ungültig.</p>
+        <div v-if="qrRenderError" class="save-error">{{ qrRenderError }}</div>
         <div v-if="profileStore.error" class="save-error">{{ profileStore.error }}</div>
       </div>
     </div>
@@ -199,6 +200,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const profileStore = useProfileStore()
 const qrCanvas = ref(null)
+const qrRenderError = ref('')
 
 const USERNAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{2,29}$/
 
@@ -222,10 +224,11 @@ watch(() => profileStore.qrToken, async (token) => {
   if (!token) return
   await nextTick()
   if (!qrCanvas.value) return
+  qrRenderError.value = ''
   try {
     await QRCode.toCanvas(qrCanvas.value, buildCheckinPayload(token), { width: 240, margin: 1 })
   } catch {
-    // canvas rendering unavailable (e.g. jsdom) — token is still shown via rotation flow
+    qrRenderError.value = 'QR-Code konnte nicht angezeigt werden — bitte Seite neu laden'
   }
 })
 
