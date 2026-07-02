@@ -1,7 +1,7 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.exception.ConflictException;
-import ch.jp.shooting.model.Range;
+import ch.jp.shooting.model.*;
 import ch.jp.shooting.model.auth.Role;
 import ch.jp.shooting.model.auth.User;
 import ch.jp.shooting.repository.*;
@@ -98,5 +98,40 @@ class TestDataServiceTest {
         assertThat(createdByName.get("Kippreh")).isTrue();
         // 3 new ranges saved, the existing one not re-saved
         verify(rangeRepository, times(3)).save(any(Range.class));
+    }
+
+    @Test
+    void createMockSmartBox_createsBoxAndDevices() {
+        DeviceTypeGroup group = new DeviceTypeGroup("Wurfmaschine");
+        DeviceType werfer = new DeviceType();
+        werfer.setName("Werfer");
+        werfer.setGroup(group);
+        FirmwareConfig fw = new FirmwareConfig("0.6", "xiao-esp32s3");
+
+        when(deviceTypeRepository.findByName("Werfer")).thenReturn(Optional.of(werfer));
+        when(firmwareConfigRepository.findByVersionAndBoxType("0.6", "xiao-esp32s3"))
+                .thenReturn(Optional.of(fw));
+        when(smartBoxRepository.findByMacAddress(anyString())).thenReturn(Optional.empty());
+        when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(deviceRepository.save(any(Device.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SmartBox box = service.createMockSmartBox(3, "Mock-1");
+
+        assertThat(box.getAlias()).isEqualTo("Mock-1");
+        assertThat(box.getStatus()).isEqualTo(SmartBoxStates.OFFLINE);
+        assertThat(box.getMacAddress()).isNotBlank();
+        verify(deviceRepository, times(3)).save(any(Device.class));
+    }
+
+    @Test
+    void createMockSmartBox_deviceCountZero_throwsIllegalArgument() {
+        assertThatThrownBy(() -> service.createMockSmartBox(0, null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void createMockSmartBox_deviceCountTooHigh_throwsIllegalArgument() {
+        assertThatThrownBy(() -> service.createMockSmartBox(51, null))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

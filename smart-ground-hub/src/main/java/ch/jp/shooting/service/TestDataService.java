@@ -1,7 +1,7 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.exception.ConflictException;
-import ch.jp.shooting.model.Range;
+import ch.jp.shooting.model.*;
 import ch.jp.shooting.model.auth.Role;
 import ch.jp.shooting.model.auth.User;
 import ch.jp.shooting.model.auth.UserRoleEntity;
@@ -10,12 +10,15 @@ import ch.jp.shooting.repository.auth.RoleRepository;
 import ch.jp.shooting.repository.auth.UserRepository;
 import ch.jp.shooting.repository.auth.UserRoleRepository;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ThreadLocalRandom;
 
 // Admin-only Dev-Tooling zum Anlegen von Testdaten (Benutzer, Ranges, SmartBoxes).
 @Service
@@ -101,5 +104,52 @@ public class TestDataService {
             }
         }
         return result;
+    }
+
+    // Legt eine Mock-SmartBox mit N Geräten (Typ "Werfer") an, keiner Range zugeordnet.
+    @Transactional
+    public SmartBox createMockSmartBox(int deviceCount, @Nullable String alias) {
+        if (deviceCount < 1 || deviceCount > 50) {
+            throw new IllegalArgumentException("deviceCount must be between 1 and 50");
+        }
+        DeviceType werfer = deviceTypeRepository.findByName("Werfer")
+                .orElseThrow(() -> new IllegalStateException("DeviceType 'Werfer' missing – seed did not run"));
+        FirmwareConfig firmware = firmwareConfigRepository
+                .findByVersionAndBoxType("0.6", "xiao-esp32s3")
+                .orElseThrow(() -> new IllegalStateException("FirmwareConfig 0.6/xiao-esp32s3 missing – seed did not run"));
+
+        SmartBox box = new SmartBox();
+        box.setMacAddress(generateUniqueMac());
+        box.setStatus(SmartBoxStates.OFFLINE);
+        box.setFirmwareConfig(firmware);
+        box.setAppVersion("0.6");
+        if (alias != null && !alias.isBlank()) {
+            box.setAlias(alias.trim());
+        }
+        SmartBox savedBox = smartBoxRepository.save(box);
+
+        for (int i = 1; i <= deviceCount; i++) {
+            Device device = new Device();
+            device.setSmartBox(savedBox);
+            device.setDeviceTypeGroup(werfer.getGroup());
+            device.setDeviceType(werfer);
+            device.setAlias("Werfer " + i);
+            deviceRepository.save(device);
+        }
+        return savedBox;
+    }
+
+    private String generateUniqueMac() {
+        for (int attempt = 0; attempt < 100; attempt++) {
+            byte[] mac = new byte[6];
+            ThreadLocalRandom.current().nextBytes(mac);
+            mac[0] = 0x02; // lokal verwaltete Unicast-Adresse
+            String candidate = String.format(Locale.ROOT, "%02x:%02x:%02x:%02x:%02x:%02x",
+                    mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+            if (smartBoxRepository.findByMacAddress(candidate).isEmpty()) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Could not generate a unique MAC after 100 attempts");
     }
 }
