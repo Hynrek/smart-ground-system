@@ -1426,7 +1426,7 @@ paths:
         '404':
           description: Session not found
     delete:
-      summary: Delete a session (SETUP status only)
+      summary: Delete a session (SETUP or ACTIVE status only)
       operationId: deleteSession
       tags: [Session]
       parameters:
@@ -1439,10 +1439,104 @@ paths:
       responses:
         '204':
           description: Session deleted
-        '400':
-          description: Cannot delete an active or completed session
         '404':
           description: Session not found
+        '409':
+          description: Cannot delete a completed session
+
+  /api/sessions/{sessionId}/passen/order:
+    patch:
+      summary: Reorder the session's Passen (SETUP status only)
+      description: >
+        Changes the playing order of the session's Passen. The request body must
+        contain exactly the same set of Passe ids currently on the session, listed
+        in the desired new order.
+      operationId: reorderPassen
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderPassenRequest'
+      responses:
+        '200':
+          description: Passen reordered; full session returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: passeIds is not a permutation of the session's current Passen
+        '404':
+          description: Session not found
+        '409':
+          description: Session is not in SETUP status
+
+  /api/sessions/{sessionId}/passen:
+    post:
+      summary: Add a Passe to a session (SETUP status only)
+      operationId: addPasseToSession
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddPasseToSessionRequest'
+      responses:
+        '201':
+          description: Passe added; the new Passe reference (with resolved Serien) is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasseReference'
+        '400':
+          description: Passe already added to this session
+        '404':
+          description: Session or Passe not found
+        '409':
+          description: Session is not in SETUP status
+
+  /api/sessions/{sessionId}/passen/{passeId}:
+    delete:
+      summary: Remove a Passe from a session (SETUP status only)
+      operationId: removePasseFromSession
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: passeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Passe removed
+        '404':
+          description: Session not found, or Passe not on this session
+        '409':
+          description: Session is not in SETUP status
 
   /api/sessions/{sessionId}/status:
     patch:
@@ -3968,6 +4062,25 @@ components:
           type: string
           format: date-time
           nullable: true
+
+    ReorderPassenRequest:
+      type: object
+      required: [passeIds]
+      properties:
+        passeIds:
+          type: array
+          description: New order for the session's Passen. Must be a permutation of the existing Passe ids.
+          items:
+            type: string
+            format: uuid
+
+    AddPasseToSessionRequest:
+      type: object
+      required: [passeId]
+      properties:
+        passeId:
+          type: string
+          format: uuid
 
     CreateSessionRequest:
       type: object

@@ -6,10 +6,12 @@ import ch.jp.shooting.service.GroupService;
 import ch.jp.shooting.service.SessionService;
 import ch.jp.shooting.service.TiebreakerService;
 import ch.jp.smartground.api.SessionApi;
+import ch.jp.smartground.model.AddPasseToSessionRequest;
 import ch.jp.smartground.model.CompleteSerieRequest;
 import ch.jp.smartground.model.CreateSessionRequest;
 import ch.jp.smartground.model.GroupCreateRequest;
 import ch.jp.smartground.model.GroupResponse;
+import ch.jp.smartground.model.PasseReference;
 import ch.jp.smartground.model.PatchMemberRequest;
 import ch.jp.smartground.model.SessionPageResponse;
 import ch.jp.smartground.model.SessionPlayerCreateRequest;
@@ -71,6 +73,25 @@ public class SessionController implements SessionApi {
     @Override
     public ResponseEntity<Void> deleteSession(UUID sessionId) {
         sessionService.deleteSession(sessionId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<SessionResponse> reorderPassen(
+            UUID sessionId, ch.jp.smartground.model.ReorderPassenRequest reorderPassenRequest) {
+        return ResponseEntity.ok(sessionService.reorderPassen(sessionId, reorderPassenRequest));
+    }
+
+    @Override
+    public ResponseEntity<PasseReference> addPasseToSession(
+            UUID sessionId, AddPasseToSessionRequest addPasseToSessionRequest) {
+        PasseReference response = sessionService.addPasseToSession(sessionId, addPasseToSessionRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Override
+    public ResponseEntity<Void> removePasseFromSession(UUID sessionId, UUID passeId) {
+        sessionService.removePasseFromSession(sessionId, passeId);
         return ResponseEntity.noContent().build();
     }
 

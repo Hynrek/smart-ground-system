@@ -1,6 +1,7 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.dto.*;
+import ch.jp.shooting.exception.SessionStatusTransitionException;
 import ch.jp.shooting.mapper.PlayMapper;
 import ch.jp.shooting.model.*;
 import ch.jp.shooting.model.auth.User;
@@ -252,13 +253,13 @@ public class SessionService {
     // ── Neue Methoden für WettkampfController ──
 
     /**
-     * Löscht eine Session (nur im SETUP-Status).
+     * Löscht eine Session (im SETUP- oder ACTIVE-Status).
      */
     public void deleteSession(UUID sessionId) {
         LiveSession session = sessionRepository.findById(sessionId)
             .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
-        if (session.getStatus() != SessionStatus.SETUP) {
-            throw new IllegalStateException("Can only delete sessions in SETUP status");
+        if (session.getStatus() != SessionStatus.SETUP && session.getStatus() != SessionStatus.ACTIVE) {
+            throw new SessionStatusTransitionException("Can only delete sessions in SETUP or ACTIVE status");
         }
         sessionRepository.delete(session);
     }
@@ -473,6 +474,123 @@ public class SessionService {
         LiveSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
         return mapToApiSessionResponse(session);
+    }
+
+    /**
+     * Ändert die Reihenfolge der Passen einer Session (nur im SETUP-Status).
+     * Das übergebene passeIds muss exakt dieselbe Menge an Ids sein wie die
+     * aktuell auf der Session hinterlegten Passe-Ids, nur in neuer Reihenfolge.
+     */
+    public ch.jp.smartground.model.SessionResponse reorderPassen(
+            UUID sessionId, ch.jp.smartground.model.ReorderPassenRequest req) {
+        LiveSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+        if (session.getStatus() != SessionStatus.SETUP) {
+            throw new SessionStatusTransitionException("Can only reorder Passen while session is in SETUP status");
+        }
+
+        String snapshotsJson = session.getProgramSnapshots();
+        if (snapshotsJson == null || snapshotsJson.isBlank()) {
+            throw new IllegalArgumentException("Session has no Passen to reorder");
+        }
+        PasseSnapshot[] currentSnapshots;
+        try {
+            currentSnapshots = objectMapper.readValue(snapshotsJson, PasseSnapshot[].class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Session has no reorderable Passen");
+        }
+
+        List<String> requestedIds = req.getPasseIds() == null ? List.of()
+                : req.getPasseIds().stream().map(UUID::toString).collect(Collectors.toList());
+        Map<String, PasseSnapshot> byId = Arrays.stream(currentSnapshots)
+                .collect(Collectors.toMap(s -> s.id, s -> s));
+        if (requestedIds.size() != currentSnapshots.length || !byId.keySet().equals(new HashSet<>(requestedIds))) {
+            throw new IllegalArgumentException("passeIds must be a permutation of the session's current Passen");
+        }
+
+        List<PasseSnapshot> reordered = requestedIds.stream().map(byId::get).collect(Collectors.toList());
+        try {
+            session.setProgramSnapshots(objectMapper.writeValueAsString(reordered));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize passen", e);
+        }
+        session = sessionRepository.save(session);
+        return mapToApiSessionResponse(session);
+    }
+
+    /** Liest die Passen-Snapshots einer Session als veränderliche Liste (leer bei fehlenden/ungültigen Daten). */
+    private List<PasseSnapshot> parsePassenSnapshots(LiveSession session) {
+        String snapshotsJson = session.getProgramSnapshots();
+        if (snapshotsJson == null || snapshotsJson.isBlank()) {
+            return new ArrayList<>();
+        }
+        try {
+            return new ArrayList<>(Arrays.asList(objectMapper.readValue(snapshotsJson, PasseSnapshot[].class)));
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+
+    private void savePassenSnapshots(LiveSession session, List<PasseSnapshot> snapshots) {
+        try {
+            session.setProgramSnapshots(objectMapper.writeValueAsString(snapshots));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize passen", e);
+        }
+        sessionRepository.save(session);
+    }
+
+    /**
+     * Fügt eine bestehende Passe (per Referenz) einer Session hinzu (nur im SETUP-Status).
+     * Die Serie-Referenzen werden live von der Passe übernommen.
+     */
+    public ch.jp.smartground.model.PasseReference addPasseToSession(
+            UUID sessionId, ch.jp.smartground.model.AddPasseToSessionRequest req) {
+        LiveSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+        if (session.getStatus() != SessionStatus.SETUP) {
+            throw new SessionStatusTransitionException("Can only add Passen while session is in SETUP status");
+        }
+        UUID passeId = req.getPasseId();
+        Passe passe = passeRepository.findById(passeId)
+                .orElseThrow(() -> new ch.jp.shooting.exception.PasseNotFoundException(passeId));
+
+        List<PasseSnapshot> snapshots = parsePassenSnapshots(session);
+        if (snapshots.stream().anyMatch(s -> passeId.toString().equals(s.id))) {
+            throw new IllegalArgumentException("Passe already added to this session");
+        }
+
+        PasseSnapshot snapshot = new PasseSnapshot();
+        snapshot.id = passe.getId().toString();
+        snapshot.name = passe.getName();
+        snapshot.serieIds = PlayMapper.parseSerieIds(passe.getSerieIdsJson()).stream()
+                .map(UUID::toString).collect(Collectors.toList());
+        snapshots.add(snapshot);
+        savePassenSnapshots(session, snapshots);
+
+        ch.jp.smartground.model.PasseReference ref = new ch.jp.smartground.model.PasseReference();
+        ref.setId(passe.getId());
+        ref.setName(passe.getName());
+        ref.setSerien(passeService.resolveLiveSerien(passe).stream()
+                .map(PlayMapper::toEmbeddedSerie)
+                .collect(Collectors.toList()));
+        return ref;
+    }
+
+    /** Entfernt eine Passe aus einer Session (nur im SETUP-Status). */
+    public void removePasseFromSession(UUID sessionId, UUID passeId) {
+        LiveSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+        if (session.getStatus() != SessionStatus.SETUP) {
+            throw new SessionStatusTransitionException("Can only remove Passen while session is in SETUP status");
+        }
+
+        List<PasseSnapshot> snapshots = parsePassenSnapshots(session);
+        boolean removed = snapshots.removeIf(s -> passeId.toString().equals(s.id));
+        if (!removed) {
+            throw new ch.jp.shooting.exception.PasseNotFoundException(passeId);
+        }
+        savePassenSnapshots(session, snapshots);
     }
 
     public ch.jp.smartground.model.SessionPageResponse listSessions(
