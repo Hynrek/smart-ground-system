@@ -1,6 +1,7 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.exception.ConflictException;
+import ch.jp.shooting.model.Range;
 import ch.jp.shooting.model.auth.Role;
 import ch.jp.shooting.model.auth.User;
 import ch.jp.shooting.repository.*;
@@ -15,6 +16,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -73,5 +76,27 @@ class TestDataServiceTest {
     void createTestUser_credentialWithAt_throwsIllegalArgument() {
         assertThatThrownBy(() -> service.createTestUser("a@b"))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void seedRanges_createsMissingLeavesExisting() {
+        Range existing = new Range();
+        existing.setName("Trapstand");
+        when(rangeRepository.findByName("Vorderlader")).thenReturn(Optional.empty());
+        when(rangeRepository.findByName("Trapstand")).thenReturn(Optional.of(existing));
+        when(rangeRepository.findByName("Rollhase")).thenReturn(Optional.empty());
+        when(rangeRepository.findByName("Kippreh")).thenReturn(Optional.empty());
+        when(rangeRepository.save(any(Range.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<TestDataService.SeededRange> result = service.seedRanges();
+
+        Map<String, Boolean> createdByName = new java.util.HashMap<>();
+        result.forEach(r -> createdByName.put(r.range().getName(), r.created()));
+        assertThat(createdByName.get("Vorderlader")).isTrue();
+        assertThat(createdByName.get("Trapstand")).isFalse();
+        assertThat(createdByName.get("Rollhase")).isTrue();
+        assertThat(createdByName.get("Kippreh")).isTrue();
+        // 3 new ranges saved, the existing one not re-saved
+        verify(rangeRepository, times(3)).save(any(Range.class));
     }
 }

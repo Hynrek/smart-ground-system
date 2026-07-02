@@ -1,6 +1,7 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.exception.ConflictException;
+import ch.jp.shooting.model.Range;
 import ch.jp.shooting.model.auth.Role;
 import ch.jp.shooting.model.auth.User;
 import ch.jp.shooting.model.auth.UserRoleEntity;
@@ -12,6 +13,9 @@ import org.jspecify.annotations.NullMarked;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
 
 // Admin-only Dev-Tooling zum Anlegen von Testdaten (Benutzer, Ranges, SmartBoxes).
 @Service
@@ -75,5 +79,27 @@ public class TestDataService {
         User saved = userRepository.save(user);
         userRoleRepository.save(new UserRoleEntity(saved, shooter, null));
         return saved;
+    }
+
+    // Standard-Testplätze; idempotent nach Name.
+    private static final List<String> TEST_RANGE_NAMES =
+            List.of("Vorderlader", "Trapstand", "Rollhase", "Kippreh");
+
+    public record SeededRange(Range range, boolean created) {}
+
+    @Transactional
+    public List<SeededRange> seedRanges() {
+        List<SeededRange> result = new ArrayList<>();
+        for (String name : TEST_RANGE_NAMES) {
+            Range existing = rangeRepository.findByName(name).orElse(null);
+            if (existing != null) {
+                result.add(new SeededRange(existing, false));
+            } else {
+                Range range = new Range();
+                range.setName(name);
+                result.add(new SeededRange(rangeRepository.save(range), true));
+            }
+        }
+        return result;
     }
 }
