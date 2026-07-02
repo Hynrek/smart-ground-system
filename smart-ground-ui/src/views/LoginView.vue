@@ -2,8 +2,8 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
-import { defaultHome } from '@/router';
 import Button from '@/components/Button.vue';
+import Logo from '@/components/Logo.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -16,7 +16,7 @@ const handleLogin = async () => {
   errorMessage.value = '';
   try {
     await authStore.login(username.value, password.value);
-    router.push(defaultHome(authStore));
+    router.push('/welcome');
   } catch (err) {
     errorMessage.value = err.message;
   }
@@ -30,8 +30,7 @@ const handleKeydown = (e) => {
 <template>
   <div class="login-container">
     <div class="login-box">
-      <h1>Smart Ground</h1>
-      <p class="subtitle">Management System</p>
+      <Logo variant="reversed" :size="100" class="login-logo" />
 
       <form class="login-form" @submit.prevent="handleLogin">
         <div class="form-group">
@@ -80,31 +79,24 @@ const handleKeydown = (e) => {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: var(--sg-bg-page);
+  background: #1a1a2e;
   font-family: system-ui, -apple-system, sans-serif;
 }
 
 .login-box {
-  background: var(--sg-bg-card);
-  border-radius: 8px;
-  box-shadow: var(--sg-shadow-lg);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
   padding: 40px;
   width: 100%;
-  max-width: 400px;
+  max-width: 460px;
   text-align: center;
+  color: #fff;
 }
 
-h1 {
-  margin: 0 0 8px 0;
-  color: var(--sg-brand);
-  font-size: 28px;
-  font-weight: 600;
-}
-
-.subtitle {
-  margin: 0 0 30px 0;
-  color: var(--sg-text-muted);
-  font-size: 14px;
+.login-logo {
+  margin: 0 auto 30px;
+  color: #fff;
 }
 
 .login-form {
@@ -123,27 +115,33 @@ h1 {
 label {
   font-size: 14px;
   font-weight: 500;
-  color: var(--sg-brand);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 input {
   padding: 10px 12px;
-  border: 1px solid var(--sg-border);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 4px;
   font-size: 14px;
   font-family: inherit;
+  color: #fff;
+}
+
+input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
 }
 
 input:focus {
   outline: none;
   border-color: var(--sg-accent);
-  box-shadow: 0 0 0 3px var(--sg-accent-subtle);
+  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.15);
 }
 
 .error-message {
   padding: 10px;
-  background: var(--sg-color-danger-bg);
-  color: var(--sg-color-danger);
+  background: rgba(224, 82, 82, 0.15);
+  color: var(--sg-color-danger-bg);
   border-radius: 4px;
   font-size: 13px;
 }
@@ -151,5 +149,11 @@ input:focus {
 .login-button {
   margin-top: 8px;
   width: 100%;
+  background: var(--sg-accent);
+  color: #1a1a2e;
+}
+
+.login-button:hover:not(:disabled) {
+  background: var(--sg-accent-hover);
 }
 </style>

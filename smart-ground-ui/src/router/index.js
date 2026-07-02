@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import LoginView from '@/views/LoginView.vue';
+import WelcomeView from '@/views/WelcomeView.vue';
 import RangesView from '@/views/admin/RangesView.vue';
 import RangeDetailView from '@/views/admin/RangeDetailView.vue';
 import SmartBoxesView from '@/views/admin/SmartBoxesView.vue';
@@ -23,6 +24,7 @@ let _storesInitialized = false
 
 const routes = [
   { path: '/login', component: LoginView, meta: { requiresAuth: false } },
+  { path: '/welcome', component: WelcomeView, meta: { requiresAuth: true, layout: 'legacy-fullscreen' } },
   { path: '/no-access', component: () => import('@/views/NoAccessView.vue'), meta: { requiresAuth: true } },
   { path: '/', component: { template: '<div />' }, meta: { requiresAuth: true } },
 
@@ -97,7 +99,7 @@ router.beforeEach(async (to, from, next) => {
   // Hard-lock: assigned users may only visit their range path (allow login/no-access through)
   if (authenticated && auth.profile?.assignedRangeId) {
     const allowedPath = `/remote/${auth.profile.assignedRangeId}`;
-    const isEscapeRoute = to.meta.requiresAuth === false || to.path === '/no-access';
+    const isEscapeRoute = to.meta.requiresAuth === false || to.path === '/no-access' || to.path === '/welcome';
     if (!isEscapeRoute && !to.path.startsWith(allowedPath)) {
       next(allowedPath);
       return;
