@@ -181,7 +181,8 @@ public final class PlayMapper {
         return new PlayerRef()
             .id(r.id())
             .type(PlayerRef.TypeEnum.fromValue(r.type()))
-            .displayName(r.displayName());
+            .displayName(r.displayName())
+            .userId(r.userId());
     }
 
     private static PlayBlock toPlayBlock(PlayBlockRecord r) {
@@ -212,6 +213,7 @@ public final class PlayMapper {
     private static PlayerResult toPlayerResult(PlayerResultRecord r) {
         return new PlayerResult()
             .playerId(r.playerId())
+            .userId(r.userId())
             .displayName(r.displayName())
             .totalPoints(r.totalPoints())
             .maxPoints(r.maxPoints())

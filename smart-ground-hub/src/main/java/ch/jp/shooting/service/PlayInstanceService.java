@@ -98,7 +98,7 @@ public class PlayInstanceService {
         ).toList();
 
         var playerRecords = players.stream()
-            .map(p -> new PlayerRefRecord(p.getId(), p.getType().getValue(), p.getDisplayName()))
+            .map(p -> new PlayerRefRecord(p.getId(), p.getType().getValue(), p.getDisplayName(), p.getUserId()))
             .toList();
 
         var instance = new PlayInstance();
@@ -193,7 +193,8 @@ public class PlayInstanceService {
                         ss.getNoBirds() != null ? ss.getNoBirds() : 0,
                         ss.getPointsEarned() != null ? ss.getPointsEarned() : 0
                     ))
-                    .toList()
+                    .toList(),
+                pr.getUserId()
             ))
             .toList();
         var blockResult = new BlockResultRecord(playerResults);
@@ -293,7 +294,8 @@ public class PlayInstanceService {
             .map(p -> new PlayerRef()
                 .id(p.id())
                 .type(PlayerRef.TypeEnum.fromValue(p.type()))
-                .displayName(p.displayName()))
+                .displayName(p.displayName())
+                .userId(p.userId()))
             .toList();
         return new PlayResultSummary()
             .resultId(instance.getInstanceId())
@@ -317,7 +319,8 @@ public class PlayInstanceService {
                 .map(p -> new PlayerRef()
                     .id(p.id())
                     .type(PlayerRef.TypeEnum.fromValue(p.type()))
-                    .displayName(p.displayName()))
+                    .displayName(p.displayName())
+                    .userId(p.userId()))
                 .toList())
             .startedAt(OffsetDateTime.ofInstant(instance.getStartedAt(), ZoneOffset.UTC));
         if (instance.getCompletedAt() != null) {
