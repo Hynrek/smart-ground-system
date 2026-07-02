@@ -69,6 +69,16 @@ class OtaArtifactStoreTest {
     }
 
     @Test
+    void rejectsUserconfigPath(@TempDir Path dir) throws Exception {
+        // userconfig/ is device-owned state (WiFi credentials, ota_state) —
+        // a release must never ship files that would overwrite it
+        OtaArtifactStore store = new OtaArtifactStore(dir.toString());
+        byte[] zip = zip("userconfig/client_config.json", new byte[]{1});
+        assertThatThrownBy(() -> store.storeAppBundle("0.7", zip))
+            .isInstanceOf(InvalidOtaArtifactException.class);
+    }
+
+    @Test
     void readMissingFileThrows(@TempDir Path dir) {
         OtaArtifactStore store = new OtaArtifactStore(dir.toString());
         assertThatThrownBy(() -> store.readAppFile("9.9", "manifest.json"))

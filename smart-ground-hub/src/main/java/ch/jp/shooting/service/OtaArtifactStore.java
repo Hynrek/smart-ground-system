@@ -62,6 +62,12 @@ public class OtaArtifactStore {
                 while ((entry = zis.getNextEntry()) != null) {
                     if (entry.isDirectory()) continue;
                     String name = entry.getName().replace('\\', '/');
+                    // userconfig/ ist geräteeigener Zustand (WLAN-Zugangsdaten, device_config,
+                    // ota_state) – ein Release darf ihn niemals überschreiben. Die Firmware
+                    // (ota.py) lehnt solche Manifeste ebenfalls ab; hier scheitert der Upload früh.
+                    if (name.startsWith("userconfig/")) {
+                        throw new InvalidOtaArtifactException("Geschützter Pfad im ZIP: " + name);
+                    }
                     Path dest = filesDir.resolve(name).normalize();
                     // Zip-Slip verhindern: Ziel muss unterhalb von filesDir liegen
                     if (!dest.startsWith(filesDir)) {
