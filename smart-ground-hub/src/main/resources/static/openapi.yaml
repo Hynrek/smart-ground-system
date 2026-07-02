@@ -3575,6 +3575,13 @@ components:
           description: >
             true once the SmartBox has ACK'd the latest config push via
             smartboxes/{mac}/config/ack
+        firmwareConfigId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Id of the FirmwareConfig resolved for this box at discovery
+            (via appVersion + boxType). Null until the box has reported in.
 
     # ───── OTA ────────────────────────────────────────────────────────────────
 

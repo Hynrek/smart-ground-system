@@ -87,6 +87,7 @@ public class SmartBoxController implements SmartBoxApi {
             .status(statusEnum)
             .appVersion(box.getAppVersion())
             .firmwareVersion(box.getFirmwareVersion())
-            .configSynced(box.isConfigSynced());
+            .configSynced(box.isConfigSynced())
+            .firmwareConfigId(box.getFirmwareConfig() != null ? box.getFirmwareConfig().getId() : null);
     }
 }

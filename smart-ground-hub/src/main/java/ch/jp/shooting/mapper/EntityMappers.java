@@ -68,7 +68,8 @@ public final class EntityMappers {
             .alias(smartBox.getAlias())
             .status(status != null ? SmartBoxStatus.fromValue(status.name()) : null)
             .firmwareVersion(smartBox.getFirmwareVersion())
-            .configSynced(smartBox.isConfigSynced());
+            .configSynced(smartBox.isConfigSynced())
+            .firmwareConfigId(smartBox.getFirmwareConfig() != null ? smartBox.getFirmwareConfig().getId() : null);
     }
 
     public static RangePositionResponse toRangePositionResponse(RangePosition position) {
