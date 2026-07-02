@@ -3160,7 +3160,7 @@ components:
       properties:
         qrToken:
           type: string
-          description: Static check-in token; encoded as smartground://checkin/<token>
+          description: The current check-in token; encoded as smartground://checkin/<token>
 
     QrUserResponse:
       type: object
@@ -3173,6 +3173,7 @@ components:
           type: string
         profilbildUrl:
           type: string
+          description: Absent if the user has no profile picture.
 
     MyPlayResultEntry:
       type: object
