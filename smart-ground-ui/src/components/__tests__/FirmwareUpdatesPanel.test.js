@@ -2,10 +2,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import FirmwareUpdatesView from '@/views/admin/FirmwareUpdatesView.vue';
+import FirmwareUpdatesPanel from '@/components/FirmwareUpdatesPanel.vue';
 import { useOtaStore } from '@/stores/otaStore.js';
 
-describe('FirmwareUpdatesView', () => {
+describe('FirmwareUpdatesPanel', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
@@ -17,7 +17,7 @@ describe('FirmwareUpdatesView', () => {
     store.releases = [
       { id: 'r1', type: 'APP', version: '0.7', sha256: 'ab', sizeBytes: 1024, createdAt: '2026-06-29T10:00:00Z' },
     ];
-    const wrapper = mount(FirmwareUpdatesView);
+    const wrapper = mount(FirmwareUpdatesPanel);
     await wrapper.vm.$nextTick();
     expect(wrapper.text()).toContain('0.7');
     expect(wrapper.text()).toContain('App-Code');
@@ -27,7 +27,7 @@ describe('FirmwareUpdatesView', () => {
     const store = useOtaStore();
     store.fetchReleases = vi.fn();
     store.uploadRelease = vi.fn().mockResolvedValue();
-    const wrapper = mount(FirmwareUpdatesView);
+    const wrapper = mount(FirmwareUpdatesPanel);
 
     await wrapper.find('[data-testid="ota-version"]').setValue('0.9');
     const file = new File(['x'], 'bundle.zip');

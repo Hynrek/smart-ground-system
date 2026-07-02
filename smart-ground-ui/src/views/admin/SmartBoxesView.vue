@@ -8,10 +8,11 @@
             {{ smartBoxStore.smartboxes.length }} Boxen · {{ deviceStore.devices.length }}
             Geräte total · automatisch erkannt
           </p>
-          <p v-else class="subtitle">
+          <p v-else-if="activeTab === 'geraetetypen'" class="subtitle">
             {{ deviceTypeStore.deviceTypes.length }} Typ{{ deviceTypeStore.deviceTypes.length !== 1 ? 'en' : '' }} ·
             {{ deviceTypeStore.deviceTypeGroups.length }} Gruppe{{ deviceTypeStore.deviceTypeGroups.length !== 1 ? 'n' : '' }}
           </p>
+          <p v-else class="subtitle">{{ otaStore.releases.length }} Release(s) hochgeladen</p>
         </div>
         <Button
           v-if="activeTab === 'smartboxen'"
@@ -40,6 +41,13 @@
           @click="setTab('geraetetypen')"
         >
           Gerätetypen
+        </button>
+        <button
+          :class="{ 'tab--active': activeTab === 'firmware-updates' }"
+          class="tab"
+          @click="setTab('firmware-updates')"
+        >
+          Firmware-Updates
         </button>
       </div>
 
@@ -88,6 +96,9 @@
 
       <!-- Gerätetypen tab -->
       <DeviceConfigPanel v-else-if="activeTab === 'geraetetypen'" />
+
+      <!-- Firmware-Updates tab -->
+      <FirmwareUpdatesPanel v-else-if="activeTab === 'firmware-updates'" />
     </div>
   </div>
 </template>
@@ -103,6 +114,7 @@ import Button from '@/components/Button.vue';
 import Icons from '@/components/Icons.vue';
 import SmartBoxCard from '@/components/SmartBoxCard.vue';
 import DeviceConfigPanel from '@/components/DeviceConfigPanel.vue';
+import FirmwareUpdatesPanel from '@/components/FirmwareUpdatesPanel.vue';
 import { useUrlTab } from '@/composables/useUrlTab.js';
 
 const smartBoxStore = useSmartBoxStore();
@@ -110,7 +122,7 @@ const deviceStore = useDeviceStore();
 const deviceTypeStore = useDeviceTypeStore();
 const otaStore = useOtaStore();
 
-const { activeTab, setTab } = useUrlTab('smartboxen', ['smartboxen', 'geraetetypen']);
+const { activeTab, setTab } = useUrlTab('smartboxen', ['smartboxen', 'geraetetypen', 'firmware-updates']);
 
 watch(
   () => smartBoxStore.smartboxes,
