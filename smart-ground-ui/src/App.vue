@@ -15,6 +15,7 @@ const navMap = {
   '/passen': 'passen',
   '/users': 'users',
   '/profile': 'profile',
+  '/testing': 'testing',
 };
 
 const activeNav = computed(() => {

@@ -8,6 +8,7 @@ import FirmwareConfigsView from '@/views/admin/FirmwareConfigsView.vue';
 import FirmwareUpdatesView from '@/views/admin/FirmwareUpdatesView.vue';
 import UsersView from '@/views/admin/UsersView.vue';
 import PassenAdminView from '@/views/admin/PassenAdminView.vue';
+import TestingView from '@/views/admin/TestingView.vue';
 import PlayerSetupView from '@/views/admin/PlayerSetupView.vue';
 import WettkampfListView from '@/views/admin/WettkampfListView.vue';
 import WettkampfDetailView from '@/views/admin/WettkampfDetailView.vue';
@@ -39,6 +40,7 @@ const routes = [
   { path: '/admin/wettkampf',       component: WettkampfListView,            meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/admin/wettkampf/:id',   component: WettkampfDetailView, props: true, meta: { layout: 'admin', permission: 'MANAGE_COMPETITIONS' } },
   { path: '/passen',               component: PassenAdminView,              meta: { layout: 'admin', permission: 'MANAGE_PASSE_TEMPLATES' } },
+  { path: '/testing',              component: TestingView,                  meta: { layout: 'admin', permission: 'MANAGE_USERS' } },
 
   // ── Shooter routes ────────────────────────────────────────────────────
   { path: '/home',                 component: ShooterHomeView,              meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },

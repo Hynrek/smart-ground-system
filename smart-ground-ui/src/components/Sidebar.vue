@@ -57,6 +57,7 @@ const allNavItems = [
   { id: 'competition', path: '/admin/wettkampf', label: 'Wettkampf', icon: 'award', requiredPermission: 'MANAGE_COMPETITIONS' },
   { id: 'passen', label: 'Passen', icon: 'program', requiredPermission: 'MANAGE_PASSE_TEMPLATES' },
   { id: 'users', label: 'Benutzer', icon: 'user', requiredPermission: 'MANAGE_USERS' },
+  { id: 'testing', label: 'Testing', icon: 'cpu', requiredPermission: 'MANAGE_USERS' },
 ];
 
 const navItems = computed(() => {
