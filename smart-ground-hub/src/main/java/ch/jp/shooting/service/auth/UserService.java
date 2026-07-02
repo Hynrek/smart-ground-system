@@ -117,8 +117,7 @@ public class UserService {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new UserNotFoundException(userId));
         if (user.getQrToken() == null) {
-            user.setQrToken(UUID.randomUUID().toString());
-            userRepository.save(user);
+            assignNewQrToken(user);
         }
         return Objects.requireNonNull(user.getQrToken());
     }
@@ -127,15 +126,19 @@ public class UserService {
     public String rotateQrToken(UUID userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new UserNotFoundException(userId));
+        assignNewQrToken(user);
+        return Objects.requireNonNull(user.getQrToken());
+    }
+
+    private void assignNewQrToken(User user) {
         user.setQrToken(UUID.randomUUID().toString());
         userRepository.save(user);
-        return Objects.requireNonNull(user.getQrToken());
     }
 
     /** Löst einen gescannten QR-Token zum zugehörigen User auf. */
     public UserDTO getUserByQrToken(String qrToken) {
         User user = userRepository.findByQrToken(qrToken)
-            .orElseThrow(() -> new UserNotFoundException("Unbekannter QR-Token"));
+            .orElseThrow(() -> UserNotFoundException.forQrToken(qrToken));
         return userMapper.toDto(user);
     }
 
