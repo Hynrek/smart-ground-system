@@ -9,6 +9,8 @@ import ch.jp.smartground.model.AssignRoleRequest;
 import ch.jp.smartground.model.AssignScopedRoleRequest;
 import ch.jp.smartground.model.ChangePasswordRequest;
 import ch.jp.smartground.model.PageMeta;
+import ch.jp.smartground.model.QrCodeResponse;
+import ch.jp.smartground.model.QrUserResponse;
 import ch.jp.smartground.model.UserPageResponse;
 import ch.jp.smartground.model.UserResponse;
 import ch.jp.smartground.model.UserRoleResponse;
@@ -169,6 +171,31 @@ public class UserController implements UserApi {
     public ResponseEntity<Void> revokeScopedRole(UUID id, String roleName, String scopeType, UUID scopeId) {
         userService.revokeScopedRole(id, roleName, scopeType, scopeId);
         return ResponseEntity.noContent().build();
+    }
+
+    // ── QR-Checkin ─────────────────────────────────────────────────────────────
+
+    @Override
+    public ResponseEntity<QrCodeResponse> getMyQrCode() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UserDTO me = userService.getUserByEmail(auth.getName());
+        return ResponseEntity.ok(new QrCodeResponse().qrToken(userService.getOrCreateQrToken(me.getId())));
+    }
+
+    @Override
+    public ResponseEntity<QrCodeResponse> rotateMyQrCode() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UserDTO me = userService.getUserByEmail(auth.getName());
+        return ResponseEntity.ok(new QrCodeResponse().qrToken(userService.rotateQrToken(me.getId())));
+    }
+
+    @Override
+    public ResponseEntity<QrUserResponse> resolveUserByQr(String token) {
+        UserDTO user = userService.getUserByQrToken(token);
+        return ResponseEntity.ok(new QrUserResponse()
+                .userId(user.getId())
+                .displayName(user.getFullName())
+                .profilbildUrl(user.getProfilbildUrl()));
     }
 
     // ── Mappers ────────────────────────────────────────────────────────────────
