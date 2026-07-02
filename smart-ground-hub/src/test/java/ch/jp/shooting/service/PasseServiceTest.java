@@ -8,6 +8,7 @@ import ch.jp.shooting.model.auth.User;
 import ch.jp.shooting.repository.PasseRepository;
 import ch.jp.shooting.repository.SerieRepository;
 import ch.jp.smartground.model.CreatePasseRequest;
+import ch.jp.smartground.model.UpdatePasseRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -154,6 +155,68 @@ class PasseServiceTest {
         var request = new CreatePasseRequest().name("P").serieIds(List.of(serieId));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> passeService.createPasse(request))
+            .isInstanceOf(ch.jp.shooting.exception.SerieNotFoundException.class);
+    }
+
+    @Test
+    void updatePasse_withSerieIds_replacesSerieMembership() {
+        var oldSerieId = UUID.randomUUID();
+        var newSerieId = UUID.randomUUID();
+        var posId = UUID.randomUUID();
+        var newSerie = soloSerie(newSerieId, posId, "Serie neu");
+        var passe = passeReferencing(oldSerieId);
+
+        when(passeRepository.findById(passe.getId())).thenReturn(Optional.of(passe));
+        when(securityHelper.currentUser()).thenReturn(user);
+        when(serieRepository.existsById(newSerieId)).thenReturn(true);
+        when(passeRepository.save(any(Passe.class))).thenAnswer(i -> i.getArgument(0));
+        when(serieRepository.findAllById(anyIterable())).thenReturn(List.of(newSerie));
+        when(positionLabelResolver.byPosIds(anyCollection()))
+            .thenReturn(Map.of(posId.toString(), pos(posId, "A1")));
+
+        var request = new UpdatePasseRequest().name("Umbenannt").serieIds(List.of(newSerieId));
+        var result = passeService.updatePasse(passe.getId(), request);
+
+        assertThat(result.getName()).isEqualTo("Umbenannt");
+        assertThat(result.getSerien()).hasSize(1);
+        assertThat(result.getSerien().get(0).getId()).isEqualTo(newSerieId);
+    }
+
+    @Test
+    void updatePasse_withoutSerieIds_preservesExistingMembership() {
+        var serieId = UUID.randomUUID();
+        var posId = UUID.randomUUID();
+        var serie = soloSerie(serieId, posId, "Serie 1");
+        var passe = passeReferencing(serieId);
+
+        when(passeRepository.findById(passe.getId())).thenReturn(Optional.of(passe));
+        when(securityHelper.currentUser()).thenReturn(user);
+        when(passeRepository.save(any(Passe.class))).thenAnswer(i -> i.getArgument(0));
+        when(serieRepository.findAllById(anyIterable())).thenReturn(List.of(serie));
+        when(positionLabelResolver.byPosIds(anyCollection()))
+            .thenReturn(Map.of(posId.toString(), pos(posId, "A1")));
+
+        var request = new UpdatePasseRequest().name("Nur Name");
+        var result = passeService.updatePasse(passe.getId(), request);
+
+        assertThat(result.getName()).isEqualTo("Nur Name");
+        assertThat(result.getSerien()).hasSize(1);
+        assertThat(result.getSerien().get(0).getId()).isEqualTo(serieId);
+    }
+
+    @Test
+    void updatePasse_unknownSerie_throws() {
+        var serieId = UUID.randomUUID();
+        var unknownSerieId = UUID.randomUUID();
+        var passe = passeReferencing(serieId);
+
+        when(passeRepository.findById(passe.getId())).thenReturn(Optional.of(passe));
+        when(securityHelper.currentUser()).thenReturn(user);
+        when(serieRepository.existsById(unknownSerieId)).thenReturn(false);
+
+        var request = new UpdatePasseRequest().name("P").serieIds(List.of(unknownSerieId));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> passeService.updatePasse(passe.getId(), request))
             .isInstanceOf(ch.jp.shooting.exception.SerieNotFoundException.class);
     }
 }

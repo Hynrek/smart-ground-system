@@ -84,7 +84,7 @@ public class PasseService {
         return toResponse(passe);
     }
 
-    /** Benennt eine Passe um. */
+    /** Aktualisiert Name und optional die Serie-Zuordnung einer Passe. */
     public PasseResponse updatePasse(UUID id, UpdatePasseRequest request) {
         var passe = passeRepository.findById(id)
             .orElseThrow(() -> new PasseNotFoundException(id));
@@ -93,6 +93,12 @@ public class PasseService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
         passe.setName(request.getName());
+        if (request.getSerieIds() != null && !request.getSerieIds().isEmpty()) {
+            request.getSerieIds().forEach(serieId -> {
+                if (!serieRepository.existsById(serieId)) throw new SerieNotFoundException(serieId);
+            });
+            passe.setSerieIdsJson(PlayMapper.writeSerieIds(request.getSerieIds()));
+        }
         return toResponse(passeRepository.save(passe));
     }
 
