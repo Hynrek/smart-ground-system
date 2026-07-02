@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-The Smart Box firmware runs on a Raspberry Pi Pico 2W microcontroller and manages physical devices (GPIO outputs, LEDs, sensors) over MQTT. It receives commands from the backend, publishes device state and sensor events, and handles the initial WiFi access-point setup flow.
+The Smart Box firmware runs on the **Seeed XIAO ESP32-S3** (the current and only supported target) and manages physical devices (GPIO outputs, LEDs, sensors) over MQTT. It receives commands from the backend, publishes device state and sensor events, handles the initial WiFi access-point setup flow, and can update itself over the LAN (OTA). The board abstraction in `boards/` remains — `boards/pico2w.py` is parked (Raspberry Pi Pico 2W is no longer an active target) and re-adding a board is one new file, no core changes.
 
 ---
 
@@ -33,13 +33,11 @@ Do not leave decisions only in commit messages or conversation history — this 
 
 ## Stack & Versions
 
-- **MicroPython**: 1.23+
-- **Board**: Raspberry Pi Pico 2W (RP2350 chip, ARM Cortex-M33)
-- **RAM**: 520 KB SRAM — treat as a hard constraint
-- **WiFi**: Built-in CYW43, managed via MicroPython `network` module
-- **Onboard LED**: `Pin("LED", Pin.OUT)` — module-level `led` in `hardware.py`
-- **MQTT**: `umqtt.simple` (preferred) or `umqtt.robust` (fallback)
-- **Flash**: ~8 MB (includes MicroPython kernel)
+- **MicroPython**: v1.28.0 kernel (`ESP32_GENERIC_S3-SPIRAM_OCT` image in `setup/`); code sticks to 1.23+ APIs
+- **Board**: Seeed XIAO ESP32-S3 (dual-core Xtensa LX7; 512 KB internal SRAM + 8 MB PSRAM via the SPIRAM image; 8 MB flash)
+- **WiFi**: Built-in, managed via MicroPython `network` module
+- **Onboard LED**: `Pin(board.LED_PIN)` — GPIO 21 on the XIAO, **active-low** (`LED_ON = 0` in `boards/xiao_esp32s3.py`); module-level `led` in `hardware.py`
+- **MQTT**: `umqtt.simple` (vendored in `lib/umqtt/`)
 - **No asyncio**: Synchronous polling loop only
 
 ## Language & Runtime
@@ -66,16 +64,24 @@ smart-box/
 ├── accesspoint.py                      # Captive portal for first-time WiFi setup
 ├── accesspoint.html                    # HTML served by the captive portal
 ├── boards/
-│   ├── pico2w.py                       # Board-Konstanten und Init für Raspberry Pi Pico 2W
-│   ├── xiao_esp32s3.py                 # Board-Konstanten und Init für XIAO ESP32-S3
+│   ├── xiao_esp32s3.py                 # Board-Konstanten und Init für XIAO ESP32-S3 (aktuelles Ziel)
+│   ├── pico2w.py                       # Pico 2W — geparkt, kein aktives Ziel mehr
 │   └── test_board.py                   # Neutraler Stub für Host-Tests
+├── lib/
+│   └── umqtt/                          # Vendored umqtt.simple (uploaded with the app code)
 ├── systemconfig/
 │   ├── accesspoint_config.json         # AP SSID/password (read-only at runtime)
-│   └── firmware_config.json            # Firmware version + capability registry (read-only at runtime)
-└── userconfig/
-    ├── client_config.json              # WiFi credentials + broker IP (written by setup portal)
-    ├── device_config.json              # Active device/GPIO config (written after each config push)
-    └── ota_state.json                  # OTA probation state (phase, version, boot_attempts) — written during updates
+│   └── firmware_config.json            # App version + capability manifest + config schema version (read-only at runtime)
+├── userconfig/
+│   ├── client_config.json              # WiFi credentials + broker IP (written by setup portal)
+│   ├── device_config.json              # Active device/GPIO config + config_schema_version (written after each config push)
+│   └── ota_state.json                  # OTA probation state (phase, version, boot_attempts) — written during updates
+├── tests/                              # Host tests (CPython + stubs) — see Host Tests
+├── tools/
+│   └── pack_ota.py                     # Builds an OTA App-Code release zip + manifest
+├── dist/                               # Packed OTA releases (build output)
+├── setup/                              # MicroPython kernel images for flashing (e.g. ESP32-S3 .bin)
+└── docs/                               # Superpowers plans/notes
 ```
 
 ---
@@ -125,7 +131,7 @@ Captive portal for first-time WiFi setup. Runs in AP mode (SSID/password from `s
 
 ### `boards/` (board modules)
 
-One file per supported hardware type. All files are uploaded to every device; the correct one is selected at runtime by `main.py` using `sys.platform`. Each module exports a fixed interface:
+One file per hardware type. All files are uploaded to every device; the correct one is selected at runtime by `main.py` using `sys.platform`. The active target is `xiao_esp32s3.py`; `pico2w.py` is parked (kept so Pico support can be revived without core changes). Each module exports a fixed interface:
 
 | Symbol | Type | Description |
 |---|---|---|
@@ -157,7 +163,7 @@ Because `reconnect_wifi()` calls `connect_wifi()`, the connecting blink also app
 
 ### Memory Budget (Most Important)
 
-The Pico 2W has **520 KB of SRAM**. MicroPython + network stack + MQTT library consume ~400 KB, leaving only **~120 KB for application code**.
+The XIAO ESP32-S3 has 512 KB internal SRAM plus 8 MB PSRAM (the SPIRAM kernel image maps PSRAM into the MicroPython heap), so heap pressure is far lower than on the old Pico target — but the discipline stays: fragmentation, not total size, is what kills long-running MicroPython processes, and the same AppCode should remain portable to smaller boards.
 
 **Memory rules (strict):**
 
@@ -193,11 +199,7 @@ The Pico 2W has **520 KB of SRAM**. MicroPython + network stack + MQTT library c
 
 ### Setup
 
-1. **Install MicroPython firmware** on Pico 2W
-   ```bash
-   # Download latest from https://micropython.org/download/rp2-pico-w/
-   # Hold BOOTSEL while plugging in, copy .uf2 to the RPI-RP2 drive
-   ```
+1. **Install the MicroPython kernel** (XIAO ESP32-S3): flash the `.bin` from `setup/` with `esptool` (hold the BOOT button while plugging in to enter bootloader mode if needed)
 
 2. **Connect via Serial/REPL**
    ```bash
@@ -210,10 +212,13 @@ The Pico 2W has **520 KB of SRAM**. MicroPython + network stack + MQTT library c
    pip install mpremote
    mpremote connect <port> cp main.py :main.py
    mpremote connect <port> cp mqttutils.py :mqttutils.py
+   mpremote connect <port> cp ota.py :ota.py
    mpremote connect <port> cp hardware.py :hardware.py
    mpremote connect <port> cp networkutils.py :networkutils.py
    mpremote connect <port> cp accesspoint.py :accesspoint.py
    mpremote connect <port> cp accesspoint.html :accesspoint.html
+   mpremote connect <port> cp -r boards :boards
+   mpremote connect <port> cp -r lib :lib
    mpremote connect <port> cp systemconfig/accesspoint_config.json :systemconfig/accesspoint_config.json
    mpremote connect <port> cp systemconfig/firmware_config.json :systemconfig/firmware_config.json
    ```
@@ -225,7 +230,7 @@ On first boot, `main.py` checks for `userconfig/client_config.json`. If absent o
 1. Phone/laptop connects to SSID from `systemconfig/accesspoint_config.json` (`SmartRange-Client-Setup`)
 2. Opens browser → `192.168.4.1`
 3. Fills in WiFi SSID, password, and broker IP → writes to `userconfig/client_config.json`
-4. Pico reboots and connects normally
+4. The box reboots and connects normally
 
 ---
 
@@ -245,9 +250,12 @@ The SmartBox MAC address (12-char lowercase hex) is used as the per-box topic se
 | SmartBox → Backend | `smartboxes/{mac}/ota/status` | OTA progress (`{ version, phase, progress, detail }`) |
 
 ### Discovery payload (SmartBox → `smartboxes/discovery`)
-`appVersion` (App Code) comes from `systemconfig/firmware_config.json`; `firmwareVersion` (the MicroPython kernel) comes from `os.uname().release`; box type comes from the board module.
+`appVersion`, `configSchemaVersion`, and `capabilities` (App Code) come from `systemconfig/firmware_config.json`; `firmwareVersion` (the MicroPython kernel) comes from `os.uname().release`; box type comes from the board module.
 ```json
-{ "mac": "aabbccddeeff", "appVersion": "0.6", "firmwareVersion": "micropython-1.23.0", "boxType": "xiao-esp32s3", "ip": "192.168.1.42" }
+{ "mac": "aabbccddeeff", "appVersion": "1.0", "firmwareVersion": "micropython-1.23.0",
+  "boxType": "xiao-esp32s3", "ip": "192.168.1.42",
+  "configSchemaVersion": "1",
+  "capabilities": { "GPIO": { "...": "..." }, "LED": { "...": "..." } } }
 ```
 
 ### Config payload (Backend → `smartboxes/{mac}/config`)
@@ -328,7 +336,7 @@ finally:
 - `finally` → always disconnect MQTT, deactivate both WLAN interfaces
 - Always create a fresh `network.WLAN()` instance in `finally` — do not rely on outer variables that may not be defined if the error happened early
 
-> **Watchdog caveat (RP2):** once the main loop has started, `machine.WDT` is active and **cannot be stopped** on the RP2. So a `KeyboardInterrupt` in normal operation runs the cleanup but the box still resets ~`WDT_TIMEOUT_MS` (8 s) later — the "no reset" guarantee only fully holds on the AP/first-connect path, where the WDT isn't running yet. This limits REPL debugging after Ctrl-C: re-flash via BOOTSEL if you need an un-watched session. Relatedly, a very slow `MQTTClient.connect()` (broker unreachable >8 s) will be cut short by a WDT reset; this is intended recovery — equivalent to the reset the reconnect path already performs on failure.
+> **Watchdog caveat:** once the main loop has started, `machine.WDT` is active and **cannot be stopped** (true on ESP32 and RP2 alike). So a `KeyboardInterrupt` in normal operation runs the cleanup but the box still resets ~`WDT_TIMEOUT_MS` (8 s) later — the "no reset" guarantee only fully holds on the AP/first-connect path, where the WDT isn't running yet. This limits REPL debugging after Ctrl-C: re-flash the kernel if you need an un-watched session. Relatedly, a very slow `MQTTClient.connect()` (broker unreachable >8 s) will be cut short by a WDT reset; this is intended recovery — equivalent to the reset the reconnect path already performs on failure.
 
 ---
 
@@ -344,18 +352,41 @@ Set at flash time, controls the setup captive portal:
 }
 ```
 
-### `systemconfig/firmware_config.json` (read-only at runtime)
+### `systemconfig/firmware_config.json` (release metadata — ships with every App-Code OTA release)
 
-Describes firmware capabilities; read when building the discovery payload. `app_version` is the App Code version reported as `appVersion` (the OTA target the backend compares against); `firmware_version` is retained for backward compatibility. The `boxType` field in the discovery payload comes from `board.BOX_TYPE`; `firmwareVersion` (the MicroPython kernel) comes from `os.uname()`, not this file:
+Describes the App Code release; read when building the discovery payload. `app_version` is the App Code version reported as `appVersion` (the OTA target the backend compares against); `firmware_version` is retained for backward compatibility. The `boxType` field in the discovery payload comes from `board.BOX_TYPE`; `firmwareVersion` (the MicroPython kernel) comes from `os.uname()`, not this file:
 ```json
 {
-  "app_version": "0.6",
-  "firmware_version": "0.6",
-  "supported_device_kinds": ["GPIO", "LED"],
-  "supported_directions": ["INPUT", "OUTPUT"]
+  "app_version": "1.0",
+  "firmware_version": "1.0",
+  "config_schema_version": "1",
+  "capabilities": {
+    "GPIO": {
+      "directions": ["INPUT", "OUTPUT"],
+      "commands": ["ON", "OFF"],
+      "config_fields": { "signal_duration_ms": {"type": "int", "default": 0} }
+    },
+    "LED": {
+      "directions": ["OUTPUT"],
+      "commands": ["ON"],
+      "config_fields": { "signal_duration_ms": {"type": "int", "default": 150} }
+    }
+  }
 }
 ```
-Never overwrite this file from the backend.
+
+**This file is part of the App Code and ships with every OTA release** (decision, 2026-07-02 — replaces the former "never overwrite this file from the backend" rule, which protected the wrong tier). It carries per-release metadata (`app_version`, `config_schema_version`, `capabilities`); if an App-Code OTA did not update it, the box would announce the old `appVersion` forever and the backend's `(appVersion, boxType)` FirmwareConfig resolution would go stale. `tools/pack_ota.py` includes it in `DEFAULT_FILES` and refuses to pack a release whose version argument disagrees with `app_version` in this file. It is still never written at runtime — the config push only writes `userconfig/device_config.json`.
+
+**What a release must never touch is `userconfig/`** (WiFi/broker credentials in `client_config.json`, the per-box `device_config.json`, `ota_state.json`). Enforced on both ends: the backend rejects uploaded release ZIPs containing `userconfig/` paths (`OtaArtifactStore`), and the firmware rejects OTA manifests containing them (`ota.py`, `download_app`).
+
+> **Capability manifest + config schema versioning** (designed 2026-06-30, implemented on both ends: firmware announces the manifest; the backend's `SmartBoxDiscoveryHandler` upserts `FirmwareConfig` from it on every discovery).
+> **Why:** the backend should learn what a box can do from the box itself (discovery payload), not from an admin manually seeding a `firmware_configs` row — that breaks for any box that wasn't provisioned through the backend's OTA path (factory-flashed, externally configured, returned hardware). The full `capabilities` object travels in the discovery payload alongside `appVersion`/`boxType` so the backend can upsert its registry on every boot, with no bootstrap gap.
+>
+> **`config_schema_version` exists to prevent silent corruption across AppCode upgrades.** `save_device_config()` writes this version into `device_config.json` alongside the backend-pushed device list. On boot, `main.py` compares the saved config's version with `firmware_config.json`'s; on mismatch the firmware discards the saved config instead of applying it with possibly-renamed/removed fields, and waits for the backend to push a fresh one. This catches the case where an OTA changes what a config field means without the box being aware its old config is now wrong.
+>
+> **`LED` is intentionally narrower than `GPIO`:** no `OFF` command, and it always targets `board.LED_PIN` (no pin config). An LED is technically just a GPIO output, but the onboard LED is being kept as a deliberate debug capability — easiest way to visually confirm MQTT communication during development/testing — not a general-purpose output. `ON` triggers a single pulse of `signal_duration_ms` (default 150 ms), reusing the same auto-off pulse mechanism `GpioManager` already uses for GPIO. Do not expose `LED` as an assignable production device type in the backend/UI; it should be labeled as debug-only.
+>
+> **BLOCK/UNBLOCK are not part of any capability's `commands` list.** They are security meta-commands handled directly in `mqttutils.message_callback`, independent of which capabilities a device has — this is intentional so a new capability can never accidentally ship without being blockable.
 
 ### `userconfig/client_config.json` (written by captive portal)
 
@@ -366,12 +397,13 @@ Never overwrite this file from the backend.
   "broker_ip": "192.168.1.100"
 }
 ```
-`broker_port` is optional (defaults to 1883). Never hardcode these values.
+`broker_port` is optional (defaults to 1883). Never hardcode these values. This file — like everything under `userconfig/` — is never part of an OTA release; see the protection rule under `systemconfig/firmware_config.json` above.
 
 ### `userconfig/device_config.json` (written by SmartBox after config push)
 
 ```json
 {
+  "config_schema_version": "1",
   "devices": [
     {
       "device_id": "<uuid>",
@@ -385,7 +417,7 @@ Never overwrite this file from the backend.
   ]
 }
 ```
-Overwritten on every config push. Firmware metadata does **not** go here — it lives in `systemconfig/firmware_config.json`.
+Overwritten on every config push; `config_schema_version` is copied from `firmware_config.json` at save time and checked on boot (mismatch → saved config discarded). Firmware metadata does **not** go here — it lives in `systemconfig/firmware_config.json`.
 
 ---
 
@@ -417,7 +449,7 @@ Overwritten on every config push. Firmware metadata does **not** go here — it 
 ## Troubleshooting
 
 ### Board doesn't respond in REPL
-Press `^C` to trigger `KeyboardInterrupt`. If frozen, hold BOOTSEL and replug to enter bootloader mode.
+Press `^C` to trigger `KeyboardInterrupt`. If frozen, hold the BOOT button and replug to enter bootloader mode, then re-flash with `esptool`.
 
 ### Memory errors during MQTT receive
 Ensure `gc.collect()` is called in the `finally` block of every message handler. Check `gc.mem_free()` in REPL.
@@ -443,7 +475,19 @@ Logic that doesn't need real hardware is unit-tested under CPython. From `smart-
 python -m unittest discover -s tests -t . -v
 ```
 
-`tests/_stubs.py` installs fake `machine`/`micropython`/`network`/`umqtt.simple` modules into `sys.modules` and patches a **controllable clock** (`ticks_ms`/`ticks_add`/`ticks_diff`/`sleep_ms`, advanced via `_stubs.clock.advance(ms)`) onto the real `time` module, so timing is deterministic with no real sleeps. `tests/__init__.py` puts the repo root on `sys.path` and installs the stubs before any firmware import. Covered: scheduler timing + busy-reject, security routing (allowlist/admin block), config handling, discovery/heartbeat payloads, and the watchdog-fed sleep. Hardware-only paths (`main.py`, real GPIO/WDT/WiFi) are still verified manually on the Pico 2W. `boards/test_board.py` provides a neutral board stub (`BOX_TYPE = "test-board"`, `LED_PIN = 0`). `tests/_stubs.py` registers it as `sys.modules["board"]` before any firmware module is imported, so `import board` in `hardware.py` and `mqttutils.py` resolves correctly under CPython.
+`tests/_stubs.py` installs fake `machine`/`micropython`/`network`/`umqtt.simple` modules into `sys.modules` and patches a **controllable clock** (`ticks_ms`/`ticks_add`/`ticks_diff`/`sleep_ms`, advanced via `_stubs.clock.advance(ms)`) onto the real `time` module, so timing is deterministic with no real sleeps. `tests/__init__.py` puts the repo root on `sys.path` and installs the stubs before any firmware import. Covered: scheduler timing + busy-reject, security routing (allowlist/admin block), config handling, discovery/heartbeat payloads, and the watchdog-fed sleep. Hardware-only paths (`main.py`, real GPIO/WDT/WiFi) are still verified manually on the XIAO ESP32-S3. `boards/test_board.py` provides a neutral board stub (`BOX_TYPE = "test-board"`, `LED_PIN = 0`). `tests/_stubs.py` registers it as `sys.modules["board"]` before any firmware module is imported, so `import board` in `hardware.py` and `mqttutils.py` resolves correctly under CPython.
+
+## AppCode Variants — Splitting by Use Case (decision, 2026-06-30)
+
+Today there is a single AppCode for all SmartBoxes. As new use cases emerge (e.g. an acoustic/microphone-based shot detector), the question of whether to keep one AppCode or split by use case was discussed and decided:
+
+**Split only when the runtime model is genuinely incompatible, not by device-naming convenience.** The current main loop is synchronous polling at ~50ms ticks — fine for GPIO output (Werfer, LEDs), GPIO input (sensors, triggers), and anything event-driven at human timescales. It is **not** viable for high-bandwidth signal processing (e.g. audio sampling at kHz rates needs sub-millisecond servicing, which a 50ms poll loop cannot deliver).
+
+Decided split:
+- **`ESP32S3_IO`** — one AppCode for all simple GPIO use cases (Werfer, LED, sensors, triggers). Within it, use conditional/lazy module imports based on what `device_config.json` actually configures, so memory scales with what's deployed, not with everything the AppCode is capable of.
+- **`ESP32S3_Audio`** (future, not yet started) — separate AppCode for microphone/acoustic capability, because it needs a fundamentally different runtime (interrupts/DMA, not a polling loop) and cannot coexist with the GPIO loop in the same process.
+
+The `boxType` field already in the discovery payload is the mechanism that distinguishes these — `firmware_configs` is naturally keyed on `(appVersion, boxType)`, so `ESP32S3_IO` and `ESP32S3_Audio` are simply different box types with different capability manifests. No backend schema change is needed to support this split when it happens.
 
 ## Known Issues & Open Work
 
@@ -459,7 +503,7 @@ All commands arrive on `smartboxes/{mac}/command`. The intended future structure
 
 Before merging any changes:
 
-- [ ] Firmware runs on physical Pico 2W without crashes
+- [ ] Firmware runs on a physical XIAO ESP32-S3 without crashes
 - [ ] `gc.collect()` called in `finally` after every MQTT message handler
 - [ ] No unbounded lists or string concatenation in loops
 - [ ] `micropython.const()` used for integer constants
@@ -478,17 +522,17 @@ The firmware can update itself over the network — no cable needed. Two distinc
 
 | Term | What it is | Mechanism |
 |---|---|---|
-| **App Code** | the SmartBox `.py` logic (`main.py`, `mqttutils.py`, `ota.py`, `boards/`, configs) | file-level: download → verify → stage → atomic swap + backup |
+| **App Code** | the SmartBox `.py` logic (`main.py`, `mqttutils.py`, `ota.py`, `boards/`) plus the release metadata `systemconfig/firmware_config.json` | file-level: download → verify → stage → atomic swap + backup |
 | **Firmware** | the MicroPython kernel image | native `esp32.Partition` A/B OTA (ESP-IDF bootloader auto-rollback) |
 
-App Code OTA is the everyday path; Firmware OTA is rare (kernel bumps). Both share the MQTT control channel and the HTTP download transport. Firmware OTA only works on the ESP32-S3 (the RP2350/Pico needs physical BOOTSEL for the kernel).
+App Code OTA is the everyday path; Firmware OTA is rare (kernel bumps). Both share the MQTT control channel and the HTTP download transport. Firmware OTA relies on `esp32.Partition` A/B slots — one reason the parked Pico 2W target can't do kernel OTA (RP2350 needs physical BOOTSEL).
 
 ### `ota.py` module
 
 All OTA logic lives here (the one module allowed to `import os`, for directory operations). Key functions:
 
 - `handle_command(payload, publish_status, wdt, reset, live_root)` — entry from the MQTT router; orchestrates the APP path (download → verify → apply → `begin_probation` → reset) or the FIRMWARE path. Rejects a second command while one is in progress (`is_busy`).
-- `download_app(base_url, manifest_sha256, wdt)` — streams `manifest.json` to `OTA_STAGING_DIR`, verifies it against the **MQTT-supplied hash** (the trust anchor, since per-file hashes live inside the HTTP-fetched manifest), then streams + per-file-SHA-256-verifies each file. Rejects path traversal (`..`). Raises `OtaError` on any failure — **live code is never touched until everything is downloaded and verified.**
+- `download_app(base_url, manifest_sha256, wdt)` — streams `manifest.json` to `OTA_STAGING_DIR`, verifies it against the **MQTT-supplied hash** (the trust anchor, since per-file hashes live inside the HTTP-fetched manifest), then streams + per-file-SHA-256-verifies each file. Rejects path traversal (`..`) and protected `userconfig/` paths (device-owned state a release must never overwrite). Raises `OtaError` on any failure — **live code is never touched until everything is downloaded and verified.**
 - `verify_file(path, expected_hex)` — streaming SHA-256 (manual hex; MicroPython `hashlib` has no `hexdigest()`).
 - `apply_app(manifest, live_root)` — writes a `pending` marker (file list), backs up each live file to `OTA_BACKUP_DIR`, copies staging over live, writes an `applied` marker, cleans up.
 - `recover_interrupted_apply(live_root)` — boot-time: if `pending` exists without `applied` (power lost mid-apply), restores from backup.

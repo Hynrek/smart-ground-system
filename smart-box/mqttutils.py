@@ -8,7 +8,7 @@ import board as _board
 # --- KONFIGURATION ---
 RECONNECT_ATTEMPTS   = 12
 RECONNECT_DELAY_S    = 10
-FIRMWARE_CONFIG_PATH = "systemconfig/firmware_config.json"   # Statisch – beschreibt die Fähigkeiten der Box
+FIRMWARE_CONFIG_PATH = "systemconfig/firmware_config.json"   # Release-Metadaten (app_version, capabilities) – wird nur per App-Code-OTA aktualisiert
 DEVICE_CONFIG_PATH   = "userconfig/device_config.json"       # Dynamisch – aktive Geräte vom Backend
 ADMIN_BLOCK_TOKEN    = "ADMIN"  # Token für manuelle Admin-Blockierung (keine Auto-Freigabe)
 
@@ -40,15 +40,17 @@ _firmware_config = None
 
 def load_firmware_config():
     """
-    Lädt die statische Firmware-Konfiguration aus dem systemconfig-Ordner.
-    Diese Datei wird mit der Firmware geflasht und beschreibt die Fähigkeiten der Box
-    (Version, unterstützte Gerätearten und Richtungen).
+    Lädt die Firmware-Konfiguration aus dem systemconfig-Ordner.
+    Diese Datei beschreibt das App-Code-Release (Version, Config-Schema-Version,
+    Capabilities). Sie wird beim Provisionieren geflasht und danach nur durch
+    App-Code-OTA-Releases aktualisiert — nie zur Laufzeit beschrieben.
     Gibt ein Dict zurück, oder {} bei Fehler/fehlender Datei.
 
     Format:
-        { "firmware_version": "0.6",
-          "supported_device_kinds": ["GPIO", "LED"],
-          "supported_directions": ["INPUT", "OUTPUT"] }
+        { "app_version": "1.0",
+          "firmware_version": "1.0",
+          "config_schema_version": "1",
+          "capabilities": { "GPIO": {...}, "LED": {...} } }
     """
     global _firmware_config
     if _firmware_config is not None:
@@ -186,7 +188,8 @@ def _handle_config(payload_bytes):
                          "command", "signal_duration_ms", "blocked" }, ... ] }
 
     Firmware-Informationen (Version, Box-Typ, Fähigkeiten) sind in
-    systemconfig/firmware_config.json hinterlegt und werden vom Backend NICHT überschrieben.
+    systemconfig/firmware_config.json hinterlegt und werden vom Config-Push NICHT
+    überschrieben (aktualisiert werden sie nur durch ein App-Code-OTA-Release).
 
     Schritte:
       1. JSON parsen

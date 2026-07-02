@@ -207,6 +207,10 @@ def download_app(base_url, manifest_sha256="", wdt=None):
         # Pfad-Traversal verhindern (Datei darf das Staging-Verzeichnis nicht verlassen)
         if ".." in rel or rel.startswith("/"):
             raise OtaError("Ungültiger Pfad im Manifest: {}".format(rel))
+        # Geräteeigener Zustand (WLAN-Zugangsdaten, device_config, ota_state) darf
+        # von einem Release niemals überschrieben werden
+        if rel.startswith("userconfig/"):
+            raise OtaError("Geschützter Pfad im Manifest: {}".format(rel))
         if not expected:
             raise OtaError("Manifest-Eintrag ohne 'sha256' für {}".format(rel))
         dest = OTA_STAGING_DIR + "/" + rel

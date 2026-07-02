@@ -21,3 +21,6 @@ Thumbs.db
 # Env
 .env
 *.bak
+
+# OTA release build output (tools/pack_ota.py)
+dist/
