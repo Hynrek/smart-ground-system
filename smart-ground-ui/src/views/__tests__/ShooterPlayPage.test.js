@@ -14,6 +14,12 @@ vi.mock('@/stores/passeStore.js', () => ({
 vi.mock('@/services/rangePositionApi.js', () => ({
   sendPositionCommand: vi.fn().mockResolvedValue(undefined),
 }))
+vi.mock('@/services/userApi.js', () => ({
+  fetchMyQrToken: vi.fn(),
+  rotateMyQrToken: vi.fn(),
+  resolveUserByQr: vi.fn(),
+  fetchMyPlayResults: vi.fn(),
+}))
 
 const seedPlay = (store, step, state) => {
   store.sessionPlayers = [{ id: 'p1', displayName: 'Alice' }]

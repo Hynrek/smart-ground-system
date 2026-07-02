@@ -201,6 +201,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
       const maxPoints = states.reduce((sum, s) => sum + s.pointValue, 0);
       return {
         playerId: player.id,
+        userId: player.userId ?? null,
         displayName: player.displayName,
         totalPoints,
         maxPoints,

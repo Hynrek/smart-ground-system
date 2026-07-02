@@ -10,6 +10,7 @@
           <div v-for="(player, i) in groupPlayers" :key="player.id" class="player-row">
             <span class="player-number">{{ i + 1 }}:</span>
             <span class="player-display-name">{{ player.displayName }}</span>
+            <span v-if="player.userId" class="player-account-badge" title="Mit Account verknüpft — Ergebnis wird gespeichert">✓</span>
             <button
               v-if="!_isCompetitionMode && groupPlayers.length > 1"
               class="player-remove-btn"
@@ -23,6 +24,11 @@
         <button v-if="!_isCompetitionMode" class="add-player-btn" @click="addPlayer">
           + Schütze hinzufügen
         </button>
+        <button v-if="!_isCompetitionMode" class="add-player-btn add-player-qr-btn" @click="openQrScan">
+          + Schütze per QR
+        </button>
+        <p v-if="qrScanNotice" class="qr-scan-notice">{{ qrScanNotice }}</p>
+        <QrScanModal v-if="qrScanOpen" @close="qrScanOpen = false" @resolved="addScannedPlayer" />
 
         <div class="modal-actions">
           <button class="btn btn-cancel" @click="cancelGroupSetup">Abbrechen</button>
@@ -349,6 +355,7 @@ import { StepState, StepType } from '@/constants/playEnums.js';
 import { stepModeLabel, stepNotation, isMultiResultStep, stepFailCells, modeBadgeStyle, stepConnector } from '@/constants/stepModes.js';
 import Icons from '@/components/Icons.vue';
 import ScoreTable from '@/components/shooter/ScoreTable.vue';
+import QrScanModal from '@/components/shooter/QrScanModal.vue';
 
 const router = useRouter();
 const props = defineProps({
@@ -459,6 +466,7 @@ if (store.pendingPasseInfo) {
     groupPlayers.value = info.players.map((p, i) => ({
       id: p.id ?? `gp-${i + 1}`,
       displayName: p.displayName,
+      userId: p.userId ?? null,
     }));
   }
   store.clearPendingPasse();
@@ -471,6 +479,28 @@ const addPlayer = () => {
 
 const removePlayer = (index) => {
   groupPlayers.value.splice(index, 1);
+};
+
+// ── QR check-in ───────────────────────────────────────────────────────────────
+const qrScanOpen = ref(false);
+const qrScanNotice = ref('');
+
+const openQrScan = () => {
+  qrScanNotice.value = '';
+  qrScanOpen.value = true;
+};
+
+const addScannedPlayer = (user) => {
+  qrScanOpen.value = false;
+  if (groupPlayers.value.some((p) => p.userId === user.userId)) {
+    qrScanNotice.value = `${user.displayName} ist bereits in der Gruppe`;
+    return;
+  }
+  groupPlayers.value.push({
+    id: `gp-${_nextPlayerId++}`,
+    displayName: user.displayName,
+    userId: user.userId,
+  });
 };
 
 const beginGroupPlay = () => {
@@ -869,6 +899,19 @@ watch(
   background: rgba(255, 255, 255, 0.07);
   border-color: rgba(255, 255, 255, 0.25);
   color: rgba(255, 255, 255, 0.7);
+}
+
+.player-account-badge {
+  color: var(--sg-color-success);
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+.qr-scan-notice {
+  color: var(--sg-color-danger-text);
+  font-size: 0.9rem;
+  text-align: center;
+  margin: 4px 0 0;
 }
 
 .modal-actions {
