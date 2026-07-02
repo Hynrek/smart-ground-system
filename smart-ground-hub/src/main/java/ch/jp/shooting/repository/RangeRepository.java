@@ -12,6 +12,8 @@ import java.util.UUID;
 public interface RangeRepository extends JpaRepository<Range, UUID> {
     boolean existsByName(String name);
 
+    Optional<Range> findByName(String name);
+
     @Query("SELECT r FROM Range r WHERE r.assignedUser.id = :userId")
     Optional<Range> findByAssignedUserId(@Param("userId") UUID userId);
 }

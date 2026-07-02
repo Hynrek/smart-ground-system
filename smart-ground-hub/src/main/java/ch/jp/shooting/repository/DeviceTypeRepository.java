@@ -14,4 +14,6 @@ public interface DeviceTypeRepository extends JpaRepository<DeviceType, UUID> {
 
     // Used for compatibility check when registering a Device to a SmartBox
     List<DeviceType> findByGroupId(UUID groupId);
+
+    Optional<DeviceType> findByName(String name);
 }
