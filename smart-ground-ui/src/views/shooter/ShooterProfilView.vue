@@ -153,17 +153,52 @@
         </div>
       </div>
     </div>
+
+    <!-- Tab: QR-Code -->
+    <div v-if="activeTab === 'qr'" class="tab-content" role="tabpanel">
+      <div class="qr-section">
+        <p class="qr-explainer">
+          Zeige diesen Code am Stand, um dich einer Gruppe anzuschliessen.
+          Deine Ergebnisse werden deinem Konto zugeordnet.
+        </p>
+        <canvas ref="qrCanvas" class="qr-canvas" />
+        <button class="save-btn qr-rotate-btn" :disabled="profileStore.isLoading" @click="rotateQr">
+          Code erneuern
+        </button>
+        <p class="qr-rotate-hint">Beim Erneuern wird der alte Code sofort ungültig.</p>
+        <div v-if="profileStore.error" class="save-error">{{ profileStore.error }}</div>
+      </div>
+    </div>
+
+    <!-- Tab: Ergebnisse -->
+    <div v-if="activeTab === 'ergebnisse'" class="tab-content" role="tabpanel">
+      <p v-if="profileStore.myResults.length === 0" class="empty-results">
+        Noch keine Ergebnisse — checke dich am Stand per QR-Code ein.
+      </p>
+      <div v-for="r in profileStore.myResults" :key="r.resultId" class="result-row">
+        <div class="result-main">
+          <span class="result-name">{{ r.templateName }}</span>
+          <span class="result-meta">{{ r.rangeName ?? '—' }} · {{ formatDate(r.completedAt) }}</span>
+        </div>
+        <span class="result-score">{{ r.totalPoints }}/{{ r.maxPoints }}</span>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watchEffect } from 'vue'
+import { ref, reactive, computed, watch, watchEffect, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore.js'
+import { useProfileStore } from '@/stores/profileStore.js'
+import { buildCheckinPayload } from '@/constants/qr.js'
+import QRCode from 'qrcode'
 import Icons from '@/components/Icons.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const profileStore = useProfileStore()
+const qrCanvas = ref(null)
 
 const USERNAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{2,29}$/
 
@@ -171,8 +206,32 @@ const tabs = [
   { id: 'profil', label: 'Profil' },
   { id: 'kontakt', label: 'Kontakt' },
   { id: 'mitgliedschaft', label: 'Mitgliedschaft' },
+  { id: 'qr', label: 'QR-Code' },
+  { id: 'ergebnisse', label: 'Ergebnisse' },
 ]
 const activeTab = ref('profil')
+
+// Lazy-load tab data on first visit
+watch(activeTab, async (tab) => {
+  if (tab === 'qr' && !profileStore.qrToken) await profileStore.loadQrToken()
+  if (tab === 'ergebnisse') await profileStore.loadMyResults()
+})
+
+// Re-render the QR canvas whenever the token changes (initial load + rotation)
+watch(() => profileStore.qrToken, async (token) => {
+  if (!token) return
+  await nextTick()
+  if (!qrCanvas.value) return
+  try {
+    await QRCode.toCanvas(qrCanvas.value, buildCheckinPayload(token), { width: 240, margin: 1 })
+  } catch {
+    // canvas rendering unavailable (e.g. jsdom) — token is still shown via rotation flow
+  }
+})
+
+async function rotateQr() {
+  await profileStore.rotateQrToken()
+}
 
 const profilSaved = ref(false)
 const kontaktSaved = ref(false)
@@ -491,5 +550,62 @@ function formatDate(value) {
 
 .save-btn:not(:disabled):hover {
   opacity: 0.9;
+}
+
+.qr-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.qr-explainer,
+.qr-rotate-hint {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  text-align: center;
+  max-width: 320px;
+  margin: 0;
+}
+
+.qr-canvas {
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.empty-results {
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.result-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.result-name {
+  font-weight: 600;
+}
+
+.result-meta {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
+}
+
+.result-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 </style>
