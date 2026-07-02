@@ -10,7 +10,9 @@
           <div v-for="(player, i) in groupPlayers" :key="player.id" class="player-row">
             <span class="player-number">{{ i + 1 }}:</span>
             <span class="player-display-name">{{ player.displayName }}</span>
-            <span v-if="player.userId" class="player-account-badge" title="Mit Account verknüpft — Ergebnis wird gespeichert">✓</span>
+            <span v-if="player.userId" class="player-account-badge" title="Mit Account verknüpft — Ergebnis wird gespeichert">
+              <Icons icon="check" :size="12" color="var(--sg-color-success)" />
+            </span>
             <button
               v-if="!_isCompetitionMode && groupPlayers.length > 1"
               class="player-remove-btn"
