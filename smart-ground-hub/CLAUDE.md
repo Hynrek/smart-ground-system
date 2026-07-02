@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Smart Ground is an IoT system for managing shooting-range devices (clay pigeon throwers, LEDs, sensors) over MQTT. This is the backend sub-project; the monorepo also contains `smart-ground-ui` (Vue 3) and `smart-box` (MicroPython firmware for Raspberry Pi Pico 2W).
+Smart Ground is an IoT system for managing shooting-range devices (clay pigeon throwers, LEDs, sensors) over MQTT. This is the backend sub-project; the monorepo also contains `smart-ground-ui` (Vue 3) and `smart-box` (MicroPython firmware for the XIAO ESP32-S3).
 
 **No production release has been made.** Schema and API contracts can be rewritten freely — do not preserve backward compatibility for existing data.
 
@@ -29,11 +29,13 @@ SmartBoxes are identified by their **MAC address** in MQTT topics. The backend a
 
 ## Working with AI Agents (Superpowers)
 
-This project uses the [Superpowers skill system](../smart-ground-ui/CLAUDE.md). When working in this repo:
+This project uses the Superpowers skill system. When working in this repo:
 
 - **Use the skill system.** Before implementing anything non-trivial, invoke the relevant skill (brainstorming, debugging, architecture, etc.) via the `Skill` tool.
-- **Document decisions here.** Any architectural or design decision made during a session must be written back into this file before the session ends. CLAUDE.md is the single source of truth — not memory, not commit messages. If a decision changes how the system works (new pattern, changed convention, rejected approach and why), add or update the relevant section here.
+- **Follow the workflow** for non-trivial changes: Brainstorm (clarify + design review) → Plan (small tasks, approval) → Build (TDD: RED → GREEN → refactor, commit per green test) → Review (against the plan) → Finish (merge/PR/discard options).
+- **Document decisions here.** Any architectural or design decision made during a session must be written back into this file before the session ends. CLAUDE.md is the single source of truth — not memory, not commit messages. This includes: a technology/approach chosen over alternatives (record the reason), how a new domain concept maps to the data model, an agreed API shape, and constraints discovered during implementation.
 - **Keep it precise.** Update the specific section that owns the decision (e.g. add a new permission value to the Permission enum list; update the MQTT topic table if topics change; note a rejected alternative under the relevant heading). Do not create a separate ADR file.
+- **Expire executed one-offs.** Keep the decision and the *why*; delete step-by-step migration commands/SQL from this file once they have been run (git preserves them). Historical narration is noise for the next session.
 
 ---
 
@@ -94,6 +96,13 @@ docker compose up
 ./mvnw test
 ```
 
+### Seeded users (DataInitializer — single source of truth for dev credentials)
+
+| Role | Login (email or username) | Password |
+|---|---|---|
+| ADMIN (all permissions) | `admin@smartground.local` | `admin123` |
+| SHOOTER | `user@smartground.local` (username `user`) | `user` |
+
 ### Spring Profiles
 
 | Profile | File | Use |
@@ -136,6 +145,22 @@ Roles are **DB entities** (`Role`), not a fixed enum:
 ### Permission enum values
 `MANAGE_USERS`, `MANAGE_RANGES`, `MANAGE_SERIES_TEMPLATES`, `MANAGE_PASSE_TEMPLATES`, `MANAGE_COMPETITIONS`, `OPERATE_RANGE`, `START_TRAINING`, `START_COMPETITION`, `MANAGE_SERIES`, `RESERVE_REMOTE`, `VIEW_REMOTE`, `PLAY_SERIES`, `PLAY_COMPETITION`
 
+### Device/GPIO permission model (implemented)
+
+Decided during the SmartBox capability-system redesign session (2026-06-30), now implemented in `DeviceController` (via `@PreAuthorize("hasRole('ADMIN')")` and explicit `ROLE_ADMIN` authority checks). The wiring layer (GPIO pin assignment) is physically fixed by a technician and must never be reachable by a RangeOperator — a wrong pin change breaks hardware, not just software state.
+
+| Action | Required Permission |
+|---|---|
+| Create device / assign GPIO pin / change wiring / change device-type group | `ADMIN` (`ROLE_ADMIN` authority) |
+| Change `signalDurationMs` (operational tuning) | `MANAGE_RANGES` |
+| Fire a device command (`ON`/`OFF`) | Any authenticated user |
+| Send `BLOCK`/`UNBLOCK` | Any authenticated user |
+| Lift an **admin-set** block (`UNBLOCK` when `adminBlocked = true`) | `ADMIN` only |
+
+**Why split `blocked` from `adminBlocked`:** a regular user can block/unblock a device freely (e.g. "machine jammed, taking it offline for now"), but an admin block must be sticky — it must not be silently undone by an operator forgetting it was an admin action. `Device.adminBlocked` is set/cleared only by `ADMIN`; the effective block sent to the SmartBox in the config push is `blocked || adminBlocked`. The firmware's own block mechanism (`ADMIN_BLOCK_TOKEN` in `mqttutils.py`) already treats every block as sticky — this backend change makes that distinction visible and enforceable at the API layer too, rather than being implicit in firmware-only state.
+
+**BLOCK/UNBLOCK are not capability-gated.** They are security meta-commands, not hardware commands — they must always be available regardless of what a device's capability manifest declares, so that forgetting to declare them in a new AppCode capability never accidentally makes a device unblockable.
+
 ### User model
 `User` is a full profile entity (not just credentials):
 - Auth: `email` (unique), `username` (unique, required, case-insensitive via `username_lower`), `passwordHash`
@@ -159,32 +184,30 @@ Roles are **DB entities** (`Role`), not a fixed enum:
 
 ---
 
-## Domain: Serie / Passe / Training / Play
+## Domain: Serie / Passe / Play
+
+> **Training was removed.** The former `Training` entity (named collection of Passe snapshots), its controller, service, repository, and `/api/trainings` endpoints no longer exist. `Permission.START_TRAINING` remains in the enum for now.
 
 ### Template hierarchy
 
 ```
 Serie  ──────────────────────▶  steps (JSON array)
   └─ Passe  ─────────────────▶  ordered list of Serie IDs (live-joined)
-        └─ Training  ────────▶  list of Passe snapshots (JSON)
 ```
 
 - **`Serie`** (formerly Ablauf): A shooting sequence. `ownership`: `user` (private) or `range` (visible to all on that range). Steps stored as JSON array. `published`: `false` by default; range-owned Serien are hidden from regular users until an admin sets `published = true` via `PATCH /api/serien/{id}/published`. Serie `PUT` (`UpdateSerieRequest`) accepts an optional `steps` array → in-place step edit keeping the **stable Serie ID**; this is why a Passe can safely reference Serien by ID.
-- **`Passe`** (formerly Programm): Named, **ordered reference** to existing Serien (`serie_ids_json`). Serien are joined live on read (`PasseService.resolveLiveSerien`), with step labels resolved from current positions via `PositionLabelResolver`; a deleted Serie resolves to a placeholder (`missing=true`, empty steps). The same join is reused by `PlayInstanceService.startPasseInstance` and `SessionService`. Owner-scoped.
-  - **Migration (pre-v1.0 — no data migration):** Group 2 replaced `passen.serien_json` (embedded snapshot) with `serie_ids_json` (ordered Serie-ID references). Existing snapshot-based Passen **cannot** be reliably converted (their source Serien may have diverged or been deleted), so they are **reset, not migrated**: on H2 (tests) the schema is recreated each run; on a dev PostgreSQL DB, run once — `DELETE FROM passen; ALTER TABLE passen DROP COLUMN IF EXISTS serien_json;` (Hibernate `ddl-auto=update` leaves the orphaned `serien_json` column otherwise — harmless but should be dropped). No production release exists, so no upgrade path is provided.
-- **`Training`**: Named collection of Passe snapshots. Owner-scoped.
-
+- **`Passe`** (formerly Programm): Named, **ordered reference** to existing Serien (`serie_ids_json`). Serien are joined live on read (`PasseService.resolveLiveSerien`), with step labels resolved from current positions via `PositionLabelResolver`; a deleted Serie resolves to a placeholder (`missing=true`, empty steps). The same join is reused by `PlayInstanceService` and `SessionService`. Owner-scoped.
+  - **Decision:** `serie_ids_json` (ordered ID references, live-joined) replaced the old embedded-snapshot `serien_json` — snapshots silently diverged from edited Serien. Old snapshot-based Passen were reset, not migrated (pre-v1.0, no upgrade path).
 ### PlayInstance (live execution)
 
-Created when a user starts running a Passe or Training:
+Created when a user starts running a Passe (or a single Serie for a Stechen round):
 
 | Field | Values |
 |---|---|
-| `type` | `passe` \| `training` |
+| `type` | `passe` |
 | `status` | `active` \| `completed` \| `cancelled` |
 | `playersJson` | `PlayerRef[]` — participants |
-| `stateJson` | `PlayBlock[]` (passe) or `PlayPhase[]` (training) |
-| `currentPhaseIndex` | Training only — active phase |
+| `stateJson` | `PlayBlock[]` |
 
 **Lifecycle**: `startBlock()` → `completeBlock(results)` → all done → `completed`. `stopPlayInstance()` → `cancelled`.
 
@@ -218,8 +241,7 @@ When players share a main score, a **Stechen** (shoot-off) breaks the tie. The `
 - **3 endpoints on `SessionApi`** (implemented in `SessionController`, delegating to `TiebreakerService`):
   - `GET /api/sessions/{id}/ties` → `getSessionTies` — list tied blocks + their rounds
   - `GET /api/sessions/{id}/tiebreakers` → `listTiebreakers` — list all shoot-off rounds
-  - `POST /api/sessions/{id}/tiebreakers` → `startTiebreaker` (201) — start a new round (only in `PRE_COMPLETE`). A Stechen is **always a single Serie**: `templateId` is a Serie id; the round runs as a one-block `passe`-type `PlayInstance` via `PlayInstanceService.startSerieInstance` (no persisted Passe). There is no `templateType` field — the Passe option was removed (Task F).
-    - **Orphaned-column migration (pre-v1.0, run once on a dev PostgreSQL DB):** the removed `templateType` field leaves a `template_type NOT NULL` column behind (Hibernate `ddl-auto=update` never drops columns), so inserting a Stechen fails with a not-null violation. Drop it once: `ALTER TABLE competition_tiebreakers DROP COLUMN IF EXISTS template_type;`. H2 (tests) recreates the schema each run and is unaffected.
+  - `POST /api/sessions/{id}/tiebreakers` → `startTiebreaker` (201) — start a new round (only in `PRE_COMPLETE`). A Stechen is **always a single Serie**: `templateId` is a Serie id; the round runs as a one-block `passe`-type `PlayInstance` via `PlayInstanceService.startSerieInstance` (no persisted Passe). There is no `templateType` field — the Passe option was deliberately removed.
 - **Auto-scored from the live run (no manual entry).** The Stechen Serie is shot as its live `PlayInstance` on the range. `TiebreakerService.listTies` / `listTiebreakers` **reconcile on read**: a round whose linked instance is `completed` has its per-player scores derived from the run's block result, written to `resultsJson`, and the round flipped to `COMPLETED` (auto-resolve). For an ACTIVE round, the response carries `blockId` + `run` (an `EmbeddedSerie`) so the range kiosk can surface and play it. The old `submitTiebreakerResults` results endpoint was **removed**. `PlayerResult` is never touched.
 - **Warn-don't-block finish guard.** `SessionService.patchSessionStatus` on `PRE_COMPLETE → COMPLETED` checks for *decisive* unresolved ties (tie-position 1, not yet resolved). If any exist and `force != true`, it throws `UnresolvedTiesException` → **HTTP 409** with an `UnresolvedTiesError` body (`message` + `unresolvedTies[]`). Sending `force=true` in `UpdateSessionStatusRequest` overrides the guard and finishes the session. Non-decisive ties never block.
 
@@ -246,12 +268,15 @@ smart_boxes       id, mac_address*, alias, status, last_seen, firmware_version,
                   app_version, ota_phase, ota_version, ota_progress, ota_detail, ota_updated_at,
                   mqtt_username, config_synced, firmware_config_id→firmware_configs
 ota_releases      id, type(APP|FIRMWARE), version, sha256, size_bytes, created_at  UNIQUE(type, version)
-firmware_configs  id, version, box_type  UNIQUE(version, box_type)
+firmware_configs  id, version, box_type, capabilities_json TEXT?, config_schema_version?  UNIQUE(version, box_type)
 signal_types      id, firmware_config_id, communication_direction, device, command
 device_type_groups id, name*
 device_types      id, name, signal_type_id, group_id, signal_duration_ms, delay_signal_duration_ms
-devices           id, smartbox_id→smart_boxes, range_id→ranges?, device_type_id,
-                  alias, pin_config TEXT, config_json TEXT, blocked, healthy,
+devices           id, smartbox_id→smart_boxes, range_id→ranges?, range_position (inverse),
+                  device_type_group_id→device_type_groups?, device_type_id,
+                  alias, pin_config TEXT, config_json TEXT,
+                  delay_signal_duration_ms?, fire_delay_ms?,
+                  blocked, admin_blocked, healthy,
                   commands_sent INT (default 0), commands_processed INT (default 0),
                   last_command_sent_at TIMESTAMP?, last_command_processed_at TIMESTAMP?
 ranges            id, name*, description, locked, created_at
@@ -274,15 +299,14 @@ scoped_access     id, user_id→users, role_id→roles, scope_type, scope_id UUI
 guests            id, display_name, created_at
 ```
 
-### Serie / Passe / Training / Play tables
+### Serie / Passe / Play tables
 ```
 serien            id, name, ownership(user|range), range_id→ranges?, owner_id→users,
                   steps_json TEXT, published boolean (default false), created_at
 passen            id, name, owner_id→users, serie_ids_json TEXT, created_at
-trainings         id, name, owner_id→users, programmes_json TEXT, created_at
-play_instances    instanceId, type(passe|training), template_id UUID, template_name,
+play_instances    instanceId, type(passe), template_id UUID, template_name,
                   status(active|completed|cancelled), owner_id→users, players_json TEXT,
-                  state_json TEXT, current_phase_index?, started_at, completed_at?
+                  state_json TEXT, started_at, completed_at?
 ```
 
 ### Competition / Session tables
@@ -294,7 +318,7 @@ competition_serie_results  id, session_id→live_sessions, group_id→shooter_gr
                            completed_at   UNIQUE(session_id, group_id, passe_index, serie_id)
 ```
 
-> **Completed-result label snapshot (Group 3):** When a competition Serie is completed
+> **Completed-result label snapshot:** When a competition Serie is completed
 > (`CompetitionProgressService.completeSerie`, re-done on `correctSerieResult` in PRE_COMPLETE),
 > its resolved definition — serie name, range name, per-step letters resolved via
 > `PositionLabelResolver` — is frozen into `CompetitionSerieResult.serie_snapshot_json`
@@ -356,32 +380,17 @@ Service layer → Database
 
 ### SmartBox payloads
 
-Discovery (published to `smartboxes/discovery` on boot). `appVersion` is the App-Code version (the OTA target the backend compares against); `firmwareVersion` is the MicroPython kernel. The discovery handler stores both on `SmartBox` (`appVersion`, `firmwareVersion`):
-```json
-{ "mac": "aabbccddeeff", "appVersion": "0.6", "firmwareVersion": "micropython-1.23.0", "boxType": "xiao-esp32s3", "ip": "192.168.1.42" }
-```
+> **Canonical payload schemas live in [`smart-box/CLAUDE.md`](../smart-box/CLAUDE.md)** (sections "MQTT Topics & Payload Schemas" and "OTA Updates"). The firmware defines what it accepts and publishes — do not duplicate JSON examples here; the two files have drifted apart before. This section documents backend-side handling only.
+
+**Discovery** (`smartboxes/discovery`, once per boot): `appVersion` is the App-Code version (the OTA target the backend compares against); `firmwareVersion` is the MicroPython kernel. `SmartBoxDiscoveryHandler` stores both on `SmartBox` and upserts the capability registry from the payload's `capabilities` + `configSchemaVersion`.
 
 > **FirmwareConfig resolution is keyed on `appVersion`, not `firmwareVersion`.** `firmware_configs` rows (the capability registry, e.g. `seedFirmware("0.6", "xiao-esp32s3")`) are versioned by the **App-Code** version. `SmartBoxDiscoveryHandler` resolves `box.firmwareConfig` via `findByVersionAndBoxType(appVersion, boxType)` (falling back to `firmwareVersion` only for legacy firmware that sends no `appVersion`). Keying on the kernel string (`micropython-1.23.0`) would never match, leaving `firmwareConfig` null → `SmartBoxConfigPushService` throws `FirmwareNotResolvedException` → no config push → the box rejects every command (`Unbekanntes Gerät blockiert`). `SmartBoxResponse` exposes `appVersion` for the UI.
 
-OTA trigger (published to `smartboxes/{mac}/ota` by `OtaPublishService`):
-```json
-{ "type": "APP", "version": "0.7", "url": "http://{ota.base-url}/api/ota/app/0.7", "sha256": "<manifest-or-image-hash>", "size": 12345 }
-```
+> **Discovery-driven capability registry (implemented).** The box is the authority on its own capabilities — it announces a full capability manifest (`capabilities` JSON: per-kind `directions`, `commands`, `config_fields`) and `configSchemaVersion` in the discovery payload. `SmartBoxDiscoveryHandler` **upserts** `FirmwareConfig` (creates the row if `(appVersion, boxType)` is unknown, updates `capabilitiesJson`/`configSchemaVersion` on every discovery). A box can boot for the first time — factory-flashed, externally provisioned, or freshly OTA-updated — and the backend learns what it can do without an admin pre-seeding a row. `FirmwareConfig` carries `capabilitiesJson TEXT` and `configSchemaVersion`. The `seedFirmware(...)` calls in `DataInitializer` remain only as dev-convenience seeds; the discovery upsert is authoritative. `signal_types`/`device_types` (the admin-managed mapping from a configured device to GPIO pin/duration) are **not** replaced by this — they remain the backend's authority over what a device is *assigned* to do; the capability manifest only describes what the AppCode *can* do.
 
-OTA status (published by the box to `smartboxes/{mac}/ota/status`, handled by `SmartBoxOtaStatusHandler`):
-```json
-{ "version": "0.7", "phase": "DOWNLOADING", "progress": 40, "detail": "" }
-```
+**Config push** (`smartboxes/{mac}/config`): built by `SmartBoxConfigPushService` from the device assignments (`device_types`/`signal_types`); the effective `blocked` sent to the box is `blocked || adminBlocked`. The box confirms with `OK` on `smartboxes/{mac}/config/ack` (`SmartBoxConfigAckHandler`).
 
-Config push (published to `smartboxes/{mac}/config`):
-```json
-{ "devices": [{ "id": "<uuid>", "alias": "Werfer 1", "gpioPin": 14, "signalType": "LED", "defaultSignalDurationS": 1 }] }
-```
-
-Config ACK (published to `smartboxes/{mac}/config/ack`):
-```
-OK
-```
+**OTA**: trigger published by `OtaPublishService` to `smartboxes/{mac}/ota` (URL points at `OtaDownloadController` via `ota.base-url`); progress reported by the box on `smartboxes/{mac}/ota/status`, handled by `SmartBoxOtaStatusHandler` → `SmartBox.ota*` fields.
 
 ---
 
@@ -447,27 +456,24 @@ OK
 
 | Controller | Key Endpoints | Purpose |
 |---|---|---|
-| `AuthController` | POST /api/auth/login | JWT login |
-| `UserController` | GET/POST/PATCH /api/users, PATCH /api/users/{id}/password | Full user profile management |
+| `AuthController` | POST /api/auth/login, GET /api/auth/me | JWT login + current user/permissions |
+| `UserController` | GET/POST/PATCH /api/users, PATCH /api/users/me/password, /api/users/{id}/roles (+ scoped) | Full user profile + role assignment |
 | `RoleController` | GET /api/roles | List dynamic roles (ADMIN only) |
 | `GuestController` | GET/POST/DELETE /api/guests | Guest shooter management |
 | `SmartBoxController` | GET /api/smart-boxes, PATCH alias, POST push-config | SmartBox registration and management |
 | `OtaController` | GET/POST /api/ota/releases, POST/GET /api/smart-boxes/{id}/ota | OTA release upload + listing, update trigger, status (implements `OtaApi`) |
 | `OtaDownloadController` | GET /api/ota/app/{version}/manifest.json, /files/**, /api/ota/firmware/{version} | Box-facing artifact download (**not** OpenAPI — see exception note) |
-| `DeviceController` | GET/POST/PATCH/DELETE /api/devices, POST /api/devices/{id}/command | Device CRUD and MQTT command routing |
-| `DeviceTypeController` | GET /api/device-types | Device type registry |
-| `DeviceTypeGroupController` | GET /api/device-type-groups | Device type group listing |
-| `FirmwareConfigController` | GET/POST /api/firmware-configs | Firmware capability registry |
-| `RangeController` | GET/POST/PATCH/DELETE /api/ranges, manage positions | Shooting lane + position management |
-| `ReservationController` | POST …/reserve, …/release, DELETE | Range reservation |
-| `SerieController` | CRUD /api/serien | Serie templates |
+| `DeviceController` | GET/POST/PATCH/DELETE /api/devices, POST …/{id}/command, POST …/{id}/block, POST …/{id}/unblock, PATCH …/{id}/range | Device CRUD, MQTT command routing, block/unblock |
+| `DeviceTypeController` | /api/device-types, /api/device-types/groups, /api/device-types/firmware-configs | Device types, type groups, firmware capability registry (one controller) |
+| `RangeController` | GET/POST/PATCH/DELETE /api/ranges, /{id}/locked, /{id}/assigned-user, positions CRUD, POST positions/{positionId}/command | Shooting lane + position management |
+| `ReservationController` | /api/ranges/{id}/reservation | Range reservation |
+| `SerieController` | CRUD /api/serien, PATCH /{id}/ownership, /{id}/published | Serie templates |
 | `PasseController` | CRUD /api/passen | Passe templates |
-| `TrainingController` | CRUD /api/trainings | Training templates |
-| `PlayInstanceController` | POST start, GET list/get, DELETE stop, POST start/complete block | Live play execution |
-| `PlayResultController` | Play result submission | Play result recording (stub) |
-| `SessionController` | GET/POST /api/sessions, groups, bracket, leaderboard, results | Competition session lifecycle |
-| `GroupController` | POST /api/sessions/{id}/groups | Group management within sessions |
-| `CompetitionController` | Competition-specific operations | Scoring and ranking |
+| `PlayInstanceController` | POST /api/play-instances/passe, GET list/get, DELETE stop, POST blocks/{blockId}/start\|complete | Live play execution |
+| `PlayResultController` | /api/play-results | Play result recording (stub) |
+| `SessionController` | GET/POST /api/sessions, status, ties, tiebreakers, progress, passen/release | Competition session lifecycle + Stechen |
+| `GroupController` | /api/sessions/{id}/groups, members | Group management within sessions |
+| `CompetitionController` | groups/{groupId}/serien/{serieId}/complete, results | Competition scoring |
 
 ---
 
@@ -505,13 +511,21 @@ All exceptions are mapped in `GlobalExceptionHandler` and return `ProblemDetail`
 | `DeviceNotFoundException` | 404 | `/errors/device-not-found` |
 | `DeviceTemplateNotFoundException` | 404 | `/errors/device-type-not-found` |
 | `RangeNotFoundException` | 404 | `/errors/range-not-found` |
+| `RangePositionNotFoundException` | 404 | `/errors/range-position-not-found` |
+| `RangePositionOccupiedException` | 409 | `/errors/range-position-occupied` |
+| `UserNotFoundException` | 404 | `/errors/user-not-found` |
 | `OtaReleaseNotFoundException` | 404 | `/errors/ota-release-not-found` |
 | `InvalidOtaArtifactException` | 400 | `/errors/invalid-ota-artifact` |
 | `SmartBoxNotFoundException` | 404 | `/errors/smartbox-not-found` |
 | `SessionNotFoundException` | 404 | `/errors/session-not-found` |
-| `SerieNotFoundException` | 404 | `/errors/serie-not-found` |
-| `PasseNotFoundException` | 404 | `/errors/passe-not-found` |
-| `PlayInstanceNotFoundException` | 404 | `/errors/play-instance-not-found` |
+| `SessionStatusTransitionException` | 409 | `/errors/invalid-status-transition` |
+| `InvalidGroupRegistrationException` | 400 | `/errors/invalid-registration` |
+| `GroupAlreadyRegisteredException` | 409 | `/errors/group-already-registered` |
+| `BlockStateException` | 409 | `/errors/block-state-conflict` |
+| `AuthenticationException` / `BadCredentialsException` | 401 | `/errors/authentication-failed` |
+| `MethodArgumentNotValidException` | 400 | `/errors/validation-failed` |
+| `IllegalArgumentException` | 400 | `/errors/bad-request` |
+| `NotFoundException` (base; `Guest`/`Serie`/`Passe`/`PlayInstance`NotFoundException extend it) | 404 | `/errors/not-found` |
 | `RangeNameAlreadyExistsException` | 409 | `/errors/range-name-exists` |
 | `DeviceAlreadyAssignedException` | 409 | `/errors/device-already-assigned` |
 | `RangeHasDevicesException` | 409 | `/errors/range-has-devices` |
@@ -520,7 +534,7 @@ All exceptions are mapped in `GlobalExceptionHandler` and return `ProblemDetail`
 | `TiebreakerNotFoundException` | 404 | `/errors/tiebreaker-not-found` |
 | `InvalidTiebreakerStateException` | 409 | `/errors/invalid-tiebreaker-state` |
 
-When adding a new exception: create it in `ch.jp.shooting.exception`, register it in `GlobalExceptionHandler` with a `/errors/{slug}` type URI.
+When adding a new exception: create it in `ch.jp.shooting.exception`, register it in `GlobalExceptionHandler` with a `/errors/{slug}` type URI (or extend `NotFoundException` for plain 404s). `FirmwareNotResolvedException` is a nested class in `SmartBoxConfigPushService` (MQTT path, not REST).
 
 > **Exception:** `UnresolvedTiesException` (PRE_COMPLETE finish guard) does **not** return a `ProblemDetail` — it returns the generated `UnresolvedTiesError` body (`message` + `unresolvedTies[]`) with HTTP 409, because the OpenAPI 409 schema for the finish endpoint is `UnresolvedTiesError`.
 
@@ -569,33 +583,6 @@ If deleting something would break a test, either fix the test or delete it too (
 
 ---
 
-## Working with Superpowers
-
-This project uses the **Superpowers** agentic skills framework. When you ask Claude to build or fix something, Superpowers activates structured workflows automatically.
-
-### Development workflow
-
-1. **Brainstorm** — Claude asks clarifying questions, explores requirements and alternatives, and presents a design for review before writing any code.
-2. **Plan** — Claude breaks work into 2–5 minute tasks with exact file paths, test stubs, and expected outcomes. The plan is shown for approval before execution.
-3. **Build** — Claude executes via TDD: write failing test (RED) → implement (GREEN) → refactor. Commits after each green test.
-4. **Review** — Claude checks each task against the plan, reports issues by severity. Critical issues block the next task.
-5. **Finish** — Claude presents merge / PR / discard options when all tasks are done.
-
-### Recording decisions in this file
-
-**Any non-trivial architectural or design decision made during a session must be written back into this CLAUDE.md.** This includes:
-
-- Choosing a technology, library, or approach over alternatives (record the choice *and* the reason)
-- Deciding how a new domain concept maps to the data model
-- Agreeing on an API shape or endpoint contract before it is implemented
-- Constraints discovered during implementation that future work must respect
-
-Update the relevant section of this file (e.g. the domain section, DB schema, conventions). If no existing section fits, add a short **Decisions** callout at the end of the relevant section or at the bottom of the file.
-
-> **Rule:** If it was worth discussing, it is worth writing down here so the next session starts with full context.
-
----
-
 ## Code Review Checklist
 
 - [ ] All tests pass: `./mvnw clean test`
@@ -634,7 +621,9 @@ Update the relevant section of this file (e.g. the domain section, DB schema, co
 - SmartBox/Device/Range/RangePosition/FirmwareConfig CRUD
 - MQTT integration (discovery, status, config push/ACK, commands)
 - Range reservations with auto-expiry cleanup
-- Serie / Passe / Training template CRUD
+- Serie / Passe template CRUD (Training was removed)
+- Discovery-driven capability registry (box announces `capabilities` + `configSchemaVersion`; `SmartBoxDiscoveryHandler` upserts `FirmwareConfig`)
+- Device/GPIO permission model (`ADMIN`-gated wiring changes, `adminBlocked` sticky admin block)
 - Live play execution via `PlayInstance` (start/step/complete/stop)
 - Competition session lifecycle (groups, bracket, leaderboard, results)
 - Bracket seeding strategies and tiebreaker logic
@@ -642,6 +631,7 @@ Update the relevant section of this file (e.g. the domain section, DB schema, co
 - WebSocket (STOMP/SockJS) at `/ws/shooting`
 - OpenAPI v3.0 contract (contract-first, generated interfaces)
 - **OTA update delivery** (implemented 2026-06-28) — admin uploads an App-Code zip / firmware `.bin` (`POST /api/ota/releases`), stored + hashed + manifest-generated by `OtaArtifactStore` and registered as an `OtaRelease`. Admin triggers an update (`POST /api/smart-boxes/{id}/ota`), which `OtaPublishService` publishes to `smartboxes/{mac}/ota`. The box pulls artifacts from `OtaDownloadController` (unauthenticated) and reports progress on `smartboxes/{mac}/ota/status` (→ `SmartBoxOtaStatusHandler` → `SmartBox.ota*` fields, read via `GET /api/smart-boxes/{id}/ota`). Config: `ota.base-url` (URL the box fetches from), `ota.artifact-dir` (filesystem store).
+  - **Release content rules (decision, 2026-07-02):** an App-Code release **must include `systemconfig/firmware_config.json`** (release metadata: `app_version`, `config_schema_version`, `capabilities` — otherwise the box keeps announcing the old `appVersion` after the update and `(appVersion, boxType)` FirmwareConfig resolution goes stale) and **must never contain `userconfig/` paths** (device-owned state: WiFi/broker credentials, per-box device config, OTA state). `OtaArtifactStore.storeAppBundle` rejects ZIPs with `userconfig/` entries (`InvalidOtaArtifactException`); the firmware enforces the same rule on download (`ota.py`). This replaces the former "never overwrite `firmware_config.json` from the backend" rule, which protected the wrong file.
 
 ### Device Stats (implemented 2026-06-04)
 
@@ -653,8 +643,7 @@ Per-device lifetime counters tracked on the `Device` entity:
 Design decisions:
 - Stats live on `Device` (not `SmartBox`) because commands target individual device UUIDs
 - Counters never reset — they are lifetime totals that survive reconfiguration and reassignment
-- No "commands rejected" counter — the firmware's debounce/rate-limit is intentional; undelivered commands are expected and not tracked
-- The MQTT ACK topic was previously misconfigured as `smartboxes/+/devices/ack`; corrected to `smartboxes/+/device/+/executed` to match what the firmware actually publishes
+- No "commands rejected" counter — the firmware's busy-reject is intentional; undelivered commands are expected and not tracked
 
 ### ❌ Not Yet Implemented
 - INPUT signal handling end-to-end (sensor → backend → trigger)
@@ -718,7 +707,7 @@ mqttCommandPublisher.publishToTopic(topic, payload);
 **401 Unauthorized**
 - Set `Authorization: Bearer <token>` header
 - Verify token not expired
-- Test login: `curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d '{"email":"admin@example.com","password":"password"}'`
+- Test login (seeded admin): `curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d '{"email":"admin@smartground.local","password":"admin123"}'`
 
 **Session won't transition to ACTIVE**
 - Verify session is in SETUP status
