@@ -63,9 +63,9 @@ export const useDeviceStore = defineStore('device', () => {
     }
   };
 
-  const createDevice = async (smartBoxId, deviceTypeId, alias, rangeId = null) => {
+  const createDevice = async (smartBoxId, groupId, deviceTypeId, alias, rangeId = null) => {
     try {
-      const created = await deviceApi.createDevice(smartBoxId, deviceTypeId, alias, rangeId);
+      const created = await deviceApi.createDevice(smartBoxId, groupId, deviceTypeId, alias, rangeId);
       devices.value.push(created);
       return created;
     } catch (e) {
@@ -78,6 +78,7 @@ export const useDeviceStore = defineStore('device', () => {
   const addDevice = async (device) => {
     return createDevice(
       device.smartBoxId || device.boxId,
+      device.groupId,
       device.deviceTypeId,
       device.name || device.alias,
       device.rangeId ?? null,

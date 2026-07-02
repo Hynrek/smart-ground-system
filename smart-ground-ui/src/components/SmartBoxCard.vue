@@ -39,6 +39,15 @@
         </div>
         <span class="firmware-badge">v{{ box.firmwareVersion }}</span>
         <Badge color="blue">{{ allDevicesCount }} Geräte</Badge>
+        <button
+          class="ota-toggle-btn"
+          type="button"
+          aria-label="OTA-Update-Panel anzeigen"
+          :aria-pressed="showOtaPanel"
+          @click="showOtaPanel = !showOtaPanel"
+        >
+          <Icons icon="download" :size="13" />
+        </button>
       </div>
     </div>
 
@@ -223,7 +232,7 @@
     </div>
 
     <!-- OTA update panel -->
-    <OtaUpdatePanel :box="box" />
+    <OtaUpdatePanel v-if="showOtaPanel" :box="box" />
 
     <!-- Add device form / button -->
     <div class="add-device-section">
@@ -351,9 +360,18 @@ const handleUnblock = async (device) => {
   }
 };
 const showDebugTypes = ref(false);
+const showOtaPanel = ref(false);
+
+const deviceTypesForBox = computed(() => {
+  const firmwareConfigId = props.box.firmwareConfigId;
+  if (firmwareConfigId && deviceTypeStore.deviceTypesByFirmware[firmwareConfigId]) {
+    return deviceTypeStore.deviceTypesByFirmware[firmwareConfigId];
+  }
+  return deviceTypeStore.deviceTypes;
+});
 
 const availableDeviceTypes = computed(() => {
-  return deviceTypeStore.deviceTypes.filter((t) => {
+  return deviceTypesForBox.value.filter((t) => {
     const group = deviceTypeStore.deviceTypeGroups.find((g) => g.id === t.groupId);
     const isDebug = DEBUG_GROUP_NAMES.includes((group?.name ?? '').toUpperCase());
     if (isDebug) return showDebugTypes.value && isAdmin.value;
@@ -454,16 +472,20 @@ const toggleAddMode = () => {
   isAdding.value = !isAdding.value;
   if (!isAdding.value) {
     resetNewDeviceForm();
+  } else if (props.box.firmwareConfigId && !deviceTypeStore.deviceTypesByFirmware[props.box.firmwareConfigId]) {
+    deviceTypeStore.loadDeviceTypesForFirmware(props.box.firmwareConfigId);
   }
 };
 
 const handleAddDevice = () => {
   if (!newDeviceForm.value.name.trim() || !newDeviceForm.value.deviceTypeId) return;
+  const selectedType = deviceTypesForBox.value.find((t) => t.id === newDeviceForm.value.deviceTypeId);
   emit('add-device', {
     boxId: props.box.id,
     device: {
       name: newDeviceForm.value.name,
       deviceTypeId: newDeviceForm.value.deviceTypeId,
+      groupId: selectedType?.groupId,
     },
   });
   resetNewDeviceForm();
@@ -608,6 +630,28 @@ const deleteDevice = (deviceId) => {
   background: #f4f6fb;
   border-radius: 5px;
   padding: 2px 7px;
+}
+
+.ota-toggle-btn {
+  background: #f4f6fb;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  color: #6b7a99;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ota-toggle-btn:hover {
+  background: #e8ecf5;
+  color: #1a1a2e;
+}
+
+.ota-toggle-btn[aria-pressed='true'] {
+  background: #dbe6fb;
+  color: #2f5fd6;
 }
 
 .device-table-wrapper {
