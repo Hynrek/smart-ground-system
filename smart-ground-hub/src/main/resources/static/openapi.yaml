@@ -347,6 +347,69 @@ paths:
         '404':
           description: User or scoped access not found
 
+  /api/testing/users:
+    post:
+      summary: Create a test user from a single credential (dev tooling, admin only)
+      operationId: createTestUser
+      tags: [Testing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTestUserRequest'
+      responses:
+        '201':
+          description: Test user created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestUserResponse'
+        '400':
+          description: Blank credential or credential contains '@'
+        '403':
+          description: Not an admin
+        '409':
+          description: Username or email already in use
+
+  /api/testing/ranges/seed:
+    post:
+      summary: Create the four standard test ranges if missing (idempotent, admin only)
+      operationId: seedTestRanges
+      tags: [Testing]
+      responses:
+        '200':
+          description: Ranges present (created or already existing)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedRangesResponse'
+        '403':
+          description: Not an admin
+
+  /api/testing/mock-smartbox:
+    post:
+      summary: Create a mock SmartBox with N devices (dev tooling, admin only)
+      operationId: createMockSmartBox
+      tags: [Testing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMockSmartBoxRequest'
+      responses:
+        '201':
+          description: Mock SmartBox created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MockSmartBoxResponse'
+        '400':
+          description: deviceCount out of range (1-50)
+        '403':
+          description: Not an admin
+
   # ─────────────────────────────────────────────────────────────────────────────
   # Roles
   # ─────────────────────────────────────────────────────────────────────────────
@@ -4465,6 +4528,76 @@ components:
         status:
           type: string
           enum: [ACTIVE, RELEASED]
+
+    # ───── Testing ────────────────────────────────────────────────────────────
+
+    CreateTestUserRequest:
+      type: object
+      required: [credential]
+      properties:
+        credential:
+          type: string
+          description: Used as username AND password; email becomes {credential}@test.local
+          example: bob
+    TestUserResponse:
+      type: object
+      required: [id, username, email]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+    SeededRange:
+      type: object
+      required: [id, name, created]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        created:
+          type: boolean
+          description: true if inserted by this call, false if it already existed
+    SeedRangesResponse:
+      type: object
+      required: [ranges]
+      properties:
+        ranges:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeededRange'
+    CreateMockSmartBoxRequest:
+      type: object
+      required: [deviceCount]
+      properties:
+        deviceCount:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 50
+          example: 4
+        alias:
+          type: string
+          nullable: true
+    MockSmartBoxResponse:
+      type: object
+      required: [id, macAddress, deviceCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        macAddress:
+          type: string
+        alias:
+          type: string
+          nullable: true
+        deviceCount:
+          type: integer
+          format: int32
 
   securitySchemes:
     bearerAuth:
