@@ -142,6 +142,68 @@ paths:
         '400':
           description: Old password incorrect
 
+  /api/users/me/qr:
+    get:
+      summary: Get the calling user's QR check-in token
+      operationId: getMyQrCode
+      tags: [User]
+      responses:
+        '200':
+          description: Current QR token (created on first access)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrCodeResponse'
+
+  /api/users/me/qr/rotate:
+    post:
+      summary: Replace the calling user's QR token with a new one
+      operationId: rotateMyQrCode
+      tags: [User]
+      responses:
+        '200':
+          description: New QR token; the previous token is invalid from now on
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrCodeResponse'
+
+  /api/users/by-qr/{token}:
+    get:
+      summary: Resolve a scanned QR check-in token to its user
+      operationId: resolveUserByQr
+      tags: [User]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Display info for the group setup
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrUserResponse'
+        '404':
+          description: Unknown or rotated token
+
+  /api/users/me/play-results:
+    get:
+      summary: List completed play runs the calling user participated in
+      operationId: listMyPlayResults
+      tags: [PlayInstance]
+      responses:
+        '200':
+          description: Completed runs with the user's own score, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MyPlayResultEntry'
+
   /api/users/{id}:
     get:
       summary: Get user by ID
@@ -3090,6 +3152,47 @@ components:
             Ordered list of Serie IDs. When omitted, the Passe's existing
             Serie membership is left unchanged.
 
+    # ───── QR Check-in ────────────────────────────────────────────────────────
+
+    QrCodeResponse:
+      type: object
+      required: [qrToken]
+      properties:
+        qrToken:
+          type: string
+          description: Static check-in token; encoded as smartground://checkin/<token>
+
+    QrUserResponse:
+      type: object
+      required: [userId, displayName]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        profilbildUrl:
+          type: string
+
+    MyPlayResultEntry:
+      type: object
+      description: One completed run with the calling user's own aggregated score.
+      properties:
+        resultId:
+          type: string
+          format: uuid
+        templateName:
+          type: string
+        rangeName:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+        totalPoints:
+          type: integer
+        maxPoints:
+          type: integer
+
     # ───── Play Instances ─────────────────────────────────────────────────────
 
     PlayerRef:
@@ -3105,6 +3208,12 @@ components:
         type:
           type: string
           enum: [user, guest]
+        userId:
+          type: string
+          format: uuid
+          description: >
+            Account of the participant when checked in via QR code.
+            Absent for anonymous placeholder players and guests.
         displayName:
           type: string
 
@@ -3143,6 +3252,10 @@ components:
       properties:
         playerId:
           type: string
+        userId:
+          type: string
+          format: uuid
+          description: Account of the player when checked in via QR code; absent otherwise.
         displayName:
           type: string
         totalPoints:
