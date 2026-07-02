@@ -1,7 +1,7 @@
 <template>
   <aside class="sidebar">
     <div class="sidebar-header">
-      <span class="brand-icon">📡</span>
+      <Logo variant="mark" :size="26" class="brand-logo" />
       <span class="brand-name">Smart Ground</span>
     </div>
 
@@ -38,6 +38,7 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore.js';
 import Icons from './Icons.vue';
+import Logo from './Logo.vue';
 
 const props = defineProps({
   activeNav: String,
@@ -105,8 +106,9 @@ const handleLogout = () => {
   gap: 8px;
 }
 
-.brand-icon {
-  font-size: 20px;
+.brand-logo {
+  color: #fff;
+  flex-shrink: 0;
 }
 
 .brand-name {
@@ -254,8 +256,8 @@ const handleLogout = () => {
     display: none;
   }
 
-  .brand-icon {
-    font-size: 24px;
+  .brand-logo {
+    height: 30px;
   }
 
   .nav-item {
