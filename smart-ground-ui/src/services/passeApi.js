@@ -15,10 +15,10 @@ export async function createPasse(name, serieIds) {
   })
 }
 
-export async function updatePasse(id, name) {
+export async function updatePasse(id, name, serieIds) {
   return apiFetch(`/passen/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(serieIds !== undefined ? { name, serieIds } : { name }),
   })
 }
 

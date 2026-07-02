@@ -346,16 +346,22 @@ export const usePasseStore = defineStore('passe', () => {
     }
   };
 
+  const updatePasse = async (passeId, newName, selectedSerien) => {
+    const serieIds = selectedSerien.map((s) => s.id);
+    try {
+      const updated = await passeApi.updatePasse(passeId, newName, serieIds);
+      savedPassen.value = savedPassen.value.map((p) =>
+        p.id === passeId ? toUiPasse(updated) : p,
+      );
+    } catch (e) {
+      console.error('Failed to update Passe:', e);
+      throw e;
+    }
+  };
+
   // Global passen merged into savedPassen — these are aliases for backward compat
   const createGlobalPasse = (name, selectedSerien) => createPasse(name, selectedSerien);
-  const updateGlobalPasse = async (id, newName, _selectedSerien) => {
-    // Note: backend PUT /api/passen/{id} only supports renaming.
-    // Updating Serie membership requires a backend API extension.
-    if (_selectedSerien !== undefined) {
-      console.warn('updateGlobalPasse: updating Serie membership is not yet supported by the backend API. Only the name will be saved.');
-    }
-    return renamePasse(id, newName);
-  };
+  const updateGlobalPasse = (id, newName, selectedSerien) => updatePasse(id, newName, selectedSerien);
   const deleteGlobalPasse = (id) => deletePasse(id);
 
   // ── Pending passe ──────────────────────────────────────────────────────────
@@ -393,7 +399,7 @@ export const usePasseStore = defineStore('passe', () => {
     // Serie retrieval
     getUserSerien, getGlobalSerien, getSerienForRange, getUserSerienForRange,
     // Passe actions
-    createPasse, deletePasse, renamePasse, setPendingPasse, clearPendingPasse,
+    createPasse, deletePasse, renamePasse, updatePasse, setPendingPasse, clearPendingPasse,
     loadPassenFromStorage,
     // Global Passe actions (aliases)
     createGlobalPasse, updateGlobalPasse, deleteGlobalPasse, loadGlobalPassenFromStorage,
