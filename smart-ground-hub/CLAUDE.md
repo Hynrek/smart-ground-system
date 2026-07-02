@@ -474,6 +474,7 @@ Service layer → Database
 | `SessionController` | GET/POST /api/sessions, status, ties, tiebreakers, progress, passen/release | Competition session lifecycle + Stechen |
 | `GroupController` | /api/sessions/{id}/groups, members | Group management within sessions |
 | `CompetitionController` | groups/{groupId}/serien/{serieId}/complete, results | Competition scoring |
+| `TestingController` | POST /api/testing/users, /api/testing/ranges/seed, /api/testing/mock-smartbox | Admin-only dev tooling: create test user / seed 4 ranges / create mock SmartBox with N devices (implements `TestingApi`) |
 
 ---
 
@@ -624,6 +625,7 @@ If deleting something would break a test, either fix the test or delete it too (
 - Serie / Passe template CRUD (Training was removed)
 - Discovery-driven capability registry (box announces `capabilities` + `configSchemaVersion`; `SmartBoxDiscoveryHandler` upserts `FirmwareConfig`)
 - Device/GPIO permission model (`ADMIN`-gated wiring changes, `adminBlocked` sticky admin block)
+- **Admin Testing panel** (dev tooling, implemented 2026-07-02) — `/api/testing/*` endpoints (`ROLE_ADMIN`-gated, `TestingController` → `TestDataService`) create a test user (single credential = username+password, email `{cred}@test.local`, SHOOTER role), seed the 4 standard ranges (Vorderlader, Trapstand, Rollhase, Kippreh; idempotent by name), and create a mock SmartBox with N `Werfer` devices (unassigned, status OFFLINE, generated locally-administered MAC). Frontend: `/testing` admin view, nav + route gated on `MANAGE_USERS` (admin-only in the seed). `DataInitializer` is unchanged — actions are on-demand only.
 - Live play execution via `PlayInstance` (start/step/complete/stop)
 - Competition session lifecycle (groups, bracket, leaderboard, results)
 - Bracket seeding strategies and tiebreaker logic
