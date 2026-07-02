@@ -96,6 +96,13 @@ public class User {
     @Column(name = "schiess_lizenz_verfallsdatum")
     private LocalDate schiessLizenzVerfallsdatum; // shooting license expiry date
 
+    // ==================== QR CHECK-IN ====================
+    // Statischer Check-in-Token für das Gruppen-Setup am Stand.
+    // Null bei Alt-Usern bis zum ersten Abruf (Lazy-Backfill in UserService).
+    @Nullable
+    @Column(name = "qr_token", unique = true)
+    private String qrToken;
+
     // ==================== ACCOUNT STATUS ====================
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
@@ -250,6 +257,10 @@ public class User {
     public void setSchiessLizenzVerfallsdatum(@Nullable LocalDate schiessLizenzVerfallsdatum) {
         this.schiessLizenzVerfallsdatum = schiessLizenzVerfallsdatum;
     }
+
+    @Nullable
+    public String getQrToken() { return qrToken; }
+    public void setQrToken(@Nullable String qrToken) { this.qrToken = qrToken; }
 
     public boolean isSchiessLizenzGueltig() {
         if (schiessLizenzVerfallsdatum == null) {

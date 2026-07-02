@@ -27,6 +27,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByMitgliedsnummer(String mitgliedsnummer);
 
+    Optional<User> findByQrToken(String qrToken);
+
     @Query("SELECT ur.role FROM UserRoleEntity ur WHERE ur.user.id = ?1")
     Set<Role> findRolesByUserId(UUID userId);
 }

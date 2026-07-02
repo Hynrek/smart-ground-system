@@ -86,6 +86,7 @@ public class UserService {
         user.setMitgliedsnummer(request.getMitgliedsnummer());
         user.setSprache(request.getSprache() != null ? request.getSprache() : "DE");
         user.setStatus(User.UserStatus.ACTIVE);
+        user.setQrToken(UUID.randomUUID().toString()); // Neue User bekommen ihren Check-in-Token sofort
 
         User savedUser = userRepository.save(user);
         return userMapper.toDto(savedUser);
@@ -106,6 +107,35 @@ public class UserService {
     public UserDTO getUserByEmail(String email) {
         User user = userRepository.findByEmail(email)
             .orElseThrow(() -> new UserNotFoundException(email));
+        return userMapper.toDto(user);
+    }
+
+    // ==================== QR CHECK-IN ====================
+
+    /** Liefert den QR-Token des Users; erzeugt ihn beim ersten Zugriff (Backfill für Alt-User). */
+    public String getOrCreateQrToken(UUID userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new UserNotFoundException(userId));
+        if (user.getQrToken() == null) {
+            user.setQrToken(UUID.randomUUID().toString());
+            userRepository.save(user);
+        }
+        return Objects.requireNonNull(user.getQrToken());
+    }
+
+    /** Erzeugt einen neuen QR-Token; der alte wird damit sofort ungültig. */
+    public String rotateQrToken(UUID userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new UserNotFoundException(userId));
+        user.setQrToken(UUID.randomUUID().toString());
+        userRepository.save(user);
+        return Objects.requireNonNull(user.getQrToken());
+    }
+
+    /** Löst einen gescannten QR-Token zum zugehörigen User auf. */
+    public UserDTO getUserByQrToken(String qrToken) {
+        User user = userRepository.findByQrToken(qrToken)
+            .orElseThrow(() -> new UserNotFoundException("Unbekannter QR-Token"));
         return userMapper.toDto(user);
     }
 
