@@ -51,3 +51,19 @@ export async function revokeRole(userId, roleName) {
 export async function fetchAvailableRoles() {
   return apiFetch('/roles')
 }
+
+export async function fetchMyQrToken() {
+  return apiFetch('/users/me/qr')
+}
+
+export async function rotateMyQrToken() {
+  return apiFetch('/users/me/qr/rotate', { method: 'POST' })
+}
+
+export async function resolveUserByQr(token) {
+  return apiFetch(`/users/by-qr/${encodeURIComponent(token)}`)
+}
+
+export async function fetchMyPlayResults() {
+  return apiFetch('/users/me/play-results')
+}
