@@ -117,19 +117,25 @@
           <div
             v-for="ev in store.activeEvents"
             :key="ev.id"
-            class="event-card event-card--active"
+            class="event-card"
+            :class="isPreComplete(ev) ? 'event-card--pre-complete' : 'event-card--active'"
             @click="router.push('/admin/wettkampf/' + ev.id)"
           >
             <div class="ec-main">
               <div class="ec-info">
-                <span class="ec-name">{{ ev.name }}</span>
+                <div class="ec-name-row">
+                  <span class="ec-name">{{ ev.name }}</span>
+                  <span class="phase-chip" :class="isPreComplete(ev) ? 'phase-chip--pre-complete' : 'phase-chip--active'">
+                    {{ phaseLabel(ev) }}
+                  </span>
+                </div>
                 <div class="ec-meta-row">
                   <span class="ec-meta">{{ (ev.groups ?? []).length }} Rotten</span>
                   <span class="ec-dot">·</span>
                   <span class="ec-meta">{{ totalPlayers(ev) }} Schützen</span>
                 </div>
               </div>
-              <div class="ec-active-dot" />
+              <div class="ec-active-dot" :class="{ 'ec-active-dot--pre-complete': isPreComplete(ev) }" />
               <Icons icon="chevronRight" :size="14" color="var(--sg-border-input)" />
             </div>
           </div>
@@ -235,6 +241,11 @@ const handleDelete = async (ev) => {
 // ── Helpers ────────────────────────────────────────────────────────────────
 const totalPlayers = (ev) => (ev.groups ?? []).reduce((s, g) => s + (g.members?.length ?? 0), 0)
 
+// Active-tab events are either still being played (ACTIVE) or done shooting and
+// awaiting Stechen/finish (PRE_COMPLETE) — surface that distinction on the card.
+const isPreComplete = (ev) => ev.status?.toUpperCase() === 'PRE_COMPLETE'
+const phaseLabel = (ev) => isPreComplete(ev) ? 'In Auswertung' : 'Aktiv'
+
 const unpaidCount = (ev) => (ev.groups ?? []).reduce((s, g) => s + (g.members ?? []).filter(m => !m.paid).length, 0)
 
 // ── Load on mount ──────────────────────────────────────────────────────────
@@ -288,12 +299,22 @@ onMounted(() => {
 }
 .event-card:hover { box-shadow: var(--sg-shadow-md); }
 .event-card--active { border-left: 3px solid var(--sg-color-warning); }
+.event-card--pre-complete { border-left: 3px solid var(--sg-color-info-text); }
 
 .ec-main { display: flex; align-items: center; gap: 10px; }
 
 .ec-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 
+.ec-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
 .ec-name { font-size: 15px; font-weight: 600; color: var(--sg-brand); }
+
+.phase-chip {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+  padding: 2px 8px; border-radius: 99px;
+}
+.phase-chip--active { background: var(--sg-color-warning-bg); color: var(--sg-color-warning-text); }
+.phase-chip--pre-complete { background: var(--sg-accent-tint); color: var(--sg-color-info-text); }
 
 .ec-meta-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
@@ -301,7 +322,8 @@ onMounted(() => {
 .ec-meta--warn { color: var(--sg-color-warning-text); }
 .ec-dot { font-size: 12px; color: var(--sg-border-input); }
 
-.ec-active-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sg-color-warning); }
+.ec-active-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sg-color-warning); flex-shrink: 0; }
+.ec-active-dot--pre-complete { background: var(--sg-color-info-text); }
 
 .ec-actions { display: flex; justify-content: flex-end; }
 

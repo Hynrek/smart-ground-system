@@ -5,7 +5,7 @@
     <!-- Header with abort button only -->
     <div class="panel-header">
       <h2 class="panel-title">Laufender Wettkampf</h2>
-      <button class="stop-btn" @click="emit('stop')">
+      <button v-if="showStop" class="stop-btn" @click="emit('stop')">
         <Icons icon="x" :size="13" color="rgba(252,129,129,0.8)" />
         Wettkampf abbrechen
       </button>
@@ -151,6 +151,8 @@ const props = defineProps({
   event: { type: Object, required: true },
   // Tied blocks from the Stechen ties view; used to flag tied rows in the leaderboard.
   tiedBlocks: { type: Array, default: () => [] },
+  // Hide "Wettkampf abbrechen" in views where cancelling shouldn't be offered (e.g. Auswertung).
+  showStop: { type: Boolean, default: true },
 })
 const emit = defineEmits(['stop'])
 

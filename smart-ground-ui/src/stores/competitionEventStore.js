@@ -263,6 +263,19 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     if (ev) ev.passen = (ev.passen ?? []).filter(p => p.id !== passeId)
   }
 
+  // Moves the Passe at `index` up (-1) or down (+1) within the session's Passen order.
+  const movePasseInEvent = async (eventId, index, direction) => {
+    const ev = getEvent(eventId)
+    if (!ev) return
+    const passen = ev.passen ?? []
+    const target = index + direction
+    if (target < 0 || target >= passen.length) return
+    const reordered = [...passen]
+    ;[reordered[index], reordered[target]] = [reordered[target], reordered[index]]
+    const updated = await wettkampfApi.reorderPassen(eventId, reordered.map(p => p.id))
+    ev.passen = updated.passen ?? reordered
+  }
+
   // ── Runtime: rotte assignment ─────────────────────────────────────────────
 
   const assignRotteToRange = (instanceId, rotteId, rangeId) => {
@@ -584,7 +597,7 @@ export const useCompetitionEventStore = defineStore('competitionEvent', () => {
     createEvent, startEvent, stopEvent, stopCompetition, deleteEvent,
     addRotte, removeRotte, renameRotte,
     addPlayer, removePlayer, togglePlayerPaid,
-    addPasseToEvent, removePasseFromEvent,
+    addPasseToEvent, removePasseFromEvent, movePasseInEvent,
     // Runtime state
     competitionInstances, completedCompetitionInstances,
     completedResultsBySession, loadCompletedResults, correctSerieResult,

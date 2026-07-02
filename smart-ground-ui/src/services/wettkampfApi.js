@@ -113,3 +113,9 @@ export const addPasse = (sessionId, passeId) =>
 
 export const removePasse = (sessionId, passeId) =>
   apiFetch(`/sessions/${sessionId}/passen/${passeId}`, { method: 'DELETE' })
+
+export const reorderPassen = (sessionId, passeIds) =>
+  apiFetch(`/sessions/${sessionId}/passen/order`, {
+    method: 'PATCH',
+    body: JSON.stringify({ passeIds }),
+  })

@@ -90,10 +90,29 @@
             <p>Noch keine Passen. Füge mindestens eine Passe hinzu.</p>
           </div>
           <div v-else class="passen-list">
-            <div v-for="passe in (event.passen ?? [])" :key="passe.id" class="passe-row">
+            <div v-for="(passe, index) in (event.passen ?? [])" :key="passe.id" class="passe-row">
+              <span class="passe-order">{{ index + 1 }}</span>
               <div class="passe-info">
                 <span class="passe-name">{{ passe.name }}</span>
                 <span class="passe-meta">{{ passe.serien?.length ?? 0 }} Serien</span>
+              </div>
+              <div class="passe-order-controls">
+                <button
+                  class="order-btn"
+                  :disabled="index === 0"
+                  title="Nach oben verschieben"
+                  @click="store.movePasseInEvent(eventId, index, -1)"
+                >
+                  <Icons icon="chevronDown" :size="12" color="var(--sg-text-faint)" style="transform: rotate(180deg)" />
+                </button>
+                <button
+                  class="order-btn"
+                  :disabled="index === (event.passen ?? []).length - 1"
+                  title="Nach unten verschieben"
+                  @click="store.movePasseInEvent(eventId, index, 1)"
+                >
+                  <Icons icon="chevronDown" :size="12" color="var(--sg-text-faint)" />
+                </button>
               </div>
               <button class="remove-btn" @click="store.removePasseFromEvent(eventId, passe.id)">
                 <Icons icon="x" :size="12" color="var(--sg-text-faint)" />
@@ -133,7 +152,7 @@
     <!-- ══ PRE_COMPLETE (Auswertung + Stechen) ══ -->
     <template v-else-if="event.status?.toUpperCase() === 'PRE_COMPLETE'">
       <div class="content">
-        <ActiveCompetitionPanel :event="event" :tied-blocks="tiedBlocks" @stop="handleStop" />
+        <ActiveCompetitionPanel :event="event" :tied-blocks="tiedBlocks" :show-stop="false" />
 
         <StechenPanel :session-id="eventId" />
 
@@ -560,14 +579,47 @@ onMounted(async () => {
 .passe-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   padding: 12px 16px;
   background: var(--sg-bg-card);
   border: 1px solid var(--sg-border);
   border-radius: 12px;
 }
 
-.passe-info { display: flex; flex-direction: column; gap: 2px; }
+.passe-order {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sg-text-faint);
+  width: 18px;
+  flex-shrink: 0;
+}
+
+.passe-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.passe-order-controls { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+
+.order-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 16px;
+  background: transparent;
+  border: 1px solid var(--sg-border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.order-btn:hover:not(:disabled) {
+  background: var(--sg-bg-panel);
+  border-color: var(--sg-accent);
+}
+
+.order-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
 
 .passe-name {
   font-size: 14px;

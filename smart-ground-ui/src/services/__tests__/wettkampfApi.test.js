@@ -69,4 +69,13 @@ describe('wettkampfApi', () => {
     expect(mockApiFetch).toHaveBeenCalledWith('/sessions/s1/progress')
     expect(result.groups).toEqual([])
   })
+
+  it('reorderPassen patches /sessions/:id/passen/order with the ordered ids', async () => {
+    await api.reorderPassen('s1', ['p2', 'p1'])
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/sessions/s1/passen/order', expect.objectContaining({ method: 'PATCH' })
+    )
+    const body = JSON.parse(mockApiFetch.mock.calls[0][1].body)
+    expect(body.passeIds).toEqual(['p2', 'p1'])
+  })
 })

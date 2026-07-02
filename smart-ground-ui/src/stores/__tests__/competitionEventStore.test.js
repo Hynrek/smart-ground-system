@@ -22,6 +22,7 @@ vi.mock('@/services/wettkampfApi.js', () => ({
   patchMember:   vi.fn(),
   addPasse:      vi.fn(),
   removePasse:   vi.fn(),
+  reorderPassen: vi.fn(),
 }))
 
 vi.mock('@/services/tiebreakerApi.js', () => ({
@@ -154,6 +155,29 @@ describe('useCompetitionEventStore', () => {
     await store.removePasseFromEvent('s1', 'p1')
     expect(api.removePasse).toHaveBeenCalledWith('s1', 'p1')
     expect(store.events[0].passen).toEqual([])
+  })
+
+  it('movePasseInEvent swaps with the previous Passe and persists the new order', async () => {
+    const passen = [
+      { id: 'p1', name: 'Passe 1', serien: [] },
+      { id: 'p2', name: 'Passe 2', serien: [] },
+      { id: 'p3', name: 'Passe 3', serien: [] },
+    ]
+    api.reorderPassen.mockResolvedValue({ passen: [passen[1], passen[0], passen[2]] })
+    const store = useCompetitionEventStore()
+    store.events = [mkSession({ passen })]
+    await store.movePasseInEvent('s1', 1, -1)
+    expect(api.reorderPassen).toHaveBeenCalledWith('s1', ['p2', 'p1', 'p3'])
+    expect(store.events[0].passen.map(p => p.id)).toEqual(['p2', 'p1', 'p3'])
+  })
+
+  it('movePasseInEvent is a no-op past the array bounds', async () => {
+    const passen = [{ id: 'p1', name: 'Passe 1', serien: [] }]
+    const store = useCompetitionEventStore()
+    store.events = [mkSession({ passen })]
+    await store.movePasseInEvent('s1', 0, -1)
+    await store.movePasseInEvent('s1', 0, 1)
+    expect(api.reorderPassen).not.toHaveBeenCalled()
   })
 
   it('loadEvents hydrates persisted progress + releasedPasseIndex so released Passen advance', async () => {
