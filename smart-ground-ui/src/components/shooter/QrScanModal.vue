@@ -24,6 +24,7 @@ const error = ref('')
 let scanner = null
 let busy = false
 let lastToken = ''
+let alive = true
 
 const handleScan = async (data) => {
   const token = parseCheckinPayload(data)
@@ -34,8 +35,10 @@ const handleScan = async (data) => {
   error.value = ''
   try {
     const user = await profileStore.resolveCheckinToken(token)
+    if (!alive) return // modal was closed while the request was in flight
     emit('resolved', user)
   } catch (e) {
+    if (!alive) return
     error.value = e?.status === 404 ? 'Code ungültig' : 'Verbindungsfehler — nochmals versuchen'
     lastToken = '' // allow retrying the same code after an error
   } finally {
@@ -50,11 +53,12 @@ onMounted(async () => {
     })
     await scanner.start()
   } catch {
-    error.value = 'Kamera nicht verfügbar'
+    if (alive) error.value = 'Kamera nicht verfügbar'
   }
 })
 
 onBeforeUnmount(() => {
+  alive = false
   scanner?.destroy()
   scanner = null
 })
