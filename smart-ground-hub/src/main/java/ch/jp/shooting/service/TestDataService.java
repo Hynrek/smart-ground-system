@@ -32,6 +32,7 @@ public class TestDataService {
     private final SmartBoxRepository smartBoxRepository;
     private final DeviceRepository deviceRepository;
     private final DeviceTypeRepository deviceTypeRepository;
+    private final DeviceTypeGroupRepository deviceTypeGroupRepository;
     private final FirmwareConfigRepository firmwareConfigRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -43,6 +44,7 @@ public class TestDataService {
             SmartBoxRepository smartBoxRepository,
             DeviceRepository deviceRepository,
             DeviceTypeRepository deviceTypeRepository,
+            DeviceTypeGroupRepository deviceTypeGroupRepository,
             FirmwareConfigRepository firmwareConfigRepository,
             PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
@@ -52,6 +54,7 @@ public class TestDataService {
         this.smartBoxRepository = smartBoxRepository;
         this.deviceRepository = deviceRepository;
         this.deviceTypeRepository = deviceTypeRepository;
+        this.deviceTypeGroupRepository = deviceTypeGroupRepository;
         this.firmwareConfigRepository = firmwareConfigRepository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -112,11 +115,17 @@ public class TestDataService {
         if (deviceCount < 1 || deviceCount > 50) {
             throw new IllegalArgumentException("deviceCount must be between 1 and 50");
         }
-        DeviceType werfer = deviceTypeRepository.findByName("Werfer")
-                .orElseThrow(() -> new IllegalStateException("DeviceType 'Werfer' missing – seed did not run"));
         FirmwareConfig firmware = firmwareConfigRepository
                 .findByVersionAndBoxType("0.6", "xiao-esp32s3")
                 .orElseThrow(() -> new IllegalStateException("FirmwareConfig 0.6/xiao-esp32s3 missing – seed did not run"));
+        DeviceTypeGroup werferGroup = deviceTypeGroupRepository.findByName("Wurfmaschine")
+                .orElseThrow(() -> new IllegalStateException("DeviceTypeGroup 'Wurfmaschine' missing – seed did not run"));
+        // DeviceType eindeutig über (Gruppe, FirmwareConfig) auflösen – der Name allein ist nicht eindeutig
+        // (pro FirmwareConfig existiert ein eigener "Werfer"-Typ, z.B. pico2w vs. xiao-esp32s3).
+        DeviceType werfer = deviceTypeRepository
+                .findByGroupIdAndSignalType_FirmwareConfigId(werferGroup.getId(), firmware.getId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "DeviceType für Gruppe 'Wurfmaschine' und FirmwareConfig 0.6/xiao-esp32s3 fehlt – seed did not run"));
 
         SmartBox box = new SmartBox();
         box.setMacAddress(generateUniqueMac());
@@ -131,7 +140,7 @@ public class TestDataService {
         for (int i = 1; i <= deviceCount; i++) {
             Device device = new Device();
             device.setSmartBox(savedBox);
-            device.setDeviceTypeGroup(werfer.getGroup());
+            device.setDeviceTypeGroup(werferGroup);
             device.setDeviceType(werfer);
             device.setAlias("Werfer " + i);
             deviceRepository.save(device);

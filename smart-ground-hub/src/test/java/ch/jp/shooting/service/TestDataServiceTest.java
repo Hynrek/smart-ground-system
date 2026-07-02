@@ -33,6 +33,7 @@ class TestDataServiceTest {
     @Mock SmartBoxRepository smartBoxRepository;
     @Mock DeviceRepository deviceRepository;
     @Mock DeviceTypeRepository deviceTypeRepository;
+    @Mock DeviceTypeGroupRepository deviceTypeGroupRepository;
     @Mock FirmwareConfigRepository firmwareConfigRepository;
     @Mock PasswordEncoder passwordEncoder;
 
@@ -108,9 +109,11 @@ class TestDataServiceTest {
         werfer.setGroup(group);
         FirmwareConfig fw = new FirmwareConfig("0.6", "xiao-esp32s3");
 
-        when(deviceTypeRepository.findByName("Werfer")).thenReturn(Optional.of(werfer));
         when(firmwareConfigRepository.findByVersionAndBoxType("0.6", "xiao-esp32s3"))
                 .thenReturn(Optional.of(fw));
+        when(deviceTypeGroupRepository.findByName("Wurfmaschine")).thenReturn(Optional.of(group));
+        when(deviceTypeRepository.findByGroupIdAndSignalType_FirmwareConfigId(any(), any()))
+                .thenReturn(Optional.of(werfer));
         when(smartBoxRepository.findByMacAddress(anyString())).thenReturn(Optional.empty());
         when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(inv -> inv.getArgument(0));
         when(deviceRepository.save(any(Device.class))).thenAnswer(inv -> inv.getArgument(0));
