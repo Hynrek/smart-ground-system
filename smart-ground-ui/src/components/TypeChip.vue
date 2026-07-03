@@ -41,6 +41,8 @@ const chipClass = computed(() => {
 </script>
 
 <style scoped>
+/* Neutral base — chip classes are derived from arbitrary device/type names
+   (e.g. chip-wurfmaschine), so unknown types must still render as a chip. */
 .type-chip {
   display: inline-block;
   border-radius: 5px;
@@ -48,6 +50,13 @@ const chipClass = computed(() => {
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.2px;
+  background: var(--sg-color-neutral-bg);
+  color: var(--sg-color-neutral-text);
+}
+
+.chip-wurfmaschine {
+  background: var(--sg-color-info-bg);
+  color: var(--sg-color-info-text);
 }
 
 .chip-gpio {
