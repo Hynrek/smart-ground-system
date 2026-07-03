@@ -79,24 +79,24 @@ const handleKeydown = (e) => {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: #1a1a2e;
+  background: var(--sg-bg-page);
   font-family: system-ui, -apple-system, sans-serif;
 }
 
 .login-box {
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 20px;
   padding: 40px;
   width: 100%;
   max-width: 460px;
   text-align: center;
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 .login-logo {
   margin: 0 auto 30px;
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 .login-form {
@@ -115,21 +115,21 @@ const handleKeydown = (e) => {
 label {
   font-size: 14px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sg-text-muted);
 }
 
 input {
   padding: 10px 12px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--sg-border);
   border-radius: 4px;
   font-size: 14px;
   font-family: inherit;
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
 }
 
 input:focus {
@@ -150,7 +150,7 @@ input:focus {
   margin-top: 8px;
   width: 100%;
   background: var(--sg-accent);
-  color: #1a1a2e;
+  color: var(--sg-surface-0);
 }
 
 .login-button:hover:not(:disabled) {

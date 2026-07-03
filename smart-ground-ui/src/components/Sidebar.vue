@@ -91,6 +91,7 @@ const handleLogout = () => {
 .sidebar {
   width: 210px;
   background: var(--sg-brand);
+  border-right: 1px solid var(--sg-border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -100,21 +101,21 @@ const handleLogout = () => {
 
 .sidebar-header {
   padding: 18px 18px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--sg-border);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .brand-logo {
-  color: #fff;
+  color: var(--sg-text-primary);
   flex-shrink: 0;
 }
 
 .brand-name {
   font-size: 15.5px;
   font-weight: 700;
-  color: #fff;
+  color: var(--sg-text-primary);
   letter-spacing: 0.2px;
 }
 
@@ -165,12 +166,12 @@ const handleLogout = () => {
 }
 
 .nav-item.active .nav-label {
-  color: #fff;
+  color: var(--sg-text-primary);
   font-weight: 600;
 }
 
 .sidebar-footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--sg-border);
   padding: 12px 18px;
 }
 
@@ -209,7 +210,7 @@ const handleLogout = () => {
 
 .user-name {
   font-size: 13px;
-  color: #fff;
+  color: var(--sg-text-primary);
   font-weight: 600;
 }
 

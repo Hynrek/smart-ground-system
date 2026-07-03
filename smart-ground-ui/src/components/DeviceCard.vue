@@ -118,19 +118,19 @@ function getStatus(device) {
 
 <style scoped>
 .device-card {
-  background: #fff;
+  background: var(--sg-bg-card);
   border-radius: 10px;
   padding: 14px 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07), 0 4px 12px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border: 1px solid #f0f4f8;
+  border: 1px solid var(--sg-border);
   transition: border-color 0.2s;
 }
 
 .device-card.fired {
-  border-color: #4fc3f7;
+  border-color: var(--sg-accent);
 }
 
 .card-header {
@@ -155,7 +155,7 @@ function getStatus(device) {
 
 .box-id {
   font-size: 12px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   margin-top: 2px;
 }
 
@@ -176,8 +176,8 @@ function getStatus(device) {
   align-items: center;
   gap: 5px;
   padding: 5px 10px;
-  background: #1a1a2e;
-  color: #fff;
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -188,15 +188,15 @@ function getStatus(device) {
 }
 
 .fire-btn.fired {
-  background: #4fc3f7;
+  background: var(--sg-accent);
 }
 
 .fire-btn:hover {
-  background: #0f0f1a;
+  background: var(--sg-accent-hover);
 }
 
 .fire-btn.fired:hover {
-  background: #2ba4d0;
+  background: var(--sg-accent-hover);
 }
 
 .status-pill {
@@ -206,25 +206,25 @@ function getStatus(device) {
   border-radius: 4px;
   padding: 2px 5px;
 }
-.status-pill--admin { background: rgba(226,75,74,.12); color: #c53030; }
-.status-pill--blocked { background: rgba(237,137,54,.12); color: #c05621; }
+.status-pill--admin { background: rgba(226,75,74,.12); color: var(--sg-color-danger-text); }
+.status-pill--blocked { background: rgba(237,137,54,.12); color: var(--sg-color-warning-text); }
 
 .block-action-btn {
   font-size: 11.5px;
   font-weight: 500;
   padding: 4px 9px;
   border-radius: 6px;
-  border: 1px solid #c3dafe;
-  background: #ebf4ff;
-  color: #2b6cb0;
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 35%, transparent);
+  background: var(--sg-color-info-bg);
+  color: var(--sg-color-info-text);
   cursor: pointer;
   font-family: inherit;
   transition: all .15s;
 }
 .block-action-btn--block {
-  border-color: #e2e8f0;
-  background: #fff;
-  color: #718096;
+  border-color: var(--sg-border);
+  background: var(--sg-bg-card);
+  color: var(--sg-text-muted);
 }
 .block-action-btn:hover:not(:disabled) { opacity: .85; }
 .block-action-btn:disabled { opacity: .45; cursor: not-allowed; }

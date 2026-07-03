@@ -65,7 +65,7 @@ const initial = (user) => user.fullName?.charAt(0).toUpperCase() ?? '?'
 }
 
 .modal {
-  background: #fff;
+  background: var(--sg-bg-card);
   border-radius: 14px;
   width: 420px;
   max-width: calc(100vw - 32px);
@@ -80,13 +80,13 @@ const initial = (user) => user.fullName?.charAt(0).toUpperCase() ?? '?'
   align-items: center;
   justify-content: space-between;
   padding: 18px 20px 12px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--sg-border);
 }
 
 .modal-title {
   font-size: 15px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--sg-text-primary);
   margin: 0;
 }
 
@@ -94,7 +94,7 @@ const initial = (user) => user.fullName?.charAt(0).toUpperCase() ?? '?'
   background: none;
   border: none;
   font-size: 20px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   cursor: pointer;
   padding: 2px 6px;
   line-height: 1;
@@ -103,18 +103,18 @@ const initial = (user) => user.fullName?.charAt(0).toUpperCase() ?? '?'
 }
 
 .modal-close:hover {
-  background: #f0f4f8;
+  background: var(--sg-bg-panel);
 }
 
 .modal-search {
   padding: 12px 16px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--sg-border);
 }
 
 .search-input {
   width: 100%;
   padding: 8px 12px;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--sg-border);
   border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
@@ -124,7 +124,7 @@ const initial = (user) => user.fullName?.charAt(0).toUpperCase() ?? '?'
 }
 
 .search-input:focus {
-  border-color: #4fc3f7;
+  border-color: var(--sg-accent);
 }
 
 .modal-list {
@@ -148,7 +148,7 @@ const initial = (user) => user.fullName?.charAt(0).toUpperCase() ?? '?'
 }
 
 .user-row:hover {
-  background: #f7fafc;
+  background: var(--sg-bg-panel);
 }
 
 .user-avatar {
@@ -157,7 +157,7 @@ const initial = (user) => user.fullName?.charAt(0).toUpperCase() ?? '?'
   border-radius: 50%;
   background: rgba(79, 195, 247, 0.15);
   border: 1px solid rgba(79, 195, 247, 0.3);
-  color: #2c7a9e;
+  color: var(--sg-color-info-text);
   font-size: 14px;
   font-weight: 700;
   display: flex;
@@ -169,13 +169,13 @@ const initial = (user) => user.fullName?.charAt(0).toUpperCase() ?? '?'
 .user-name {
   font-size: 14px;
   font-weight: 500;
-  color: #2d3748;
+  color: var(--sg-text-primary);
 }
 
 .empty-hint {
   text-align: center;
   padding: 24px 16px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   font-size: 13px;
   margin: 0;
 }

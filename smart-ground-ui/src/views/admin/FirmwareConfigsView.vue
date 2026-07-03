@@ -258,14 +258,14 @@ async function submitForm() {
 .view-title {
   font-size: 22px;
   font-weight: 700;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin: 0;
 }
 
 .btn-primary {
   padding: 0.5rem 1rem;
-  background: var(--sg-brand);
-  color: #fff;
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
   border: none;
   border-radius: 7px;
   cursor: pointer;
@@ -300,7 +300,7 @@ async function submitForm() {
 .form-title {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin: 0 0 1.5rem 0;
 }
 
@@ -423,8 +423,8 @@ async function submitForm() {
 
 .btn-save {
   padding: 0.5rem 1rem;
-  background: var(--sg-brand);
-  color: #fff;
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -482,7 +482,7 @@ async function submitForm() {
 .firmware-version {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin: 0;
 }
 

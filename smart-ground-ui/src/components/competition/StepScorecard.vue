@@ -145,9 +145,9 @@ const ariaLabel = (step) => {
 .step-chip--editable { cursor: pointer; }
 .step-chip--editable:focus-visible { outline: 2px solid var(--sg-accent); outline-offset: 1px; }
 
-.step-chip.is-done { background: rgba(72, 187, 120, 0.16); color: #2f855a; border-color: rgba(72, 187, 120, 0.4); }
-.step-chip.is-fail { background: rgba(229, 62, 62, 0.14); color: #c53030; border-color: rgba(229, 62, 62, 0.4); }
-.step-chip.is-pending { background: rgba(160, 174, 192, 0.14); color: #718096; border-color: rgba(160, 174, 192, 0.4); }
+.step-chip.is-done { background: rgba(72, 187, 120, 0.16); color: var(--sg-color-success-text); border-color: rgba(72, 187, 120, 0.4); }
+.step-chip.is-fail { background: rgba(229, 62, 62, 0.14); color: var(--sg-color-danger-text); border-color: rgba(229, 62, 62, 0.4); }
+.step-chip.is-pending { background: rgba(160, 174, 192, 0.14); color: var(--sg-text-muted); border-color: rgba(160, 174, 192, 0.4); }
 
 /* split chip: two independently-colored halves */
 .step-chip--split { padding: 0; border-color: rgba(160, 174, 192, 0.4); }
@@ -160,15 +160,15 @@ const ariaLabel = (step) => {
   display: inline-flex; align-items: center; height: 100%; padding: 0 5px;
   font-size: 11px; font-weight: 800;
   background: var(--mode-glyph-bg, rgba(160, 174, 192, 0.18));
-  color: #718096;
+  color: var(--sg-text-muted);
 }
-.half--done { background: rgba(72, 187, 120, 0.16); color: #2f855a; }
-.half--fail { background: rgba(229, 62, 62, 0.14); color: #c53030; }
-.half--pending { background: rgba(160, 174, 192, 0.14); color: #718096; }
+.half--done { background: rgba(72, 187, 120, 0.16); color: var(--sg-color-success-text); }
+.half--fail { background: rgba(229, 62, 62, 0.14); color: var(--sg-color-danger-text); }
+.half--pending { background: rgba(160, 174, 192, 0.14); color: var(--sg-text-muted); }
 
 /* On dark kiosk backgrounds the muted colors lose contrast — lift them. */
 :global(.results-view) .step-chip.is-done, :global(.results-view) .half--done { color: #9ae6b4; }
 :global(.results-view) .step-chip.is-fail, :global(.results-view) .half--fail { color: #feb2b2; }
-:global(.results-view) .step-chip.is-pending, :global(.results-view) .half--pending { color: #cbd5e0; }
-:global(.results-view) .step-chip__op { color: #a0aec0; }
+:global(.results-view) .step-chip.is-pending, :global(.results-view) .half--pending { color: var(--sg-text-faint); }
+:global(.results-view) .step-chip__op { color: var(--sg-text-faint); }
 </style>

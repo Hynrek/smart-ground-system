@@ -257,7 +257,7 @@ const confirmStart = () => {
 
 .start-modal {
   background: rgba(24, 24, 40, 0.98);
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border: 1.5px solid var(--sg-border);
   border-radius: 20px;
   padding: 24px;
   width: 100%;
@@ -280,7 +280,7 @@ const confirmStart = () => {
 .modal-title {
   font-size: 16px;
   font-weight: 700;
-  color: #fff;
+  color: var(--sg-text-primary);
   margin: 0;
   text-align: center;
 }
@@ -299,7 +299,7 @@ const confirmStart = () => {
   align-items: center;
   justify-content: space-between;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 12px;
   padding: 10px 14px;
 }
@@ -307,7 +307,7 @@ const confirmStart = () => {
 .counter-label {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sg-text-muted);
 }
 
 .counter-controls {
@@ -321,7 +321,7 @@ const confirmStart = () => {
   height: 28px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--sg-border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -341,7 +341,7 @@ const confirmStart = () => {
 .counter-value {
   font-size: 16px;
   font-weight: 700;
-  color: #fff;
+  color: var(--sg-text-primary);
   min-width: 20px;
   text-align: center;
 }
@@ -400,9 +400,9 @@ const confirmStart = () => {
 .modal-player-input {
   flex: 1;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--sg-border);
   border-radius: 8px;
-  color: #fff;
+  color: var(--sg-text-primary);
   font-size: 13px;
   font-family: inherit;
   padding: 8px 10px;
@@ -417,9 +417,9 @@ const confirmStart = () => {
 /* ── Add player button (matches reference) ── */
 .add-player-btn {
   background: transparent;
-  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border: 1px dashed var(--sg-border-input);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   font-size: 12px;
   font-family: inherit;
   padding: 7px;
@@ -430,7 +430,7 @@ const confirmStart = () => {
 
 .add-player-btn:hover {
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--sg-text-muted);
 }
 
 /* ── Icon buttons ── */
@@ -489,7 +489,7 @@ const confirmStart = () => {
 .action-btn--start {
   background: rgba(79, 195, 247, 0.12);
   border-color: rgba(79, 195, 247, 0.3);
-  color: #4fc3f7;
+  color: var(--sg-accent);
 }
 
 .action-btn--start:hover:not(:disabled) {
@@ -498,8 +498,8 @@ const confirmStart = () => {
 
 .action-btn--cancel {
   background: transparent;
-  border-color: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.4);
+  border-color: var(--sg-border);
+  color: var(--sg-text-faint);
 }
 
 .action-btn--cancel:hover {
@@ -528,7 +528,7 @@ const confirmStart = () => {
 .summary-num {
   font-size: 22px;
   font-weight: 700;
-  color: #4fc3f7;
+  color: var(--sg-accent);
   line-height: 1;
 }
 
@@ -574,7 +574,7 @@ const confirmStart = () => {
 
 .rotte-preview-players {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sg-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

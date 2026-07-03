@@ -56,7 +56,7 @@ const handleNav = (navId) => {
 :deep(body) {
   font-family: system-ui, -apple-system, sans-serif;
   background: var(--sg-bg-page);
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin: 0;
   padding: 0;
 }

@@ -133,15 +133,15 @@ const handleLogout = () => {
 
 .user-name {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
   font-weight: 500;
 }
 
 .account-edit-btn {
   background: none;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--sg-border-input);
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
   cursor: pointer;
   font-size: 11px;
   font-family: inherit;
@@ -177,14 +177,14 @@ const handleLogout = () => {
 .greeting-title {
   font-size: 32px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--sg-text-primary);
   margin: 0 0 6px;
   letter-spacing: -0.5px;
 }
 
 .greeting-sub {
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--sg-text-faint);
   margin: 0;
 }
 
@@ -204,7 +204,7 @@ const handleLogout = () => {
   flex-direction: column;
   align-items: flex-start;
   gap: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   transition: transform 0.12s, background 0.15s;
   text-align: left;
   font-family: inherit;
@@ -269,17 +269,17 @@ const handleLogout = () => {
 .tile-label {
   font-size: 15px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--sg-text-primary);
   line-height: 1;
 }
 
 .app-tile--soon .tile-label {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
 }
 
 .tile-desc {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   line-height: 1.3;
 }
 

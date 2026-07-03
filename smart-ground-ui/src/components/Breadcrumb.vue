@@ -39,7 +39,7 @@ defineProps({
 .breadcrumb-link {
   background: none;
   border: none;
-  color: #4fc3f7;
+  color: var(--sg-accent);
   cursor: pointer;
   padding: 0;
   font-size: 13px;
@@ -48,16 +48,16 @@ defineProps({
 }
 
 .breadcrumb-link:hover {
-  color: #2ba4d0;
+  color: var(--sg-accent-hover);
 }
 
 .breadcrumb-text {
-  color: #718096;
+  color: var(--sg-text-faint);
   font-weight: 400;
 }
 
 .breadcrumb-text.active {
-  color: #1a1a2e;
+  color: var(--sg-text-primary);
   font-weight: 600;
 }
 </style>

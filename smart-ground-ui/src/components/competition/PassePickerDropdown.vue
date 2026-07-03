@@ -69,7 +69,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onOutsideClick))
 .picker-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
 }
 
 .picker-meta {

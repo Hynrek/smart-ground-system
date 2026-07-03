@@ -330,7 +330,7 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 .view-title {
   font-size: 22px;
   font-weight: 700;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin: 0 0 4px;
 }
 
@@ -364,7 +364,7 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 }
 
 .tab-btn.active {
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   border-bottom-color: var(--sg-accent);
 }
 
@@ -388,7 +388,7 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 .section-title {
   font-size: 15px;
   font-weight: 700;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin: 0;
   display: flex;
   align-items: center;
@@ -494,7 +494,7 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
   display: block;
   font-size: 13.5px;
   font-weight: 600;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -596,10 +596,10 @@ defineExpose({ drawerOpen, drawerMode, drawerSerie, passeDrawerOpen, passeDrawer
 }
 
 .btn--primary {
-  background: var(--sg-brand);
-  color: #fff;
-  border-color: var(--sg-brand);
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
+  border-color: var(--sg-accent);
 }
 
-.btn--primary:hover { background: var(--sg-brand); }
+.btn--primary:hover { background: var(--sg-accent-hover); }
 </style>

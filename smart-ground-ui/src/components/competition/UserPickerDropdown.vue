@@ -54,8 +54,8 @@ onUnmounted(() => document.removeEventListener('mousedown', onOutsideClick))
 .picker-wrapper {
   position: absolute;
   z-index: 50;
-  background: #fff;
-  border: 1px solid #bee3f8;
+  background: var(--sg-bg-card);
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 35%, transparent);
   border-radius: 10px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   min-width: 200px;
@@ -66,15 +66,15 @@ onUnmounted(() => document.removeEventListener('mousedown', onOutsideClick))
 
 .picker-search {
   border: none;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--sg-border);
   padding: 9px 12px;
   font-size: 13px;
   font-family: inherit;
-  color: #2d3748;
+  color: var(--sg-text-primary);
   outline: none;
-  background: #f7fafc;
+  background: var(--sg-bg-panel);
 }
-.picker-search:focus { background: #fff; }
+.picker-search:focus { background: var(--sg-bg-card); }
 
 .picker-list {
   max-height: 180px;
@@ -86,16 +86,16 @@ onUnmounted(() => document.removeEventListener('mousedown', onOutsideClick))
 .picker-item {
   padding: 9px 12px;
   font-size: 13px;
-  color: #2d3748;
+  color: var(--sg-text-primary);
   cursor: pointer;
   transition: background 0.1s;
 }
-.picker-item:hover { background: rgba(79, 195, 247, 0.08); color: #0288d1; }
+.picker-item:hover { background: rgba(79, 195, 247, 0.08); color: var(--sg-color-info-text); }
 
 .picker-empty {
   padding: 12px;
   font-size: 12px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   text-align: center;
 }
 </style>

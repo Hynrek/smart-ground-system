@@ -99,7 +99,7 @@
       <div
         v-for="range in ranges"
         :key="range.id"
-        class="range-card"
+        class="range-card sg-card-surface sg-card-surface--calm sg-card-surface--hover"
         :class="{ locked: range.locked, editing: editingId === range.id }"
       >
         <template v-if="editingId === range.id">
@@ -332,7 +332,7 @@ async function confirmDelete(range) {
 .view-title {
   font-size: 22px;
   font-weight: 700;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin: 0;
 }
 
@@ -378,7 +378,7 @@ async function confirmDelete(range) {
 .stat-value {
   font-size: 22px;
   font-weight: 700;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   line-height: 1;
 }
 
@@ -408,7 +408,7 @@ async function confirmDelete(range) {
 .form-card-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
 }
 
 .form-fields {
@@ -508,21 +508,17 @@ async function confirmDelete(range) {
   gap: 12px;
 }
 
-/* ── Range card ──────────────────────────────── */
+/* ── Range card — surface comes from .sg-card-surface--calm (accent-hued) ── */
 .range-card {
-  background: var(--sg-bg-card);
-  border: 1px solid var(--sg-border);
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: var(--sg-shadow-sm);
   display: flex;
   flex-direction: row;
   transition: box-shadow 0.15s, border-color 0.15s;
 }
 
-.range-card:hover {
-  box-shadow: var(--sg-shadow-lg);
-  border-color: var(--sg-border-input);
+.range-card.locked {
+  --sg-card-accent: var(--sg-color-warning);
 }
 
 .range-card.editing {
@@ -564,7 +560,7 @@ async function confirmDelete(range) {
 .range-name {
   font-size: 15px;
   font-weight: 600;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
 }
 
 .lock-chip {
@@ -655,7 +651,7 @@ async function confirmDelete(range) {
 
 .icon-btn:hover:not(:disabled) {
   background: var(--sg-bg-panel);
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   border-color: var(--sg-border);
 }
 

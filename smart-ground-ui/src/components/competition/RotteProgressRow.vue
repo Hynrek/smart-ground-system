@@ -91,9 +91,9 @@ const statusLabel = computed(() => {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.status-dot--active { background: #48bb78; box-shadow: 0 0 6px #48bb7880; }
+.status-dot--active { background: var(--sg-color-success); box-shadow: 0 0 6px #48bb7880; }
 .status-dot--waiting { background: rgba(255, 255, 255, 0.3); }
-.status-dot--paused { background: #f6ad55; }
+.status-dot--paused { background: var(--sg-color-warning); }
 .status-dot--done { background: #48bb7840; }
 
 /* ── Name ── */
@@ -114,7 +114,7 @@ const statusLabel = computed(() => {
 /* ── Passe name ── */
 .passe-name {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--sg-text-muted);
   white-space: nowrap;
 }
 
@@ -133,8 +133,8 @@ const statusLabel = computed(() => {
   transition: background 0.2s;
 }
 
-.dot--done { background: #48bb78; }
-.dot--in_progress { background: #f6ad55; }
+.dot--done { background: var(--sg-color-success); }
+.dot--in_progress { background: var(--sg-color-warning); }
 .dot--pending { background: rgba(255, 255, 255, 0.18); }
 
 /* ── Status badge ── */
@@ -150,17 +150,17 @@ const statusLabel = computed(() => {
 }
 
 .badge--active {
-  color: #48bb78;
+  color: var(--sg-color-success);
   background: rgba(72, 187, 120, 0.12);
 }
 
 .badge--waiting {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   background: rgba(255, 255, 255, 0.06);
 }
 
 .badge--paused {
-  color: #f6ad55;
+  color: var(--sg-color-warning);
   background: rgba(246, 173, 85, 0.12);
 }
 

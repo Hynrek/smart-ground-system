@@ -399,7 +399,7 @@ const forceReleaseRange = async () => {
 h1 {
   font-size: 22px;
   font-weight: 700;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin: 0;
   margin-top: 4px;
 }
@@ -504,7 +504,7 @@ h1 {
   padding: 20px 16px 12px;
   border-bottom: 1px solid var(--sg-border);
 }
-.panel-title   { font-weight: 700; font-size: 14px; color: var(--sg-brand); margin-bottom: 2px; }
+.panel-title   { font-weight: 700; font-size: 14px; color: var(--sg-text-primary); margin-bottom: 2px; }
 .panel-subtitle { font-size: 12px; color: var(--sg-text-muted); }
 
 .panel-content { flex: 1; overflow-y: auto; }

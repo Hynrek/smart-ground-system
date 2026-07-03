@@ -476,9 +476,9 @@ const licenseExpiryClass = (dateStr) =>
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.82rem; }
-.btn-primary  { background: var(--sg-accent-hover); color: #fff; }
+.btn-primary  { background: var(--sg-accent); color: var(--sg-surface-0); }
 .btn-secondary { background: var(--sg-bg-panel); color: var(--sg-text-muted); }
-.btn-danger   { background: var(--sg-color-danger); color: #fff; }
+.btn-danger   { background: var(--sg-color-danger); color: var(--sg-surface-0); }
 
 /* ── Delete confirm modal ── */
 .modal-overlay {
@@ -537,13 +537,13 @@ const licenseExpiryClass = (dateStr) =>
 .role-chip--active {
   background: var(--sg-accent-hover);
   border-color: var(--sg-accent-hover);
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 .role-chip--active:hover:not(:disabled) {
   background: var(--sg-accent);
   border-color: var(--sg-accent);
-  color: #fff;
+  color: var(--sg-surface-0);
 }
 
 .role-chip:disabled {

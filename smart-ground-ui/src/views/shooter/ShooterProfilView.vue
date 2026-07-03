@@ -341,14 +341,14 @@ function formatDate(value) {
   align-items: center;
   gap: 14px;
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--sg-border);
 }
 
 .back-btn {
   background: none;
   border: none;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
   padding: 4px;
   display: flex;
   align-items: center;
@@ -378,17 +378,17 @@ function formatDate(value) {
 .full-name {
   font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 .username {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
 }
 
 .tab-bar {
   display: flex;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--sg-border);
   padding: 0 20px;
 }
 
@@ -396,7 +396,7 @@ function formatDate(value) {
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   cursor: pointer;
   font-family: inherit;
   font-size: 13px;
@@ -442,7 +442,7 @@ function formatDate(value) {
 
 .field-group label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -452,9 +452,9 @@ function formatDate(value) {
 .field-group select,
 .field-group textarea {
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--sg-border);
   border-radius: 8px;
-  color: #fff;
+  color: var(--sg-text-primary);
   font-family: inherit;
   font-size: 14px;
   padding: 9px 12px;
@@ -489,7 +489,7 @@ function formatDate(value) {
 
 .field-value {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--sg-text-muted);
 }
 
 .status-badge {
@@ -516,7 +516,7 @@ function formatDate(value) {
 
 .char-count {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   text-align: right;
 }
 
@@ -565,7 +565,7 @@ function formatDate(value) {
 
 .qr-explainer,
 .qr-rotate-hint {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--sg-text-muted);
   font-size: 0.9rem;
   text-align: center;
   max-width: 320px;
@@ -579,7 +579,7 @@ function formatDate(value) {
 }
 
 .empty-results {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--sg-text-muted);
   text-align: center;
   padding: 24px 16px;
 }
@@ -589,7 +589,7 @@ function formatDate(value) {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--sg-border);
 }
 
 .result-main {
@@ -603,7 +603,7 @@ function formatDate(value) {
 }
 
 .result-meta {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
   font-size: 0.85rem;
 }
 

@@ -341,16 +341,16 @@ const rotteStatusLabel = (status) => ({ active: 'Aktiv', done: 'Fertig', paused:
 /* ── Header ── */
 .panel-header { display: flex; align-items: center; justify-content: space-between; }
 
-.panel-title { font-size: 18px; font-weight: 700; color: var(--sg-brand); margin: 0; }
+.panel-title { font-size: 18px; font-weight: 700; color: var(--sg-text-primary); margin: 0; }
 
 .stop-btn {
   display: flex; align-items: center; gap: 6px;
-  background: var(--sg-color-danger-bg, #fff5f5); border: 1px solid var(--sg-color-danger-border, #fed7d7);
+  background: var(--sg-color-danger-bg, var(--sg-color-danger-bg)); border: 1px solid var(--sg-color-danger-border, var(--sg-color-danger-bg));
   border-radius: 10px; padding: 8px 14px;
-  color: var(--sg-color-danger-text, #c53030); font-size: 13px; font-weight: 600; font-family: inherit;
+  color: var(--sg-color-danger-text, var(--sg-color-danger-text)); font-size: 13px; font-weight: 600; font-family: inherit;
   cursor: pointer; transition: all 0.15s;
 }
-.stop-btn:hover { background: var(--sg-color-danger-bg-hover, #fed7d7); }
+.stop-btn:hover { background: var(--sg-color-danger-bg-hover, var(--sg-color-danger-bg)); }
 
 /* ── Passen progress bar ── */
 .passen-progress {
@@ -426,7 +426,7 @@ const rotteStatusLabel = (status) => ({ active: 'Aktiv', done: 'Fertig', paused:
   border-radius: 10px;
   background: var(--sg-accent-hover);
   border: none;
-  color: #fff;
+  color: var(--sg-text-primary);
   font-size: 13px;
   font-weight: 700;
   font-family: inherit;
@@ -458,7 +458,7 @@ const rotteStatusLabel = (status) => ({ active: 'Aktiv', done: 'Fertig', paused:
 }
 
 .tab-btn.active {
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   border-bottom-color: var(--sg-accent);
 }
 
@@ -490,7 +490,7 @@ const rotteStatusLabel = (status) => ({ active: 'Aktiv', done: 'Fertig', paused:
 .rotte-ov-name {
   font-size: 13px;
   font-weight: 700;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   flex: 1;
 }
 
@@ -547,7 +547,7 @@ const rotteStatusLabel = (status) => ({ active: 'Aktiv', done: 'Fertig', paused:
 .serie-card-header {
   font-size: 13px;
   font-weight: 700;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   padding: 10px 14px 8px;
   border-bottom: 1px solid var(--sg-border);
 }
@@ -610,7 +610,7 @@ const rotteStatusLabel = (status) => ({ active: 'Aktiv', done: 'Fertig', paused:
   flex: 1;
   font-size: 13px;
   font-weight: 600;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

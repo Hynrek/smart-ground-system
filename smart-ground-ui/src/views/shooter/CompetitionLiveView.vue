@@ -142,7 +142,7 @@ function onGoToRange({ rangeId, rotteId }) {
   flex-direction: column;
   min-height: 0;
   background: var(--sg-brand);
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 /* ── Top bar ── */
@@ -157,7 +157,7 @@ function onGoToRange({ rangeId, rotteId }) {
 
 .back-btn {
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--sg-border);
   border-radius: 10px;
   width: 36px;
   height: 36px;
@@ -185,7 +185,7 @@ function onGoToRange({ rangeId, rotteId }) {
 
 .page-title-name {
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--sg-text-muted);
 }
 
 .stop-btn {
@@ -215,18 +215,18 @@ function onGoToRange({ rangeId, rotteId }) {
 
 .completed-card {
   display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
-  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--sg-border);
   border-radius: 20px; padding: 36px 32px; max-width: 360px; width: 100%;
 }
 
 .completed-title { font-size: 20px; font-weight: 800; margin: 4px 0 0; }
 
-.completed-text { font-size: 14px; color: rgba(255, 255, 255, 0.6); margin: 0; }
+.completed-text { font-size: 14px; color: var(--sg-text-muted); margin: 0; }
 
 .results-link {
   margin-top: 8px; min-height: 48px; padding: 12px 28px;
   background: var(--sg-accent, #4299e1); border: none; border-radius: 12px;
-  color: #fff; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer;
+  color: var(--sg-text-primary); font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer;
   transition: filter 0.15s;
 }
 .results-link:hover { filter: brightness(1.1); }
@@ -255,7 +255,7 @@ function onGoToRange({ rangeId, rotteId }) {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   text-transform: uppercase;
   flex-shrink: 0;
 }
@@ -270,7 +270,7 @@ function onGoToRange({ rangeId, rotteId }) {
 /* ── Empty / placeholder states ── */
 .col-empty {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   padding: 4px 0;
 }
 

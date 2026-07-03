@@ -140,14 +140,14 @@ const selectRange = (range) => {
 .page-title {
   font-size: 22px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--sg-text-primary);
   margin: 0;
   letter-spacing: -0.3px;
 }
 
 .page-sub {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   margin: 0;
 }
 
@@ -165,7 +165,7 @@ const selectRange = (range) => {
 .state-text {
   font-size: 16px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--sg-text-disabled);
   margin: 0;
 }
 
@@ -251,7 +251,7 @@ const selectRange = (range) => {
 .card-name {
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--sg-text-primary);
 }
 
 .locked-chip {
@@ -280,7 +280,7 @@ const selectRange = (range) => {
 
 .card-desc {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -299,7 +299,7 @@ const selectRange = (range) => {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
 }
 
 /* ── Tablet+ ─────────────────────────────────────── */

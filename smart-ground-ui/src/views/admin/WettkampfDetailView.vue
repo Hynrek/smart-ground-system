@@ -430,7 +430,7 @@ onMounted(async () => {
 }
 .back-btn:hover { background: var(--sg-border); }
 
-.view-title { font-size: 22px; font-weight: 700; color: var(--sg-brand); margin: 0 0 4px; }
+.view-title { font-size: 22px; font-weight: 700; color: var(--sg-text-primary); margin: 0 0 4px; }
 
 .status-badge {
   font-size: 11px; font-weight: 700; border-radius: 8px; padding: 3px 10px;
@@ -462,7 +462,7 @@ onMounted(async () => {
 
 .section-header { display: flex; align-items: center; justify-content: space-between; }
 
-.section-title { font-size: 16px; font-weight: 700; color: var(--sg-brand); margin: 0; }
+.section-title { font-size: 16px; font-weight: 700; color: var(--sg-text-primary); margin: 0; }
 
 .add-rotte-btn {
   display: flex; align-items: center; gap: 6px;
@@ -495,7 +495,7 @@ onMounted(async () => {
   display: flex; align-items: center; gap: 8px;
   background: var(--sg-accent-hover); border: none;
   border-radius: 12px; padding: 11px 24px;
-  color: #fff; font-size: 14px; font-weight: 700; font-family: inherit;
+  color: var(--sg-text-primary); font-size: 14px; font-weight: 700; font-family: inherit;
   cursor: pointer; transition: background 0.15s;
 }
 .start-btn:hover:not(:disabled) { background: var(--sg-accent); }
@@ -565,7 +565,7 @@ onMounted(async () => {
 }
 
 .tab-btn.active {
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   border-bottom-color: var(--sg-accent);
 }
 
@@ -624,7 +624,7 @@ onMounted(async () => {
 .passe-name {
   font-size: 14px;
   font-weight: 600;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
 }
 
 .passe-meta {
@@ -648,6 +648,6 @@ onMounted(async () => {
 
 .remove-btn:hover {
   background: rgba(229, 62, 62, 0.08);
-  border-color: #e53e3e;
+  border-color: var(--sg-color-danger);
 }
 </style>

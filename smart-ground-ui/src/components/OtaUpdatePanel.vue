@@ -79,16 +79,16 @@ const trigger = async () => {
 </script>
 
 <style scoped>
-.ota-panel { padding: 10px 18px; border-top: 1px dashed var(--sg-border, #e2e8f0); }
+.ota-panel { padding: 10px 18px; border-top: 1px dashed var(--sg-border, var(--sg-border)); }
 .ota-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .ota-version { display: flex; flex-direction: column; }
-.ota-label { font-size: 11px; color: var(--sg-text-muted, #718096); }
+.ota-label { font-size: 11px; color: var(--sg-text-muted, var(--sg-text-muted)); }
 .ota-current { font-size: 13px; font-weight: 600; }
 .ota-progress { flex: 1; min-width: 160px; }
-.ota-progress-head { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--sg-text-muted, #718096); margin-bottom: 3px; }
-.ota-bar-track { height: 6px; border-radius: 99px; background: var(--sg-bg-panel, #f0f4f8); overflow: hidden; }
-.ota-bar-fill { height: 100%; background: var(--sg-brand, #4fc3f7); transition: width 0.3s; }
+.ota-progress-head { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--sg-text-muted, var(--sg-text-muted)); margin-bottom: 3px; }
+.ota-bar-track { height: 6px; border-radius: 99px; background: var(--sg-bg-panel, var(--sg-bg-panel)); overflow: hidden; }
+.ota-bar-fill { height: 100%; background: var(--sg-brand, var(--sg-accent)); transition: width 0.3s; }
 .ota-trigger { display: flex; gap: 8px; align-items: center; margin-left: auto; }
-.ota-trigger select { padding: 6px 10px; border: 1.5px solid var(--sg-border, #e2e8f0); border-radius: 7px; font-size: 13px; font-family: inherit; }
+.ota-trigger select { padding: 6px 10px; border: 1.5px solid var(--sg-border, var(--sg-border)); border-radius: 7px; font-size: 13px; font-family: inherit; }
 .mono { font-family: monospace; }
 </style>

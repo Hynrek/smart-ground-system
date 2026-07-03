@@ -39,7 +39,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: #1a1a2e;
+  background: var(--sg-bg-page);
   font-family: system-ui, -apple-system, sans-serif;
 }
 
@@ -49,13 +49,13 @@ onMounted(() => {
   align-items: center;
   text-align: center;
   padding: 40px;
-  color: #fff;
+  color: var(--sg-text-primary);
   animation: welcome-fade-in 0.4s ease-out;
 }
 
 .welcome-logo {
   margin-bottom: 28px;
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 .welcome-title {
@@ -63,13 +63,13 @@ onMounted(() => {
   font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.5px;
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 .welcome-subtitle {
   margin: 0;
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--sg-text-faint);
 }
 
 .welcome-progress {

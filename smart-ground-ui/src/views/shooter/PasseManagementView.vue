@@ -827,7 +827,7 @@ const confirmRenameSession = (sessionId) => {
   flex-direction: column;
   min-height: 0;
   background: var(--sg-brand);
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 /* ── Top bar ─────────────────────────────────────── */
@@ -842,7 +842,7 @@ const confirmRenameSession = (sessionId) => {
 
 .back-btn {
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--sg-border);
   border-radius: 10px;
   width: 36px;
   height: 36px;
@@ -859,7 +859,7 @@ const confirmRenameSession = (sessionId) => {
 .page-title {
   font-size: 17px;
   font-weight: 700;
-  color: #fff;
+  color: var(--sg-text-primary);
   margin: 0;
   letter-spacing: -0.3px;
 }
@@ -898,14 +898,14 @@ const confirmRenameSession = (sessionId) => {
 .block-title {
   font-size: 18px;
   font-weight: 700;
-  color: #fff;
+  color: var(--sg-text-primary);
   letter-spacing: -0.3px;
 }
 
 .block-badge {
   font-size: 11px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   background: rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   padding: 2px 8px;
@@ -913,7 +913,7 @@ const confirmRenameSession = (sessionId) => {
 
 .block-desc {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   margin: 0;
   line-height: 1.5;
 }
@@ -929,7 +929,7 @@ const confirmRenameSession = (sessionId) => {
   gap: 5px;
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--sg-text-disabled);
   text-transform: uppercase;
   letter-spacing: 0.6px;
   margin-bottom: 8px;
@@ -938,7 +938,7 @@ const confirmRenameSession = (sessionId) => {
 .range-group-count {
   font-size: 10px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--sg-text-disabled);
   background: rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   padding: 1px 6px;
@@ -966,7 +966,7 @@ const confirmRenameSession = (sessionId) => {
   gap: 5px;
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--sg-text-disabled);
   text-transform: uppercase;
   letter-spacing: 0.6px;
   cursor: pointer;
@@ -974,7 +974,7 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .range-group-header:hover {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
 }
 
 .range-group-chevron {
@@ -994,7 +994,7 @@ const confirmRenameSession = (sessionId) => {
 
 .segment-card {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 14px;
   padding: 12px 14px;
   transition: border-color 0.15s, background 0.15s;
@@ -1023,7 +1023,7 @@ const confirmRenameSession = (sessionId) => {
 .seg-name {
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--sg-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1031,7 +1031,7 @@ const confirmRenameSession = (sessionId) => {
 
 .seg-meta {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
 }
 
 .seg-actions {
@@ -1063,7 +1063,7 @@ const confirmRenameSession = (sessionId) => {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid var(--sg-border-input);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1092,7 +1092,7 @@ const confirmRenameSession = (sessionId) => {
 
 .step-dot-more {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   align-self: center;
 }
 
@@ -1101,7 +1101,7 @@ const confirmRenameSession = (sessionId) => {
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid color-mix(in srgb, var(--sg-accent) 40%, transparent);
   border-radius: 8px;
-  color: #fff;
+  color: var(--sg-text-primary);
   font-size: 14px;
   font-family: inherit;
   padding: 4px 8px;
@@ -1140,7 +1140,7 @@ const confirmRenameSession = (sessionId) => {
 
 .program-card {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 16px;
   overflow: hidden;
   transition: border-color 0.15s;
@@ -1170,7 +1170,7 @@ const confirmRenameSession = (sessionId) => {
 .prog-name {
   font-size: 15px;
   font-weight: 600;
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 .prog-meta-row {
@@ -1181,7 +1181,7 @@ const confirmRenameSession = (sessionId) => {
 
 .prog-meta-item {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
 }
 
 .prog-meta-dot {
@@ -1226,7 +1226,7 @@ const confirmRenameSession = (sessionId) => {
   gap: 5px;
   font-size: 10px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--sg-text-disabled);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1242,11 +1242,11 @@ const confirmRenameSession = (sessionId) => {
   align-items: center;
   gap: 5px;
   background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--sg-border);
   border-radius: 20px;
   padding: 4px 10px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sg-text-muted);
 }
 
 .prog-seg-chip--selected {
@@ -1257,7 +1257,7 @@ const confirmRenameSession = (sessionId) => {
 
 .chip-throws {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
 }
 
 .prog-seg-chip--selected .chip-throws {
@@ -1328,8 +1328,8 @@ const confirmRenameSession = (sessionId) => {
 
 .action-btn--cancel {
   background: transparent;
-  border-color: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.4);
+  border-color: var(--sg-border);
+  color: var(--sg-text-faint);
 }
 
 .action-btn--cancel:hover { background: rgba(255, 255, 255, 0.05); }
@@ -1408,7 +1408,7 @@ const confirmRenameSession = (sessionId) => {
 .create-label {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   display: flex;
@@ -1428,9 +1428,9 @@ const confirmRenameSession = (sessionId) => {
 .create-input {
   width: 100%;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--sg-border);
   border-radius: 10px;
-  color: #fff;
+  color: var(--sg-text-primary);
   font-size: 14px;
   font-family: inherit;
   padding: 10px 12px;
@@ -1445,7 +1445,7 @@ const confirmRenameSession = (sessionId) => {
 .create-no-serien,
 .create-hint {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--sg-text-disabled);
   margin: 0;
   line-height: 1.5;
 }
@@ -1480,9 +1480,9 @@ const confirmRenameSession = (sessionId) => {
   flex: 1;
   padding: 10px 16px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--sg-border);
   border-radius: 10px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   font-size: 13px;
   font-weight: 600;
   font-family: inherit;
@@ -1498,7 +1498,7 @@ const confirmRenameSession = (sessionId) => {
 
 .tab-btn:hover:not(.active) {
   background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--sg-text-muted);
 }
 
 /* ── Active sessions list ───────────────────── */
@@ -1511,7 +1511,7 @@ const confirmRenameSession = (sessionId) => {
 
 .session-card {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 16px;
   padding: 14px 16px;
   display: flex;
@@ -1538,7 +1538,7 @@ const confirmRenameSession = (sessionId) => {
 .session-program {
   font-size: 15px;
   font-weight: 600;
-  color: #fff;
+  color: var(--sg-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1546,7 +1546,7 @@ const confirmRenameSession = (sessionId) => {
 
 .session-range {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
 }
 
 .progress-bar-container {
@@ -1594,7 +1594,7 @@ const confirmRenameSession = (sessionId) => {
 
 .start-modal {
   background: rgba(24, 24, 40, 0.98);
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border: 1.5px solid var(--sg-border);
   border-radius: 20px;
   padding: 24px;
   width: 100%;
@@ -1607,7 +1607,7 @@ const confirmRenameSession = (sessionId) => {
 .start-modal-title {
   font-size: 16px;
   font-weight: 700;
-  color: #fff;
+  color: var(--sg-text-primary);
   margin: 0;
   text-align: center;
 }
@@ -1634,9 +1634,9 @@ const confirmRenameSession = (sessionId) => {
 .start-player-input {
   flex: 1;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--sg-border);
   border-radius: 8px;
-  color: #fff;
+  color: var(--sg-text-primary);
   font-size: 13px;
   font-family: inherit;
   padding: 8px 10px;
@@ -1649,9 +1649,9 @@ const confirmRenameSession = (sessionId) => {
 
 .add-player-btn {
   background: transparent;
-  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border: 1px dashed var(--sg-border-input);
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   font-size: 12px;
   font-family: inherit;
   padding: 8px;
@@ -1661,7 +1661,7 @@ const confirmRenameSession = (sessionId) => {
 
 .add-player-btn:hover {
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--sg-text-muted);
 }
 
 .start-modal-actions {
@@ -1698,12 +1698,12 @@ const confirmRenameSession = (sessionId) => {
 .block-status-dot.dot-done { background: rgba(72, 187, 120, 0.7); }
 
 .block-status-range {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--sg-text-disabled);
   min-width: 60px;
 }
 
 .block-status-name {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sg-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1718,7 +1718,7 @@ const confirmRenameSession = (sessionId) => {
 .total-wuerfe {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--sg-text-disabled);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1738,7 +1738,7 @@ const confirmRenameSession = (sessionId) => {
 }
 
 .ps-name {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--sg-text-muted);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -1753,7 +1753,7 @@ const confirmRenameSession = (sessionId) => {
 
 .ps-pct {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--sg-text-disabled);
   min-width: 36px;
   text-align: right;
 }
@@ -1785,7 +1785,7 @@ const confirmRenameSession = (sessionId) => {
 .pd-name {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sg-text-muted);
 }
 
 .pd-total {
@@ -1804,20 +1804,20 @@ const confirmRenameSession = (sessionId) => {
 
 .completed-score-block {
   flex: 1;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .completed-score-range {
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--sg-text-disabled);
   margin-right: 4px;
 }
 
 .completed-score-pts {
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
   white-space: nowrap;
 }
 </style>

@@ -115,11 +115,11 @@ onMounted(() => {
 
 .top-bar {
   display: flex; align-items: center; gap: 12px;
-  padding: 14px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); flex-shrink: 0;
+  padding: 14px 16px; border-bottom: 1px solid var(--sg-border); flex-shrink: 0;
 }
 
 .back-btn {
-  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--sg-border);
   border-radius: 12px; width: 48px; height: 48px;
   display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
   transition: background 0.15s;
@@ -132,21 +132,21 @@ onMounted(() => {
 
 .state-note {
   margin-top: 24px; padding: 32px; text-align: center;
-  color: rgba(255, 255, 255, 0.5); font-size: 16px;
+  color: var(--sg-text-faint); font-size: 16px;
   border: 1px dashed rgba(255, 255, 255, 0.15); border-radius: 16px;
   display: flex; flex-direction: column; align-items: center; gap: 16px;
 }
 
 .retry-btn {
-  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.18);
+  background: var(--sg-border); border: 1px solid var(--sg-border-input);
   border-radius: 12px; padding: 12px 24px; min-height: 48px;
-  color: #fff; font-size: 15px; font-family: inherit; cursor: pointer;
+  color: var(--sg-text-primary); font-size: 15px; font-family: inherit; cursor: pointer;
 }
 
 .standings { display: flex; flex-direction: column; gap: 10px; }
 
 .standing-block {
-  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--sg-border);
   border-radius: 16px; overflow: hidden;
 }
 
@@ -163,8 +163,8 @@ onMounted(() => {
   box-shadow: inset 3px 0 0 var(--sg-accent, #4299e1);
 }
 
-.rank { font-size: 20px; font-weight: 800; text-align: center; color: rgba(255, 255, 255, 0.6); }
-.rank.medal { color: #fff; }
+.rank { font-size: 20px; font-weight: 800; text-align: center; color: var(--sg-text-muted); }
+.rank.medal { color: var(--sg-text-primary); }
 .rank-1 .rank.medal { color: #ffd75e; }
 .rank-2 .rank.medal { color: #cfd6dd; }
 .rank-3 .rank.medal { color: #e3a06a; }
@@ -182,16 +182,16 @@ onMounted(() => {
 }
 
 .score { font-size: 22px; font-weight: 800; white-space: nowrap; }
-.score .max { font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, 0.5); }
+.score .max { font-size: 14px; font-weight: 600; color: var(--sg-text-faint); }
 
 .player-detail {
   padding: 8px 18px 16px; display: flex; flex-direction: column; gap: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08); background: rgba(0, 0, 0, 0.12);
+  border-top: 1px solid var(--sg-border); background: rgba(0, 0, 0, 0.12);
 }
-.detail-empty { font-size: 14px; color: rgba(255, 255, 255, 0.5); padding: 6px 0; }
+.detail-empty { font-size: 14px; color: var(--sg-text-faint); padding: 6px 0; }
 .passe-line { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
-.passe-label { font-size: 15px; color: rgba(255, 255, 255, 0.7); }
+.passe-label { font-size: 15px; color: var(--sg-text-muted); }
 .passe-pts { font-size: 15px; font-weight: 700; }
 
-.step-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.step-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--sg-border); }
 </style>

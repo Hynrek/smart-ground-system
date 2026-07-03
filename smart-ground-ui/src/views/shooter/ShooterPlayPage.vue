@@ -812,7 +812,7 @@ watch(
 
 .group-modal {
   background: rgba(24, 24, 40, 0.98);
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border: 1.5px solid var(--sg-border);
   border-radius: 20px;
   padding: 28px 24px;
   width: 100%;
@@ -825,7 +825,7 @@ watch(
 .modal-title {
   font-size: 18px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--sg-text-primary);
   margin: 0;
   text-align: center;
 }
@@ -833,7 +833,7 @@ watch(
 .modal-serie-name {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--sg-text-faint);
   text-align: center;
   margin: -12px 0 0;
 }
@@ -849,7 +849,7 @@ watch(
   align-items: center;
   gap: 10px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 10px;
   padding: 10px 12px;
 }
@@ -887,9 +887,9 @@ watch(
   width: 100%;
   padding: 11px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1.5px dashed rgba(255, 255, 255, 0.15);
+  border: 1.5px dashed var(--sg-border-input);
   border-radius: 10px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
   font-size: 13px;
   font-weight: 600;
   font-family: inherit;
@@ -900,7 +900,7 @@ watch(
 .add-player-btn:hover {
   background: rgba(255, 255, 255, 0.07);
   border-color: rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sg-text-muted);
 }
 
 .player-account-badge {
@@ -958,7 +958,7 @@ watch(
 .player-name {
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--sg-text-primary);
 }
 
 .topbar-right {
@@ -1001,7 +1001,7 @@ watch(
 .score-label {
   font-size: 10px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   text-transform: uppercase;
 }
 
@@ -1014,7 +1014,7 @@ watch(
 .score-max {
   font-size: 14px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
 }
 
 /* ── Carousel area ───────────────────────────────── */
@@ -1040,7 +1040,7 @@ watch(
 .section-label {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   text-transform: uppercase;
   letter-spacing: 0.8px;
   display: flex;
@@ -1050,7 +1050,7 @@ watch(
 
 .section-label-count {
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--sg-text-disabled);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -1187,7 +1187,7 @@ watch(
 .card-label {
   font-size: 46px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--sg-text-primary);
   text-align: center;
   line-height: 1.1;
   letter-spacing: 1px;
@@ -1230,12 +1230,12 @@ watch(
 .aschuss-main {
   font-size: 40px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--sg-text-primary);
   line-height: 1;
 }
 
 .aschuss-display .separator {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   font-size: 26px;
 }
 
@@ -1278,13 +1278,13 @@ watch(
 
 .preview-card {
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--sg-border);
   border-radius: 12px;
   padding: 12px 14px;
   text-align: center;
   opacity: 0.3;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
   cursor: default;
 }
 
@@ -1336,7 +1336,7 @@ watch(
 .final-title {
   font-size: 18px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--sg-text-primary);
   margin-bottom: 16px;
 }
 
@@ -1400,7 +1400,7 @@ watch(
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   padding: 16px 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--sg-border);
   flex-shrink: 0;
   background: rgba(10, 10, 18, 0.8);
 }
@@ -1464,7 +1464,7 @@ watch(
 
 .fail-sheet {
   background: rgba(24, 24, 40, 0.98);
-  border-top: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-top: 1.5px solid var(--sg-border);
   border-radius: 18px 18px 0 0;
   padding: 12px 20px 24px;
   display: flex;
@@ -1579,7 +1579,7 @@ watch(
   gap: 12px;
   padding: 10px 14px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 10px;
 }
 
@@ -1591,7 +1591,7 @@ watch(
 .rank-badge {
   font-size: 13px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   min-width: 20px;
 }
 
@@ -1616,7 +1616,7 @@ watch(
 .group-points-max {
   font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
 }
 
 /* ── Progress dots ──────────────────────────────── */
@@ -1663,7 +1663,7 @@ watch(
 
 .correction-picker {
   background: rgba(24, 24, 40, 0.98);
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border: 1.5px solid var(--sg-border);
   border-radius: 18px;
   padding: 24px 20px;
   width: min(320px, 90vw);
@@ -1675,7 +1675,7 @@ watch(
 .picker-title {
   font-size: 15px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--sg-text-primary);
   text-align: center;
 }
 
@@ -1733,13 +1733,13 @@ watch(
   flex-direction: column;
   gap: 8px;
   padding: 12px 0 4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--sg-border);
 }
 
 .audit-title {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   text-transform: uppercase;
   letter-spacing: 0.8px;
 }
@@ -1823,7 +1823,7 @@ watch(
 .next-shooter-label {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -1831,13 +1831,13 @@ watch(
 .next-shooter-name {
   font-size: 36px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--sg-text-primary);
   line-height: 1.15;
 }
 
 .next-shooter-hint {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
 }
 
 .next-shooter-start-btn {

@@ -9,7 +9,7 @@
             {{ isCreate ? 'Neue Passe-Vorlage' : editingName }}
           </h2>
           <button class="drawer-close" aria-label="Schließen" @click="$emit('close')">
-            <Icons icon="x" :size="16" color="#718096" />
+            <Icons icon="x" :size="16" color="rgba(255,255,255,0.62)" />
           </button>
         </div>
 
@@ -76,7 +76,7 @@
                   data-testid="remove-serie-btn"
                   @click="removeSerie(i)"
                 >
-                  <Icons icon="x" :size="11" color="#a0aec0" />
+                  <Icons icon="x" :size="11" color="rgba(255,255,255,0.45)" />
                 </button>
               </div>
             </div>
@@ -110,7 +110,7 @@
               data-testid="delete-btn"
               @click="confirmingDelete = true"
             >
-              <Icons icon="trash" :size="13" color="#e53e3e" />
+              <Icons icon="trash" :size="13" color="#fc8181" />
               Passe löschen
             </button>
           </template>
@@ -244,7 +244,7 @@ defineExpose({ selectedSerien, confirmingDelete })
   bottom: 0;
   width: 420px;
   max-width: 100vw;
-  background: #fff;
+  background: var(--sg-bg-card);
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
   z-index: 50;
   display: flex;
@@ -264,14 +264,14 @@ defineExpose({ selectedSerien, confirmingDelete })
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px 16px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--sg-border);
   flex-shrink: 0;
 }
 
 .drawer-title {
   font-size: 16px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--sg-text-primary);
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -280,7 +280,7 @@ defineExpose({ selectedSerien, confirmingDelete })
 
 .drawer-close {
   background: transparent;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--sg-border);
   border-radius: 6px;
   width: 30px;
   height: 30px;
@@ -293,7 +293,7 @@ defineExpose({ selectedSerien, confirmingDelete })
 }
 
 .drawer-close:hover {
-  background: #f7fafc;
+  background: var(--sg-bg-panel);
 }
 
 /* ── Body ─────────────────────────────────────────────────────────────── */
@@ -316,7 +316,7 @@ defineExpose({ selectedSerien, confirmingDelete })
 .field-label {
   font-size: 11.5px;
   font-weight: 600;
-  color: #718096;
+  color: var(--sg-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   display: flex;
@@ -327,19 +327,19 @@ defineExpose({ selectedSerien, confirmingDelete })
 .field-input {
   width: 100%;
   padding: 9px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--sg-border);
   border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
-  color: #1a1a2e;
-  background: #fff;
+  color: var(--sg-text-primary);
+  background: var(--sg-bg-card);
   outline: none;
   transition: border-color 0.15s;
   box-sizing: border-box;
 }
 
 .field-input:focus {
-  border-color: #4fc3f7;
+  border-color: var(--sg-accent);
 }
 
 /* ── Serie picker ────────────────────────────────────────────────────── */
@@ -349,7 +349,7 @@ defineExpose({ selectedSerien, confirmingDelete })
   gap: 12px;
   max-height: 260px;
   overflow-y: auto;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--sg-border);
   border-radius: 8px;
   padding: 8px;
 }
@@ -357,7 +357,7 @@ defineExpose({ selectedSerien, confirmingDelete })
 .picker-group-label {
   font-size: 10.5px;
   font-weight: 700;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 4px 6px 2px;
@@ -368,9 +368,9 @@ defineExpose({ selectedSerien, confirmingDelete })
   align-items: center;
   width: 100%;
   padding: 8px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--sg-border);
   border-radius: 7px;
-  background: #fff;
+  background: var(--sg-bg-card);
   cursor: pointer;
   text-align: left;
   transition: all 0.15s;
@@ -379,7 +379,7 @@ defineExpose({ selectedSerien, confirmingDelete })
 }
 
 .picker-item:hover {
-  background: #f7f8fc;
+  background: var(--sg-bg-panel);
 }
 
 .picker-item.selected {
@@ -391,17 +391,17 @@ defineExpose({ selectedSerien, confirmingDelete })
   flex: 1;
   font-size: 13px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--sg-text-primary);
 }
 
 .picker-item-meta {
   font-size: 11px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
 }
 
 .picker-empty {
   font-size: 13px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   margin: 0;
   padding: 8px 0;
 }
@@ -410,7 +410,7 @@ defineExpose({ selectedSerien, confirmingDelete })
 .step-count {
   font-size: 11px;
   font-weight: 600;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   text-transform: none;
   letter-spacing: 0;
 }
@@ -426,7 +426,7 @@ defineExpose({ selectedSerien, confirmingDelete })
   align-items: center;
   gap: 8px;
   padding: 7px 10px;
-  background: #f7f8fc;
+  background: var(--sg-bg-panel);
   border-radius: 7px;
   border: 1px solid rgba(0, 0, 0, 0.04);
 }
@@ -440,7 +440,7 @@ defineExpose({ selectedSerien, confirmingDelete })
   display: block;
   font-size: 12.5px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--sg-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -449,7 +449,7 @@ defineExpose({ selectedSerien, confirmingDelete })
 .selected-meta {
   display: block;
   font-size: 11px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
 }
 
 .step-remove {
@@ -474,7 +474,7 @@ defineExpose({ selectedSerien, confirmingDelete })
   justify-content: flex-end;
   gap: 10px;
   padding: 16px 24px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--sg-border);
   flex-shrink: 0;
 }
 
@@ -485,15 +485,15 @@ defineExpose({ selectedSerien, confirmingDelete })
   justify-content: center;
   gap: 10px;
   padding: 12px 24px;
-  border-top: 1px solid #fee2e2;
-  background: #fff5f5;
+  border-top: 1px solid var(--sg-color-danger-bg);
+  background: var(--sg-color-danger-bg);
   flex-shrink: 0;
   flex-wrap: wrap;
 }
 
 .delete-confirm-text {
   font-size: 13px;
-  color: #e53e3e;
+  color: var(--sg-color-danger);
   font-weight: 500;
 }
 
@@ -518,29 +518,29 @@ defineExpose({ selectedSerien, confirmingDelete })
 }
 
 .btn--primary {
-  background: #1a1a2e;
-  color: #fff;
-  border-color: #1a1a2e;
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
+  border-color: var(--sg-text-primary);
 }
 
 .btn--primary:hover:not(:disabled) {
-  background: #0f0f1a;
+  background: var(--sg-accent-hover);
 }
 
 .btn--ghost {
   background: transparent;
-  border-color: #e2e8f0;
-  color: #4a5568;
+  border-color: var(--sg-border);
+  color: var(--sg-text-muted);
 }
 
 .btn--ghost:hover {
-  background: #f7fafc;
+  background: var(--sg-bg-panel);
 }
 
 .btn--danger-ghost {
   background: transparent;
   border-color: rgba(229, 62, 62, 0.3);
-  color: #e53e3e;
+  color: var(--sg-color-danger);
 }
 
 .btn--danger-ghost:hover {
@@ -550,7 +550,7 @@ defineExpose({ selectedSerien, confirmingDelete })
 .btn--danger {
   background: rgba(229, 62, 62, 0.1);
   border-color: rgba(229, 62, 62, 0.4);
-  color: #e53e3e;
+  color: var(--sg-color-danger);
 }
 
 .btn--danger:hover {

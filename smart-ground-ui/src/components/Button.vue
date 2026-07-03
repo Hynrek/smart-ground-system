@@ -67,18 +67,20 @@ defineEmits(['click']);
   justify-content: center;
 }
 
+/* Solid accent fill with dark glyph — same contrast move as the shooter icon chips */
 .btn-primary {
-  background: var(--sg-brand);
-  color: var(--sg-bg-card);
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
+  font-weight: 600;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--sg-accent);
+  background: var(--sg-accent-hover);
 }
 
 .btn-ghost {
   background: transparent;
-  border: 1px solid var(--sg-border);
+  border: 1px solid var(--sg-border-input);
   color: var(--sg-text-muted);
 }
 

@@ -6,7 +6,7 @@ import vueDevTools from 'vite-plugin-vue-devtools';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     vue(),
     vueDevTools(),
@@ -14,7 +14,9 @@ export default defineConfig({
     // context. Plain http://<lan-ip>:5173 on a phone is not secure, so the
     // browser silently refuses the camera. Self-signed https satisfies the
     // secure-context check once the cert warning is accepted on the phone.
-    basicSsl(),
+    // `--mode preview` (automated browser verification) skips it — headless
+    // browsers reject the self-signed cert.
+    ...(mode === 'preview' ? [] : [basicSsl()]),
   ],
   resolve: {
     alias: {
@@ -29,12 +31,16 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
+        // Backend CORS only allows the https origin; requests are same-origin
+        // for the browser, so rewriting Origin here is transparent to it.
+        headers: { origin: 'https://localhost:5173' },
       },
       '/ws': {
         target: 'http://localhost:8080',
         changeOrigin: true,
         ws: true,
+        headers: { origin: 'https://localhost:5173' },
       },
     },
   },
-});
+}));

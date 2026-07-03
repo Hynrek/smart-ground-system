@@ -383,7 +383,7 @@ async function submit() {
 }
 
 .modal-container {
-  background: white;
+  background: var(--sg-bg-card);
   border-radius: 8px;
   width: 540px;
   max-width: 95vw;
@@ -410,13 +410,13 @@ async function submit() {
   border: none;
   font-size: 1.1rem;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--sg-text-muted);
   padding: 0.25rem;
 }
 
 .modal-tabs {
   display: flex;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--sg-border);
   padding: 0 1.5rem;
   margin-top: 1rem;
 }
@@ -427,14 +427,14 @@ async function submit() {
   background: none;
   cursor: pointer;
   font-size: 0.9rem;
-  color: #6b7280;
+  color: var(--sg-text-muted);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
 }
 
 .tab.active {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
+  color: var(--sg-accent);
+  border-bottom-color: var(--sg-accent);
   font-weight: 600;
 }
 
@@ -469,45 +469,45 @@ async function submit() {
 
 .form-group label {
   font-size: 0.78rem;
-  color: #6b7280;
+  color: var(--sg-text-muted);
   font-weight: 500;
 }
 
 .form-group input,
 .form-group select {
   padding: 0.55rem 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--sg-border-input);
   border-radius: 4px;
   font-size: 0.9rem;
 }
 
 .form-group input:disabled,
 .form-group select:disabled {
-  background: #f9fafb;
-  color: #9ca3af;
+  background: var(--sg-bg-panel);
+  color: var(--sg-text-faint);
 }
 
 .input-error {
-  border-color: #ef4444 !important;
+  border-color: var(--sg-color-danger) !important;
 }
 
 .error-msg {
   font-size: 0.75rem;
-  color: #ef4444;
+  color: var(--sg-color-danger);
 }
 
 .field-hint {
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--sg-text-faint);
 }
 
 .modal-footer {
   padding: 0.85rem 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--sg-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #f9fafb;
+  background: var(--sg-bg-panel);
   border-radius: 0 0 8px 8px;
 }
 
@@ -530,12 +530,12 @@ async function submit() {
 }
 
 .btn-primary {
-  background: #2563eb;
+  background: var(--sg-accent);
   color: white;
 }
 
 .btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--sg-bg-panel);
+  color: var(--sg-text-muted);
 }
 </style>

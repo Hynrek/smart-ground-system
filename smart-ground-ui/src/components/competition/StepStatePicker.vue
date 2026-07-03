@@ -45,7 +45,7 @@ const isDouble = computed(() => [StepType.PAIR, StepType.A_SCHUSS].includes(prop
   border-radius: 10px;
   border: 1px solid var(--sg-border);
   background: var(--sg-bg-card);
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   font: inherit;
   font-weight: 600;
   cursor: pointer;

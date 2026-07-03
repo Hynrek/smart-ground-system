@@ -33,8 +33,8 @@ src/
 ├── services/          # API layer — xxxApi.js per backend domain (see Services)
 ├── mappers/           # API shape → UI model (device/range/smartbox domains)
 ├── composables/       # use* composition functions
-├── constants/         # stepModes.js, playEnums.js, deviceTypes.js, ota.js, werfertokens.js
-├── assets/ styles/    # base/main CSS, logo SVGs, color-palettes.css
+├── constants/         # stepModes.js, playEnums.js, deviceTypes.js, ota.js, qr.js
+├── assets/            # main.css (single source of design tokens), logo SVGs
 └── router/index.js    # Permission-based route guards (see Routing)
 ```
 
@@ -195,7 +195,7 @@ Naming: `xxxApi.js` wraps backend endpoints; a `xxxService.js` would hold local 
 - **No direct API calls in components**
 - **Prop drilling max 2 levels** — lift deeper data into a store
 - **German display labels** in UI text (Platz, Werfer, Passe, Wettkampf, Rotte, Stechen); identifiers stay English; inline comments in English
-- **Design tokens** from `constants/werfertokens.js` in Werfer-related components — no hard-coded values
+- **Design tokens** from the `--sg-*` custom properties in `assets/main.css` — no hard-coded colors. **One dark palette for the whole product** (admin and shooter): navy canvas (`--sg-bg-page`), raised surfaces (`--sg-bg-card`/`--sg-bg-panel`), white-alpha text ramp (`--sg-text-primary/muted/faint/disabled`), cyan accent. Card "glow" treatment via the global `.sg-card-surface` utility (`--sg-card-accent` drives the hue); admin/dense screens add `.sg-card-surface--calm` — same language, lower intensity. Solid accent fills carry dark glyphs (`color: var(--sg-surface-0)`), never white. There is no light theme and no palette switcher.
 - **Remove unused code eagerly** — delete unused methods, components, stores, services, imports, and files rather than leaving them
 - **QR check-in payload**: always build/parse via `constants/qr.js` (`smartground://checkin/<token>`) — never hard-code the prefix
 

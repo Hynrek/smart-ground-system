@@ -9,7 +9,7 @@
             {{ isCreate ? 'Neue Platz-Serie' : editingName }}
           </h2>
           <button class="drawer-close" aria-label="Schließen" @click="$emit('close')">
-            <Icons icon="x" :size="16" color="#718096" />
+            <Icons icon="x" :size="16" color="rgba(255,255,255,0.62)" />
           </button>
         </div>
 
@@ -111,7 +111,7 @@
                 <span class="step-label" :aria-label="stepAriaLabel(step)">{{ stepLabel(step) }}</span>
                 <span class="step-mode">{{ stepModeLabel(step.type) }}</span>
                 <button class="step-remove" @click="removeStep(i)">
-                  <Icons icon="x" :size="11" color="#a0aec0" />
+                  <Icons icon="x" :size="11" color="rgba(255,255,255,0.45)" />
                 </button>
               </div>
             </div>
@@ -145,7 +145,7 @@
               data-testid="delete-btn"
               @click="confirmingDelete = true"
             >
-              <Icons icon="trash" :size="13" color="#e53e3e" />
+              <Icons icon="trash" :size="13" color="#fc8181" />
               Serie löschen
             </button>
           </template>
@@ -353,7 +353,7 @@ defineExpose({ stepMode, pairPending, published });
   bottom: 0;
   width: 420px;
   max-width: 100vw;
-  background: #fff;
+  background: var(--sg-bg-card);
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
   z-index: 50;
   display: flex;
@@ -371,14 +371,14 @@ defineExpose({ stepMode, pairPending, published });
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px 16px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--sg-border);
   flex-shrink: 0;
 }
 
 .drawer-title {
   font-size: 16px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--sg-text-primary);
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -387,7 +387,7 @@ defineExpose({ stepMode, pairPending, published });
 
 .drawer-close {
   background: transparent;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--sg-border);
   border-radius: 6px;
   width: 30px;
   height: 30px;
@@ -399,7 +399,7 @@ defineExpose({ stepMode, pairPending, published });
   transition: background 0.15s;
 }
 
-.drawer-close:hover { background: #f7fafc; }
+.drawer-close:hover { background: var(--sg-bg-panel); }
 
 /* ── Body ─────────────────────────────────────────────────────────────── */
 .drawer-body {
@@ -421,7 +421,7 @@ defineExpose({ stepMode, pairPending, published });
 .field-label {
   font-size: 11.5px;
   font-weight: 600;
-  color: #718096;
+  color: var(--sg-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   display: flex;
@@ -433,24 +433,24 @@ defineExpose({ stepMode, pairPending, published });
 .field-select {
   width: 100%;
   padding: 9px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--sg-border);
   border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
-  color: #1a1a2e;
-  background: #fff;
+  color: var(--sg-text-primary);
+  background: var(--sg-bg-card);
   outline: none;
   transition: border-color 0.15s;
   box-sizing: border-box;
 }
 
 .field-input:focus,
-.field-select:focus { border-color: #4fc3f7; }
+.field-select:focus { border-color: var(--sg-accent); }
 
 .field-readonly {
   font-size: 14px;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--sg-text-muted);
   padding: 9px 0;
 }
 
@@ -467,20 +467,20 @@ defineExpose({ stepMode, pairPending, published });
   justify-content: center;
   gap: 6px;
   padding: 8px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--sg-border);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
   font-family: inherit;
-  background: #fff;
-  color: #4a5568;
+  background: var(--sg-bg-card);
+  color: var(--sg-text-muted);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 /* Active fill + border come from the mode color via inline :style. */
 .type-btn.active {
-  color: #2d3748;
+  color: var(--sg-text-primary);
 }
 
 .type-dot {
@@ -490,7 +490,7 @@ defineExpose({ stepMode, pairPending, published });
   flex-shrink: 0;
 }
 
-.type-btn:hover:not(.active) { background: #f7fafc; }
+.type-btn:hover:not(.active) { background: var(--sg-bg-panel); }
 
 /* ── Position grid ───────────────────────────────────────────────────── */
 .position-grid {
@@ -502,12 +502,12 @@ defineExpose({ stepMode, pairPending, published });
 .pos-btn {
   width: 48px;
   height: 48px;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--sg-border);
   border-radius: 10px;
   font-size: 18px;
   font-weight: 800;
-  color: #1a1a2e;
-  background: #fff;
+  color: var(--sg-text-primary);
+  background: var(--sg-bg-card);
   cursor: pointer;
   transition: all 0.15s;
   display: flex;
@@ -516,19 +516,19 @@ defineExpose({ stepMode, pairPending, published });
 }
 
 .pos-btn:hover {
-  border-color: #4fc3f7;
+  border-color: var(--sg-accent);
   background: rgba(79, 195, 247, 0.06);
 }
 
 .pos-btn--pending {
   background: rgba(79, 195, 247, 0.15);
-  border-color: #4fc3f7;
-  color: #0288d1;
+  border-color: var(--sg-accent);
+  color: var(--sg-color-info-text);
 }
 
 .pending-hint {
   font-size: 11px;
-  color: #0288d1;
+  color: var(--sg-color-info-text);
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
@@ -538,7 +538,7 @@ defineExpose({ stepMode, pairPending, published });
 .step-count {
   font-size: 11px;
   font-weight: 600;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   text-transform: none;
   letter-spacing: 0;
 }
@@ -556,7 +556,7 @@ defineExpose({ stepMode, pairPending, published });
   align-items: center;
   gap: 8px;
   padding: 7px 10px;
-  background: #f7f8fc;
+  background: var(--sg-bg-panel);
   border-radius: 7px;
   border: 1px solid rgba(0, 0, 0, 0.04);
 }
@@ -571,7 +571,7 @@ defineExpose({ stepMode, pairPending, published });
 .step-label {
   flex: 1;
   font-size: 12.5px;
-  color: #4a5568;
+  color: var(--sg-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -581,7 +581,7 @@ defineExpose({ stepMode, pairPending, published });
   flex-shrink: 0;
   font-size: 10.5px;
   font-weight: 600;
-  color: #718096;
+  color: var(--sg-text-muted);
   background: rgba(0, 0, 0, 0.05);
   padding: 2px 7px;
   border-radius: 9px;
@@ -607,7 +607,7 @@ defineExpose({ stepMode, pairPending, published });
   justify-content: flex-end;
   gap: 10px;
   padding: 16px 24px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--sg-border);
   flex-shrink: 0;
 }
 
@@ -618,15 +618,15 @@ defineExpose({ stepMode, pairPending, published });
   justify-content: center;
   gap: 10px;
   padding: 12px 24px;
-  border-top: 1px solid #fee2e2;
-  background: #fff5f5;
+  border-top: 1px solid var(--sg-color-danger-bg);
+  background: var(--sg-color-danger-bg);
   flex-shrink: 0;
   flex-wrap: wrap;
 }
 
 .delete-confirm-text {
   font-size: 13px;
-  color: #e53e3e;
+  color: var(--sg-color-danger);
   font-weight: 500;
 }
 
@@ -648,25 +648,25 @@ defineExpose({ stepMode, pairPending, published });
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn--primary {
-  background: #1a1a2e;
-  color: #fff;
-  border-color: #1a1a2e;
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
+  border-color: var(--sg-text-primary);
 }
 
-.btn--primary:hover:not(:disabled) { background: #0f0f1a; }
+.btn--primary:hover:not(:disabled) { background: var(--sg-accent-hover); }
 
 .btn--ghost {
   background: transparent;
-  border-color: #e2e8f0;
-  color: #4a5568;
+  border-color: var(--sg-border);
+  color: var(--sg-text-muted);
 }
 
-.btn--ghost:hover { background: #f7fafc; }
+.btn--ghost:hover { background: var(--sg-bg-panel); }
 
 .btn--danger-ghost {
   background: transparent;
   border-color: rgba(229, 62, 62, 0.3);
-  color: #e53e3e;
+  color: var(--sg-color-danger);
 }
 
 .btn--danger-ghost:hover { background: rgba(229, 62, 62, 0.06); }
@@ -674,7 +674,7 @@ defineExpose({ stepMode, pairPending, published });
 .btn--danger {
   background: rgba(229, 62, 62, 0.1);
   border-color: rgba(229, 62, 62, 0.4);
-  color: #e53e3e;
+  color: var(--sg-color-danger);
 }
 
 .btn--danger:hover { background: rgba(229, 62, 62, 0.18); }
@@ -692,7 +692,7 @@ defineExpose({ stepMode, pairPending, published });
   height: 22px;
   border-radius: 11px;
   border: none;
-  background: #cbd5e0;
+  background: var(--sg-text-faint);
   cursor: pointer;
   transition: background 0.2s;
   flex-shrink: 0;
@@ -700,7 +700,7 @@ defineExpose({ stepMode, pairPending, published });
 }
 
 .toggle-btn--on {
-  background: #4fc3f7;
+  background: var(--sg-accent);
 }
 
 .toggle-thumb {
@@ -710,7 +710,7 @@ defineExpose({ stepMode, pairPending, published });
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--sg-bg-card);
   transition: transform 0.2s;
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }

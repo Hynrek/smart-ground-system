@@ -75,8 +75,8 @@ const onPickUser = (user) => {
 
 <style scoped>
 .rotte-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--sg-bg-card);
+  border: 1px solid var(--sg-border);
   border-radius: 14px;
   padding: 14px 16px;
   display: flex; flex-direction: column; gap: 12px;
@@ -89,14 +89,14 @@ const onPickUser = (user) => {
 
 .rotte-name-input {
   flex: 1; background: transparent;
-  border: none; border-bottom: 1px solid #e2e8f0;
-  color: #1a1a2e; font-size: 14px; font-weight: 700; font-family: inherit;
+  border: none; border-bottom: 1px solid var(--sg-border);
+  color: var(--sg-text-primary); font-size: 14px; font-weight: 700; font-family: inherit;
   padding: 2px 4px; outline: none;
 }
-.rotte-name-input:focus { border-bottom-color: #4fc3f7; }
+.rotte-name-input:focus { border-bottom-color: var(--sg-accent); }
 
 .payment-summary {
-  font-size: 11px; color: #a0aec0; white-space: nowrap;
+  font-size: 11px; color: var(--sg-text-faint); white-space: nowrap;
 }
 
 .player-list { display: flex; flex-direction: column; gap: 6px; }
@@ -106,15 +106,15 @@ const onPickUser = (user) => {
 }
 
 .player-num {
-  font-size: 12px; color: #a0aec0; width: 20px; flex-shrink: 0;
+  font-size: 12px; color: var(--sg-text-faint); width: 20px; flex-shrink: 0;
 }
 
 .player-name-locked {
   flex: 1;
-  background: #f7fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--sg-bg-panel);
+  border: 1px solid var(--sg-border);
   border-radius: 8px;
-  color: #2d3748; font-size: 13px;
+  color: var(--sg-text-primary); font-size: 13px;
   padding: 6px 10px;
 }
 
@@ -124,7 +124,7 @@ const onPickUser = (user) => {
   display: flex; align-items: center; flex-shrink: 0;
   transition: background 0.15s;
 }
-.icon-btn:hover { background: #fff5f5; }
+.icon-btn:hover { background: var(--sg-color-danger-bg); }
 
 .add-section {
   position: relative;
@@ -133,18 +133,18 @@ const onPickUser = (user) => {
 .add-player-btn {
   width: 100%;
   background: transparent;
-  border: 1px dashed #bee3f8;
+  border: 1px dashed color-mix(in srgb, var(--sg-accent) 35%, transparent);
   border-radius: 8px;
-  color: #0288d1;
+  color: var(--sg-color-info-text);
   font-size: 12px; font-family: inherit;
   padding: 7px; cursor: pointer; transition: all 0.15s;
 }
 .add-player-btn:hover:not(:disabled) {
   background: rgba(79,195,247,0.06);
-  border-color: #4fc3f7;
+  border-color: var(--sg-accent);
 }
 .add-player-btn:disabled {
   opacity: 0.35; cursor: not-allowed;
-  border-color: #e2e8f0; color: #a0aec0;
+  border-color: var(--sg-border); color: var(--sg-text-faint);
 }
 </style>

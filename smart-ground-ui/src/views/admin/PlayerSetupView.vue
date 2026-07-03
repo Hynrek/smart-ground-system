@@ -394,7 +394,7 @@ const proceedToSession = () => {
 
 .setup-header h1 {
   font-size: 2.5rem;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin: 0 0 0.5rem 0;
 }
 
@@ -423,7 +423,7 @@ const proceedToSession = () => {
 }
 
 .section h2 {
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin-top: 0;
   border-bottom: 2px solid var(--sg-border);
   padding-bottom: 1rem;
@@ -483,7 +483,7 @@ const proceedToSession = () => {
 
 .btn-primary {
   background: var(--sg-accent-hover);
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -499,7 +499,7 @@ const proceedToSession = () => {
 
 .btn-secondary {
   background: var(--sg-text-faint);
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 .btn-secondary:hover {
@@ -514,7 +514,7 @@ const proceedToSession = () => {
 
 .btn-assign {
   background: var(--sg-color-success);
-  color: #fff;
+  color: var(--sg-text-primary);
   width: 100%;
 }
 
@@ -617,7 +617,7 @@ const proceedToSession = () => {
 
 .player-name {
   font-weight: 600;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
 }
 
 .player-meta {
@@ -653,7 +653,7 @@ const proceedToSession = () => {
 
 .group-header h4 {
   margin: 0;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
 }
 
 .group-players {

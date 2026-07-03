@@ -263,7 +263,7 @@ onMounted(() => {
   padding: 24px 28px 20px; border-bottom: 1px solid var(--sg-border); flex-shrink: 0;
 }
 
-.view-title { font-size: 22px; font-weight: 700; color: var(--sg-brand); margin: 0 0 4px; }
+.view-title { font-size: 22px; font-weight: 700; color: var(--sg-text-primary); margin: 0 0 4px; }
 
 .view-subtitle { font-size: 13px; color: var(--sg-text-muted); margin: 0; }
 
@@ -279,7 +279,7 @@ onMounted(() => {
   color: var(--sg-text-faint); font-size: 13px; font-weight: 600; font-family: inherit;
   cursor: pointer; transition: all 0.15s;
 }
-.tab-btn.active { color: var(--sg-brand); border-bottom-color: var(--sg-accent); }
+.tab-btn.active { color: var(--sg-text-primary); border-bottom-color: var(--sg-accent); }
 .tab-btn:hover:not(.active) { color: var(--sg-text-muted); }
 
 .tab-count {
@@ -307,7 +307,7 @@ onMounted(() => {
 
 .ec-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-.ec-name { font-size: 15px; font-weight: 600; color: var(--sg-brand); }
+.ec-name { font-size: 15px; font-weight: 600; color: var(--sg-text-primary); }
 
 .phase-chip {
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
@@ -358,7 +358,7 @@ onMounted(() => {
 
 .create-input {
   background: var(--sg-bg-panel); border: 1px solid var(--sg-border);
-  border-radius: 10px; color: var(--sg-brand); font-size: 14px; font-family: inherit;
+  border-radius: 10px; color: var(--sg-text-primary); font-size: 14px; font-family: inherit;
   padding: 10px 12px; outline: none; transition: border-color 0.15s;
 }
 .create-input:focus { border-color: var(--sg-accent); }

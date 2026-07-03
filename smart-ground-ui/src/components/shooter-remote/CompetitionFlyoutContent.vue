@@ -118,7 +118,7 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
 .step-name {
   font-size: 10px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
   white-space: nowrap;
 }
 
@@ -143,7 +143,7 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
 /* ── Tab bar ──────────────────────────────────────── */
 .tab-bar {
   display: flex;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--sg-border);
 }
 
 .tab-btn {
@@ -152,7 +152,7 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   font-size: 11px;
   font-weight: 700;
   font-family: inherit;
@@ -167,7 +167,7 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
 }
 
 .tab-btn:hover:not(.active) {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
 }
 
 /* ── Serien view ──────────────────────────────────── */
@@ -180,7 +180,7 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
 
 .serie-card {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -188,7 +188,7 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
 .serie-card-header {
   font-size: 11px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sg-text-muted);
   padding: 8px 10px 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -205,7 +205,7 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
 
 .rotte-name {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
 }
 
 .rotte-chip {
@@ -257,7 +257,7 @@ const rowStatusLabel = (status) => ({ done: '✓ Fertig', in_progress: '◑ Akti
 .score {
   font-size: 11px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   white-space: nowrap;
 }
 

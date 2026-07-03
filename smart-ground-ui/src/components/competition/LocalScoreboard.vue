@@ -63,7 +63,7 @@ const rankColor = (index) => RANK_COLORS[index] ?? 'rgba(255,255,255,0.3)'
 <style scoped>
 .local-scoreboard {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 16px;
   padding: 14px 16px;
   display: flex;
@@ -82,7 +82,7 @@ const rankColor = (index) => RANK_COLORS[index] ?? 'rgba(255,255,255,0.3)'
 .scoreboard-title {
   font-size: 11px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   text-transform: uppercase;
   letter-spacing: 0.8px;
   flex: 1;
@@ -91,7 +91,7 @@ const rankColor = (index) => RANK_COLORS[index] ?? 'rgba(255,255,255,0.3)'
 .scoreboard-badge {
   font-size: 11px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   background: rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   padding: 2px 8px;
@@ -165,7 +165,7 @@ const rankColor = (index) => RANK_COLORS[index] ?? 'rgba(255,255,255,0.3)'
 
 .rotte-name {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--sg-text-disabled);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -175,7 +175,7 @@ const rankColor = (index) => RANK_COLORS[index] ?? 'rgba(255,255,255,0.3)'
 .player-points {
   font-size: 13px;
   font-weight: 700;
-  color: #4fc3f7;
+  color: var(--sg-accent);
   white-space: nowrap;
   flex-shrink: 0;
 }

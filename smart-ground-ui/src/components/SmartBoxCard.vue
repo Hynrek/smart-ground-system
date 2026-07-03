@@ -211,7 +211,7 @@
                     </select>
                   </div>
                   <div v-if="firmwareConflict" class="firmware-warning">
-                    <Icons icon="alert" :size="13" color="#c05621" />
+                    <Icons icon="alert" :size="13" color="#fac775" />
                     {{ firmwareConflict }}
                   </div>
                   <div class="form-actions">
@@ -512,10 +512,10 @@ const deleteDevice = (deviceId) => {
 
 <style scoped>
 .box-card {
-  background: #fff;
+  background: var(--sg-bg-card);
   border-radius: 12px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
-  border: 1px solid #f0f4f8;
+  border: 1px solid var(--sg-border);
   overflow: hidden;
   transition: border-color 0.2s;
 }
@@ -529,8 +529,8 @@ const deleteDevice = (deviceId) => {
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid #f0f4f8;
-  background: #fff;
+  border-bottom: 1px solid var(--sg-border);
+  background: var(--sg-bg-card);
 }
 
 .box-card.action-mode .box-header {
@@ -541,13 +541,13 @@ const deleteDevice = (deviceId) => {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: #f4f6fb;
-  border: 1px solid #e2e8f0;
+  background: var(--sg-bg-panel);
+  border: 1px solid var(--sg-border);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: #718096;
+  color: var(--sg-text-muted);
 }
 
 .box-info {
@@ -563,7 +563,7 @@ const deleteDevice = (deviceId) => {
 
 .rename-form input {
   padding: 4px 8px;
-  border: 1.5px solid #4fc3f7;
+  border: 1.5px solid var(--sg-accent);
   border-radius: 6px;
   font-size: 14px;
   font-weight: 700;
@@ -580,14 +580,14 @@ const deleteDevice = (deviceId) => {
 .box-name {
   font-weight: 700;
   font-size: 15px;
-  color: #1a1a2e;
+  color: var(--sg-text-primary);
 }
 
 .edit-btn {
   background: none;
   border: none;
   cursor: pointer;
-  color: #c0c8d8;
+  color: var(--sg-text-faint);
   padding: 2px;
   display: flex;
   align-items: center;
@@ -601,7 +601,7 @@ const deleteDevice = (deviceId) => {
 
 .box-mac {
   font-size: 11.5px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   font-family: monospace;
   margin-top: 1px;
 }
@@ -621,23 +621,23 @@ const deleteDevice = (deviceId) => {
 
 .status-label {
   font-size: 12px;
-  color: #555;
+  color: var(--sg-text-muted);
 }
 
 .firmware-badge {
   font-size: 11px;
-  color: #a0aec0;
-  background: #f4f6fb;
+  color: var(--sg-text-faint);
+  background: var(--sg-bg-panel);
   border-radius: 5px;
   padding: 2px 7px;
 }
 
 .ota-toggle-btn {
-  background: #f4f6fb;
+  background: var(--sg-bg-panel);
   border: none;
   border-radius: 5px;
   cursor: pointer;
-  color: #6b7a99;
+  color: var(--sg-text-muted);
   padding: 4px 6px;
   display: flex;
   align-items: center;
@@ -645,17 +645,17 @@ const deleteDevice = (deviceId) => {
 }
 
 .ota-toggle-btn:hover {
-  background: #e8ecf5;
-  color: #1a1a2e;
+  background: var(--sg-bg-panel);
+  color: var(--sg-text-primary);
 }
 
 .ota-toggle-btn[aria-pressed='true'] {
-  background: #dbe6fb;
-  color: #2f5fd6;
+  background: var(--sg-color-info-bg);
+  color: var(--sg-color-info-text);
 }
 
 .device-table-wrapper {
-  border-bottom: 1px solid #f0f4f8;
+  border-bottom: 1px solid var(--sg-border);
 }
 
 .device-table {
@@ -665,7 +665,7 @@ const deleteDevice = (deviceId) => {
 }
 
 .device-table thead {
-  background: #f9fafb;
+  background: var(--sg-bg-panel);
 }
 
 .device-table th {
@@ -673,10 +673,10 @@ const deleteDevice = (deviceId) => {
   text-align: left;
   font-size: 11.5px;
   font-weight: 600;
-  color: #718096;
+  color: var(--sg-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  border-bottom: 1px solid #f0f4f8;
+  border-bottom: 1px solid var(--sg-border);
 }
 
 .device-table th:last-child {
@@ -684,15 +684,15 @@ const deleteDevice = (deviceId) => {
 }
 
 .device-table tbody tr {
-  background: #fff;
+  background: var(--sg-bg-card);
 }
 
 .device-table tbody tr:nth-child(even) {
-  background: #fafbfc;
+  background: var(--sg-bg-panel);
 }
 
 .device-table tbody tr.editing {
-  background: #f0f9ff;
+  background: var(--sg-color-info-bg);
 }
 
 .device-table td {
@@ -701,11 +701,11 @@ const deleteDevice = (deviceId) => {
 
 .name-cell {
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--sg-text-primary);
 }
 
 .unassigned {
-  color: #c0c8d8;
+  color: var(--sg-text-faint);
 }
 
 .action-btn {
@@ -713,8 +713,8 @@ const deleteDevice = (deviceId) => {
   align-items: center;
   gap: 5px;
   padding: 5px 12px;
-  background: #1a1a2e;
-  color: #fff;
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -724,15 +724,15 @@ const deleteDevice = (deviceId) => {
 }
 
 .action-btn.fired {
-  background: #4fc3f7;
+  background: var(--sg-accent);
 }
 
 .action-btn:hover {
-  background: #0f0f1a;
+  background: var(--sg-accent-hover);
 }
 
 .action-btn.fired:hover {
-  background: #2ba4d0;
+  background: var(--sg-accent-hover);
 }
 
 .actions-cell {
@@ -749,35 +749,35 @@ const deleteDevice = (deviceId) => {
 .edit-icon-btn,
 .delete-icon-btn {
   background: none;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--sg-border);
   border-radius: 6px;
   padding: 5px 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  color: #718096;
+  color: var(--sg-text-muted);
   transition: all 0.15s;
 }
 
 .edit-icon-btn:hover {
-  background: #e8f5ff;
-  border-color: #4fc3f7;
-  color: #1a5fa0;
+  background: var(--sg-color-info-bg);
+  border-color: var(--sg-accent);
+  color: var(--sg-accent-hover);
 }
 
 .edit-icon-btn.active {
-  background: #e8f5ff;
-  border-color: #4fc3f7;
-  color: #1a5fa0;
+  background: var(--sg-color-info-bg);
+  border-color: var(--sg-accent);
+  color: var(--sg-accent-hover);
 }
 
 .delete-icon-btn {
-  border-color: #fca5a5;
-  color: #e05252;
+  border-color: var(--sg-color-danger);
+  color: var(--sg-color-danger);
 }
 
 .delete-icon-btn:hover {
-  background: #fde0e0;
+  background: var(--sg-color-danger-bg);
 }
 
 .confirm-delete {
@@ -789,15 +789,15 @@ const deleteDevice = (deviceId) => {
 
 .confirm-text {
   font-size: 12px;
-  color: #e05252;
+  color: var(--sg-color-danger);
   font-weight: 500;
   white-space: nowrap;
 }
 
 .delete-confirm-btn {
   padding: 4px 10px;
-  background: #e05252;
-  color: #fff;
+  background: var(--sg-color-danger);
+  color: var(--sg-text-primary);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -808,28 +808,28 @@ const deleteDevice = (deviceId) => {
 }
 
 .delete-confirm-btn:hover {
-  background: #c53030;
+  background: var(--sg-color-danger-text);
 }
 
 .cancel-btn-sm {
   padding: 4px 10px;
   background: transparent;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--sg-border);
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
-  color: #718096;
+  color: var(--sg-text-muted);
   font-family: inherit;
   transition: background 0.15s;
 }
 
 .cancel-btn-sm:hover {
-  background: #f9fafb;
+  background: var(--sg-bg-panel);
 }
 
 .edit-row {
-  background: #f0f9ff;
-  border-bottom: 2px solid #4fc3f7;
+  background: var(--sg-color-info-bg);
+  border-bottom: 2px solid var(--sg-accent);
 }
 
 .edit-row td {
@@ -852,17 +852,17 @@ const deleteDevice = (deviceId) => {
 
 .form-group label {
   font-size: 11.5px;
-  color: #718096;
+  color: var(--sg-text-muted);
   font-weight: 500;
 }
 
 .form-group input,
 .form-group select {
   padding: 6px 10px;
-  border: 1.5px solid #4fc3f7;
+  border: 1.5px solid var(--sg-accent);
   border-radius: 7px;
   font-size: 13px;
-  background: #fff;
+  background: var(--sg-bg-card);
   outline: none;
   cursor: pointer;
   font-family: inherit;
@@ -886,12 +886,12 @@ const deleteDevice = (deviceId) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #fff7ed;
-  border: 1px solid #f6ad55;
+  background: var(--sg-color-warning-bg);
+  border: 1px solid var(--sg-color-warning);
   border-radius: 7px;
   padding: 7px 12px;
   font-size: 12px;
-  color: #c05621;
+  color: var(--sg-color-warning-text);
   width: 100%;
   box-sizing: border-box;
 }
@@ -907,8 +907,8 @@ const deleteDevice = (deviceId) => {
   align-items: center;
   gap: 5px;
   padding: 7px 14px;
-  background: #1a1a2e;
-  color: #fff;
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
   border: none;
   border-radius: 7px;
   cursor: pointer;
@@ -920,7 +920,7 @@ const deleteDevice = (deviceId) => {
 
 .save-btn:hover:not(:disabled),
 .add-btn:hover:not(:disabled) {
-  background: #0f0f1a;
+  background: var(--sg-accent-hover);
 }
 
 .add-btn:disabled {
@@ -932,37 +932,37 @@ const deleteDevice = (deviceId) => {
 .check-btn {
   padding: 7px 12px;
   background: transparent;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--sg-border);
   border-radius: 7px;
   cursor: pointer;
   font-size: 13px;
-  color: #718096;
+  color: var(--sg-text-muted);
   font-family: inherit;
   transition: all 0.15s;
 }
 
 .cancel-btn:hover,
 .check-btn:hover {
-  background: #f9fafb;
-  border-color: #c0c8d8;
+  background: var(--sg-bg-panel);
+  border-color: var(--sg-text-faint);
 }
 
 .check-btn {
   display: flex;
   align-items: center;
   padding: 4px 8px;
-  background: #1a1a2e;
-  color: #fff;
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
   border: none;
 }
 
 .check-btn:hover {
-  background: #0f0f1a;
-  border-color: #1a1a2e;
+  background: var(--sg-accent-hover);
+  border-color: var(--sg-text-primary);
 }
 
 .add-device-section {
-  border-top: 1px dashed #e2e8f0;
+  border-top: 1px dashed var(--sg-border);
 }
 
 .add-device-btn {
@@ -974,21 +974,21 @@ const deleteDevice = (deviceId) => {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #718096;
+  color: var(--sg-text-muted);
   font-size: 13px;
   font-family: inherit;
   transition: background 0.12s;
 }
 
 .add-device-btn:hover {
-  background: #f9fafb;
+  background: var(--sg-bg-panel);
 }
 
 .add-device-btn span {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #f0f4f8;
+  background: var(--sg-bg-panel);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -997,18 +997,18 @@ const deleteDevice = (deviceId) => {
 
 .add-form {
   padding: 14px 18px;
-  background: #f9fafb;
+  background: var(--sg-bg-panel);
   display: flex;
   align-items: flex-end;
   gap: 10px;
   flex-wrap: wrap;
-  border-top: 1px dashed #e2e8f0;
+  border-top: 1px dashed var(--sg-border);
 }
 
 .debug-toggle {
   background: none;
   border: none;
-  color: #718096;
+  color: var(--sg-text-muted);
   font-size: 12px;
   cursor: pointer;
   padding: 2px 0;
@@ -1017,7 +1017,7 @@ const deleteDevice = (deviceId) => {
 }
 
 .stat-col {
-  color: #718096;
+  color: var(--sg-text-muted);
   font-size: 12.5px;
   white-space: nowrap;
 }
@@ -1026,7 +1026,7 @@ const deleteDevice = (deviceId) => {
   font-variant-numeric: tabular-nums;
   font-family: monospace;
   font-size: 13px;
-  color: #4a5568;
+  color: var(--sg-text-muted);
 }
 
 .range-select {
@@ -1035,14 +1035,14 @@ const deleteDevice = (deviceId) => {
   border: none;
   background: transparent;
   cursor: pointer;
-  color: #2d3748;
+  color: var(--sg-text-primary);
   font-family: inherit;
   outline: none;
 }
 
 .range-select:hover,
 .range-select:focus {
-  background: #f9fafb;
+  background: var(--sg-bg-panel);
   border-radius: 4px;
 }
 
@@ -1050,7 +1050,7 @@ const deleteDevice = (deviceId) => {
 .type-sub {
   display: none;
   font-size: 11px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   font-weight: 400;
   margin-top: 2px;
 }
@@ -1067,15 +1067,15 @@ const deleteDevice = (deviceId) => {
 }
 .status-pill--admin {
   background: rgba(226,75,74,.12);
-  color: #c53030;
+  color: var(--sg-color-danger-text);
 }
 .status-pill--blocked {
   background: rgba(237,137,54,.12);
-  color: #c05621;
+  color: var(--sg-color-warning-text);
 }
 .status-pill--warn {
   background: rgba(237,137,54,.12);
-  color: #c05621;
+  color: var(--sg-color-warning-text);
 }
 .block-cell { white-space: nowrap; }
 .block-btn, .unblock-btn {
@@ -1089,22 +1089,22 @@ const deleteDevice = (deviceId) => {
   transition: all .15s;
 }
 .block-btn {
-  border-color: #e2e8f0;
-  background: #fff;
-  color: #718096;
+  border-color: var(--sg-border);
+  background: var(--sg-bg-card);
+  color: var(--sg-text-muted);
 }
 .block-btn:hover:not(:disabled) {
-  border-color: #c05621;
-  color: #c05621;
+  border-color: var(--sg-color-warning-text);
+  color: var(--sg-color-warning-text);
   background: rgba(237,137,54,.06);
 }
 .unblock-btn {
-  border-color: #c3dafe;
-  background: #ebf4ff;
-  color: #2b6cb0;
+  border-color: color-mix(in srgb, var(--sg-accent) 35%, transparent);
+  background: var(--sg-color-info-bg);
+  color: var(--sg-color-info-text);
 }
 .unblock-btn:hover:not(:disabled) {
-  background: #bee3f8;
+  background: var(--sg-color-info-bg);
 }
 .block-btn:disabled, .unblock-btn:disabled {
   opacity: .45;
@@ -1121,7 +1121,7 @@ const deleteDevice = (deviceId) => {
 
   .box-status-info {
     width: 100%;
-    border-top: 1px solid #f0f4f8;
+    border-top: 1px solid var(--sg-border);
     padding-top: 8px;
     margin-left: 0;
   }

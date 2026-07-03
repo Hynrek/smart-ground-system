@@ -671,7 +671,7 @@ const getStepTooltip = (step) =>
   width: 32px;
   height: 56px;
   background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--sg-border);
   border-right: none;
   border-radius: 10px 0 0 10px;
   display: flex;
@@ -698,7 +698,7 @@ const getStepTooltip = (step) =>
   bottom: 0;
   width: 280px;
   background: rgba(18, 18, 28, 0.96);
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 1px solid var(--sg-border);
   backdrop-filter: blur(20px);
   display: flex;
   flex-direction: column;
@@ -733,7 +733,7 @@ const getStepTooltip = (step) =>
   align-items: center;
   gap: 8px;
   padding: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--sg-border);
   flex-shrink: 0;
   transition: padding 0.2s, gap 0.2s;
 }
@@ -773,7 +773,7 @@ const getStepTooltip = (step) =>
 .header-title {
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sg-text-muted);
 }
 
 /* ── Scrollable content ──────────────────────────── */
@@ -833,7 +833,7 @@ const getStepTooltip = (step) =>
   height: 15px;
   border-radius: 50%;
   background: #e24b4a;
-  color: #fff;
+  color: var(--sg-text-primary);
   font-size: 12px;
   font-weight: 700;
   line-height: 14px;
@@ -896,7 +896,7 @@ const getStepTooltip = (step) =>
 .section-label {
   font-size: 10px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--sg-text-disabled);
   text-transform: uppercase;
   letter-spacing: 0.7px;
 }
@@ -914,7 +914,7 @@ const getStepTooltip = (step) =>
 
 .serie-card {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 10px;
   overflow: hidden;
   transition: all 0.2s;
@@ -973,7 +973,7 @@ const getStepTooltip = (step) =>
 
 .session-meta {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   padding: 0 10px 4px;
 }
 
@@ -1042,7 +1042,7 @@ const getStepTooltip = (step) =>
 
 .serie-item {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 10px;
   padding: 8px 10px;
   display: flex;
@@ -1125,7 +1125,7 @@ const getStepTooltip = (step) =>
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--sg-border);
   flex-shrink: 0;
 }
 
@@ -1182,9 +1182,9 @@ const getStepTooltip = (step) =>
   flex: 1;
   height: 36px;
   background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--sg-border-input);
   border-radius: 10px;
-  color: #fff;
+  color: var(--sg-text-primary);
   font-size: 12px;
   font-family: inherit;
   padding: 0 10px;
@@ -1197,7 +1197,7 @@ const getStepTooltip = (step) =>
 }
 
 .serie-name-input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
 }
 
 /* Range-ownership toggle */
@@ -1219,7 +1219,7 @@ const getStepTooltip = (step) =>
 
 .range-ownership-toggle span {
   font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--sg-text-muted);
 }
 
 .range-ownership-toggle:has(input:checked) span {
@@ -1237,7 +1237,7 @@ const getStepTooltip = (step) =>
 
 .block-template-name {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1247,9 +1247,9 @@ const getStepTooltip = (step) =>
   display: inline-block;
   font-size: 10px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sg-text-muted);
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--sg-border);
   border-radius: 6px;
   padding: 1px 6px;
   margin-top: 2px;

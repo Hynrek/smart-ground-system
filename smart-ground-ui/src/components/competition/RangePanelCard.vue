@@ -148,7 +148,7 @@ function handleActivate(rotte) {
 <style scoped>
 .range-panel-card {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 16px;
   padding: 16px;
   display: flex;
@@ -173,7 +173,7 @@ function handleActivate(rotte) {
 /* ── Divider ── */
 .divider {
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--sg-border);
   margin: 0;
 }
 
@@ -182,7 +182,7 @@ function handleActivate(rotte) {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   text-transform: uppercase;
   margin-top: 2px;
 }
@@ -194,7 +194,7 @@ function handleActivate(rotte) {
 /* ── Players row ── */
 .players-row {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
   padding: 0 2px;
 }
 
@@ -202,7 +202,7 @@ function handleActivate(rotte) {
 .waiting-notice {
   font-size: 13px;
   font-weight: 600;
-  color: #f6ad55;
+  color: var(--sg-color-warning);
   background: rgba(246, 173, 85, 0.1);
   border: 1px solid rgba(246, 173, 85, 0.25);
   border-radius: 10px;
@@ -238,7 +238,7 @@ function handleActivate(rotte) {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: #4fc3f7;
+  color: var(--sg-accent);
   text-transform: uppercase;
 }
 
@@ -264,7 +264,7 @@ function handleActivate(rotte) {
 .btn--ghost {
   background: rgba(255, 255, 255, 0.07);
   color: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--sg-border);
 }
 
 .btn--ghost:hover {
@@ -272,17 +272,17 @@ function handleActivate(rotte) {
 }
 
 .btn--primary {
-  background: #4fc3f7;
-  color: #1a1a2e;
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
 }
 
 .btn--primary:hover {
-  background: #81d4fa;
+  background: var(--sg-accent-hover);
 }
 
 .btn--cta {
-  background: #4fc3f7;
-  color: #1a1a2e;
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
   width: 100%;
   justify-content: center;
   padding: 9px 14px;
@@ -290,7 +290,7 @@ function handleActivate(rotte) {
 }
 
 .btn--cta:hover {
-  background: #81d4fa;
+  background: var(--sg-accent-hover);
 }
 
 .btn--sm {
@@ -302,7 +302,7 @@ function handleActivate(rotte) {
 /* ── Empty states ── */
 .empty-state {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   padding: 4px 2px;
 }
 

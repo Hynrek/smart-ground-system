@@ -9,7 +9,7 @@
   >
     <div class="pos-label pos-label--ghost">{{ nextLabel }}</div>
     <div class="ghost-body">
-      <Icons icon="plus" :size="18" color="#a0aec0" />
+      <Icons icon="plus" :size="18" color="rgba(255,255,255,0.45)" />
       <span>Position hinzufügen</span>
     </div>
   </div>
@@ -56,7 +56,7 @@
         aria-label="Position löschen"
         @click.stop="$emit('delete-position')"
       >
-        <Icons icon="trash" :size="12" color="#a0aec0" />
+        <Icons icon="trash" :size="12" color="rgba(255,255,255,0.45)" />
       </button>
     </div>
 
@@ -129,12 +129,12 @@
     <!-- Empty slot -->
     <template v-else>
       <div class="empty-slot">
-        <Icons icon="plus" :size="16" color="#cbd5e0" />
+        <Icons icon="plus" :size="16" color="rgba(255,255,255,0.45)" />
         <span>Gerät hierher ziehen</span>
       </div>
       <!-- Disabled fire button in action mode -->
       <button v-if="actionMode" class="fire-btn fire-btn--disabled" disabled>
-        <Icons icon="lock" :size="12" color="#cbd5e0" />
+        <Icons icon="lock" :size="12" color="rgba(255,255,255,0.45)" />
         <span>Kein Gerät</span>
       </button>
     </template>
@@ -221,9 +221,9 @@ function cancelRename() {
 
 <style scoped>
 .position-card {
-  background: #fff;
+  background: var(--sg-bg-card);
   border-radius: 12px;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--sg-border);
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -239,12 +239,12 @@ function cancelRename() {
 
 .position-card--empty {
   border-style: dashed;
-  background: #fafbfc;
+  background: var(--sg-bg-panel);
 }
 
 .position-card--ghost {
-  border: 1.5px dashed #cbd5e0;
-  background: #fafbfc;
+  border: 1.5px dashed var(--sg-border-input);
+  background: var(--sg-bg-panel);
   cursor: pointer;
   align-items: center;
   justify-content: center;
@@ -255,11 +255,11 @@ function cancelRename() {
 
 .position-card--ghost:hover {
   opacity: 1;
-  border-color: #a0aec0;
+  border-color: var(--sg-text-faint);
 }
 
 .drag-over {
-  border-color: #4fc3f7 !important;
+  border-color: var(--sg-accent) !important;
   background: rgba(79, 195, 247, 0.05) !important;
   box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
 }
@@ -274,7 +274,7 @@ function cancelRename() {
 .pos-label {
   font-size: 22px;
   font-weight: 800;
-  color: #1a1a2e;
+  color: var(--sg-text-primary);
   letter-spacing: -0.5px;
   line-height: 1;
   cursor: default;
@@ -284,7 +284,7 @@ function cancelRename() {
 .pos-label--ghost {
   font-size: 22px;
   font-weight: 800;
-  color: #cbd5e0;
+  color: var(--sg-text-faint);
   margin-bottom: 6px;
 }
 
@@ -295,9 +295,9 @@ function cancelRename() {
 .label-input {
   font-size: 22px;
   font-weight: 800;
-  color: #1a1a2e;
+  color: var(--sg-text-primary);
   border: none;
-  border-bottom: 2px solid #4fc3f7;
+  border-bottom: 2px solid var(--sg-accent);
   outline: none;
   background: transparent;
   width: 60px;
@@ -311,7 +311,7 @@ function cancelRename() {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  color: #a0aec0;
+  color: var(--sg-text-faint);
   font-size: 12px;
   font-weight: 500;
   text-align: center;
@@ -327,7 +327,7 @@ function cancelRename() {
 :deep(.device-card) {
   box-shadow: none;
   border-color: transparent;
-  background: #f8fafc;
+  background: var(--sg-bg-panel);
 }
 
 /* ── Device remove overlay ── */
@@ -341,7 +341,7 @@ function cancelRename() {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  color: #fff;
+  color: var(--sg-text-primary);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -366,7 +366,7 @@ function cancelRename() {
   align-items: center;
   gap: 6px;
   padding: 18px 0;
-  color: #cbd5e0;
+  color: var(--sg-text-faint);
   font-size: 12px;
   font-weight: 500;
 }
@@ -389,10 +389,10 @@ function cancelRename() {
   opacity: 1;
 }
 
-.kebab-btn:hover { background: #fee2e2; }
+.kebab-btn:hover { background: var(--sg-color-danger-bg); }
 
 .kebab-btn:focus-visible {
-  outline: 2px solid #4fc3f7;
+  outline: 2px solid var(--sg-accent);
   outline-offset: 2px;
 }
 
@@ -404,8 +404,8 @@ function cancelRename() {
   gap: 5px;
   width: 100%;
   padding: 7px 10px;
-  background: #1a1a2e;
-  color: #fff;
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
   border: none;
   border-radius: 7px;
   cursor: pointer;
@@ -414,12 +414,12 @@ function cancelRename() {
   font-family: inherit;
   transition: background 0.2s;
 }
-.fire-btn.fired { background: #4fc3f7; }
-.fire-btn:hover:not(:disabled) { background: #0f0f1a; }
+.fire-btn.fired { background: var(--sg-accent); }
+.fire-btn:hover:not(:disabled) { background: var(--sg-accent-hover); }
 
 .fire-btn--disabled {
-  background: #f1f5f9;
-  color: #cbd5e0;
+  background: var(--sg-bg-panel);
+  color: var(--sg-text-faint);
   cursor: not-allowed;
 }
 
@@ -436,7 +436,7 @@ function cancelRename() {
   cursor: pointer;
   font-family: inherit;
 }
-.pos-block-btn { border-color: #e2e8f0; background: #fff; color: #718096; }
-.pos-unblock-btn { border-color: #c3dafe; background: #ebf4ff; color: #2b6cb0; }
+.pos-block-btn { border-color: var(--sg-border); background: var(--sg-bg-card); color: var(--sg-text-muted); }
+.pos-unblock-btn { border-color: color-mix(in srgb, var(--sg-accent) 35%, transparent); background: var(--sg-color-info-bg); color: var(--sg-color-info-text); }
 .pos-block-btn:disabled, .pos-unblock-btn:disabled { opacity: .45; cursor: not-allowed; }
 </style>

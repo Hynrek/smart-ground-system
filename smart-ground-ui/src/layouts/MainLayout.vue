@@ -29,7 +29,7 @@ const onNav = (navId) => {
   display: flex;
   height: 100vh;
   overflow: hidden;
-  background: #f7f8fc;
+  background: var(--sg-bg-page);
 }
 
 .layout-main {

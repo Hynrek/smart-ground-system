@@ -152,7 +152,7 @@ const getStepRowClass = (stepState) => {
   gap: 20px;
   padding: 16px;
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sg-border);
   border-radius: 16px;
 }
 
@@ -167,13 +167,13 @@ const getStepRowClass = (stepState) => {
   align-items: center;
   justify-content: space-between;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--sg-border);
 }
 
 .player-name {
   font-size: 14px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--sg-text-primary);
 }
 
 .player-total {
@@ -195,7 +195,7 @@ const getStepRowClass = (stepState) => {
   padding: 6px 8px;
   border-radius: 8px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sg-text-muted);
   align-items: center;
 }
 
@@ -217,7 +217,7 @@ const getStepRowClass = (stepState) => {
 
 .step-row.is-pending {
   background: rgba(255, 255, 255, 0.02);
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
 }
 
 .step-letters {
@@ -227,7 +227,7 @@ const getStepRowClass = (stepState) => {
 
 .step-type {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
 }
 
 .step-status {
@@ -253,11 +253,11 @@ const getStepRowClass = (stepState) => {
 .corrected-badge {
   text-align: right;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
 }
 
 .player-section + .player-section {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--sg-border);
   padding-top: 12px;
 }
 </style>

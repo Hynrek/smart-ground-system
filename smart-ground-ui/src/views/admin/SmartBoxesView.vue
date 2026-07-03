@@ -253,7 +253,7 @@ const renameBox = ({ boxId, alias }) => {
 h1 {
   font-size: 22px;
   font-weight: 700;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin: 0;
 }
 
@@ -286,13 +286,13 @@ h1 {
 }
 
 .tab:hover {
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
 }
 
 .tab--active {
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   font-weight: 700;
-  border-bottom-color: var(--sg-brand);
+  border-bottom-color: var(--sg-accent);
 }
 
 /* ── Filter chips ─────────────────────────────────── */
@@ -320,9 +320,9 @@ h1 {
 }
 
 .filter-chip.active {
-  border-color: var(--sg-brand);
-  background: var(--sg-brand);
-  color: #fff;
+  border-color: var(--sg-accent);
+  background: var(--sg-accent);
+  color: var(--sg-surface-0);
   font-weight: 600;
 }
 
@@ -337,7 +337,7 @@ h1 {
 
 .filter-chip.active .filter-count {
   background: rgba(255, 255, 255, 0.25);
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 .boxes-list {

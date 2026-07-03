@@ -88,7 +88,7 @@ onBeforeUnmount(() => {
 
 .qr-scan-title {
   margin: 0;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   font-size: 1.15rem;
 }
 

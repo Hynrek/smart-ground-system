@@ -186,7 +186,7 @@ onMounted(() => {
 
 .panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 
-.panel-title { font-size: 18px; font-weight: 700; color: var(--sg-brand); margin: 0; }
+.panel-title { font-size: 18px; font-weight: 700; color: var(--sg-text-primary); margin: 0; }
 
 .panel-subtitle { font-size: 12px; color: var(--sg-text-faint); }
 
@@ -229,12 +229,12 @@ onMounted(() => {
 .standing-row:hover { background: var(--sg-bg-panel); }
 
 .rank { font-size: 14px; font-weight: 700; color: var(--sg-text-muted); text-align: center; }
-.rank.medal { color: var(--sg-brand); }
+.rank.medal { color: var(--sg-text-primary); }
 .rank-1 .rank.medal { color: #d4af37; }
 .rank-2 .rank.medal { color: #9aa3ad; }
 .rank-3 .rank.medal { color: #cd7f32; }
 
-.name { font-size: 14px; font-weight: 600; color: var(--sg-brand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.name { font-size: 14px; font-weight: 600; color: var(--sg-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .rotte-chip {
   font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 20px;
@@ -247,7 +247,7 @@ onMounted(() => {
   border: 1px solid color-mix(in srgb, var(--sg-color-warning) 40%, transparent);
 }
 
-.score { font-size: 14px; font-weight: 700; color: var(--sg-brand); white-space: nowrap; }
+.score { font-size: 14px; font-weight: 700; color: var(--sg-text-primary); white-space: nowrap; }
 
 .chevron { color: var(--sg-text-faint); transition: transform 0.15s; }
 .chevron.open { transform: rotate(180deg); }
@@ -261,7 +261,7 @@ onMounted(() => {
 
 .passe-line { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
 .passe-label { font-size: 12px; color: var(--sg-text-muted); }
-.passe-pts { font-size: 12px; font-weight: 600; color: var(--sg-brand); }
+.passe-pts { font-size: 12px; font-weight: 600; color: var(--sg-text-primary); }
 
 .step-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--sg-border); }
 
@@ -277,5 +277,5 @@ onMounted(() => {
   border-radius: 16px; padding: 20px; box-shadow: var(--sg-shadow-lg);
 }
 
-.picker-title { font-size: 14px; font-weight: 700; color: var(--sg-brand); }
+.picker-title { font-size: 14px; font-weight: 700; color: var(--sg-text-primary); }
 </style>

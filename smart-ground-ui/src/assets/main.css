@@ -13,39 +13,56 @@ body,
 }
 
 :root {
-  /* Admin UI core palette — overridden per palette in color-palettes.css */
+  /* Dark-only app: native controls (selects, pickers, scrollbars) render dark */
+  color-scheme: dark;
+
+  /* ── One dark palette — the whole product runs on the shooter aesthetic ──
+     Navy canvas, raised translucent surfaces, white-alpha text ramp, cyan
+     accent. Admin and shooter share every token; they differ only in
+     intensity (see .sg-card-surface--calm). */
+
+  /* Surfaces (page → card → raised/hover) */
+  --sg-surface-0: #1a1a2e;
+  --sg-surface-1: #232338;
+  --sg-surface-2: #2c2c44;
+
   --sg-brand: #1a1a2e;
-  --sg-brand-hover: #0f0f1a;
+  --sg-brand-hover: #24243a;
   --sg-accent: #4fc3f7;
-  --sg-accent-hover: #2ba4d0;
-  --sg-text-primary: #1a1a2e;
-  --sg-text-muted: #718096;
-  --sg-text-faint: #a0aec0;
-  --sg-bg-page: #f7f8fc;
-  --sg-bg-card: #ffffff;
-  --sg-bg-panel: #f4f6fb;
-  --sg-border: #e2e8f0;
-  --sg-border-input: #cbd5e0;
+  --sg-accent-hover: #81d4fa;
+
+  /* Text ramp — alphas chosen to keep small text ≥4.5:1 on surface-0 */
+  --sg-text-primary: #ffffff;
+  --sg-text-muted: rgba(255, 255, 255, 0.62);
+  --sg-text-faint: rgba(255, 255, 255, 0.45);
+  --sg-text-disabled: rgba(255, 255, 255, 0.3);
+
+  /* Semantic aliases consumed throughout the app */
+  --sg-bg-page: var(--sg-surface-0);
+  --sg-bg-card: var(--sg-surface-1);
+  --sg-bg-panel: var(--sg-surface-2);
+  --sg-border: rgba(255, 255, 255, 0.1);
+  --sg-border-input: rgba(255, 255, 255, 0.18);
   --sg-radius-card: 10px;
   --sg-radius-btn: 7px;
   --sg-radius-input: 6px;
 
-  /* Semantic status colors — overridden per palette in color-palettes.css */
-  --sg-color-success: #38c97a;
-  --sg-color-success-bg: #d4f5e2;
-  --sg-color-success-text: #1e6640;
+  /* Semantic status colors — bg = hue tint on dark, text = light badge hue */
+  --sg-color-success: #48bb78;
+  --sg-color-success-bg: rgba(72, 187, 120, 0.16);
+  --sg-color-success-text: #7ed9a5;
   --sg-color-warning: #ed8936;
-  --sg-color-warning-bg: #fff3d4;
-  --sg-color-warning-text: #8a5a00;
-  --sg-color-danger: #e05252;
-  --sg-color-danger-bg: #fde0e0;
-  --sg-color-danger-text: #9b2c2c;
-  --sg-color-info-bg: #dbeffe;
-  --sg-color-info-text: #1a5fa0;
-  --sg-color-neutral-bg: #e8edf0;
-  --sg-color-neutral-text: #555555;
-  --sg-color-purple-bg: #ede8ff;
-  --sg-color-purple-text: #4a2da0;
+  --sg-color-warning-bg: rgba(237, 137, 54, 0.16);
+  --sg-color-warning-text: #fac775;
+  --sg-color-danger: #f56565;
+  --sg-color-danger-bg: rgba(245, 101, 101, 0.16);
+  --sg-color-danger-text: #fc9d9d;
+  --sg-color-info-bg: rgba(79, 195, 247, 0.16);
+  --sg-color-info-text: #81d4fa;
+  --sg-color-neutral-bg: rgba(255, 255, 255, 0.08);
+  --sg-color-neutral-text: rgba(255, 255, 255, 0.7);
+  --sg-color-purple-bg: rgba(192, 132, 252, 0.16);
+  --sg-color-purple-text: #d8b4fe;
 
   /* Spacing scale */
   --sg-space-1: 0.25rem;
@@ -64,31 +81,14 @@ body,
   --sg-text-2xl: 1.5rem;
 
   /* Shadow scale */
-  --sg-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --sg-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --sg-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.10);
+  --sg-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25);
+  --sg-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --sg-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.35);
 
   /* Accent/danger with opacity — used for hover/active backgrounds */
   --sg-accent-subtle: color-mix(in srgb, var(--sg-accent) 8%, transparent);
   --sg-accent-tint: color-mix(in srgb, var(--sg-accent) 12%, transparent);
   --sg-danger-subtle: color-mix(in srgb, var(--sg-color-danger) 10%, transparent);
-
-  /* Werfer Remote Colors */
-  --werfer-pine-green: #1c3420;
-  --werfer-parchment-light: #e8dfd0;
-  --werfer-parchment-medium: #f0e8d8;
-  --werfer-cream: #fff8f2;
-  --werfer-orange-accent: #c85a0e;
-  --werfer-orange-light: #f2cdb0;
-  --werfer-green-status: #28a050;
-  --werfer-green-success: #1a6830;
-  --werfer-red-danger: #b82010;
-  --werfer-orange-warn: #c89020;
-
-  /* Werfer Typography */
-  --font-serif: 'Playfair Display', serif;
-  --font-sans: 'DM Sans', sans-serif;
-  --font-mono: 'DM Mono', monospace;
 
   /* Shooter Home — per-category tile accents (icon chip + border + tint) */
   --sg-app-cyan:   #4fc3f7;   /* Schiessplätze */
@@ -107,7 +107,7 @@ body,
 body {
   font-family: system-ui, -apple-system, sans-serif;
   background: var(--sg-bg-page);
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin: 0;
   padding: 0;
 }
@@ -117,6 +117,19 @@ select,
 textarea,
 button {
   font-family: inherit;
+}
+
+/* Base form-control surface — components refine, nothing stays native-white */
+input,
+select,
+textarea {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sg-text-primary);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--sg-text-faint);
 }
 
 /* Remove default button styles */
@@ -154,6 +167,25 @@ button {
   box-shadow: inset 0 0 16px color-mix(in srgb, var(--sg-card-accent) 32%, transparent);
 }
 
+/* Calm variant — same language at admin volume: tint and glow dialed down so
+   dense management screens stay readable; glow is reserved for status and
+   interactive emphasis. */
+.sg-card-surface--calm {
+  border-width: 1px;
+  border-color: color-mix(in srgb, var(--sg-card-accent) 24%, transparent);
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--sg-card-accent) 10%, transparent) 0%,
+      color-mix(in srgb, var(--sg-card-accent) 4%, transparent) 45%,
+      rgba(255, 255, 255, 0.02) 100%);
+  box-shadow: inset 0 0 8px color-mix(in srgb, var(--sg-card-accent) 10%, transparent);
+}
+
+.sg-card-surface--calm.sg-card-surface--hover:hover {
+  border-color: color-mix(in srgb, var(--sg-card-accent) 40%, transparent);
+  box-shadow: inset 0 0 10px color-mix(in srgb, var(--sg-card-accent) 18%, transparent);
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
@@ -165,12 +197,12 @@ button {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: rgba(255, 255, 255, 0.18);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Accessibility */

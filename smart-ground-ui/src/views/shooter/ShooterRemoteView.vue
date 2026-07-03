@@ -895,7 +895,7 @@ const chipLabel = (position) => {
   gap: 8px;
   padding: 10px 12px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.03) 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 1px solid var(--sg-border-input);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
@@ -947,7 +947,7 @@ const chipLabel = (position) => {
   display: none;
   font-size: 15px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--sg-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -974,7 +974,7 @@ const chipLabel = (position) => {
 .icon-btn {
   --sg-card-accent: rgba(255, 255, 255, 0.55);
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sg-text-faint);
   border-radius: 10px;
   width: 36px;
   height: 36px;
@@ -985,7 +985,7 @@ const chipLabel = (position) => {
   transition: all 0.15s;
 }
 
-.icon-btn:hover { color: rgba(255, 255, 255, 0.7); }
+.icon-btn:hover { color: var(--sg-text-muted); }
 .icon-btn:active { transform: scale(0.95); }
 
 /* Emergency button — always shows text */
@@ -1109,7 +1109,7 @@ const chipLabel = (position) => {
   position: relative;
   z-index: 50;
   background: rgba(14, 14, 22, 0.98);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--sg-border);
   backdrop-filter: blur(20px);
   padding: 6px 10px 10px;
   display: flex;
@@ -1134,7 +1134,7 @@ const chipLabel = (position) => {
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
   cursor: pointer;
   transition: background 0.15s;
   text-align: left;
@@ -1170,7 +1170,7 @@ const chipLabel = (position) => {
   padding: 2px 7px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--sg-text-faint);
 }
 
 .option-tag--normal {
@@ -1224,7 +1224,7 @@ const chipLabel = (position) => {
 .state-text {
   font-size: 15px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   margin: 0;
 }
 
@@ -1289,7 +1289,7 @@ const chipLabel = (position) => {
   position: relative;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.09);
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid var(--sg-border);
   border-radius: 18px;
   padding: 12px 10px 10px;
   display: flex;
@@ -1430,7 +1430,7 @@ const chipLabel = (position) => {
   right: 2px;
   font-size: 9px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--sg-text-disabled);
   line-height: 1;
   pointer-events: none;
 }
@@ -1509,7 +1509,7 @@ const chipLabel = (position) => {
   font-family: inherit;
   font-size: 15px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   cursor: pointer;
   transition: all 0.18s;
   -webkit-tap-highlight-color: transparent;
@@ -1522,7 +1522,7 @@ const chipLabel = (position) => {
 
 .toggle-btn:not(.active):hover {
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--sg-text-faint);
 }
 
 /* ── Tablet+ ─────────────────────────────────────── */
@@ -1575,13 +1575,13 @@ const chipLabel = (position) => {
   margin: 0;
   font-size: 17px;
   font-weight: 700;
-  color: #fff;
+  color: var(--sg-text-primary);
 }
 
 .delay-modal-close {
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--sg-border);
+  color: var(--sg-text-muted);
   border-radius: 8px;
   width: 30px;
   height: 30px;
@@ -1597,7 +1597,7 @@ const chipLabel = (position) => {
 .delay-modal-hint {
   margin: 0 0 16px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--sg-text-faint);
   line-height: 1.4;
 }
 
@@ -1629,7 +1629,7 @@ const chipLabel = (position) => {
   justify-content: space-between;
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   margin-bottom: 18px;
 }
 
@@ -1696,7 +1696,7 @@ const chipLabel = (position) => {
 .ruf-slider-label {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sg-text-muted);
 }
 
 .ruf-slider-value {
@@ -1717,7 +1717,7 @@ const chipLabel = (position) => {
   justify-content: space-between;
   font-size: 10px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--sg-text-disabled);
   margin-top: 2px;
 }
 
@@ -1760,7 +1760,7 @@ const chipLabel = (position) => {
   margin-top: 5px;
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--sg-text-disabled);
   text-align: center;
 }
 

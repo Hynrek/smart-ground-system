@@ -106,7 +106,7 @@ onMounted(() => otaStore.fetchReleases());
 .form-group { display: flex; flex-direction: column; gap: 4px; }
 .form-group span { font-size: 11.5px; color: var(--sg-text-muted); font-weight: 500; }
 .form-group select, .form-group input { padding: 7px 10px; border: 1.5px solid var(--sg-border); border-radius: 7px; font-size: 13px; font-family: inherit; }
-.form-error { color: #e05252; font-size: 12px; margin-top: 10px; }
+.form-error { color: var(--sg-color-danger); font-size: 12px; margin-top: 10px; }
 .release-table-wrap { border: 1px solid var(--sg-border); border-radius: 12px; overflow: hidden; }
 .release-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .release-table th { text-align: left; padding: 9px 14px; background: var(--sg-bg-panel); color: var(--sg-text-muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; }

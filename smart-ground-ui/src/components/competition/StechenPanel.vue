@@ -249,7 +249,7 @@ onUnmounted(() => {
 .panel-title {
   font-size: 16px;
   font-weight: 700;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   margin: 0;
 }
 
@@ -302,7 +302,7 @@ onUnmounted(() => {
 .tie-platz {
   font-size: 14px;
   font-weight: 700;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
 }
 
 .tie-score {
@@ -354,7 +354,7 @@ onUnmounted(() => {
 .round-number {
   font-size: 13px;
   font-weight: 700;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
 }
 
 .round-template {
@@ -409,7 +409,7 @@ onUnmounted(() => {
 .result-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   flex: 1;
 }
 
@@ -449,7 +449,7 @@ onUnmounted(() => {
   font-size: 16px;
   font-weight: 700;
   margin: 0;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
 }
 
 .modal-desc {
@@ -488,7 +488,7 @@ onUnmounted(() => {
   padding: 8px 12px;
   font-family: inherit;
   font-size: 13px;
-  color: var(--sg-brand);
+  color: var(--sg-text-primary);
   background: var(--sg-bg-card);
   border: 1px solid var(--sg-border-input, var(--sg-border));
   border-radius: 10px;
@@ -506,7 +506,7 @@ onUnmounted(() => {
 
 .modal-error {
   font-size: 12px;
-  color: var(--sg-color-danger-text, #c53030);
+  color: var(--sg-color-danger-text);
   margin: 0;
 }
 
