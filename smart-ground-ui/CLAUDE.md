@@ -144,6 +144,7 @@ Non-obvious stores (the rest map 1:1 to a backend domain):
 | `passeStore` vs `activePasseStore` vs `playSessionStore` | `passeStore` = templates (CRUD); `activePasseStore` = the currently running Passe (PlayInstance) on a range; `playSessionStore` = live play execution state (blocks, results) |
 | `competitionEventStore` | Wettkampf sessions: groups (Rotten), progress, Stechen (e.g. `getActiveStechenForRange`) |
 | `otaStore` | Polls `GET /smart-boxes/{id}/ota` every 3 s until a terminal phase (`APPLIED`/`FAILED`/`ROLLED_BACK`); views must call `stopAllPolling()` on unmount |
+| `profileStore` | Own QR check-in token (`/users/me/qr`, rotate) and personal play results (`/users/me/play-results`); consumed by `ShooterProfilView` and `QrScanModal` (resolve on scan) |
 
 Store rules:
 - Use `storeToRefs()` when destructuring store state in components
@@ -196,6 +197,7 @@ Naming: `xxxApi.js` wraps backend endpoints; a `xxxService.js` would hold local 
 - **German display labels** in UI text (Platz, Werfer, Passe, Wettkampf, Rotte, Stechen); identifiers stay English; inline comments in English
 - **Design tokens** from `constants/werfertokens.js` in Werfer-related components — no hard-coded values
 - **Remove unused code eagerly** — delete unused methods, components, stores, services, imports, and files rather than leaving them
+- **QR check-in payload**: always build/parse via `constants/qr.js` (`smartground://checkin/<token>`) — never hard-code the prefix
 
 ### Branding — Logo & Icon
 The brand mark is a monoline **microchip** with a solid center core, paired with the "SMART GROUND" wordmark and the tagline "Grounded in Innovation".
