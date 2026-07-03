@@ -20,33 +20,33 @@
 
     <!-- App grid -->
     <div class="app-grid">
-      <button class="app-tile app-tile--available" @click="router.push('/remote')">
-        <div class="tile-icon-wrap tile-icon-wrap--cyan">
-          <Icons icon="target" :size="36" color="var(--sg-accent)" />
+      <button class="app-tile app-tile--available app-tile--cyan" @click="router.push('/remote')">
+        <div class="tile-icon-wrap">
+          <Icons icon="target" :size="36" color="#1a1a2e" />
         </div>
         <span class="tile-label">Schiessplätze</span>
         <span class="tile-desc">Plätze & Geräte</span>
       </button>
 
-      <button class="app-tile app-tile--available" @click="router.push('/meine-passen')">
-        <div class="tile-icon-wrap tile-icon-wrap--orange">
-          <Icons icon="program" :size="36" color="#F6AD55" />
+      <button class="app-tile app-tile--available app-tile--orange" @click="router.push('/meine-passen')">
+        <div class="tile-icon-wrap">
+          <Icons icon="program" :size="36" color="#1a1a2e" />
         </div>
         <span class="tile-label">Trainings</span>
         <span class="tile-desc">Serien & Passen vorbereiten</span>
       </button>
 
-      <button class="app-tile app-tile--available" data-testid="open-profile" @click="router.push('/profil')">
-        <div class="tile-icon-wrap tile-icon-wrap--purple">
-          <Icons icon="user" :size="36" color="#C084FC" />
+      <button class="app-tile app-tile--available app-tile--purple" data-testid="open-profile" @click="router.push('/profil')">
+        <div class="tile-icon-wrap">
+          <Icons icon="user" :size="36" color="#1a1a2e" />
         </div>
         <span class="tile-label">Mein Profil</span>
         <span class="tile-desc">Konto & Daten</span>
       </button>
 
-      <button v-if="canManage" class="app-tile app-tile--available" data-testid="open-admin" @click="router.push('/ranges')">
-        <div class="tile-icon-wrap tile-icon-wrap--green">
-          <Icons icon="templates" :size="36" color="#48BB78" />
+      <button v-if="canManage" class="app-tile app-tile--available app-tile--green" data-testid="open-admin" @click="router.push('/ranges')">
+        <div class="tile-icon-wrap">
+          <Icons icon="templates" :size="36" color="#1a1a2e" />
         </div>
         <span class="tile-label">Verwaltung</span>
         <span class="tile-desc">Schiessplätze verwalten</span>
@@ -210,18 +210,39 @@ const handleLogout = () => {
   font-family: inherit;
 }
 
+/* Per-category hue — carried on the tile so border, tint and chip all share it */
+.app-tile--cyan   { --tile: var(--sg-app-cyan,   #4fc3f7); }
+.app-tile--orange { --tile: var(--sg-app-orange, #F6AD55); }
+.app-tile--purple { --tile: var(--sg-app-purple, #C084FC); }
+.app-tile--green  { --tile: var(--sg-app-green,  #48BB78); }
+
 .app-tile--available {
-  background: rgba(255, 255, 255, 0.07);
   cursor: pointer;
+  border-color: color-mix(in srgb, var(--tile) 35%, transparent);
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--tile) 15%, transparent) 0%,
+      color-mix(in srgb, var(--tile) 6%,  transparent) 42%,
+      rgba(255, 255, 255, 0.05) 100%);
 }
 
 .app-tile--available:hover {
-  background: rgba(255, 255, 255, 0.11);
+  border-color: color-mix(in srgb, var(--tile) 50%, transparent);
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--tile) 22%, transparent) 0%,
+      color-mix(in srgb, var(--tile) 9%,  transparent) 42%,
+      rgba(255, 255, 255, 0.07) 100%);
 }
 
 .app-tile--available:active {
   transform: scale(0.96);
-  background: rgba(255, 255, 255, 0.09);
+}
+
+/* Solid icon chip — the daylight-contrast win. Glyph is dark (#1a1a2e),
+   set via the Icons `color` prop in the template. */
+.app-tile--available .tile-icon-wrap {
+  background: var(--tile);
 }
 
 .app-tile--soon {
@@ -238,22 +259,6 @@ const handleLogout = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.tile-icon-wrap--cyan {
-  background: var(--sg-accent-tint);
-}
-
-.tile-icon-wrap--green {
-  background: rgba(72, 187, 120, 0.15);
-}
-
-.tile-icon-wrap--purple {
-  background: rgba(168, 85, 247, 0.15);
-}
-
-.tile-icon-wrap--orange {
-  background: rgba(246, 173, 85, 0.15);
 }
 
 .tile-icon-wrap--muted {

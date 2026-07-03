@@ -803,7 +803,7 @@ const iconColor = (position) => {
   if (!position.device) return 'rgba(255,255,255,0.15)';
   if (position.device.blocked || isLocked.value) return 'rgba(252,129,129,0.5)';
   if (!store.reservedByMe) return 'rgba(255,255,255,0.25)';
-  return 'rgba(255,255,255,0.95)';
+  return '#1a1a2e';
 };
 
 const chipClass = (position) => {
@@ -867,6 +867,12 @@ const chipLabel = (position) => {
 
 /* Verzögert identity colour (amber), shared by header button, badge, countdown. */
 .shooter-remote { --delay-color: #EF9F27; --delay-text: #FAC775; --ruf-color: #56C8D8; --ruf-text: #7AD8E4; }
+
+/* ── Session → card accent variable (drives the D card tint + chip) ──────── */
+.shooter-remote                        { --card-accent: var(--sg-session-schiessen,     #48BB78); }
+.shooter-remote.session--erfassen      { --card-accent: var(--sg-session-erfassen,      #fc8181); }
+.shooter-remote.session--verzoegert    { --card-accent: var(--sg-session-verzoegert,    #EF9F27); }
+.shooter-remote.session--rufausloesung { --card-accent: var(--sg-session-rufausloesung, #56C8D8); }
 
 .shooter-remote {
   flex: 1;
@@ -1245,6 +1251,27 @@ const chipLabel = (position) => {
 .device-btn:not(:disabled) {
   border-color: rgba(72, 187, 120, 0.7);
   box-shadow: 0 0 12px rgba(72, 187, 120, 0.3), inset 0 0 0 1px rgba(72, 187, 120, 0.18);
+  /* D language: mode-tinted gradient background (accent follows the session) */
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--card-accent) 15%, transparent) 0%,
+      color-mix(in srgb, var(--card-accent) 6%,  transparent) 42%,
+      rgba(255, 255, 255, 0.05) 100%);
+}
+
+/* Solid accent icon chip — letter turns dark via iconColor(). Kept solid
+   through the transient firing/fired/pair states so the dark glyph never
+   lands on a dark tint. */
+.device-btn:not(:disabled) .btn-icon-wrap,
+.device-btn--firing .btn-icon-wrap,
+.device-btn--fired .btn-icon-wrap,
+.device-btn--pair-pending .btn-icon-wrap {
+  background: var(--card-accent);
+}
+
+/* Position index sits bottom-right of the chip — bump contrast on the fill */
+.device-btn:not(:disabled) .btn-position-num {
+  color: rgba(26, 26, 46, 0.55);
 }
 /* Erfassen: red */
 .session--erfassen .device-btn:not(:disabled) {
@@ -1262,11 +1289,11 @@ const chipLabel = (position) => {
   box-shadow: 0 0 12px rgba(86, 200, 216, 0.32), inset 0 0 0 1px rgba(86, 200, 216, 0.2);
 }
 
-/* ── Bottom bar active tab follows throw-type color ─ */
-.mode--solo .toggle-btn.active     { background: rgba(29, 158, 117, 0.15); color: #5DCAA5; }
-.mode--pair .toggle-btn.active     { background: rgba(55, 138, 221, 0.15); color: #85B7EB; }
-.mode--a_schuss .toggle-btn.active { background: rgba(239, 159, 39, 0.15); color: #FAC775; }
-.mode--raffale .toggle-btn.active  { background: rgba(127, 119, 221, 0.15); color: #AFA9EC; }
+/* ── Bottom bar active tab — solid throw-type fill with a dark label (D) ─ */
+.mode--solo     .toggle-btn.active { background: #1D9E75; color: #08130E; }
+.mode--pair     .toggle-btn.active { background: #378ADD; color: #06121F; }
+.mode--a_schuss .toggle-btn.active { background: #EF9F27; color: #1C1204; }
+.mode--raffale  .toggle-btn.active { background: #7F77DD; color: #0E0C1C; }
 
 /* Push device grid left when recording shrunk panel is open */
 .device-section.is-recording {
@@ -1473,12 +1500,19 @@ const chipLabel = (position) => {
   width: min(90%, 320px);
 }
 
+/* D language: same tint + dimmed border as the cards; active tab is a solid fill */
 .solo-pair-toggle {
-  background: rgba(18, 18, 28, 0.9);
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
   display: flex;
-  overflow: hidden;
+  gap: 6px;
+  padding: 6px;
+  overflow: visible;
+  border: 1px solid color-mix(in srgb, var(--card-accent) 35%, transparent);
+  border-radius: 22px;
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--card-accent) 15%, transparent) 0%,
+      color-mix(in srgb, var(--card-accent) 6%,  transparent) 42%,
+      rgba(255, 255, 255, 0.05) 100%);
   backdrop-filter: blur(16px);
   box-shadow: var(--sg-shadow-md);
 }
@@ -1488,6 +1522,7 @@ const chipLabel = (position) => {
   padding: 13px 0;
   background: transparent;
   border: none;
+  border-radius: 16px;
   font-family: inherit;
   font-size: 15px;
   font-weight: 700;
