@@ -129,6 +129,31 @@ button {
   margin: 0;
 }
 
+/* ── Reusable card surface — the "D" treatment ──────────────────────────────
+   A mode-tinted surface: a diagonal gradient tint, a hued border, and a light
+   glow on the inner side of the border. Set --sg-card-accent on the element to
+   drive the hue (defaults to the UI accent); add .sg-card-surface--hover for
+   the interactive border/glow lift. Global on purpose so it composes inside a
+   component's scoped styles — set --sg-card-accent, radius and layout there.
+   Used by the shooter Home tiles, Remote cards/header buttons, Play step cards
+   and Range cards. */
+.sg-card-surface {
+  --sg-card-accent: var(--sg-accent);
+  -webkit-tap-highlight-color: transparent;
+  border: 1.5px solid color-mix(in srgb, var(--sg-card-accent) 45%, transparent);
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--sg-card-accent) 22%, transparent) 0%,
+      color-mix(in srgb, var(--sg-card-accent) 10%, transparent) 45%,
+      rgba(255, 255, 255, 0.04) 100%);
+  box-shadow: inset 0 0 12px color-mix(in srgb, var(--sg-card-accent) 20%, transparent);
+}
+
+.sg-card-surface--hover:hover {
+  border-color: color-mix(in srgb, var(--sg-card-accent) 62%, transparent);
+  box-shadow: inset 0 0 16px color-mix(in srgb, var(--sg-card-accent) 32%, transparent);
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;

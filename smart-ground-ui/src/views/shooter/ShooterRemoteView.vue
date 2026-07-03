@@ -14,7 +14,7 @@
     <div class="page-header">
       <!-- Left: back + range name on tablet -->
       <div class="header-left">
-        <button v-if="!auth.profile?.assignedRangeId" class="back-btn" @click="goBack">
+        <button v-if="!auth.profile?.assignedRangeId" class="back-btn sg-card-surface sg-card-surface--hover" @click="goBack">
           <Icons icon="chevronLeft" :size="20" color="rgba(255,255,255,0.8)" />
         </button>
         <span v-if="range?.name" class="range-name">{{ range.name }}</span>
@@ -26,7 +26,7 @@
         <!-- Rufauslösung: mic-config button -->
         <button
           v-if="store.sessionMode === 'rufausloesung'"
-          class="ruf-btn"
+          class="ruf-btn sg-card-surface sg-card-surface--hover"
           title="Empfindlichkeit einstellen"
           @click="rufModalOpen = true"
         >
@@ -36,7 +36,7 @@
         <!-- Verzögert: delay-timer button (left of lock, in view-mode color) -->
         <button
           v-if="store.sessionMode === 'delayed'"
-          class="delay-btn"
+          class="delay-btn sg-card-surface sg-card-surface--hover"
           :class="{ 'is-counting': queuedIds.length > 0 }"
           title="Verzögerung einstellen"
           @click="delayModalOpen = true"
@@ -44,11 +44,11 @@
           <Icons icon="clock" :size="14" />
           <span>{{ store.delaySeconds }}s</span>
         </button>
-        <button class="icon-btn" title="Stand reservieren (Mock)">
+        <button class="icon-btn sg-card-surface sg-card-surface--hover" title="Stand reservieren (Mock)">
           <Icons icon="lock" :size="15" />
         </button>
         <button
-          class="emergency-btn"
+          class="emergency-btn sg-card-surface sg-card-surface--hover"
           :class="{ 'is-locked': isLocked }"
           :title="isLocked ? 'Notfallsperrung aktiv – Klick zum Freigeben' : 'Klick zum Notfall Stop'"
           @click="toggleBlock"
@@ -61,7 +61,7 @@
       <!-- Right: Mode badge — main indicator, opens mode flyout -->
       <div class="header-right">
         <button
-          class="mode-badge-btn"
+          class="mode-badge-btn sg-card-surface sg-card-surface--hover"
           :class="modeBadgeClass"
           :aria-expanded="modeDrawerOpen"
           @click="modeDrawerOpen = !modeDrawerOpen"
@@ -883,13 +883,22 @@ const chipLabel = (position) => {
 }
 
 /* ── Header ──────────────────────────────────────── */
+/* Elevated frosted toolbar: sticks to the top, blurs content scrolling under
+   it, and casts a soft drop shadow so it reads as a floating bar above the
+   device grid rather than blending into the navy body. */
 .page-header {
+  position: sticky;
+  top: env(safe-area-inset-top, 0);
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.03) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
 }
 
 /* True 3-zone centering */
@@ -915,11 +924,12 @@ const chipLabel = (position) => {
   justify-content: flex-end;
 }
 
-/* Back button */
+/* Header buttons adopt the shared .sg-card-surface treatment (see main.css);
+   each button only sets its --sg-card-accent hue + text color below. Neutral
+   utility buttons (back, lock) keep a subtle white tint. */
 .back-btn {
+  --sg-card-accent: rgba(255, 255, 255, 0.55);
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -930,7 +940,6 @@ const chipLabel = (position) => {
   transition: all 0.15s;
 }
 
-.back-btn:hover { background: rgba(255, 255, 255, 0.1); }
 .back-btn:active { transform: scale(0.95); }
 
 /* Range name — tablet only */
@@ -963,9 +972,8 @@ const chipLabel = (position) => {
 
 /* Generic icon button (Lock mock) */
 .icon-btn {
+  --sg-card-accent: rgba(255, 255, 255, 0.55);
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.4);
   border-radius: 10px;
   width: 36px;
@@ -977,7 +985,7 @@ const chipLabel = (position) => {
   transition: all 0.15s;
 }
 
-.icon-btn:hover { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.7); }
+.icon-btn:hover { color: rgba(255, 255, 255, 0.7); }
 .icon-btn:active { transform: scale(0.95); }
 
 /* Emergency button — always shows text */
@@ -995,17 +1003,14 @@ const chipLabel = (position) => {
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s;
-  background: rgba(252, 129, 129, 0.08);
-  border: 1.5px solid rgba(252, 129, 129, 0.3);
+  --sg-card-accent: #fc8181;
   color: #fc8181;
 }
 
-.emergency-btn:hover { background: rgba(252, 129, 129, 0.14); }
 .emergency-btn:active { transform: scale(0.95); }
 
 .emergency-btn.is-locked {
-  background: rgba(72, 187, 120, 0.08);
-  border-color: rgba(72, 187, 120, 0.3);
+  --sg-card-accent: #48BB78;
   color: var(--sg-color-success);
 }
 
@@ -1024,12 +1029,10 @@ const chipLabel = (position) => {
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s;
-  background: rgba(239, 159, 39, 0.1);
-  border: 1.5px solid rgba(239, 159, 39, 0.35);
+  --sg-card-accent: var(--delay-color);
   color: var(--delay-text);
 }
 
-.delay-btn:hover { background: rgba(239, 159, 39, 0.16); }
 .delay-btn:active { transform: scale(0.95); }
 .delay-btn.is-counting { animation: delay-btn-pulse 1s ease-in-out infinite; }
 
@@ -1047,9 +1050,8 @@ const chipLabel = (position) => {
   padding: 0 12px;
   height: 36px;
   border-radius: 20px;
-  /* Schiessen (default): green tint */
-  border: 1.5px solid rgba(72, 187, 120, 0.35);
-  background: rgba(72, 187, 120, 0.08);
+  /* Schiessen (default): green */
+  --sg-card-accent: #48BB78;
   color: #48BB78;
   font-family: inherit;
   font-size: 13px;
@@ -1059,26 +1061,22 @@ const chipLabel = (position) => {
   white-space: nowrap;
 }
 
-.mode-badge-btn:hover { background: rgba(72, 187, 120, 0.13); }
 .mode-badge-btn:active { transform: scale(0.95); }
 
 .mode-badge-btn.mode-badge--recording {
-  border-color: rgba(252, 129, 129, 0.45);
-  background: rgba(252, 129, 129, 0.12);
+  --sg-card-accent: #fc8181;
   color: #fc8181;
 }
 
 .mode-badge-btn.mode-badge--delayed {
-  border-color: rgba(239, 159, 39, 0.45);
-  background: rgba(239, 159, 39, 0.12);
+  --sg-card-accent: var(--delay-color);
   color: var(--delay-text);
 }
 
 .mode-badge--delayed .mode-dot { background: var(--delay-color); }
 
 .mode-badge-btn.mode-badge--rufausloesung {
-  border-color: rgba(86, 200, 216, 0.45);
-  background: rgba(86, 200, 216, 0.12);
+  --sg-card-accent: var(--ruf-color);
   color: var(--ruf-text);
 }
 
@@ -1209,7 +1207,7 @@ const chipLabel = (position) => {
 /* ── Device section ──────────────────────────────── */
 .device-section {
   flex: 1;
-  padding: 0 16px;
+  padding: 16px 16px 0;
   min-height: 0;
 }
 
@@ -1244,13 +1242,13 @@ const chipLabel = (position) => {
   gap: 8px;
 }
 
-/* ── Card borders + glow follow session/view mode ───────── */
-/* Saturated border plus a coloured outer glow so the buttons stay legible on a
-   tablet in direct sunlight, where the previous faint borders washed out. */
-/* Schiessen (default): green */
+/* ── Card border + inner glow follow the session/view mode ───────── */
+/* Saturated border plus a light glow on the inner side of the border (no outer
+   halo) so the buttons stay legible without the blurry bleed. The accent
+   follows the session via --card-accent, so one rule covers every mode. */
 .device-btn:not(:disabled) {
-  border-color: rgba(72, 187, 120, 0.7);
-  box-shadow: 0 0 12px rgba(72, 187, 120, 0.3), inset 0 0 0 1px rgba(72, 187, 120, 0.18);
+  border-color: color-mix(in srgb, var(--card-accent) 70%, transparent);
+  box-shadow: inset 0 0 16px color-mix(in srgb, var(--card-accent) 26%, transparent);
   /* D language: mode-tinted gradient background (accent follows the session) */
   background:
     linear-gradient(150deg,
@@ -1272,21 +1270,6 @@ const chipLabel = (position) => {
 /* Position index sits bottom-right of the chip — bump contrast on the fill */
 .device-btn:not(:disabled) .btn-position-num {
   color: rgba(26, 26, 46, 0.55);
-}
-/* Erfassen: red */
-.session--erfassen .device-btn:not(:disabled) {
-  border-color: rgba(252, 129, 129, 0.75);
-  box-shadow: 0 0 12px rgba(252, 129, 129, 0.32), inset 0 0 0 1px rgba(252, 129, 129, 0.2);
-}
-/* Verzögert: amber */
-.session--verzoegert .device-btn:not(:disabled) {
-  border-color: rgba(239, 159, 39, 0.75);
-  box-shadow: 0 0 12px rgba(239, 159, 39, 0.32), inset 0 0 0 1px rgba(239, 159, 39, 0.2);
-}
-/* Rufauslösung: cyan glow on device buttons */
-.session--rufausloesung .device-btn:not(:disabled) {
-  border-color: rgba(86, 200, 216, 0.75);
-  box-shadow: 0 0 12px rgba(86, 200, 216, 0.32), inset 0 0 0 1px rgba(86, 200, 216, 0.2);
 }
 
 /* ── Bottom bar active tab — solid throw-type fill with a dark label (D) ─ */
@@ -1529,6 +1512,7 @@ const chipLabel = (position) => {
   color: rgba(255, 255, 255, 0.3);
   cursor: pointer;
   transition: all 0.18s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .toggle-btn.active {
@@ -1547,7 +1531,7 @@ const chipLabel = (position) => {
     max-width: 560px;
     margin: 0 auto;
     width: 100%;
-    padding: 0 24px;
+    padding: 16px 24px 0;
   }
 
   .device-grid {
@@ -1682,12 +1666,10 @@ const chipLabel = (position) => {
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s;
-  background: rgba(86, 200, 216, 0.10);
-  border: 1.5px solid rgba(86, 200, 216, 0.35);
+  --sg-card-accent: var(--ruf-color);
   color: var(--ruf-text);
 }
 
-.ruf-btn:hover  { background: rgba(86, 200, 216, 0.16); }
 .ruf-btn:active { transform: scale(0.95); }
 
 /* Rufauslösung config modal */

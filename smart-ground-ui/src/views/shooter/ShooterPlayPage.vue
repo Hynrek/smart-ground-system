@@ -90,7 +90,7 @@
         <div class="section-label">Aktueller Schritt</div>
 
         <!-- Regular step card -->
-        <div v-if="currentStep" class="step-card" :class="`is-${currentStep.type}`" :style="{ borderColor: modeBadgeStyle(currentStep.type).borderColor }" @click="handleCurrentStepClick">
+        <div v-if="currentStep" class="step-card" :class="`is-${currentStep.type}`" @click="handleCurrentStepClick">
           <span class="card-badge" :style="modeBadgeStyle(currentStep.type)">
             {{ getTypeLabel(currentStep.type) }}
           </span>
@@ -1125,10 +1125,27 @@ watch(
 }
 
 
+/* Per-step-type accent (matches constants/stepModes.js base hues) so the card
+   border, tint and inner glow all share one variable. */
+.step-card.is-solo     { --card-accent: #1D9E75; }
+.step-card.is-pair     { --card-accent: #378ADD; }
+.step-card.is-a_schuss { --card-accent: #EF9F27; }
+.step-card.is-raffale  { --card-accent: #7F77DD; }
+
 .step-card {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1.5px solid color-mix(in srgb, var(--sg-accent) 35%, transparent);
+  /* D card language, dialed up for the kiosk hero card: mode-tinted gradient,
+     saturated hued border, and a light glow on the inner side of the border. */
+  --card-accent: var(--sg-accent);
+  border: 1.5px solid color-mix(in srgb, var(--card-accent) 55%, transparent);
   border-radius: 20px;
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--card-accent) 22%, transparent) 0%,
+      color-mix(in srgb, var(--card-accent) 10%, transparent) 42%,
+      rgba(255, 255, 255, 0.05) 100%);
+  box-shadow:
+    inset 0 0 14px color-mix(in srgb, var(--card-accent) 24%, transparent),
+    0 4px 22px color-mix(in srgb, var(--card-accent) 12%, transparent);
   padding: 24px 24px;
   width: 100%;
   display: flex;
@@ -1176,10 +1193,9 @@ watch(
   letter-spacing: 1px;
 }
 
-/* Getroffen card (program complete) */
+/* Getroffen card (program complete) — success green, same D treatment */
 .getroffen-card {
-  border-color: rgba(72, 187, 120, 0.5) !important;
-  background: rgba(72, 187, 120, 0.08) !important;
+  --card-accent: #48BB78;
 }
 
 .badge-getroffen {

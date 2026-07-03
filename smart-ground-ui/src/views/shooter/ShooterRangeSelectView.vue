@@ -28,7 +28,7 @@
       <button
         v-for="range in ranges"
         :key="range.id"
-        class="range-card"
+        class="range-card sg-card-surface sg-card-surface--hover"
         :class="{
           'range-card--locked': range.locked,
           'range-card--reserved': isReservedByOther(range),
@@ -36,16 +36,7 @@
         :disabled="isReservedByOther(range)"
         @click="selectRange(range)"
       >
-        <div
-          class="card-accent"
-          :class="
-            range.locked
-              ? 'card-accent--red'
-              : isReservedByOther(range)
-                ? 'card-accent--blue'
-                : 'card-accent--green'
-          "
-        />
+        <div class="card-accent" />
 
         <div class="card-body">
           <div class="card-main">
@@ -194,60 +185,43 @@ const selectRange = (range) => {
 }
 
 /* ── Range card ──────────────────────────────────── */
+/* Surface (gradient tint + hued border + inner glow) comes from the shared
+   .sg-card-surface utility; the state classes only pick the hue. */
 .range-card {
+  --sg-card-accent: #48BB78; /* available (green) */
   display: flex;
   align-items: stretch;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  transition: background 0.15s, transform 0.1s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s;
   width: 100%;
-}
-
-.range-card:hover {
-  background: rgba(255, 255, 255, 0.09);
 }
 
 .range-card:active {
   transform: scale(0.98);
-  background: rgba(255, 255, 255, 0.07);
 }
 
-/* Locked stays interactive — tapping enters the range to release the lock. */
-.range-card--locked {
-  background: rgba(252, 129, 129, 0.07);
-  border-color: rgba(252, 129, 129, 0.2);
-}
-
-.range-card--locked:hover {
-  background: rgba(252, 129, 129, 0.11);
-}
-
+/* Reserved by another user — muted and not tappable (blue accent). */
 .range-card--reserved {
+  --sg-card-accent: var(--sg-accent);
   opacity: 0.6;
   cursor: not-allowed;
   pointer-events: none;
 }
 
+/* Locked stays interactive — tapping enters the range to release the lock.
+   Listed last so red wins if a range is both locked and reserved. */
+.range-card--locked {
+  --sg-card-accent: #fc8181;
+}
+
 .card-accent {
   width: 4px;
   flex-shrink: 0;
-}
-
-.card-accent--green {
-  background: var(--sg-color-success);
-}
-
-.card-accent--red {
-  background: var(--sg-color-danger-bg);
-}
-
-.card-accent--blue {
-  background: var(--sg-accent);
+  background: var(--sg-card-accent);
 }
 
 .card-body {
