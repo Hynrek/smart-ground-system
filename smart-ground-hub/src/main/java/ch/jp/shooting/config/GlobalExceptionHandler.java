@@ -12,6 +12,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.URI;
 
@@ -195,6 +197,22 @@ public class GlobalExceptionHandler {
     ProblemDetail handleBlockState(BlockStateException ex) {
         var detail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         detail.setType(URI.create("/errors/block-state-conflict"));
+        return detail;
+    }
+
+    // ── Routing Exceptions ──
+
+    @ExceptionHandler(NoHandlerFoundException.class)
+    ProblemDetail handleNoHandlerFound(NoHandlerFoundException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "No endpoint found for " + ex.getHttpMethod() + " " + ex.getRequestURL());
+        detail.setType(URI.create("/errors/endpoint-not-found"));
+        return detail;
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    ProblemDetail handleNoResourceFound(NoResourceFoundException ex) {
+        var detail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "No endpoint found for " + ex.getHttpMethod() + " " + ex.getResourcePath());
+        detail.setType(URI.create("/errors/endpoint-not-found"));
         return detail;
     }
 
