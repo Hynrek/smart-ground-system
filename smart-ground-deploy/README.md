@@ -70,11 +70,53 @@ version or git SHA instead of `latest` (e.g. `:2026-06-24`) so you can pin/rollb
    ```
 
 5. Open:
-   - Frontend → http://localhost
+   - Frontend → http://localhost (or `https://localhost` — needed for camera access
+     like the QR scanner; see **Trusting the https certificate** below to get rid of
+     the browser warning)
    - Backend / Swagger → http://localhost:8080/swagger-ui.html
 
 Stop with `docker compose down` (keeps the database) or `docker compose down -v`
 (wipes the database volume).
+
+---
+
+## Trusting the https certificate (no more "untrusted" warning)
+
+There is no public domain here, so a certificate from a public CA (Let's Encrypt) is
+not possible. Instead the `web` container creates a **local CA** ("Smart Ground Local
+CA") on first start and issues its server certificate from it. Install that CA once
+per device and every browser on it shows a normal green lock.
+
+**Setup (once per deployment):**
+
+1. Put this machine's LAN IP into `TLS_SANS` in `.env`
+   (e.g. `TLS_SANS=DNS:localhost,IP:127.0.0.1,IP:192.168.0.15`), then
+   `docker compose up -d` — the server cert is reissued automatically whenever
+   `TLS_SANS` changes.
+2. Download the CA certificate from `http://<host>/ca.crt` on each device.
+
+**Install the CA per device:**
+
+- **Windows**: double-click `ca.crt` → *Install Certificate* → *Local Machine* →
+  *Place all certificates in the following store* → **Trusted Root Certification
+  Authorities**. (Firefox: Settings → Privacy & Security → Certificates → Import,
+  or enable `security.enterprise_roots.enabled`.)
+- **Android**: download `ca.crt` → Settings → *Security & privacy* → *More security
+  settings* → *Encryption & credentials* → *Install a certificate* → **CA
+  certificate**. Chrome then trusts it.
+- **iOS/iPadOS**: download `ca.crt` in Safari → Settings → *Profile Downloaded* →
+  Install → then **Settings → General → About → Certificate Trust Settings** and
+  enable full trust for "Smart Ground Local CA" (without this last step Safari still
+  warns).
+
+**Notes:**
+
+- The CA lives in the `tls_certs` Docker volume, so it survives image updates and
+  restarts — devices stay trusted. `docker compose down -v` deletes it; after that,
+  a new CA is generated and devices must install the new `ca.crt`.
+- The CA is valid 10 years, the server cert 820 days (iOS caps leaf certs at 825
+  days); restart the container after expiry gets close — delete
+  `selfsigned.crt` in the volume (or change `TLS_SANS`) to force a reissue.
 
 ---
 
@@ -92,7 +134,10 @@ Stop with `docker compose down` (keeps the database) or `docker compose down -v`
 
 Open the browser **on the same machine** running Docker. To reach the app from another
 device on the network, the frontend image must be rebuilt with a `VITE_API_BASE_URL`
-pointing at the host's LAN IP, and that origin added to the backend's CORS list.
+pointing at the host's LAN IP, and that origin added to the backend's CORS list. Use
+`https://<host-lan-ip>` (port 443, see **Trusting the https certificate**) rather than `http://` for that —
+mobile browsers only allow camera access (`getUserMedia`, used by the QR scanner) over
+a secure context, and a LAN IP over plain http doesn't qualify.
 
 A physical SmartBox connects its MQTT to **this machine's LAN IP** on port `1883`
 (not `localhost`).

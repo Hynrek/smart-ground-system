@@ -8,6 +8,12 @@
 #
 # Image names + tag come from .env (copy .env.example -> .env first).
 # Frontend:  http://localhost       (nginx on port 80)
+#            https://localhost      (port 443 — needed for camera access, e.g. the QR
+#                                     scanner, when reached from a phone via LAN IP.
+#                                     Cert is issued at startup by a local CA; install
+#                                     the CA once per device from http://<host>/ca.crt
+#                                     to remove the trust warning. Set TLS_SANS in .env
+#                                     to include this machine's LAN IP.)
 # Backend:   http://localhost:8080   (Swagger: /swagger-ui.html)
 #
 # Names carry a "_deploy" postfix and the project is "smartground-deploy" so this
@@ -65,6 +71,15 @@ services:
     container_name: smartground-web_deploy
     ports:
       - "80:80"
+      - "443:443"
+    environment:
+      # SANs baked into the https cert issued at startup. Add this machine's
+      # LAN IP in .env so phones reaching https://<lan-ip> get a matching cert.
+      TLS_SANS: ${TLS_SANS:-DNS:localhost,IP:127.0.0.1}
+    volumes:
+      # Persists the local CA across restarts/upgrades so devices that trusted
+      # it once stay trusted. `docker compose down -v` wipes it (re-install then).
+      - tls_certs:/etc/nginx/ssl
     depends_on:
       - app
     networks:
@@ -72,6 +87,7 @@ services:
 
 volumes:
   postgres_data:
+  tls_certs:
 
 networks:
   smartground:
