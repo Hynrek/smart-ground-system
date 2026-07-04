@@ -14,18 +14,17 @@
     </div>
   </div>
 
-  <!-- Real card -->
+  <!-- Real card. data-position-id makes it hit-testable as a pointer-drag
+       drop target (see RangeDetailView); dropHint drives the highlight. -->
   <div
     v-else
     class="position-card"
     :class="{
       'position-card--empty': !position.device,
       'position-card--filled': !!position.device,
-      'drag-over': dragOver,
+      'drag-over': dropHint,
     }"
-    @dragover.prevent="dragOver = true"
-    @dragleave="dragOver = false"
-    @drop.prevent="onDrop"
+    :data-position-id="position.id"
   >
     <!-- Label row -->
     <div class="pos-label-row">
@@ -156,11 +155,12 @@ const props = defineProps({
   nextLabel: { type: String, default: '+' },
   actionMode: { type: Boolean, default: false },
   fired: { type: Boolean, default: false },
+  /** True while a pointer-drag hovers this card — shows the drop highlight */
+  dropHint: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([
   'add-position',
-  'drop',
   'remove-device',
   'rename',
   'delete-position',
@@ -184,15 +184,6 @@ const handleUnblockDevice = async (device) => {
   try { await deviceStore.unblockDevice(device.id); }
   finally { blocking.value = false; }
 };
-
-// ── Drag & drop ───────────────────────────────────────────────────────────────
-const dragOver = ref(false);
-
-function onDrop(event) {
-  dragOver.value = false;
-  const deviceId = event.dataTransfer?.getData('deviceId');
-  if (deviceId) emit('drop', deviceId);
-}
 
 // ── Inline rename ─────────────────────────────────────────────────────────────
 const renaming = ref(false);

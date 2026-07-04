@@ -210,20 +210,7 @@ const removeDevice = (deviceId) => {
 };
 
 const updateDevice = async ({ deviceId, updates }) => {
-  if ('rangeId' in updates) {
-    deviceStore.updateDeviceLocal(deviceId, updates);
-    try {
-      if (updates.rangeId) {
-        await deviceApi.assignDeviceToRange(deviceId, updates.rangeId);
-      } else {
-        await deviceApi.removeDeviceFromRange(deviceId);
-      }
-    } catch (e) {
-      console.error('Failed to update device range:', e);
-    }
-  } else {
-    await deviceStore.updateDevice(deviceId, updates);
-  }
+  await deviceStore.updateDevice(deviceId, updates);
 };
 
 const renameBox = ({ boxId, alias }) => {

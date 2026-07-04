@@ -58,7 +58,6 @@
           <tr>
             <th>Name</th>
             <th class="typ-col">Typ</th>
-            <th>Schiessplatz</th>
             <th class="stat-col">Befehle</th>
             <th class="stat-col">Letzter Befehl</th>
             <th v-if="actionMode">Aktion</th>
@@ -74,18 +73,6 @@
                 <span class="type-sub">{{ device.groupName ?? device.type }}</span>
               </td>
               <td class="typ-col"><TypeChip :type="device.groupName ?? device.type" /></td>
-              <td>
-                <select
-                  :value="device.rangeId || ''"
-                  class="range-select"
-                  @change="onRangeChange(device.id, $event.target.value)"
-                >
-                  <option value="">Kein Platz</option>
-                  <option v-for="r in rangeStore.ranges" :key="r.id" :value="r.id">
-                    {{ r.name }}
-                  </option>
-                </select>
-              </td>
               <td class="stat-col stat-num">
                 {{ device.commandsProcessed ?? '–' }}
               </td>
@@ -187,7 +174,7 @@
 
             <!-- Inline edit row -->
             <tr v-if="editingId === device.id" class="edit-row">
-              <td :colspan="actionMode ? 9 : 8">
+              <td :colspan="actionMode ? 8 : 7">
                 <div class="edit-form">
                   <div class="form-group">
                     <label>Name</label>
@@ -286,7 +273,6 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useSmartBoxStore } from '../stores/smartBoxStore.js';
-import { useRangeStore } from '../stores/rangeStore.js';
 import { useDeviceTypeStore } from '../stores/deviceTypeStore.js';
 import { useAuthStore } from '../stores/authStore.js';
 import { useDeviceStore } from '../stores/deviceStore.js';
@@ -326,7 +312,6 @@ const emit = defineEmits([
 ]);
 
 const smartBoxStore = useSmartBoxStore();
-const rangeStore = useRangeStore();
 const deviceTypeStore = useDeviceTypeStore();
 const authStore = useAuthStore();
 const deviceStore = useDeviceStore();
@@ -424,10 +409,6 @@ const formatCommandTime = (iso) => {
   return `${d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit' })} ${hm}`;
 };
 
-const getRangeName = (rangeId) => {
-  return rangeStore.ranges.find((r) => r.id === rangeId)?.name || 'Zugeordnet';
-};
-
 const getStatusLabel = (status) => {
   return STATUS_LABELS[status] || status;
 };
@@ -490,13 +471,6 @@ const handleAddDevice = () => {
   });
   resetNewDeviceForm();
   isAdding.value = false;
-};
-
-const onRangeChange = (deviceId, rangeId) => {
-  emit('update-device', {
-    deviceId,
-    updates: { rangeId: rangeId || null },
-  });
 };
 
 const confirmDelete = (deviceId) => {
@@ -1029,23 +1003,6 @@ const deleteDevice = (deviceId) => {
   color: var(--sg-text-muted);
 }
 
-.range-select {
-  font-size: 13px;
-  padding: 6px 10px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: var(--sg-text-primary);
-  font-family: inherit;
-  outline: none;
-}
-
-.range-select:hover,
-.range-select:focus {
-  background: var(--sg-bg-panel);
-  border-radius: 4px;
-}
-
 /* ── Type subtext (desktop: hidden; mobile: shown) ── */
 .type-sub {
   display: none;
@@ -1112,6 +1069,24 @@ const deleteDevice = (deviceId) => {
 }
 
 /* ── Responsive ───────────────────────────────── */
+/* Tablet: tighten spacing and drop the least-critical command
+   stats so the essential columns fit without horizontal scroll. */
+@media (max-width: 1024px) {
+  .device-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .device-table th,
+  .device-table td {
+    padding: 8px 12px;
+  }
+
+  .stat-col {
+    display: none;
+  }
+}
+
 @media (max-width: 600px) {
   /* Box header: status row wraps below name */
   .box-header {
@@ -1157,13 +1132,6 @@ const deleteDevice = (deviceId) => {
   .name-cell {
     white-space: normal;
     min-width: 90px;
-  }
-
-  /* Compact range select */
-  .range-select {
-    max-width: 100px;
-    font-size: 12px;
-    padding: 4px 6px;
   }
 
   /* Stacked edit / add forms */

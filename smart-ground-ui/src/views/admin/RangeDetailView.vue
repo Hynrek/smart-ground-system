@@ -105,7 +105,7 @@
           :position="pos"
           :action-mode="actionMode"
           :fired="firedDevices[pos.device?.id]"
-          @drop="(deviceId) => handleDropOnPosition(pos.id, deviceId)"
+          :drop-hint="dropTargetId === pos.id"
           @remove-device="removeDeviceFromPosition(pos.id)"
           @rename="(label) => handleRename(pos.id, label)"
           @delete-position="handleDeletePosition(pos.id)"
@@ -141,11 +141,12 @@
                 v-for="device in group.devices"
                 :key="device.id"
                 class="device-item"
-                draggable="true"
-                @dragstart="startDrag($event, device)"
-                @dragend="endDrag"
+                :class="{ 'device-item--dragging': draggingDevice?.id === device.id }"
+                @pointerdown="onDevicePointerDown($event, device)"
               >
-                <Icons icon="grip" :size="13" />
+                <span class="drag-handle" aria-hidden="true" @contextmenu.prevent>
+                  <Icons icon="grip" :size="13" />
+                </span>
                 <div class="device-item-info">
                   <div class="device-item-name">{{ device.alias }}</div>
                   <div
@@ -162,11 +163,20 @@
         </div>
       </div>
     </div>
+
+    <!-- Floating ghost following the pointer while dragging a device -->
+    <div
+      v-if="draggingDevice"
+      class="drag-ghost"
+      :style="{ left: dragGhost.x + 'px', top: dragGhost.y + 'px' }"
+    >
+      {{ draggingDevice.alias }}
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
@@ -263,13 +273,73 @@ const allSidebarGroups = computed(() => {
   return [{ label: 'Nicht zugeteilt', devices: unassigned }];
 });
 
-// ── Drag & drop ───────────────────────────────────────────────────────────────
-const startDrag = (event, device) => {
-  draggingDevice.value = device;
-  event.dataTransfer.setData('deviceId', device.id);
-  event.dataTransfer.effectAllowed = 'move';
+// ── Drag & drop (pointer-based: works with mouse AND touch) ──────────────────
+// HTML5 drag & drop never fires on touch input; admin runs mostly on tablets,
+// so the drag is driven by pointer events instead. Drop targets are resolved
+// by hit-testing [data-position-id] under the pointer (see PositionCard).
+const DRAG_THRESHOLD_PX = 6;
+const dragGhost = ref({ x: 0, y: 0 });
+const dropTargetId = ref(null);
+let dragCandidate = null;
+
+const onDevicePointerDown = (event, device) => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  // Touch drags must start on the grip handle: it has touch-action: none, so
+  // the browser can never claim the gesture as a scroll-pan (which would fire
+  // pointercancel and kill the drag). The rest of the item keeps pan-y so the
+  // device list still scrolls with a finger.
+  if (event.pointerType !== 'mouse' && !event.target.closest('.drag-handle')) return;
+  dragCandidate = { device, startX: event.clientX, startY: event.clientY, pointerId: event.pointerId, el: event.currentTarget };
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', onDragEnd);
+  window.addEventListener('pointercancel', onDragCancel);
 };
-const endDrag = () => { draggingDevice.value = null; };
+
+const onDragMove = (event) => {
+  if (!dragCandidate) return;
+  if (!draggingDevice.value) {
+    const dx = event.clientX - dragCandidate.startX;
+    const dy = event.clientY - dragCandidate.startY;
+    if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+    draggingDevice.value = dragCandidate.device;
+    // capture so the browser keeps routing pointer events to us on touch
+    try { dragCandidate.el.setPointerCapture(dragCandidate.pointerId); } catch { /* detached el */ }
+  }
+  dragGhost.value = { x: event.clientX, y: event.clientY };
+  autoScrollNearEdge(event.clientY);
+  const hit = document.elementFromPoint(event.clientX, event.clientY);
+  dropTargetId.value = hit?.closest('[data-position-id]')?.dataset.positionId ?? null;
+};
+
+// While a finger drags, the page can't be scrolled — nudge the scroll
+// container when the pointer nears the top/bottom edge so off-screen
+// positions stay reachable on small screens.
+const AUTOSCROLL_EDGE_PX = 72;
+const AUTOSCROLL_STEP_PX = 14;
+const autoScrollNearEdge = (clientY) => {
+  const container = document.querySelector('.layout-main');
+  if (!container) return;
+  if (clientY < AUTOSCROLL_EDGE_PX) container.scrollTop -= AUTOSCROLL_STEP_PX;
+  else if (clientY > window.innerHeight - AUTOSCROLL_EDGE_PX) container.scrollTop += AUTOSCROLL_STEP_PX;
+};
+
+const onDragEnd = async () => {
+  const device = draggingDevice.value;
+  const positionId = dropTargetId.value;
+  onDragCancel();
+  if (device && positionId) await handleDropOnPosition(positionId, device.id);
+};
+
+const onDragCancel = () => {
+  draggingDevice.value = null;
+  dropTargetId.value = null;
+  dragCandidate = null;
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onDragEnd);
+  window.removeEventListener('pointercancel', onDragCancel);
+};
+
+onUnmounted(onDragCancel);
 
 // ── Position actions ──────────────────────────────────────────────────────────
 const handleAddPosition = async () => {
@@ -542,9 +612,47 @@ h1 {
   gap: 8px;
   cursor: grab;
   transition: box-shadow 0.15s;
+  /* pan-y: vertical finger movement scrolls the list, a horizontal pull
+     starts the pointer-drag (pointermove keeps firing) */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .device-item:hover { box-shadow: var(--sg-shadow-md); }
 .device-item:active { cursor: grabbing; }
+.device-item--dragging { opacity: 0.4; }
+
+/* Touch drag handle — touch-action: none keeps the browser from claiming the
+   gesture as a pan, so pointermove keeps firing for the whole drag. Negative
+   margins grow the hit area to ~44px without changing the layout. */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 10px;
+  margin: -14px -4px -14px -10px;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  cursor: grab;
+}
+
+/* pointer-events: none is required — the ghost must not swallow the
+   elementFromPoint hit-test that resolves the drop target under it */
+.drag-ghost {
+  position: fixed;
+  transform: translate(-50%, -130%);
+  pointer-events: none;
+  z-index: 1000;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--sg-bg-panel);
+  border: 1.5px solid var(--sg-accent);
+  box-shadow: var(--sg-shadow-lg);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sg-text-primary);
+  white-space: nowrap;
+}
 
 .device-item-info { flex: 1; min-width: 0; }
 .device-item-name {
