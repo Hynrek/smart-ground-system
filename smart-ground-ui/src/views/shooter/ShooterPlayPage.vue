@@ -1010,8 +1010,8 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
-  min-height: 32px;
+  min-width: 48px;
+  min-height: 48px;
   padding: 6px;
   border-radius: 8px;
   transition: background 0.15s;
@@ -1031,7 +1031,7 @@ watch(
 }
 
 .player-star-btn {
-  min-height: 32px;
+  min-height: 48px;
   padding: 6px 12px;
   border-radius: 8px;
   border: 1px solid var(--sg-border);
