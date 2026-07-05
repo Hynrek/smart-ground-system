@@ -91,8 +91,8 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   const nextPlayer = computed(() => {
     if (!isMultiPlayer.value) return null;
     const nextIdx = currentPlayerIndex.value + 1;
-    if (nextIdx >= sessionPlayers.value.length) return null;
-    return sessionPlayers.value[nextIdx] ?? null;
+    if (nextIdx >= roundOrder.value.length) return null;
+    return sessionPlayers.value[roundOrder.value[nextIdx]] ?? null;
   });
 
   // ── Score / progress computed ───────────────────────────────────────────────
@@ -211,9 +211,9 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   };
 
   // ── Player setup ─────────────────────────────────────────────────────────────
-  const setupPlayers = (players) => {
+  const setupPlayers = (players, startIndex = 0) => {
     sessionPlayers.value = players;
-    roundStartIndex.value = 0;
+    roundStartIndex.value = startIndex;
     currentPlayerIndex.value = 0;
     buildRoundOrder();
   };
@@ -613,12 +613,12 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     pendingGroupSerien.value = null;
   };
 
-  const startGroupPlay = async (players, rangeId = null, rangeName = null, instanceId = null, blockId = null, rotteId = null, instanceType = null, sessionId = null) => {
+  const startGroupPlay = async (players, rangeId = null, rangeName = null, instanceId = null, blockId = null, rotteId = null, instanceType = null, sessionId = null, starterIndex = 0) => {
     if (!pendingGroupSerien.value) return;
     const serien = pendingGroupSerien.value;
 
     currentRangeId.value = rangeId;
-    setupPlayers(players);
+    setupPlayers(players, starterIndex);
     playerConfirmations.value = new Map(players.map((p) => [p.id, false]));
     completedPlayerCount.value = 0;
 
