@@ -54,8 +54,8 @@
         <span v-if="store.currentPlayer" class="player-name">
           {{ store.currentPlayer.displayName }}
         </span>
-        <span v-if="playModeBadge" class="play-mode-badge" :class="playModeBadge.class">
-          <span class="play-mode-dot" />
+        <span v-if="playModeBadge" class="mode-badge" :class="playModeBadge.class">
+          <span class="mode-dot" />
           {{ playModeBadge.label }}
         </span>
       </div>
@@ -370,7 +370,7 @@
 
 <script setup>
 import { computed, ref, watch, onBeforeUnmount } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
 import { useTriggerGating } from '@/composables/useTriggerGating.js';
@@ -381,6 +381,7 @@ import ScoreTable from '@/components/shooter/ScoreTable.vue';
 import QrScanModal from '@/components/shooter/QrScanModal.vue';
 
 const router = useRouter();
+const route = useRoute();
 const props = defineProps({
   rangeId: { type: String, required: true },
 });
@@ -467,7 +468,7 @@ const applyCorrectionStep = (newState) => {
 };
 
 if (!store.playProg && !store.showGroupSetup && !store.pendingPasseInfo) {
-  router.push(`/remote/${props.rangeId}`);
+  router.push({ path: `/remote/${props.rangeId}`, query: route.query });
 }
 
 // ── Group setup ───────────────────────────────────────────────────────────────
@@ -551,7 +552,7 @@ const beginGroupPlay = () => {
 
 const cancelGroupSetup = () => {
   store.cancelGroupSetup();
-  router.push(`/remote/${props.rangeId}`);
+  router.push({ path: `/remote/${props.rangeId}`, query: route.query });
 };
 
 // ── Carousel data ─────────────────────────────────────────────────────────────
@@ -646,10 +647,10 @@ const showFinalScore = computed(() => store.playComplete);
 // Mode indicator in the Play top bar — only for the two gated modes.
 const playModeBadge = computed(() => {
   if (remoteStore.sessionMode === 'delayed') {
-    return { label: 'Verzögert', class: 'play-mode-badge--delayed' };
+    return { label: 'Verzögert', class: 'mode-badge--delayed' };
   }
   if (remoteStore.sessionMode === 'rufausloesung') {
-    return { label: 'Rufauslösung', class: 'play-mode-badge--ruf' };
+    return { label: 'Rufauslösung', class: 'mode-badge--rufausloesung' };
   }
   return null;
 });
@@ -815,7 +816,7 @@ const handleFailStep = (failType) => {
 const goBack = async () => {
   if (store.playComplete) await store.commitResults();
   store.closePlayback();
-  router.push(`/remote/${props.rangeId}`);
+  router.push({ path: `/remote/${props.rangeId}`, query: route.query });
 };
 
 onBeforeUnmount(() => {
@@ -827,6 +828,7 @@ onBeforeUnmount(() => {
 // so a stale countdown/listen never carries over.
 watch(() => store.playComplete, (done) => { if (done) gating.cancel(); });
 watch(() => store.currentPlayerIndex, () => { gating.cancel(); });
+watch(() => remoteStore.sessionMode, () => { gating.cancel(); });
 
 // Monitor raffale timer
 watch(
@@ -1948,14 +1950,16 @@ watch(
   transform: translateY(12px);
 }
 
-/* ── Gate mode tokens (fallbacks match the remote's amber/cyan) ── */
+/* ── Gate mode tokens — kept in sync with ShooterRemoteView's --delay-/--ruf- vars ── */
 .play-page {
   --delay-color: #EF9F27;
+  --delay-text: #FAC775;
   --ruf-color: #56C8D8;
+  --ruf-text: #7AD8E4;
 }
 
-/* ── Mode badge in the top bar ── */
-.play-mode-badge {
+/* ── Mode badge in the top bar (class names shared with ShooterRemoteView's mode-badge-btn) ── */
+.mode-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1967,28 +1971,28 @@ watch(
   letter-spacing: 0.6px;
 }
 
-.play-mode-badge .play-mode-dot {
+.mode-badge .mode-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  animation: play-mode-pulse 1s ease-in-out infinite;
+  animation: mode-dot-pulse 1s ease-in-out infinite;
 }
 
-.play-mode-badge--delayed {
+.mode-badge--delayed {
   background: rgba(239, 159, 39, 0.12);
-  color: #FAC775;
+  color: var(--delay-text);
 }
-.play-mode-badge--delayed .play-mode-dot { background: #EF9F27; }
+.mode-badge--delayed .mode-dot { background: var(--delay-color); }
 
-.play-mode-badge--ruf {
+.mode-badge--rufausloesung {
   background: rgba(86, 200, 216, 0.12);
-  color: #7AD8E4;
+  color: var(--ruf-text);
 }
-.play-mode-badge--ruf .play-mode-dot { background: #56C8D8; }
+.mode-badge--rufausloesung .mode-dot { background: var(--ruf-color); }
 
-@keyframes play-mode-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+@keyframes mode-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.65); }
 }
 
 /* ── Countdown ring on the hero card (delay + totzeit) ── */

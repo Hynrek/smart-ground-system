@@ -324,7 +324,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
@@ -336,6 +336,12 @@ import { fetchRange } from '@/services/rangeApi.js';
 import Icons from '@/components/Icons.vue';
 import ShooterFlyoutPanel from '@/components/shooter-remote/ShooterFlyoutPanel.vue';
 import { useTriggerGating } from '@/composables/useTriggerGating.js';
+
+// Modes reflected in the URL (?mode=&sessionMode=) so leaving and returning to
+// this view (e.g. via Play) restores the same throw/session mode instead of
+// always resetting to Solo/Schiessen.
+const MODE_VALUES = ['solo', 'pair', 'a_schuss', 'raffale'];
+const SESSION_MODE_VALUES = ['throwing', 'recording', 'delayed', 'rufausloesung'];
 
 const props = defineProps({ rangeId: { type: String, required: true } });
 
@@ -425,6 +431,10 @@ const rotteName = computed(() => {
 
 const positionsLoading = ref(false);
 
+// Guards the one-time restore below from the sessionMode watcher (it resets
+// `mode` to 'solo' on every user-driven session-mode switch).
+let restoringModeFromUrl = true;
+
 onMounted(async () => {
   // Redirect if this range is assigned to a different user
   const rangeData = await fetchRange(props.rangeId);
@@ -434,7 +444,17 @@ onMounted(async () => {
   }
 
   store.ensureReserved(props.rangeId);
-  store.setMode('solo');
+  // Restore mode/sessionMode from the URL (falls back to defaults) so
+  // navigating out to Play and back lands on the same RemoteMode.
+  const restoredSessionMode = SESSION_MODE_VALUES.includes(route.query.sessionMode)
+    ? route.query.sessionMode
+    : 'throwing';
+  const restoredMode = MODE_VALUES.includes(route.query.mode) ? route.query.mode : 'solo';
+  if (restoredSessionMode !== 'throwing') store.setSessionMode(restoredSessionMode);
+  store.setMode(restoredMode);
+  await nextTick();
+  restoringModeFromUrl = false;
+  syncModeQuery();
   // Store competition context so ShooterFlyoutPanel can access it
   store.setCompetitionContext(instanceId.value, rotteId.value);
   // Only fetch from API if positions are not already cached for this range
@@ -455,13 +475,25 @@ onUnmounted(() => {
 });
 
 watch(() => store.sessionMode, () => {
-  store.setMode('solo');
+  if (!restoringModeFromUrl) store.setMode('solo');
   modeDrawerOpen.value = false;
   cancelRuf();
 });
 
 watch(() => store.mode, () => {
   store.throwPairPending = null;
+});
+
+// Keep ?mode=&sessionMode= in sync so leaving (e.g. to Play) and coming back
+// restores the same RemoteMode instead of resetting to Solo/Schiessen.
+const syncModeQuery = () => {
+  if (route.query.mode === store.mode && route.query.sessionMode === store.sessionMode) return;
+  router.replace({ query: { ...route.query, mode: store.mode, sessionMode: store.sessionMode } });
+};
+
+watch([() => store.mode, () => store.sessionMode], () => {
+  if (restoringModeFromUrl) return;
+  syncModeQuery();
 });
 
 // ── Mode flyout ────────────────────────────────────

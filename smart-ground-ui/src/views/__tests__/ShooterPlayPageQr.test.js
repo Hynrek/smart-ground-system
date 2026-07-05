@@ -6,6 +6,7 @@ import { usePlaySessionStore } from '@/stores/playSessionStore.js'
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn() }),
+  useRoute: () => ({ query: {} }),
 }))
 vi.mock('@/stores/passeStore.js', () => ({
   usePasseStore: () => ({ savedPassen: [] }),

@@ -344,7 +344,7 @@
 
 <script setup>
 import { ref, computed, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
 import { usePasseStore } from '@/stores/passeStore.js';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
@@ -357,6 +357,7 @@ import CompetitionFlyoutContent from '@/components/shooter-remote/CompetitionFly
 import { stepModeLabel, stepNotation, modeBadgeStyle } from '@/constants/stepModes.js';
 
 const router = useRouter();
+const route = useRoute();
 const store = useShooterRemoteStore();
 const passeStore = usePasseStore();
 const playStore = usePlaySessionStore();
@@ -453,7 +454,7 @@ const playBlock = (block) => {
     instanceType: block.instanceType ?? null,
   };
   isOpen.value = false;
-  router.push(`/remote/${currentRangeId.value}/play`);
+  router.push({ path: `/remote/${currentRangeId.value}/play`, query: route.query });
 };
 
 const playCompetitionRotte = (item) => {
@@ -479,7 +480,7 @@ const playCompetitionRotte = (item) => {
     instanceType: 'competition',
   };
   isOpen.value = false;
-  router.push(`/remote/${currentRangeId.value}/play`);
+  router.push({ path: `/remote/${currentRangeId.value}/play`, query: route.query });
 };
 
 const playStechen = (item) => {
@@ -501,7 +502,7 @@ const playStechen = (item) => {
     serieName: item.serieAlias,
   };
   isOpen.value = false;
-  router.push(`/remote/${currentRangeId.value}/play`);
+  router.push({ path: `/remote/${currentRangeId.value}/play`, query: route.query });
 };
 
 const handlePanelClick = () => {
@@ -545,13 +546,13 @@ const playSerieSolo = (serie) => {
   playStore.playPasseWithScore(tempPasse.id, [], currentRangeId.value);
   passeStore.savedPassen = passeStore.savedPassen.filter((p) => p.id !== tempPasse.id);
   isOpen.value = false;
-  router.push(`/remote/${currentRangeId.value}/play`);
+  router.push({ path: `/remote/${currentRangeId.value}/play`, query: route.query });
 };
 
 const playSerieGroup = (serie) => {
   playStore.setPendingGroupSerien([buildSerieSegment(serie)]);
   isOpen.value = false;
-  router.push(`/remote/${currentRangeId.value}/play`);
+  router.push({ path: `/remote/${currentRangeId.value}/play`, query: route.query });
 };
 
 const editSerie = (serieId) => {
