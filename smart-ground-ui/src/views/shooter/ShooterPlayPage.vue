@@ -115,16 +115,18 @@
             </div>
           </div>
 
-          <!-- Gating overlay: countdown ring (delay/totzeit) replaces the hero label -->
-          <div
-            v-if="gating.phase.value === 'counting' || gating.phase.value === 'totzeit'"
-            class="card-gate-ring"
-            :style="gating.ringStyle.value"
-          >
-            <span class="card-gate-num">{{ gating.countdownLabel.value }}</span>
-          </div>
-          <!-- solo / pair / raffale: position notation is the hero label -->
-          <div v-else class="card-label">{{ getStepLetter(currentStep) }}</div>
+          <template v-else>
+            <!-- Gating overlay: countdown ring (delay/totzeit) replaces the hero label -->
+            <div
+              v-if="gating.phase.value === 'counting' || gating.phase.value === 'totzeit'"
+              class="card-gate-ring"
+              :style="gating.ringStyle.value"
+            >
+              <span class="card-gate-num">{{ gating.countdownLabel.value }}</span>
+            </div>
+            <!-- solo / pair / raffale: position notation is the hero label -->
+            <div v-else class="card-label">{{ getStepLetter(currentStep) }}</div>
+          </template>
 
           <!-- Raffale timer -->
           <div v-if="currentStep.type === 'raffale' && store.playRaffaleStarted" class="raffale-bar">
