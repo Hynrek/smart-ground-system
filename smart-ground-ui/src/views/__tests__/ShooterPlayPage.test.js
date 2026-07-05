@@ -147,3 +147,47 @@ describe('ShooterPlayPage group setup — reorder & starter', () => {
     expect(starterIndex).toBe(0)
   })
 })
+
+describe('ShooterPlayPage — Serie Anschauen preview', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('shows the Serie anschauen button in group setup', () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien([{ steps: [soloStep] }])
+    const wrapper = mountPage()
+    const labels = wrapper.findAll('.modal-actions .btn').map((n) => n.text())
+    expect(labels).toContain('Serie anschauen')
+  })
+
+  it('renders the preview screen and Überspringen calls skipPreviewStep', async () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien([{ steps: [soloStep, pairStep] }])
+    store.startPreview()
+    const skipSpy = vi.spyOn(store, 'skipPreviewStep')
+    const wrapper = mountPage()
+    expect(wrapper.find('.preview-page').exists()).toBe(true)
+    await wrapper.get('.btn-skip').trigger('click')
+    expect(skipSpy).toHaveBeenCalled()
+  })
+
+  it('gates the first shooter at an unseen step and does not release on tap', async () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien([{ steps: [soloStep] }])
+    store.startPreview()
+    store.stopPreview() // engaged, frontier 0
+
+    store.showGroupSetup = false // startGroupPlay normally clears this; we bypass it
+    store.playProg = [{ steps: [soloStep] }]
+    store.sessionPlayers = [{ id: 'A', displayName: 'A' }, { id: 'B', displayName: 'B' }]
+    store.roundOrder = [0, 1]
+    store.currentPlayerIndex = 0
+    store.currentSerieIndex = 0
+    store.currentStepIndex = 0
+
+    const advanceSpy = vi.spyOn(store, 'advancePlayStep')
+    const wrapper = mountPage()
+    expect(wrapper.find('.preview-gate-overlay').exists()).toBe(true)
+    await wrapper.get('.step-card').trigger('click')
+    expect(advanceSpy).not.toHaveBeenCalled()
+  })
+})

@@ -1,6 +1,56 @@
 ﻿<template>
+  <!-- Preview screen ("Serie Anschauen") — precedes setup and play -->
+  <div v-if="store.previewMode" class="play-page preview-page">
+    <div class="play-topbar">
+      <div class="player-info">
+        <span class="player-name">Serie anschauen</span>
+      </div>
+      <div class="topbar-right">
+        <div class="score-display">
+          <span class="score-label">Gezeigt</span>
+          <span class="score-value player-count-val">{{ store.previewFrontier }}/{{ previewTotal }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="carousel-area">
+      <div class="carousel-section current-section">
+        <div class="section-label">Vorschau</div>
+        <div
+          v-if="store.previewStep"
+          class="step-card"
+          :class="`is-${store.previewStep.type}`"
+          @click="handlePreviewTap"
+        >
+          <span class="card-badge" :style="modeBadgeStyle(store.previewStep.type)">
+            {{ getTypeLabel(store.previewStep.type) }}
+          </span>
+          <div class="card-label">{{ getStepLetter(store.previewStep) }}</div>
+          <p class="hint">Tippen zum Zeigen →</p>
+        </div>
+        <div v-else class="step-card getroffen-card" @click="store.stopPreview()">
+          <span class="card-badge badge-getroffen">Vorschau fertig</span>
+          <div class="card-label getroffen-label">Alle gezeigt</div>
+          <p class="hint">Tippen zum Beenden →</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-bar preview-action-bar">
+      <button class="action-btn btn-no-bird" :disabled="!store.previewStep" @click="handlePreviewNoBird">
+        <span class="btn-label">No Bird</span>
+      </button>
+      <button class="action-btn btn-skip" :disabled="!store.previewStep" @click="store.skipPreviewStep()">
+        <span class="btn-label">Überspringen</span>
+      </button>
+      <button class="action-btn btn-stop-preview" @click="store.stopPreview()">
+        <span class="btn-label">Stop</span>
+      </button>
+    </div>
+  </div>
+
   <!-- Group setup modal (shown before play starts) -->
-  <div v-if="store.showGroupSetup" class="play-page group-setup-page">
+  <div v-else-if="store.showGroupSetup" class="play-page group-setup-page">
     <div class="group-modal-overlay">
       <div class="group-modal">
         <h2 class="modal-title">{{ _isCompetitionMode ? (_rotteName ?? 'Rotte') : 'Gruppe einrichten' }}</h2>
@@ -55,6 +105,7 @@
 
         <div class="modal-actions">
           <button class="btn btn-cancel" @click="cancelGroupSetup">Abbrechen</button>
+          <button v-if="!_isCompetitionMode" class="btn btn-preview" @click="previewFromSetup">Serie anschauen</button>
           <button class="btn btn-primary" :disabled="groupPlayers.length === 0" @click="beginGroupPlay">
             Starten
           </button>
@@ -385,6 +436,20 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Preview gate: first shooter reached an un-previewed step -->
+    <Transition name="next-shooter-fade">
+      <div v-if="store.needsPreview" class="next-shooter-overlay preview-gate-overlay">
+        <div class="next-shooter-card">
+          <span class="next-shooter-label">Vorschau</span>
+          <span class="next-shooter-name">Weitere Schritte</span>
+          <span class="next-shooter-hint">Nächste Wurfscheiben zeigen, bevor es weitergeht</span>
+          <button class="next-shooter-start-btn" @click="store.startPreview()">
+            Weitere Schritte anzeigen →
+          </button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -607,6 +672,16 @@ const cancelGroupSetup = () => {
   router.push({ path: `/remote/${props.rangeId}`, query: route.query });
 };
 
+// ── Preview ("Serie Anschauen") ─────────────────────────────────────────────────
+const previewTotal = computed(() => {
+  const prog = store.previewProgram;
+  return prog ? prog.reduce((sum, seg) => sum + seg.steps.length, 0) : 0;
+});
+
+const previewFromSetup = () => { store.startPreview(); };
+const handlePreviewTap = () => { store.advancePreviewStep(); };
+const handlePreviewNoBird = () => { store.retryPreviewStep(); };
+
 // ── Carousel data ─────────────────────────────────────────────────────────────
 const fertigStep = { type: 'fertig', alias: 'Fertig' };
 
@@ -824,6 +899,9 @@ const getDotClass = (flatIdx) => {
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 const handleCurrentStepClick = () => {
+  // Preview gate: the first shooter has reached an un-previewed step — the
+  // "Weitere Schritte anzeigen" overlay handles it, so swallow the tap.
+  if (store.needsPreview) return;
   const step = store.currentStep;
   if (!step) return;
   // Tapping the card while a gate is running aborts it (delay countdown / listening).
@@ -901,6 +979,17 @@ watch(
       }, 50);
     } else {
       raffaleProgress.value = 0;
+    }
+  }
+);
+
+// Preview raffale: fire the second throw ~1s after the first so the shooter sees
+// the real cadence. Mirrors the scored raffale timing (view-driven).
+watch(
+  () => store.previewRaffaleStarted,
+  (started) => {
+    if (started) {
+      setTimeout(() => { store.completePreviewRaffaleStep(); }, 1000);
     }
   }
 );
@@ -1574,6 +1663,17 @@ watch(
   background: color-mix(in srgb, var(--sg-accent) 28%, transparent);
 }
 
+.btn-preview {
+  flex: 1;
+  background: color-mix(in srgb, var(--sg-accent) 12%, transparent);
+  color: var(--sg-accent);
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 30%, transparent);
+}
+
+.btn-preview:hover {
+  background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
+}
+
 /* ── Action bar (bottom buttons) ─────────────────── */
 .action-bar {
   display: grid;
@@ -1619,6 +1719,16 @@ watch(
 
 .action-btn.btn-no-bird:hover:not(:disabled) {
   background: color-mix(in srgb, var(--sg-accent) 32%, transparent);
+}
+
+.action-btn.btn-skip {
+  border-color: color-mix(in srgb, var(--sg-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--sg-accent) 12%, transparent);
+  color: var(--sg-accent);
+}
+
+.action-btn.btn-skip:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
 }
 
 .action-btn.btn-hit-action {
