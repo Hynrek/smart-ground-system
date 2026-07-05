@@ -1687,6 +1687,7 @@ watch(
 
 .action-btn {
   padding: 12px 8px;
+  min-height: 48px;
   border-radius: 10px;
   border: 1.5px solid rgba(252, 129, 129, 0.55);
   background: rgba(252, 129, 129, 0.22);
