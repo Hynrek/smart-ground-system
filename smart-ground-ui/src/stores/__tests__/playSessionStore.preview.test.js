@@ -91,4 +91,77 @@ describe('playSessionStore — preview', () => {
     store.currentPlayerIndex = 1
     expect(store.needsPreview).toBe(false)
   })
+
+  it('advancePreviewStep on an a_schuss step fires both positions in two phases before advancing the frontier', async () => {
+    const aSchussProg = () => [{
+      steps: [
+        { type: StepType.A_SCHUSS, positionId1: 'a1', positionId2: 'a2' },
+      ],
+    }]
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(aSchussProg())
+    store.startPreview()
+
+    await store.advancePreviewStep() // first tap
+    expect(sendPositionCommand).toHaveBeenCalledTimes(1)
+    expect(sendPositionCommand).toHaveBeenCalledWith(null, 'a1')
+    expect(sendPositionCommand).not.toHaveBeenCalledWith(null, 'a2')
+    expect(store.previewFrontier).toBe(0) // still mid-step
+    expect(store.previewStep.type).toBe(StepType.A_SCHUSS)
+
+    await store.advancePreviewStep() // second tap
+    expect(sendPositionCommand).toHaveBeenCalledTimes(2)
+    expect(sendPositionCommand).toHaveBeenLastCalledWith(null, 'a2')
+    expect(store.previewFrontier).toBe(1) // step complete
+    expect(store.previewStep).toBeNull()
+  })
+
+  it('completePreviewRaffaleStep fires the second throw and advances the frontier after the first advancePreviewStep call', async () => {
+    const raffaleProg = () => [{
+      steps: [
+        { type: StepType.RAFFALE, positionId: 'r0' },
+      ],
+    }]
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(raffaleProg())
+    store.startPreview()
+
+    await store.advancePreviewStep() // first throw
+    expect(sendPositionCommand).toHaveBeenCalledTimes(1)
+    expect(sendPositionCommand).toHaveBeenCalledWith(null, 'r0')
+    expect(store.previewFrontier).toBe(0) // raffale not done after one throw
+    expect(store.previewRaffaleStarted).toBe(true)
+
+    await store.completePreviewRaffaleStep() // explicit completion
+    expect(sendPositionCommand).toHaveBeenCalledTimes(2)
+    expect(sendPositionCommand).toHaveBeenLastCalledWith(null, 'r0')
+    expect(store.previewFrontier).toBe(1) // step complete
+    expect(store.previewStep).toBeNull()
+    expect(store.previewRaffaleStarted).toBe(false)
+  })
+
+  it('completePreviewRaffaleStep no-ops on a non-raffale preview step', async () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(prog()) // SOLO steps
+    store.startPreview()
+
+    await store.completePreviewRaffaleStep()
+    expect(sendPositionCommand).not.toHaveBeenCalled()
+    expect(store.previewFrontier).toBe(0)
+    expect(store.previewStep.positionId).toBe('p0')
+
+    const aSchussProg = () => [{
+      steps: [
+        { type: StepType.A_SCHUSS, positionId1: 'a1', positionId2: 'a2' },
+      ],
+    }]
+    const store2 = usePlaySessionStore()
+    store2.setPendingGroupSerien(aSchussProg())
+    store2.startPreview()
+
+    await store2.completePreviewRaffaleStep()
+    expect(sendPositionCommand).not.toHaveBeenCalled()
+    expect(store2.previewFrontier).toBe(0)
+    expect(store2.previewStep.type).toBe(StepType.A_SCHUSS)
+  })
 })
