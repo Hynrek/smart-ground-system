@@ -54,6 +54,10 @@
         <span v-if="store.currentPlayer" class="player-name">
           {{ store.currentPlayer.displayName }}
         </span>
+        <span v-if="playModeBadge" class="play-mode-badge" :class="playModeBadge.class">
+          <span class="play-mode-dot" />
+          {{ playModeBadge.label }}
+        </span>
       </div>
       <div class="topbar-right">
         <div v-if="store.isMultiPlayer" class="score-display">
@@ -90,7 +94,12 @@
         <div class="section-label">Aktueller Schritt</div>
 
         <!-- Regular step card -->
-        <div v-if="currentStep" class="step-card" :class="`is-${currentStep.type}`" @click="handleCurrentStepClick">
+        <div
+          v-if="currentStep"
+          class="step-card"
+          :class="[`is-${currentStep.type}`, { 'step-card--listening': gating.phase.value === 'listening' }]"
+          @click="handleCurrentStepClick"
+        >
           <span class="card-badge" :style="modeBadgeStyle(currentStep.type)">
             {{ getTypeLabel(currentStep.type) }}
           </span>
@@ -106,8 +115,18 @@
             </div>
           </div>
 
-          <!-- solo / pair / raffale: position notation is the hero label -->
-          <div v-else class="card-label">{{ getStepLetter(currentStep) }}</div>
+          <template v-else>
+            <!-- Gating overlay: countdown ring (delay/totzeit) replaces the hero label -->
+            <div
+              v-if="gating.phase.value === 'counting' || gating.phase.value === 'totzeit'"
+              class="card-gate-ring"
+              :style="gating.ringStyle.value"
+            >
+              <span class="card-gate-num">{{ gating.countdownLabel.value }}</span>
+            </div>
+            <!-- solo / pair / raffale: position notation is the hero label -->
+            <div v-else class="card-label">{{ getStepLetter(currentStep) }}</div>
+          </template>
 
           <!-- Raffale timer -->
           <div v-if="currentStep.type === 'raffale' && store.playRaffaleStarted" class="raffale-bar">
@@ -353,6 +372,8 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
+import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
+import { useTriggerGating } from '@/composables/useTriggerGating.js';
 import { StepState, StepType } from '@/constants/playEnums.js';
 import { stepModeLabel, stepNotation, isMultiResultStep, stepFailCells, modeBadgeStyle, stepConnector } from '@/constants/stepModes.js';
 import Icons from '@/components/Icons.vue';
@@ -365,6 +386,12 @@ const props = defineProps({
 });
 
 const store = usePlaySessionStore();
+const remoteStore = useShooterRemoteStore();
+const gating = useTriggerGating(remoteStore);
+
+// Transient notice when the mic is blocked during a Rufauslösung arm.
+const rufDeniedNotice = ref(false);
+
 const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
 
@@ -616,6 +643,17 @@ const playerFinalScores = computed(() =>
 // ── Derived display state ─────────────────────────────────────────────────────
 const showFinalScore = computed(() => store.playComplete);
 
+// Mode indicator in the Play top bar — only for the two gated modes.
+const playModeBadge = computed(() => {
+  if (remoteStore.sessionMode === 'delayed') {
+    return { label: 'Verzögert', class: 'play-mode-badge--delayed' };
+  }
+  if (remoteStore.sessionMode === 'rufausloesung') {
+    return { label: 'Rufauslösung', class: 'play-mode-badge--ruf' };
+  }
+  return null;
+});
+
 const isFertig = (step) => step?.type === 'fertig';
 
 // Fail buttons are active whenever there is a last fired step and the program
@@ -693,6 +731,11 @@ const getCompletedStepShortLabel = (segIdx, stepIdx) => {
 };
 
 const getHint = (step) => {
+  // Gate feedback takes precedence while a countdown / listen is active.
+  if (rufDeniedNotice.value) return 'Mikrofon-Zugriff verweigert';
+  if (gating.phase.value === 'counting') return 'Verzögerung läuft…';
+  if (gating.phase.value === 'totzeit')  return 'Bereitmachen…';
+  if (gating.phase.value === 'listening') return 'Rufen zum Auslösen';
   if (step.type === StepType.A_SCHUSS) {
     return store.playPartialStep === null ? 'Erstes Gerät: Tippen' : 'Zweites Gerät: Tippen';
   }
@@ -727,9 +770,26 @@ const getDotClass = (flatIdx) => {
 };
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
-const handleCurrentStepClick = async () => {
-  await store.advancePlayStep();
+const handleCurrentStepClick = () => {
+  const step = store.currentStep;
+  if (!step) return;
+  // Tapping the card while a gate is running aborts it (delay countdown / listening).
+  if (gating.phase.value !== 'idle') {
+    gating.cancel();
+    return;
+  }
+  rufDeniedNotice.value = false;
+  const ids = store.releaseIdsForStep(step, store.playPartialStep);
+  gating.arm(ids, () => { store.advancePlayStep(); });
 };
+
+// If the browser blocks the mic while arming, abort the listen and notify.
+watch(() => gating.micDenied.value, (denied) => {
+  if (denied) {
+    rufDeniedNotice.value = true;
+    gating.cancel();
+  }
+});
 
 const handleNextStepClick = () => {
   if (isFertig(nextStep.value)) handlePlayerComplete();
@@ -759,8 +819,14 @@ const goBack = async () => {
 };
 
 onBeforeUnmount(() => {
+  gating.cancel();
   if (!store.playComplete) store.closePlayback();
 });
+
+// Cancel any pending gate when play finishes or the active shooter changes,
+// so a stale countdown/listen never carries over.
+watch(() => store.playComplete, (done) => { if (done) gating.cancel(); });
+watch(() => store.currentPlayerIndex, () => { gating.cancel(); });
 
 // Monitor raffale timer
 watch(
@@ -1880,5 +1946,79 @@ watch(
 .next-shooter-fade-leave-to {
   opacity: 0;
   transform: translateY(12px);
+}
+
+/* ── Gate mode tokens (fallbacks match the remote's amber/cyan) ── */
+.play-page {
+  --delay-color: #EF9F27;
+  --ruf-color: #56C8D8;
+}
+
+/* ── Mode badge in the top bar ── */
+.play-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.play-mode-badge .play-mode-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  animation: play-mode-pulse 1s ease-in-out infinite;
+}
+
+.play-mode-badge--delayed {
+  background: rgba(239, 159, 39, 0.12);
+  color: #FAC775;
+}
+.play-mode-badge--delayed .play-mode-dot { background: #EF9F27; }
+
+.play-mode-badge--ruf {
+  background: rgba(86, 200, 216, 0.12);
+  color: #7AD8E4;
+}
+.play-mode-badge--ruf .play-mode-dot { background: #56C8D8; }
+
+@keyframes play-mode-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ── Countdown ring on the hero card (delay + totzeit) ── */
+.card-gate-ring {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* background is set inline via gating.ringStyle (conic-gradient) */
+  -webkit-mask: radial-gradient(circle 33px at center, transparent 98%, #000 100%);
+  mask: radial-gradient(circle 33px at center, transparent 98%, #000 100%);
+}
+
+.card-gate-num {
+  position: absolute;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--sg-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Listening pulse on the whole card ── */
+.step-card--listening {
+  animation: card-listen-pulse 1s ease-in-out infinite;
+}
+
+@keyframes card-listen-pulse {
+  0%, 100% { box-shadow: inset 0 0 14px rgba(86, 200, 216, 0.24), 0 4px 22px rgba(86, 200, 216, 0.18); }
+  50%      { box-shadow: inset 0 0 22px rgba(86, 200, 216, 0.45), 0 4px 30px rgba(86, 200, 216, 0.35); }
 }
 </style>
