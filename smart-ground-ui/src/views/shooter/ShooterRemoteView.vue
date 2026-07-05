@@ -171,13 +171,6 @@
         >
           Solo
         </button>
-        <button
-          class="toggle-btn"
-          :class="{ active: store.mode === 'pair' }"
-          @click="onModeButtonTap('pair')"
-        >
-          Pair
-        </button>
         <!-- Extra options in Erfassungs mode -->
         <template v-if="store.sessionMode === 'recording'">
           <button
@@ -187,6 +180,15 @@
           >
             a. Schuss
           </button>
+        </template>
+        <button
+          class="toggle-btn"
+          :class="{ active: store.mode === 'pair' }"
+          @click="onModeButtonTap('pair')"
+        >
+          Pair
+        </button>
+        <template v-if="store.sessionMode === 'recording'">
           <button
             class="toggle-btn"
             :class="{ active: store.mode === 'raffale' }"

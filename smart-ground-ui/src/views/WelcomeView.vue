@@ -10,11 +10,13 @@ const authStore = useAuthStore();
 
 const REDIRECT_DELAY_MS = 2500;
 
+let timeoutId;
+
 const proceed = () => {
+  clearTimeout(timeoutId);
   router.replace(defaultHome(authStore));
 };
 
-let timeoutId;
 onMounted(() => {
   timeoutId = setTimeout(proceed, REDIRECT_DELAY_MS);
 });

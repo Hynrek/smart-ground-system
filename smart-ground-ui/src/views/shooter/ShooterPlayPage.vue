@@ -123,7 +123,7 @@
           <span class="card-badge badge-getroffen">
             {{ store.isMultiPlayer && store.nextPlayer ? `Schütze ${store.currentPlayerIndex + 1} Fertig` : 'Fertig' }}
           </span>
-          <div class="card-label getroffen-label">Getroffen</div>
+          <div class="card-label getroffen-label">Serie Fertig</div>
           <p class="hint">
             {{ store.isMultiPlayer && store.nextPlayer
               ? `Weiter zu ${store.nextPlayer.displayName} →`
@@ -140,7 +140,7 @@
             v-for="(step, idx) in recentCompletedSteps"
             :key="`${step.segIdx}-${step.stepIdx}`"
             class="completed-card"
-            :class="getCompletedCardClass(step.segIdx, step.stepIdx)"
+            :class="[getCompletedCardClass(step.segIdx, step.stepIdx), { 'is-last': idx === recentCompletedSteps.length - 1 }]"
           >
             <span class="step-number">{{ completedSteps.length - recentCompletedSteps.length + idx + 1 }}</span>
             <span class="step-type">{{ getCompletedStepShortLabel(step.segIdx, step.stepIdx) }}</span>
@@ -1099,19 +1099,28 @@ watch(
 .completed-card.is-failed-a {
   background: linear-gradient(90deg, rgba(252, 129, 129, 0.15) 50%, rgba(72, 187, 120, 0.15) 50%);
   border-color: rgba(252, 129, 129, 0.3);
-  color: var(--sg-color-danger-bg);
+  color: var(--sg-color-danger-text);
 }
 
 .completed-card.is-failed-b {
   background: linear-gradient(90deg, rgba(72, 187, 120, 0.15) 50%, rgba(252, 129, 129, 0.15) 50%);
   border-color: rgba(252, 129, 129, 0.3);
-  color: var(--sg-color-danger-bg);
+  color: var(--sg-color-danger-text);
 }
 
 .completed-card.is-failed-full {
   background: rgba(252, 129, 129, 0.15);
   border-color: rgba(252, 129, 129, 0.3);
-  color: var(--sg-color-danger-bg);
+  color: var(--sg-color-danger-text);
+}
+
+/* The last fired step is what Fail/Treffer act on — give it card-surface-level
+   emphasis so it reads as the active target, not just another history row. */
+.completed-card.is-last {
+  opacity: 1;
+  border-width: 2px;
+  border-color: color-mix(in srgb, currentColor 55%, transparent);
+  box-shadow: inset 0 0 14px color-mix(in srgb, currentColor 22%, transparent);
 }
 
 .step-number {
@@ -1408,12 +1417,12 @@ watch(
 .action-btn {
   padding: 12px 8px;
   border-radius: 10px;
-  border: 1.5px solid rgba(252, 129, 129, 0.35);
-  background: rgba(252, 129, 129, 0.12);
-  color: var(--sg-color-danger-bg);
+  border: 1.5px solid rgba(252, 129, 129, 0.55);
+  background: rgba(252, 129, 129, 0.22);
+  color: var(--sg-color-danger-text);
   font-family: inherit;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -1423,32 +1432,32 @@ watch(
 }
 
 .action-btn:hover:not(:disabled) {
-  background: rgba(252, 129, 129, 0.2);
+  background: rgba(252, 129, 129, 0.32);
 }
 
 .action-btn:disabled {
-  opacity: 0.3;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
 .action-btn.btn-no-bird {
-  border-color: color-mix(in srgb, var(--sg-accent) 35%, transparent);
-  background: var(--sg-accent-tint);
+  border-color: color-mix(in srgb, var(--sg-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--sg-accent) 22%, transparent);
   color: var(--sg-accent);
 }
 
 .action-btn.btn-no-bird:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
+  background: color-mix(in srgb, var(--sg-accent) 32%, transparent);
 }
 
 .action-btn.btn-hit-action {
-  border-color: rgba(72, 187, 120, 0.35);
-  background: rgba(72, 187, 120, 0.12);
-  color: var(--sg-color-success);
+  border-color: rgba(72, 187, 120, 0.55);
+  background: rgba(72, 187, 120, 0.22);
+  color: var(--sg-color-success-text);
 }
 
 .action-btn.btn-hit-action:hover:not(:disabled) {
-  background: rgba(72, 187, 120, 0.2);
+  background: rgba(72, 187, 120, 0.32);
 }
 
 /* ── Fail flyout (bottom sheet) ───────────────────── */
@@ -1514,16 +1523,16 @@ watch(
   gap: 4px;
   padding: 16px 6px;
   border-radius: 12px;
-  border: 1px solid rgba(252, 129, 129, 0.3);
-  background: rgba(252, 129, 129, 0.13);
-  color: var(--sg-color-danger-bg);
+  border: 1.5px solid rgba(252, 129, 129, 0.55);
+  background: rgba(252, 129, 129, 0.22);
+  color: var(--sg-color-danger-text);
   font-family: inherit;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .fail-cell:hover {
-  background: rgba(252, 129, 129, 0.2);
+  background: rgba(252, 129, 129, 0.32);
 }
 
 .fail-cell-label {
@@ -1708,13 +1717,13 @@ watch(
 }
 
 .picker-btn.btn-fail {
-  background: rgba(252, 129, 129, 0.15);
-  color: var(--sg-color-danger-bg);
-  border: 1px solid rgba(252, 129, 129, 0.3);
+  background: rgba(252, 129, 129, 0.22);
+  color: var(--sg-color-danger-text);
+  border: 1.5px solid rgba(252, 129, 129, 0.55);
 }
 
 .picker-btn.btn-fail:hover {
-  background: rgba(252, 129, 129, 0.22);
+  background: rgba(252, 129, 129, 0.32);
 }
 
 .correction-fade-enter-active,

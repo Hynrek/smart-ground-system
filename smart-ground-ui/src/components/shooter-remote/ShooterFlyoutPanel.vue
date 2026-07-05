@@ -43,8 +43,9 @@
         >
           <!-- Green save affordance: expands into the save view -->
           <button class="shrunk-save-btn" title="Serie speichern" @click.stop="expandToSave">
-            <Icons icon="check" :size="16" color="#48bb78" />
+            <Icons icon="checkBold" :size="18" :stroke-width="2.4" color="#48bb78" />
           </button>
+          <div class="shrunk-save-divider" />
           <div class="captured-items">
             <button
               v-for="step in shrunkSteps"
@@ -605,9 +606,10 @@ const confirmSaveSerie = async () => {
   serieNameInput.value = '';
   saveAsRange.value = false;
   expandedSerieId.value = null;
-  // A4: after a successful save, drop back to shooting mode and collapse the panel.
+  // A4: after a successful save, drop back to shooting mode but keep the flyout
+  // open so the user sees the serie they just created in the list.
   store.setSessionMode('throwing');
-  isOpen.value = false;
+  isOpen.value = true;
 };
 
 // A3: cancelling (incl. cancelling the save) clears the capture list and shrinks
@@ -861,6 +863,12 @@ const getStepTooltip = (step) =>
 
 @media (hover: hover) and (pointer: fine) {
   .shrunk-save-btn:hover { background: rgba(72, 187, 120, 0.26); }
+}
+
+.shrunk-save-divider {
+  height: 1px;
+  margin: 2px 2px 4px;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Hover only on true pointer devices — avoids flash-then-snap on touch */

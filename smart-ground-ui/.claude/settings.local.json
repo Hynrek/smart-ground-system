@@ -112,7 +112,8 @@
       "Bash(./mvnw.cmd -q -DskipTests compile)",
       "PowerShell($mvn = Get-Command mvn -ErrorAction SilentlyContinue; if \\($mvn\\) { \"mvn: $\\($mvn.Source\\)\" } else { \"no global mvn\" }; $j = Get-Command java -ErrorAction SilentlyContinue; if \\($j\\) { \"java: $\\($j.Source\\)\"; & java -version 2>&1 | Select-Object -First 1 } else { \"no java\" }; \"JAVA_HOME=$env:JAVA_HOME\")",
       "PowerShell(Set-Location \"C:\\\\Users\\\\hynre\\\\IdeaProjects\\\\Smart Ground\\\\smart-ground-backend\"; & mvn -q -DskipTests -Dspotless.check.skip=true compile | Select-Object -Last 50; \"EXITCODE=$LASTEXITCODE\")",
-      "Bash(bash \"C:/Users/hynre/.claude/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Users/hynre/IdeaProjects/Smart Ground/smart-ground-ui\")"
+      "Bash(bash \"C:/Users/hynre/.claude/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/brainstorming/scripts/start-server.sh\" --project-dir \"C:/Users/hynre/IdeaProjects/Smart Ground/smart-ground-ui\")",
+      "Bash(echo \"EXIT=$?\")"
     ]
   }
 }
