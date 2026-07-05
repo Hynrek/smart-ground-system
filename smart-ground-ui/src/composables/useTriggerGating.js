@@ -1,3 +1,4 @@
+/* global clearTimeout, clearInterval, setInterval */
 import { ref, computed } from 'vue';
 import { useVoiceTrigger } from '@/composables/useVoiceTrigger.js';
 
