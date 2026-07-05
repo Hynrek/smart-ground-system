@@ -352,7 +352,10 @@ const { startListening, stopListening, micLevel, wouldTrigger, micDenied } = gat
 const rufPairPending = ref(null); // position id | null
 
 // Template-facing aliases so the existing template markup keeps working while
-// the gate logic now lives in useTriggerGating.
+// the gate logic now lives in useTriggerGating. The Verzögert and Rufauslösung
+// alias pairs safely share the same gating.countdownLabel/ringStyle refs: only
+// one session mode is ever active, so `phase` is a single-value state machine
+// that never has both a 'counting' and a 'totzeit'/'listening' episode at once.
 const queuedIds = computed(() =>
   gating.phase.value === 'counting' ? gating.armedIds.value : []
 );
