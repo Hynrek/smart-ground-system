@@ -190,4 +190,46 @@ describe('ShooterPlayPage — Serie Anschauen preview', () => {
     await wrapper.get('.step-card').trigger('click')
     expect(advanceSpy).not.toHaveBeenCalled()
   })
+
+  it('cancels the pending preview raffale timeout when preview is stopped', async () => {
+    vi.useFakeTimers()
+    try {
+      const store = usePlaySessionStore()
+      store.setPendingGroupSerien([{ steps: [pairStep] }])
+      store.startPreview()
+      const completeSpy = vi.spyOn(store, 'completePreviewRaffaleStep')
+      mountPage()
+
+      store.previewRaffaleStarted = true
+      await vi.advanceTimersByTimeAsync(500) // timer pending, not yet fired
+
+      store.stopPreview() // shooter hits Stop mid-flight
+      await vi.advanceTimersByTimeAsync(1000) // let the original 1s deadline pass
+
+      expect(completeSpy).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cancels the pending preview raffale timeout on unmount', async () => {
+    vi.useFakeTimers()
+    try {
+      const store = usePlaySessionStore()
+      store.setPendingGroupSerien([{ steps: [pairStep] }])
+      store.startPreview()
+      const completeSpy = vi.spyOn(store, 'completePreviewRaffaleStep')
+      const wrapper = mountPage()
+
+      store.previewRaffaleStarted = true
+      await vi.advanceTimersByTimeAsync(500) // timer pending, not yet fired
+
+      wrapper.unmount()
+      await vi.advanceTimersByTimeAsync(1000) // let the original 1s deadline pass
+
+      expect(completeSpy).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

@@ -951,6 +951,10 @@ const goBack = async () => {
 
 onBeforeUnmount(() => {
   gating.cancel();
+  if (previewRaffaleTimeoutId) {
+    clearTimeout(previewRaffaleTimeoutId);
+    previewRaffaleTimeoutId = null;
+  }
   if (!store.playComplete) store.closePlayback();
 });
 
@@ -985,11 +989,19 @@ watch(
 
 // Preview raffale: fire the second throw ~1s after the first so the shooter sees
 // the real cadence. Mirrors the scored raffale timing (view-driven).
+let previewRaffaleTimeoutId = null;
 watch(
   () => store.previewRaffaleStarted,
   (started) => {
+    if (previewRaffaleTimeoutId) {
+      clearTimeout(previewRaffaleTimeoutId);
+      previewRaffaleTimeoutId = null;
+    }
     if (started) {
-      setTimeout(() => { store.completePreviewRaffaleStep(); }, 1000);
+      previewRaffaleTimeoutId = setTimeout(() => {
+        previewRaffaleTimeoutId = null;
+        store.completePreviewRaffaleStep();
+      }, 1000);
     }
   }
 );
