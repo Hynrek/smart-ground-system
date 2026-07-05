@@ -353,6 +353,8 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
+import { useShooterRemoteStore } from '@/stores/shooterRemoteStore.js';
+import { useTriggerGating } from '@/composables/useTriggerGating.js';
 import { StepState, StepType } from '@/constants/playEnums.js';
 import { stepModeLabel, stepNotation, isMultiResultStep, stepFailCells, modeBadgeStyle, stepConnector } from '@/constants/stepModes.js';
 import Icons from '@/components/Icons.vue';
@@ -365,6 +367,12 @@ const props = defineProps({
 });
 
 const store = usePlaySessionStore();
+const remoteStore = useShooterRemoteStore();
+const gating = useTriggerGating(remoteStore);
+
+// Transient notice when the mic is blocked during a Rufauslösung arm.
+const rufDeniedNotice = ref(false);
+
 const raffaleProgress = ref(0);
 const raffaleDelayStart = ref(null);
 
@@ -727,9 +735,26 @@ const getDotClass = (flatIdx) => {
 };
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
-const handleCurrentStepClick = async () => {
-  await store.advancePlayStep();
+const handleCurrentStepClick = () => {
+  const step = store.currentStep;
+  if (!step) return;
+  // Tapping the card while a gate is running aborts it (delay countdown / listening).
+  if (gating.phase.value !== 'idle') {
+    gating.cancel();
+    return;
+  }
+  rufDeniedNotice.value = false;
+  const ids = store.releaseIdsForStep(step, store.playPartialStep);
+  gating.arm(ids, () => { store.advancePlayStep(); });
 };
+
+// If the browser blocks the mic while arming, abort the listen and notify.
+watch(() => gating.micDenied.value, (denied) => {
+  if (denied) {
+    rufDeniedNotice.value = true;
+    gating.cancel();
+  }
+});
 
 const handleNextStepClick = () => {
   if (isFertig(nextStep.value)) handlePlayerComplete();
@@ -759,8 +784,14 @@ const goBack = async () => {
 };
 
 onBeforeUnmount(() => {
+  gating.cancel();
   if (!store.playComplete) store.closePlayback();
 });
+
+// Cancel any pending gate when play finishes or the active shooter changes,
+// so a stale countdown/listen never carries over.
+watch(() => store.playComplete, (done) => { if (done) gating.cancel(); });
+watch(() => store.currentPlayerIndex, () => { gating.cancel(); });
 
 // Monitor raffale timer
 watch(
