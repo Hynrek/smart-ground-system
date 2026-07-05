@@ -333,7 +333,7 @@ import { useAuthStore } from '@/stores/authStore.js';
 import { fetchRange } from '@/services/rangeApi.js';
 import Icons from '@/components/Icons.vue';
 import ShooterFlyoutPanel from '@/components/shooter-remote/ShooterFlyoutPanel.vue';
-import { useVoiceTrigger } from '@/composables/useVoiceTrigger.js';
+import { useTriggerGating } from '@/composables/useTriggerGating.js';
 
 const props = defineProps({ rangeId: { type: String, required: true } });
 
@@ -345,91 +345,59 @@ const auth = useAuthStore();
 const passeStore = usePasseStore();
 const activePasseStore = useActivePasseStore();
 
-const { startListening, stopListening, micLevel, wouldTrigger, micDenied } = useVoiceTrigger(store);
+const gating = useTriggerGating(store);
+const { startListening, stopListening, micLevel, wouldTrigger, micDenied } = gating;
 
-// Rufauslösung: arming state
-const rufArmedIds  = ref([]);   // position ids currently armed
-const rufPhase     = ref(null); // 'totzeit' | 'listening' | 'waiting-pair' | null
+// View-local two-tap pre-selection for Pair mode (before both ids are armed).
+const rufPairPending = ref(null); // position id | null
 
-// Totzeit countdown (for the ring animation — mirrors the delay countdown)
-const rufTotzeitTotalMs     = ref(0);
-const rufTotzeitRemainingMs = ref(0);
-let rufTotzeitInterval = null;
-let rufTotzeitTimeout  = null;
+// Template-facing aliases so the existing template markup keeps working while
+// the gate logic now lives in useTriggerGating.
+const queuedIds = computed(() =>
+  gating.phase.value === 'counting' ? gating.armedIds.value : []
+);
+const isQueued = (position) => queuedIds.value.includes(position.id);
+const countdownLabel = gating.countdownLabel;
+const countdownRingStyle = gating.ringStyle;
 
-const clearRufTimers = () => {
-  if (rufTotzeitInterval) { clearInterval(rufTotzeitInterval); rufTotzeitInterval = null; }
-  if (rufTotzeitTimeout)  { clearTimeout(rufTotzeitTimeout);  rufTotzeitTimeout  = null; }
-};
+const rufArmedIds = computed(() => {
+  if (gating.phase.value === 'totzeit' || gating.phase.value === 'listening') {
+    return gating.armedIds.value;
+  }
+  return rufPairPending.value ? [rufPairPending.value] : [];
+});
+const rufPhase = computed(() => {
+  if (gating.phase.value === 'totzeit') return 'totzeit';
+  if (gating.phase.value === 'listening') return 'listening';
+  if (rufPairPending.value) return 'waiting-pair';
+  return null;
+});
+const rufCountdownLabel = gating.countdownLabel;
+const rufCountdownRingStyle = gating.ringStyle;
 
 const cancelRuf = () => {
-  clearRufTimers();
-  stopListening();
-  rufArmedIds.value = [];
-  rufPhase.value    = null;
-  rufTotzeitRemainingMs.value = 0;
-  rufTotzeitTotalMs.value     = 0;
+  rufPairPending.value = null;
+  gating.cancel();
 };
 
 const handleRufTap = (position) => {
-  // Re-tapping an armed position aborts
+  // Re-tapping an armed position aborts.
   if (rufArmedIds.value.includes(position.id)) {
     cancelRuf();
     return;
   }
-
   if (store.mode === 'pair') {
-    if (rufArmedIds.value.length === 0) {
-      rufArmedIds.value = [position.id];
-      rufPhase.value    = 'waiting-pair';
+    if (!rufPairPending.value) {
+      rufPairPending.value = position.id;
       return;
     }
-    const ids = [...rufArmedIds.value, position.id];
-    armPositions(ids);
+    const firstId = rufPairPending.value;
+    rufPairPending.value = null;
+    gating.arm([firstId, position.id], () => firePairPositions(firstId, position.id));
     return;
   }
-
   // Solo
-  armPositions([position.id]);
-};
-
-const armPositions = (ids) => {
-  rufArmedIds.value = ids;
-  const totzeitMs   = store.rufTotzeit;
-
-  if (totzeitMs > 0) {
-    rufPhase.value              = 'totzeit';
-    rufTotzeitTotalMs.value     = totzeitMs;
-    rufTotzeitRemainingMs.value = totzeitMs;
-    const startedAt = Date.now();
-
-    rufTotzeitInterval = setInterval(() => {
-      rufTotzeitRemainingMs.value = Math.max(0, totzeitMs - (Date.now() - startedAt));
-    }, 50);
-
-    rufTotzeitTimeout = setTimeout(() => {
-      clearRufTimers();
-      rufTotzeitRemainingMs.value = 0;
-      rufTotzeitTotalMs.value     = 0;
-      beginListening(ids);
-    }, totzeitMs);
-  } else {
-    beginListening(ids);
-  }
-};
-
-const beginListening = (ids) => {
-  rufPhase.value = 'listening';
-  startListening(() => {
-    if (rufPhase.value !== 'listening') return;
-    if (ids.length === 1) {
-      fireSinglePosition(ids[0]);
-    } else {
-      firePairPositions(ids[0], ids[1]);
-    }
-    rufArmedIds.value = [];
-    rufPhase.value    = null;
-  });
+  gating.arm([position.id], () => fireSinglePosition(position.id));
 };
 
 const onModeButtonTap = (newMode) => {
@@ -478,14 +446,12 @@ onMounted(async () => {
 onUnmounted(() => {
   store.releasePlatz();
   store.setCompetitionContext(null, null);
-  cancelQueue();
   cancelRuf();
 });
 
 watch(() => store.sessionMode, () => {
   store.setMode('solo');
   modeDrawerOpen.value = false;
-  cancelQueue();
   cancelRuf();
 });
 
@@ -577,59 +543,11 @@ const saveRuf = () => {
   rufModalOpen.value = false;
 };
 
-// Command queue — only ONE command may be queued at a time. While the countdown
-// runs, every other button is locked; the queued button(s) stay tappable to abort.
-const queuedIds = ref([]);
-const queueTotalMs = ref(0);
-const queueRemainingMs = ref(0);
-let queueTimeout = null;
-let queueInterval = null;
-
-const clearQueueTimers = () => {
-  if (queueTimeout) { clearTimeout(queueTimeout); queueTimeout = null; }
-  if (queueInterval) { clearInterval(queueInterval); queueInterval = null; }
-};
-
-const cancelQueue = () => {
-  clearQueueTimers();
-  queuedIds.value = [];
-  queueRemainingMs.value = 0;
-  queueTotalMs.value = 0;
-};
-
-const scheduleDelayedFire = (ids, fireFn) => {
-  if (queuedIds.value.length) return; // one command at a time
-  const totalMs = store.delaySeconds * 1000;
-  const startedAt = Date.now();
-  queuedIds.value = ids;
-  queueTotalMs.value = totalMs;
-  queueRemainingMs.value = totalMs;
-  queueInterval = setInterval(() => {
-    queueRemainingMs.value = Math.max(0, totalMs - (Date.now() - startedAt));
-  }, 50);
-  queueTimeout = setTimeout(async () => {
-    clearQueueTimers();
-    queuedIds.value = [];
-    queueRemainingMs.value = 0;
-    queueTotalMs.value = 0;
-    await fireFn();
-  }, totalMs);
-};
-
-const isQueued = (position) => queuedIds.value.includes(position.id);
-const countdownLabel = computed(() => `${Math.ceil(queueRemainingMs.value / 1000)}s`);
-const countdownRingStyle = computed(() => {
-  const pct = queueTotalMs.value ? (queueRemainingMs.value / queueTotalMs.value) * 360 : 0;
-  return {
-    background: `conic-gradient(var(--delay-color, #EF9F27) ${pct}deg, rgba(255,255,255,0.12) ${pct}deg)`,
-  };
-});
-
 const handleDelayedTap = (position) => {
-  // A command is already queued: tapping the queued position aborts it; the
+  // A command is already gating: tapping the queued position aborts it; the
   // others are locked (isPositionDisabled) so they never reach here.
-  if (queuedIds.value.length) {
-    if (isQueued(position)) cancelQueue();
+  if (gating.phase.value !== 'idle') {
+    if (gating.isArmed(position.id)) gating.cancel();
     return;
   }
   if (store.mode === 'pair' || store.mode === 'a_schuss') {
@@ -640,19 +558,16 @@ const handleDelayedTap = (position) => {
     } else {
       const pendingId = store.throwPairPending.id;
       store.throwPairPending = null;
-      scheduleDelayedFire([pendingId, position.id], () => firePairPositions(pendingId, position.id));
+      gating.arm([pendingId, position.id], () => firePairPositions(pendingId, position.id));
     }
     return;
   }
-  scheduleDelayedFire([position.id], () => fireSinglePosition(position.id));
+  gating.arm([position.id], () => fireSinglePosition(position.id));
 };
 
 // Abort a pending countdown whenever delayed mode is left or the range is locked.
 watch(isLocked, (locked) => {
-  if (locked) {
-    cancelQueue();
-    cancelRuf();
-  }
+  if (locked) cancelRuf();
 });
 
 const handlePositionTap = async (position) => {
@@ -824,18 +739,6 @@ const chipClass = (position) => {
   if (passeStore.passeMode && passeStore.pairPending?.id === position.id) return 'chip--pending';
   return 'chip--ready';
 };
-
-const rufCountdownLabel = computed(() =>
-  `${Math.ceil(rufTotzeitRemainingMs.value / 1000)}s`
-);
-const rufCountdownRingStyle = computed(() => {
-  const pct = rufTotzeitTotalMs.value
-    ? (rufTotzeitRemainingMs.value / rufTotzeitTotalMs.value) * 360
-    : 0;
-  return {
-    background: `conic-gradient(var(--ruf-color, #56C8D8) ${pct}deg, rgba(255,255,255,0.12) ${pct}deg)`,
-  };
-});
 
 const chipLabel = (position) => {
   if (!position.device) return 'Kein Gerät';
