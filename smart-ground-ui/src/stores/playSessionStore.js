@@ -362,6 +362,21 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   const _posId1 = (step) => step.positionId1 ?? step.posId1 ?? null;
   const _posId2 = (step) => step.positionId2 ?? step.posId2 ?? null;
 
+  // Ids the NEXT advancePlayStep() call will release, for UI gating feedback.
+  // Mirrors the branch structure of advancePlayStep so the view and store agree.
+  const releaseIdsForStep = (step, partialStep) => {
+    if (!step) return [];
+    if (step.type === StepType.SOLO)  return [_posId(step)].filter(Boolean);
+    if (step.type === StepType.PAIR)  return [_posId1(step), _posId2(step)].filter(Boolean);
+    if (step.type === StepType.A_SCHUSS) {
+      return partialStep === PartialStep.FIRST
+        ? [_posId2(step)].filter(Boolean)
+        : [_posId1(step)].filter(Boolean);
+    }
+    if (step.type === StepType.RAFFALE) return [_posId(step)].filter(Boolean);
+    return [];
+  };
+
   const advancePlayStep = async () => {
     if (!playProg.value) return;
     const step = currentStep.value;
@@ -795,6 +810,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     // Actions
     playPasseWithScore,
     advancePlayStep,
+    releaseIdsForStep,
     completeRaffaleStep,
     markStepDone,
     failStep,
