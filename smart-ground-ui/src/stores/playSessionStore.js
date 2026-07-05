@@ -48,6 +48,17 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   const pendingGroupSerien = ref(null);
   const showGroupSetup = ref(false);
 
+  // ── Preview ("Serie Anschauen") state ─────────────────────────────────────────
+  // A seen-frontier preview that runs on its own cursor, independent of the scored
+  // position, so it can run ahead of (and interleave with) the first shooter.
+  const previewMode = ref(false);          // currently on the preview screen
+  const previewEngaged = ref(false);       // preview started at least once → gate active
+  const previewFrontier = ref(0);          // flat index of fully-seen steps (high-water mark)
+  const previewSerieIdx = ref(0);
+  const previewStepIdx = ref(0);
+  const previewPartial = ref(null);        // a_schuss phase during preview
+  const previewRaffaleStarted = ref(false);// raffale phase during preview
+
   // ── Pending passe (from Passe Management View) ──────────────────────────
   const pendingPasseInfo = ref(null); // { passeId, rangeId }
   const _pendingPasseId = ref(null);  // Internal only — persists passeId through session init
@@ -94,6 +105,37 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     if (nextIdx >= roundOrder.value.length) return null;
     return sessionPlayers.value[roundOrder.value[nextIdx]] ?? null;
   });
+
+  // ── Preview computeds ─────────────────────────────────────────────────────────
+  // The step source for preview: the live program during play, else the staged
+  // group serien while still on the setup screen.
+  const previewProgram = computed(() => playProg.value ?? pendingGroupSerien.value ?? null);
+
+  const previewStep = computed(() =>
+    previewProgram.value?.[previewSerieIdx.value]?.steps[previewStepIdx.value] ?? null
+  );
+
+  const _previewTotalSteps = computed(() =>
+    (previewProgram.value ?? []).reduce((sum, seg) => sum + seg.steps.length, 0)
+  );
+
+  // Flat index of the current scored step (what the first shooter is about to fire).
+  const scoredFlatIndex = computed(() => {
+    if (!playProg.value) return 0;
+    return (
+      playProg.value.slice(0, currentSerieIndex.value)
+        .reduce((sum, seg) => sum + seg.steps.length, 0) + currentStepIndex.value
+    );
+  });
+
+  // The gate: pause the first shooter when they reach an un-previewed step.
+  const needsPreview = computed(() =>
+    previewEngaged.value &&
+    !previewMode.value &&
+    currentPlayerIndex.value === 0 &&
+    previewFrontier.value < _previewTotalSteps.value &&
+    scoredFlatIndex.value >= previewFrontier.value
+  );
 
   // ── Score / progress computed ───────────────────────────────────────────────
   const completionPct = computed(() => {
@@ -425,6 +467,121 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     markStepDone();
   };
 
+  // ── Preview actions ───────────────────────────────────────────────────────────
+  const _previewFlatToPos = (flat) => {
+    const prog = previewProgram.value ?? [];
+    let remaining = flat;
+    for (let s = 0; s < prog.length; s++) {
+      if (remaining < prog[s].steps.length) return { serieIdx: s, stepIdx: remaining };
+      remaining -= prog[s].steps.length;
+    }
+    const last = Math.max(0, prog.length - 1);
+    return { serieIdx: last, stepIdx: prog[last]?.steps.length ?? 0 };
+  };
+
+  // Advance the preview cursor one full step and raise the frontier.
+  const _advancePreviewCursor = () => {
+    const prog = previewProgram.value;
+    if (!prog) return;
+    const seg = prog[previewSerieIdx.value];
+    previewFrontier.value += 1;
+    if (previewStepIdx.value < seg.steps.length - 1) {
+      previewStepIdx.value += 1;
+    } else if (previewSerieIdx.value < prog.length - 1) {
+      previewSerieIdx.value += 1;
+      previewStepIdx.value = 0;
+    } else {
+      previewStepIdx.value = seg.steps.length; // past end → previewStep null
+    }
+    previewPartial.value = null;
+    previewRaffaleStarted.value = false;
+  };
+
+  const startPreview = () => {
+    previewEngaged.value = true;
+    const pos = _previewFlatToPos(previewFrontier.value);
+    previewSerieIdx.value = pos.serieIdx;
+    previewStepIdx.value = pos.stepIdx;
+    previewPartial.value = null;
+    previewRaffaleStarted.value = false;
+    previewMode.value = true;
+  };
+
+  // Fire the current preview step's devices (no scoring). Mirrors advancePlayStep's
+  // branch structure for a_schuss two-tap and raffale two-throw timing.
+  const advancePreviewStep = async () => {
+    const step = previewStep.value;
+    if (!step) return;
+    const rangeId = currentRangeId.value;
+    try {
+      if (step.type === StepType.SOLO) {
+        await sendPositionCommand(rangeId, _posId(step));
+        _advancePreviewCursor();
+      } else if (step.type === StepType.PAIR) {
+        await Promise.all([
+          sendPositionCommand(rangeId, _posId1(step)),
+          sendPositionCommand(rangeId, _posId2(step)),
+        ]);
+        _advancePreviewCursor();
+      } else if (step.type === StepType.A_SCHUSS) {
+        if (previewPartial.value === null) {
+          await sendPositionCommand(rangeId, _posId1(step));
+          previewPartial.value = PartialStep.FIRST;
+        } else {
+          await sendPositionCommand(rangeId, _posId2(step));
+          _advancePreviewCursor(); // resets previewPartial
+        }
+      } else if (step.type === StepType.RAFFALE) {
+        if (!previewRaffaleStarted.value) {
+          await sendPositionCommand(rangeId, _posId(step));
+          previewRaffaleStarted.value = true;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to send position command during preview:', err);
+    }
+  };
+
+  const completePreviewRaffaleStep = async () => {
+    const step = previewStep.value;
+    if (step?.type !== StepType.RAFFALE) return;
+    try {
+      await sendPositionCommand(currentRangeId.value, _posId(step));
+    } catch (err) {
+      console.error('Failed to send second preview raffale command:', err);
+    }
+    _advancePreviewCursor(); // resets previewRaffaleStarted
+  };
+
+  // No Bird in preview: re-throw the current step from its first phase; frontier stays.
+  const retryPreviewStep = async () => {
+    previewPartial.value = null;
+    previewRaffaleStarted.value = false;
+    await advancePreviewStep();
+  };
+
+  // Überspringen: mark the current step seen without firing a device.
+  const skipPreviewStep = () => {
+    if (!previewStep.value) return;
+    _advancePreviewCursor();
+  };
+
+  const stopPreview = () => {
+    previewMode.value = false;
+    previewPartial.value = null;
+    previewRaffaleStarted.value = false;
+  };
+
+  const _resetPreview = () => {
+    previewMode.value = false;
+    previewEngaged.value = false;
+    previewFrontier.value = 0;
+    previewSerieIdx.value = 0;
+    previewStepIdx.value = 0;
+    previewPartial.value = null;
+    previewRaffaleStarted.value = false;
+  };
+
   const markStepDone = () => {
     const state = findStepState(currentSerieIndex.value, currentStepIndex.value);
     if (state?.state === StepState.PENDING) {
@@ -601,6 +758,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     pendingGroupSerien.value = null;
     currentRangeId.value = null;
     playerConfirmations.value = new Map();
+    _resetPreview();
   };
 
   const setPendingGroupSerien = (serien) => {
@@ -611,6 +769,7 @@ export const usePlaySessionStore = defineStore('playSession', () => {
   const cancelGroupSetup = () => {
     showGroupSetup.value = false;
     pendingGroupSerien.value = null;
+    _resetPreview();
   };
 
   const startGroupPlay = async (players, rangeId = null, rangeName = null, instanceId = null, blockId = null, rotteId = null, instanceType = null, sessionId = null, starterIndex = 0) => {
@@ -791,6 +950,13 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     activeSessions,
     currentSessionId,
     currentRangeId,
+    previewMode,
+    previewEngaged,
+    previewFrontier,
+    previewSerieIdx,
+    previewStepIdx,
+    previewPartial,
+    previewRaffaleStarted,
     // Computed
     currentSerie,
     currentStep,
@@ -799,6 +965,10 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     isMultiPlayer,
     isLastPlayerInRound,
     nextPlayer,
+    previewProgram,
+    previewStep,
+    scoredFlatIndex,
+    needsPreview,
     completionPct,
     serieCompletionPct,
     playProgress,
@@ -832,6 +1002,12 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     cancelGroupSetup,
     startGroupPlay,
     advanceToNextPlayer,
+    startPreview,
+    advancePreviewStep,
+    completePreviewRaffaleStep,
+    retryPreviewStep,
+    skipPreviewStep,
+    stopPreview,
     loadCompletedSerien,
     saveCompletedSerien,
     markSerieComplete,
