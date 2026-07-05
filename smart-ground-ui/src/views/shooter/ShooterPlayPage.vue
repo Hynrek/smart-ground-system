@@ -7,19 +7,40 @@
         <p v-if="_isCompetitionMode && _serieName" class="modal-serie-name">{{ _serieName }}</p>
 
         <div class="player-list">
-          <div v-for="(player, i) in groupPlayers" :key="player.id" class="player-row">
+          <div
+            v-for="(player, i) in groupPlayers"
+            :key="player.id"
+            class="player-row"
+            :class="{ 'is-starter-row': starterId === player.id }"
+          >
             <span class="player-number">{{ i + 1 }}:</span>
             <span class="player-display-name">{{ player.displayName }}</span>
             <span v-if="player.userId" class="player-account-badge" title="Mit Account verknüpft — Ergebnis wird gespeichert">
               <Icons icon="check" :size="12" color="var(--sg-color-success)" />
             </span>
-            <button
-              v-if="!_isCompetitionMode && groupPlayers.length > 1"
-              class="player-remove-btn"
-              @click="removePlayer(i)"
-            >
-              <Icons icon="x" :size="12" color="var(--sg-color-danger-bg)" />
-            </button>
+            <template v-if="!_isCompetitionMode">
+              <button class="player-order-btn player-move-up" :disabled="i === 0" title="Nach oben" @click="moveUp(i)">
+                <Icons icon="chevronDown" :size="14" color="rgba(255,255,255,0.6)" class="rot-180" />
+              </button>
+              <button class="player-order-btn player-move-down" :disabled="i === groupPlayers.length - 1" title="Nach unten" @click="moveDown(i)">
+                <Icons icon="chevronDown" :size="14" color="rgba(255,255,255,0.6)" />
+              </button>
+              <button
+                class="player-star-btn"
+                :class="{ 'is-starter': starterId === player.id }"
+                :title="starterId === player.id ? 'Startet' : 'Als Starter markieren'"
+                @click="setStarter(player.id)"
+              >
+                Start
+              </button>
+              <button
+                v-if="groupPlayers.length > 1"
+                class="player-remove-btn"
+                @click="removePlayer(i)"
+              >
+                <Icons icon="x" :size="12" color="var(--sg-color-danger-bg)" />
+              </button>
+            </template>
           </div>
         </div>
 
@@ -511,6 +532,36 @@ const removePlayer = (index) => {
   groupPlayers.value.splice(index, 1);
 };
 
+// ── Reorder + starter marker (non-competition group setup) ─────────────────────
+const starterId = ref(null);
+
+// Default the starter to the first shooter; keep it valid as the list changes.
+watch(groupPlayers, (list) => {
+  if (!list.length) { starterId.value = null; return; }
+  if (!list.some((p) => p.id === starterId.value)) starterId.value = list[0].id;
+}, { immediate: true, deep: true });
+
+const setStarter = (id) => { starterId.value = id; };
+
+const moveUp = (i) => {
+  if (i <= 0) return;
+  const list = groupPlayers.value;
+  const [item] = list.splice(i, 1);
+  list.splice(i - 1, 0, item);
+};
+
+const moveDown = (i) => {
+  const list = groupPlayers.value;
+  if (i >= list.length - 1) return;
+  const [item] = list.splice(i, 1);
+  list.splice(i + 1, 0, item);
+};
+
+const starterIndex = computed(() => {
+  const idx = groupPlayers.value.findIndex((p) => p.id === starterId.value);
+  return idx >= 0 ? idx : 0;
+});
+
 // ── QR check-in ───────────────────────────────────────────────────────────────
 const qrScanOpen = ref(false);
 const qrScanNotice = ref('');
@@ -543,6 +594,7 @@ const beginGroupPlay = () => {
     _blockContext.value?.rotteId ?? null,
     _blockContext.value?.instanceType ?? null,
     _blockContext.value?.sessionId ?? null,
+    starterIndex.value,
   );
   if (store.isMultiPlayer) {
     pendingFirstShooter.value = true;
@@ -949,6 +1001,57 @@ watch(
 
 .player-remove-btn:hover {
   background: rgba(252, 129, 129, 0.1);
+}
+
+.player-order-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 6px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.player-order-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.player-order-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.rot-180 {
+  transform: rotate(180deg);
+}
+
+.player-star-btn {
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--sg-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--sg-text-faint);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.player-star-btn.is-starter {
+  background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
+  border-color: color-mix(in srgb, var(--sg-accent) 40%, transparent);
+  color: var(--sg-accent);
+}
+
+.player-row.is-starter-row {
+  border-color: color-mix(in srgb, var(--sg-accent) 35%, transparent);
 }
 
 .add-player-btn {

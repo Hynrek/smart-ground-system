@@ -109,3 +109,41 @@ describe('ShooterPlayPage action bar', () => {
     expect(failSpy).toHaveBeenCalledWith('a')
   })
 })
+
+describe('ShooterPlayPage group setup — reorder & starter', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  const openSetup = (store) => {
+    store.setPendingGroupSerien([{ steps: [soloStep] }])
+    return mountPage()
+  }
+
+  it('marks the first shooter as starter by default and passes starterIndex 0', async () => {
+    const store = usePlaySessionStore()
+    const startSpy = vi.spyOn(store, 'startGroupPlay').mockResolvedValue(undefined)
+    const wrapper = openSetup(store)
+    await wrapper.get('.add-player-btn').trigger('click') // 2 shooters now
+    await wrapper.get('.modal-actions .btn-primary').trigger('click')
+    const starterIndex = startSpy.mock.calls[0].at(-1)
+    expect(starterIndex).toBe(0)
+  })
+
+  it('moves a shooter up and keeps the starter marker on the person', async () => {
+    const store = usePlaySessionStore()
+    const startSpy = vi.spyOn(store, 'startGroupPlay').mockResolvedValue(undefined)
+    const wrapper = openSetup(store)
+    await wrapper.get('.add-player-btn').trigger('click') // Schütze 1, Schütze 2
+
+    // Mark the second shooter as starter
+    await wrapper.findAll('.player-star-btn')[1].trigger('click')
+    // Move the second shooter up to row 1
+    await wrapper.findAll('.player-move-up')[1].trigger('click')
+    await wrapper.get('.modal-actions .btn-primary').trigger('click')
+
+    const args = startSpy.mock.calls[0]
+    const passedPlayers = args[0]
+    const starterIndex = args.at(-1)
+    expect(passedPlayers[0].displayName).toBe('Schütze 2')
+    expect(starterIndex).toBe(0)
+  })
+})
