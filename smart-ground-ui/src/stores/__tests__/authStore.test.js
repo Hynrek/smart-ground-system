@@ -4,9 +4,11 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '../authStore'
 import * as authApi from '@/services/authApi'
 import * as userApi from '@/services/userApi'
+import { resetAppData } from '@/stores/dataLifecycle.js'
 
 vi.mock('@/services/authApi')
 vi.mock('@/services/userApi')
+vi.mock('@/stores/dataLifecycle.js', () => ({ resetAppData: vi.fn() }))
 
 const mockProfile = {
   id: 'user-1',
@@ -164,5 +166,28 @@ describe('useAuthStore', () => {
       await expect(store.updateProfile({ nachname: 'Neu' })).rejects.toThrow('Network error')
       expect(store.error).toBe('Network error')
     })
+  })
+})
+
+describe('authStore data reset on identity change', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+    vi.clearAllMocks()
+  })
+
+  it('wipes app data on logout', () => {
+    const store = useAuthStore()
+    store.logout()
+    expect(resetAppData).toHaveBeenCalled()
+  })
+
+  it('wipes app data before loading the new profile on login', async () => {
+    vi.mocked(authApi.login).mockResolvedValue({ token: 'test.jwt.token' })
+    vi.mocked(authApi.getMe).mockResolvedValue(mockProfile)
+
+    const store = useAuthStore()
+    await store.login('userB', 'pw')
+    expect(resetAppData).toHaveBeenCalled()
   })
 })

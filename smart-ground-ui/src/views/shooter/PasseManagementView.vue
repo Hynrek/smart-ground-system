@@ -572,12 +572,19 @@ import { useActivePasseStore } from '@/stores/activePasseStore.js';
 import Icons from '@/components/Icons.vue';
 import { stepModeLabel, modeDotStyle } from '@/constants/stepModes.js';
 import { useUrlTab } from '@/composables/useUrlTab.js';
+import { useRevalidate } from '@/composables/useRevalidate.js';
 
 const router = useRouter();
 const passeStore = usePasseStore();
 const authStore = useAuthStore();
 const playSessionStore = usePlaySessionStore();
 const activePasseStore = useActivePasseStore();
+
+// Keep Serien/Passen fresh against admin edits while this view is open
+useRevalidate(() => {
+  passeStore.loadSerienFromStorage();
+  passeStore.loadPassenFromStorage();
+}, { interval: 10000 });
 
 // Filter out training instances — this view only shows passe instances
 const passenActiveInstances = computed(() =>
