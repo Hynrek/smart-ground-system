@@ -3,6 +3,8 @@ package ch.jp.shooting.repository;
 import ch.jp.shooting.model.SmartBox;
 import ch.jp.shooting.model.SmartBoxStates;
 import org.jspecify.annotations.NullMarked;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -15,6 +17,10 @@ import java.util.UUID;
 @NullMarked
 public interface SmartBoxRepository extends JpaRepository<SmartBox, UUID> {
     Optional<SmartBox> findByMacAddress(String macAddress);
+
+    Page<SmartBox> findByDeletedAtIsNull(Pageable pageable);
+
+    Optional<SmartBox> findByIdAndDeletedAtIsNull(UUID id);
 
     @Modifying
     @Query("UPDATE SmartBox s SET s.status = :status WHERE s.status = :oldStatus AND s.lastSeen < :threshold")
