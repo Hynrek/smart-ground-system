@@ -21,3 +21,7 @@ export async function setSmartBoxAlias(id, alias) {
 export async function pushSmartBoxConfig(smartBoxId) {
   return apiFetch(`/smart-boxes/${smartBoxId}/push-config`, { method: 'POST' });
 }
+
+export async function deleteSmartBox(id) {
+  return apiFetch(`/smart-boxes/${id}`, { method: 'DELETE' });
+}

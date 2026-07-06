@@ -50,6 +50,14 @@ export const useSmartBoxStore = defineStore('smartbox', () => {
     }
   };
 
+  const deleteSmartBox = async (boxId) => {
+    await smartBoxApi.deleteSmartBox(boxId);
+    const index = smartboxes.value.findIndex((b) => b.id === boxId);
+    if (index > -1) {
+      smartboxes.value.splice(index, 1);
+    }
+  };
+
   const applySmartBoxEvent = (event) => {
     if (event.type === 'smartbox.status') {
       const box = smartboxes.value.find((b) => b.id === event.smartBoxId);
@@ -67,6 +75,7 @@ export const useSmartBoxStore = defineStore('smartbox', () => {
     getDeviceCount,
     updateSmartBox,
     saveSmartBox,
+    deleteSmartBox,
     applySmartBoxEvent,
     initialize,
     loadApiData,
