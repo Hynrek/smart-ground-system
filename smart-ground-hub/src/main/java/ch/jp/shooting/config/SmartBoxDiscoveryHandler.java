@@ -83,6 +83,8 @@ public class SmartBoxDiscoveryHandler implements MessageHandler {
 
         box.setStatus(SmartBoxStates.ONLINE);
         box.setLastSeen(Instant.now());
+        // Meldet sich eine zuvor (soft-)gelöschte Box erneut, wird sie automatisch reaktiviert.
+        box.setDeletedAt(null);
 
         if (payload.appVersion() != null) {
             box.setAppVersion(payload.appVersion());

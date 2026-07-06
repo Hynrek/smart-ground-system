@@ -12,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.support.MessageBuilder;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -137,5 +138,26 @@ class SmartBoxDiscoveryHandlerTest {
         ArgumentCaptor<SmartBox> boxCap = ArgumentCaptor.forClass(SmartBox.class);
         verify(smartBoxRepository).save(boxCap.capture());
         assertThat(boxCap.getValue().getFirmwareConfig()).isNotNull();
+    }
+
+    @Test
+    void reactivatesSoftDeletedBoxOnRediscovery() {
+        var handler = new SmartBoxDiscoveryHandler(
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService);
+        SmartBox deleted = new SmartBox();
+        deleted.setMacAddress("aabbccddeeff");
+        deleted.setDeletedAt(java.time.Instant.now());
+        when(smartBoxRepository.findByMacAddress("aabbccddeeff")).thenReturn(Optional.of(deleted));
+        when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
+        when(firmwareConfigRepository.findByVersionAndBoxType(any(), any()))
+            .thenReturn(Optional.empty());
+        when(firmwareConfigRepository.save(any(FirmwareConfig.class)))
+            .thenAnswer(i -> i.getArgument(0));
+
+        String json = "{\"mac\":\"aabbccddeeff\",\"appVersion\":\"0.7\","
+                    + "\"firmwareVersion\":\"micropython-1.23.0\",\"boxType\":\"xiao-esp32s3\",\"ip\":\"1.2.3.4\"}";
+        handler.handleMessage(MessageBuilder.withPayload(json.getBytes()).build());
+
+        assertThat(deleted.getDeletedAt()).isNull();
     }
 }
