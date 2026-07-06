@@ -1,3 +1,4 @@
+/* global structuredClone */
 import { isRef, toRaw } from 'vue';
 
 // Pinia plugin: snapshot each store's initial state at creation and expose a
