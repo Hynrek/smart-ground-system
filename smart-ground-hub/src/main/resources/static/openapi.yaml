@@ -2177,6 +2177,31 @@ paths:
         '404':
           description: Smart box not found
 
+    delete:
+      summary: Delete a smart box
+      description: >
+        Soft-deletes the SmartBox (marks it removed and hides it from all
+        listings) and hard-deletes every device wired to it. Intended for
+        permanently retiring broken hardware. If the same MAC address later
+        sends an MQTT discovery message the box is automatically reactivated,
+        starting again with zero devices. Requires ADMIN role.
+      operationId: deleteSmartBox
+      tags: [SmartBox]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Smart box deleted
+        '403':
+          description: User does not have ADMIN role
+        '404':
+          description: Smart box not found
+
   /api/smart-boxes/{id}/alias:
     patch:
       summary: Set alias for a smart box
