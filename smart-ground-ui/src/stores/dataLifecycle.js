@@ -7,7 +7,10 @@ export function isAppDataInitialized() {
 }
 
 // One-time initialization of API-backed stores, run on first authenticated
-// navigation. Idempotent; dynamic imports keep these stores lazily loaded.
+// navigation. Idempotent. Dynamic imports here avoid a static import cycle
+// with authStore.js (which imports resetAppData below) — they do not
+// produce separate lazy chunks, since these stores are also imported
+// statically elsewhere in the app.
 export async function initializeAppData() {
   if (_initialized) return;
   _initialized = true;
