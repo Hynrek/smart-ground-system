@@ -30,6 +30,7 @@ class PlayInstanceServiceTest {
     @Mock PasseService passeService;
     @Mock SecurityHelper securityHelper;
     @Mock PositionLabelResolver positionLabelResolver;
+    @Mock UserScoreService userScoreService;
 
     @InjectMocks PlayInstanceService service;
 
@@ -146,5 +147,58 @@ class PlayInstanceServiceTest {
     void startSerieInstance_rejectsSnapshotWithoutExactlyOneSerie() {
         assertThrows(IllegalArgumentException.class, () ->
             service.startSerieInstance(java.util.UUID.randomUUID(), "X", "[]", java.util.List.of()));
+    }
+
+    @Test
+    void completeBlock_onLastBlock_recordsUserScores() {
+        var instanceId = UUID.randomUUID();
+        var blockId = UUID.randomUUID();
+        var inst = new PlayInstance();
+        inst.setInstanceId(instanceId);
+        inst.setType("passe");
+        inst.setTemplateId(UUID.randomUUID());
+        inst.setTemplateName("T");
+        inst.setStatus("active");
+        inst.setOwner(mock(User.class));
+        inst.setPlayersJson("[]");
+        inst.setStateJson("[{\"blockId\":\"" + blockId + "\",\"serieId\":\"" + UUID.randomUUID()
+            + "\",\"serieAlias\":\"S\",\"steps\":[],\"status\":\"in_progress\"}]");
+        when(playInstanceRepository.findById(instanceId)).thenReturn(java.util.Optional.of(inst));
+        when(playInstanceRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        var request = new ch.jp.smartground.model.CompleteBlockRequest()
+            .playerResults(List.of(new ch.jp.smartground.model.PlayerResult()
+                .playerId("p1").displayName("Anna").totalPoints(5).maxPoints(10)
+                .userId(UUID.randomUUID())));
+        service.completeBlock(instanceId, blockId, request);
+
+        verify(userScoreService).recordTrainingInstance(inst);
+    }
+
+    @Test
+    void completeBlock_whenBlocksRemain_doesNotRecordScores() {
+        var instanceId = UUID.randomUUID();
+        var blockId = UUID.randomUUID();
+        var inst = new PlayInstance();
+        inst.setInstanceId(instanceId);
+        inst.setType("passe");
+        inst.setTemplateId(UUID.randomUUID());
+        inst.setTemplateName("T");
+        inst.setStatus("active");
+        inst.setOwner(mock(User.class));
+        inst.setPlayersJson("[]");
+        inst.setStateJson("[{\"blockId\":\"" + blockId + "\",\"serieId\":\"" + UUID.randomUUID()
+            + "\",\"serieAlias\":\"S1\",\"steps\":[],\"status\":\"in_progress\"},"
+            + "{\"blockId\":\"" + UUID.randomUUID() + "\",\"serieId\":\"" + UUID.randomUUID()
+            + "\",\"serieAlias\":\"S2\",\"steps\":[],\"status\":\"pending\"}]");
+        when(playInstanceRepository.findById(instanceId)).thenReturn(java.util.Optional.of(inst));
+        when(playInstanceRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        var request = new ch.jp.smartground.model.CompleteBlockRequest()
+            .playerResults(List.of(new ch.jp.smartground.model.PlayerResult()
+                .playerId("p1").displayName("Anna").totalPoints(5).maxPoints(10)));
+        service.completeBlock(instanceId, blockId, request);
+
+        verify(userScoreService, never()).recordTrainingInstance(any());
     }
 }

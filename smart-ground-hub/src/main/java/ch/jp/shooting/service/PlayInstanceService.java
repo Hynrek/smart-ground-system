@@ -47,17 +47,20 @@ public class PlayInstanceService {
     private final PasseService passeService;
     private final SecurityHelper securityHelper;
     private final PositionLabelResolver positionLabelResolver;
+    private final UserScoreService userScoreService;
 
     public PlayInstanceService(PlayInstanceRepository playInstanceRepository,
                                PasseRepository passeRepository,
                                PasseService passeService,
                                SecurityHelper securityHelper,
-                               PositionLabelResolver positionLabelResolver) {
+                               PositionLabelResolver positionLabelResolver,
+                               UserScoreService userScoreService) {
         this.playInstanceRepository = playInstanceRepository;
         this.passeRepository = passeRepository;
         this.passeService = passeService;
         this.securityHelper = securityHelper;
         this.positionLabelResolver = positionLabelResolver;
+        this.userScoreService = userScoreService;
     }
 
     // ── Neue Instanz starten ──────────────────────────────────────────────────
@@ -213,6 +216,8 @@ public class PlayInstanceService {
         if (blocks.stream().allMatch(b -> "done".equals(b.status()))) {
             instance.setStatus("completed");
             instance.setCompletedAt(Instant.now());
+            // Score-Projektion schreiben: eine Zeile pro Block × registriertem User
+            userScoreService.recordTrainingInstance(instance);
         }
 
         return PlayMapper.toPlayInstanceResponse(playInstanceRepository.save(instance));
