@@ -48,6 +48,22 @@
         >
           <Icons icon="download" :size="13" />
         </button>
+        <template v-if="isAdmin">
+          <div v-if="confirmingDeleteBox" class="confirm-delete-box">
+            <span class="confirm-text">Box löschen?</span>
+            <button class="delete-confirm-btn" @click="deleteBox">Ja</button>
+            <button class="cancel-btn-sm" @click="confirmingDeleteBox = false">Nein</button>
+          </div>
+          <button
+            v-else
+            class="box-delete-btn"
+            type="button"
+            aria-label="SmartBox löschen"
+            @click="confirmingDeleteBox = true"
+          >
+            <Icons icon="trash" :size="13" />
+          </button>
+        </template>
       </div>
     </div>
 
@@ -309,6 +325,7 @@ const emit = defineEmits([
   'remove-device',
   'update-device',
   'rename-box',
+  'delete-box',
 ]);
 
 const smartBoxStore = useSmartBoxStore();
@@ -376,6 +393,7 @@ const editingId = ref(null);
 const editForm = ref({});
 const newDeviceForm = ref({ name: '', deviceTypeId: '' });
 const confirmingDelete = ref(null);
+const confirmingDeleteBox = ref(false);
 
 const boxes = computed(() => smartBoxStore.smartboxes);
 
@@ -481,6 +499,11 @@ const confirmDelete = (deviceId) => {
 const deleteDevice = (deviceId) => {
   emit('remove-device', deviceId);
   confirmingDelete.value = null;
+};
+
+const deleteBox = () => {
+  emit('delete-box', props.box.id);
+  confirmingDeleteBox.value = false;
 };
 </script>
 
@@ -626,6 +649,28 @@ const deleteDevice = (deviceId) => {
 .ota-toggle-btn[aria-pressed='true'] {
   background: var(--sg-color-info-bg);
   color: var(--sg-color-info-text);
+}
+
+.box-delete-btn {
+  background: var(--sg-bg-panel);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--sg-color-danger);
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+
+.box-delete-btn:hover {
+  background: var(--sg-color-danger-bg);
+}
+
+.confirm-delete-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .device-table-wrapper {
