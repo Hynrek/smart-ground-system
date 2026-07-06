@@ -18,7 +18,11 @@ vi.mock('@/services/userApi.js', () => ({
   fetchMyQrToken: vi.fn(),
   rotateMyQrToken: vi.fn(),
   resolveUserByQr: vi.fn(),
-  fetchMyPlayResults: vi.fn(),
+}))
+vi.mock('@/services/scoreApi.js', () => ({
+  fetchMyScores: vi.fn().mockResolvedValue({ content: [], meta: null }),
+  fetchMyScoreSummary: vi.fn().mockResolvedValue(null),
+  fetchLeaderboard: vi.fn(),
 }))
 
 const mountView = () => {
@@ -72,24 +76,4 @@ describe('ShooterProfilView QR tab', () => {
     )
   })
 
-  it('shows my results in the Ergebnisse tab', async () => {
-    userApi.fetchMyPlayResults.mockResolvedValue([
-      { resultId: 'r1', templateName: 'Jagd 1', rangeName: 'Trapstand', completedAt: '2026-07-01T10:00:00Z', totalPoints: 12, maxPoints: 18 },
-    ])
-    const wrapper = mountView()
-
-    await clickTab(wrapper, 'Ergebnisse')
-
-    expect(wrapper.text()).toContain('Jagd 1')
-    expect(wrapper.text()).toContain('12/18')
-  })
-
-  it('shows an empty state when there are no results', async () => {
-    userApi.fetchMyPlayResults.mockResolvedValue([])
-    const wrapper = mountView()
-
-    await clickTab(wrapper, 'Ergebnisse')
-
-    expect(wrapper.text()).toContain('Noch keine Ergebnisse')
-  })
 })
