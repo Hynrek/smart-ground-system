@@ -5,7 +5,6 @@
       <div class="user-pill">
         <div class="user-avatar">{{ userInitial }}</div>
         <span class="user-name">{{ displayName }}</span>
-        <button class="account-edit-btn" data-testid="open-account" @click="router.push('/profil')">Konto</button>
       </div>
       <button class="logout-btn" aria-label="Abmelden" @click="handleLogout">
         <Icons icon="logout" :size="18" color="rgba(255,255,255,0.45)" />
@@ -69,13 +68,12 @@
         <span class="tile-coming">Bald verfügbar</span>
       </button>
 
-      <button class="app-tile app-tile--soon" disabled>
-        <div class="tile-icon-wrap tile-icon-wrap--muted">
-          <Icons icon="stats" :size="36" color="rgba(255,255,255,0.2)" />
+      <button class="app-tile app-tile--available app-tile--purple" data-testid="open-karriere" @click="router.push('/karriere')">
+        <div class="tile-icon-wrap">
+          <Icons icon="stats" :size="36" color="#1a1a2e" />
         </div>
         <span class="tile-label">Karriere</span>
-        <span class="tile-desc">Meine Statistiken</span>
-        <span class="tile-coming">Bald verfügbar</span>
+        <span class="tile-desc">QR-Code & Ergebnisse</span>
       </button>
     </div>
   </div>
@@ -143,23 +141,6 @@ const handleLogout = () => {
   font-size: 13px;
   color: var(--sg-text-faint);
   font-weight: 500;
-}
-
-.account-edit-btn {
-  background: none;
-  border: 1px solid var(--sg-border-input);
-  border-radius: 6px;
-  color: var(--sg-text-faint);
-  cursor: pointer;
-  font-size: 11px;
-  font-family: inherit;
-  padding: 3px 8px;
-  transition: background 0.15s, color 0.15s;
-}
-
-.account-edit-btn:hover {
-  background: rgba(255, 255, 255, 0.09);
-  color: rgba(255, 255, 255, 0.8);
 }
 
 .logout-btn {
