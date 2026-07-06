@@ -1,3 +1,4 @@
+/* global URLSearchParams */
 import { apiFetch } from './apiClient.js'
 
 // Builds "?a=1&b=2" from an object, skipping null/undefined/empty values
