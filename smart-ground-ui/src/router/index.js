@@ -20,8 +20,6 @@ import PasseManagementView from '@/views/shooter/PasseManagementView.vue';
 import ShooterProfilView from '@/views/shooter/ShooterProfilView.vue';
 import { useAuthStore } from '@/stores/authStore';
 
-let _storesInitialized = false
-
 const routes = [
   { path: '/login', component: LoginView, meta: { requiresAuth: false } },
   { path: '/welcome', component: WelcomeView, meta: { requiresAuth: true, layout: 'legacy-fullscreen' } },
@@ -106,27 +104,10 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
-  // Lazy-initialize API-backed stores on first authenticated navigation
-  if (authenticated && !_storesInitialized && to.path !== '/login' && to.path !== '/no-access') {
-    _storesInitialized = true
-    const { useAppStore } = await import('@/stores/appStore.js');
-    const { useGuestStore } = await import('@/stores/guestStore.js');
-    const { usePasseStore } = await import('@/stores/passeStore.js');
-    const { useActivePasseStore } = await import('@/stores/activePasseStore.js');
-    const { useCompetitionEventStore } = await import('@/stores/competitionEventStore.js');
-
-    const appStore = useAppStore();
-    const guestStore = useGuestStore();
-    const passeStore = usePasseStore();
-    const activePasseStore = useActivePasseStore();
-    const competitionEventStore = useCompetitionEventStore();
-
-    appStore.initializeStore().catch(console.error);
-    guestStore.loadGuests().catch(console.error);
-    passeStore.loadSerienFromStorage().catch(console.error);
-    passeStore.loadPassenFromStorage().catch(console.error);
-    activePasseStore.loadFromStorage().catch(console.error);
-    competitionEventStore.loadEvents().catch(console.error);
+  // Initialize API-backed stores on first authenticated navigation
+  if (authenticated && to.path !== '/login' && to.path !== '/no-access') {
+    const { initializeAppData } = await import('@/stores/dataLifecycle.js');
+    initializeAppData().catch(console.error);
   }
 
   next();
