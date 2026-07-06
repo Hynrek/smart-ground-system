@@ -32,6 +32,7 @@ class PlayInstanceUserIdTest {
     @Mock PasseService passeService;
     @Mock SecurityHelper securityHelper;
     @Mock PositionLabelResolver positionLabelResolver;
+    @Mock UserScoreService userScoreService;
 
     @InjectMocks PlayInstanceService service;
 

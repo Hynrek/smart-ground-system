@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -126,5 +127,134 @@ public class UserScoreService {
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             return null; // StepStates sind Zusatzinfo — Abschluss nicht daran scheitern lassen
         }
+    }
+
+    // ── Lesen / Aggregation ──────────────────────────────────────────────────
+
+    private static double percent(int points, int max) {
+        return max > 0 ? points * 100.0 / max : 0.0;
+    }
+
+    @Transactional(readOnly = true)
+    public ch.jp.smartground.model.UserScorePage listMyScores(
+            @Nullable String context, @Nullable UUID serieId,
+            @Nullable OffsetDateTime from, @Nullable OffsetDateTime to,
+            int page, int size) {
+        var userId = securityHelper.currentUser().getId();
+        var fromInstant = from != null ? from.toInstant() : java.time.Instant.EPOCH;
+        var toInstant = to != null ? to.toInstant() : java.time.Instant.now().plusSeconds(60);
+        var result = scoreRepository.findFiltered(userId, context, serieId,
+            fromInstant, toInstant, org.springframework.data.domain.PageRequest.of(page, size));
+        var meta = new ch.jp.smartground.model.PageMeta()
+            .page(result.getNumber()).size(result.getSize())
+            .totalPages(result.getTotalPages()).totalElements((int) result.getTotalElements());
+        return new ch.jp.smartground.model.UserScorePage()
+            .content(result.getContent().stream().map(this::toEntry).toList())
+            .meta(meta);
+    }
+
+    @Transactional(readOnly = true)
+    public ch.jp.smartground.model.UserScoreSummary getMyScoreSummary() {
+        var userId = securityHelper.currentUser().getId();
+        var rows = scoreRepository.findByUserIdOrderByCompletedAtDesc(userId);
+
+        var summary = new ch.jp.smartground.model.UserScoreSummary();
+        for (var context : List.of("TRAINING", "COMPETITION")) {
+            var ctxRows = rows.stream().filter(r -> context.equals(r.getContext())).toList();
+            var ctx = new ch.jp.smartground.model.ScoreContextSummary()
+                .context(ch.jp.smartground.model.ScoreContext.fromValue(context))
+                .serieCount(ctxRows.size())
+                .totalPoints(ctxRows.stream().mapToInt(UserSerieScore::getTotalPoints).sum())
+                .maxPoints(ctxRows.stream().mapToInt(UserSerieScore::getMaxPoints).sum())
+                .averagePercent(ctxRows.stream()
+                    .mapToDouble(r -> percent(r.getTotalPoints(), r.getMaxPoints())).average().orElse(0.0))
+                .bestPercent(ctxRows.isEmpty() ? null : ctxRows.stream()
+                    .mapToDouble(r -> percent(r.getTotalPoints(), r.getMaxPoints())).max().orElse(0.0));
+            summary.addContextsItem(ctx);
+        }
+
+        // Gruppierung: Training nach playInstanceId, Wettkampf nach sessionId.
+        // rows sind absteigend sortiert — LinkedHashMap erhält "neueste zuerst".
+        var passen = new java.util.LinkedHashMap<UUID, ch.jp.smartground.model.GroupedScoreSummary>();
+        var wettkaempfe = new java.util.LinkedHashMap<UUID, ch.jp.smartground.model.GroupedScoreSummary>();
+        for (var r : rows) {
+            UUID key = "TRAINING".equals(r.getContext()) ? r.getPlayInstanceId() : r.getSessionId();
+            if (key == null) continue;
+            var target = "TRAINING".equals(r.getContext()) ? passen : wettkaempfe;
+            var g = target.computeIfAbsent(key, k -> new ch.jp.smartground.model.GroupedScoreSummary()
+                .key(k).label(r.getParentName())
+                .context(ch.jp.smartground.model.ScoreContext.fromValue(r.getContext()))
+                .serieCount(0).totalPoints(0).maxPoints(0)
+                .lastCompletedAt(java.time.OffsetDateTime.ofInstant(r.getCompletedAt(), java.time.ZoneOffset.UTC)));
+            g.serieCount(g.getSerieCount() + 1)
+             .totalPoints(g.getTotalPoints() + r.getTotalPoints())
+             .maxPoints(g.getMaxPoints() + r.getMaxPoints());
+        }
+        summary.passen(new java.util.ArrayList<>(passen.values()));
+        summary.wettkaempfe(new java.util.ArrayList<>(wettkaempfe.values()));
+        return summary;
+    }
+
+    @Transactional(readOnly = true)
+    public ch.jp.smartground.model.LeaderboardResponse getLeaderboard(
+            @Nullable UUID serieId, @Nullable UUID rangeId, @Nullable String context,
+            String metric, int limit, @Nullable OffsetDateTime from) {
+        var fromInstant = from != null ? from.toInstant() : java.time.Instant.EPOCH;
+        var rows = scoreRepository.findForLeaderboard(context, serieId, rangeId, fromInstant);
+
+        var byUser = rows.stream().collect(java.util.stream.Collectors.groupingBy(UserSerieScore::getUserId));
+        var names = new java.util.HashMap<UUID, String>();
+        userRepository.findAllById(byUser.keySet())
+            .forEach(u -> names.put(u.getId(), u.getFullName()));
+
+        var entries = byUser.entrySet().stream().map(e -> {
+            var userRows = e.getValue();
+            return new ch.jp.smartground.model.LeaderboardEntry()
+                .userId(e.getKey())
+                .displayName(names.getOrDefault(e.getKey(), "Unbekannt"))
+                .serieCount(userRows.size())
+                .bestPercent(userRows.stream()
+                    .mapToDouble(r -> percent(r.getTotalPoints(), r.getMaxPoints())).max().orElse(0.0))
+                .averagePercent(userRows.stream()
+                    .mapToDouble(r -> percent(r.getTotalPoints(), r.getMaxPoints())).average().orElse(0.0))
+                .totalPoints(userRows.stream().mapToInt(UserSerieScore::getTotalPoints).sum())
+                .maxPoints(userRows.stream().mapToInt(UserSerieScore::getMaxPoints).sum());
+        })
+        .sorted(java.util.Comparator.comparingDouble(
+            (ch.jp.smartground.model.LeaderboardEntry le) ->
+                "average".equals(metric) ? le.getAveragePercent() : le.getBestPercent()).reversed())
+        .limit(limit)
+        .toList();
+
+        return new ch.jp.smartground.model.LeaderboardResponse()
+            .metric(ch.jp.smartground.model.LeaderboardResponse.MetricEnum.fromValue(
+                "average".equals(metric) ? "average" : "best"))
+            .entries(entries);
+    }
+
+    private ch.jp.smartground.model.UserSerieScoreEntry toEntry(UserSerieScore s) {
+        var entry = new ch.jp.smartground.model.UserSerieScoreEntry()
+            .id(s.getId())
+            .context(ch.jp.smartground.model.ScoreContext.fromValue(s.getContext()))
+            .totalPoints(s.getTotalPoints())
+            .maxPoints(s.getMaxPoints())
+            .serieId(s.getSerieId())
+            .serieAlias(s.getSerieAlias())
+            .playInstanceId(s.getPlayInstanceId())
+            .sessionId(s.getSessionId())
+            .passeIndex(s.getPasseIndex())
+            .parentName(s.getParentName())
+            .rangeId(s.getRangeId())
+            .rangeName(s.getRangeName())
+            .completedAt(java.time.OffsetDateTime.ofInstant(s.getCompletedAt(), java.time.ZoneOffset.UTC));
+        if (s.getStepStatesJson() != null) {
+            try {
+                entry.stepStates(java.util.Arrays.asList(objectMapper.readValue(
+                    s.getStepStatesJson(), ch.jp.smartground.model.StepStateRecord[].class)));
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                // Detailkopie unlesbar — Totale bleiben gültig
+            }
+        }
+        return entry;
     }
 }

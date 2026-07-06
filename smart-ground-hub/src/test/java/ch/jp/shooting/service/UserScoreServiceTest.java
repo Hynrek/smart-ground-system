@@ -179,4 +179,83 @@ class UserScoreServiceTest {
         verify(scoreRepository).delete(stale);
         verify(scoreRepository).save(any(UserSerieScore.class));
     }
+
+    // ── Lesen / Aggregation ──
+
+    private UserSerieScore row(UUID userId, String context, int points, int max,
+                               @org.jspecify.annotations.Nullable UUID playInstanceId,
+                               @org.jspecify.annotations.Nullable UUID sessionId,
+                               Instant completedAt) {
+        var s = new UserSerieScore();
+        s.setUserId(userId);
+        s.setContext(context);
+        s.setTotalPoints(points);
+        s.setMaxPoints(max);
+        s.setSerieId(UUID.randomUUID());
+        s.setSerieAlias("Serie");
+        s.setSourceId(UUID.randomUUID());
+        s.setPlayInstanceId(playInstanceId);
+        s.setSessionId(sessionId);
+        s.setParentName(playInstanceId != null ? "Passe X" : "Wettkampf Y");
+        s.setCompletedAt(completedAt);
+        return s;
+    }
+
+    @Test
+    void getMyScoreSummary_aggregatesContextsAndGroups() {
+        var userId = UUID.randomUUID();
+        var me = mock(User.class);
+        when(me.getId()).thenReturn(userId);
+        when(securityHelper.currentUser()).thenReturn(me);
+
+        var passe = UUID.randomUUID();
+        var session = UUID.randomUUID();
+        var now = Instant.now();
+        when(scoreRepository.findByUserIdOrderByCompletedAtDesc(userId)).thenReturn(List.of(
+            row(userId, "TRAINING", 8, 10, passe, null, now),
+            row(userId, "TRAINING", 6, 10, passe, null, now.minusSeconds(60)),
+            row(userId, "COMPETITION", 9, 10, null, session, now.minusSeconds(120))
+        ));
+
+        var summary = service().getMyScoreSummary();
+
+        var training = summary.getContexts().stream()
+            .filter(c -> "TRAINING".equals(c.getContext().getValue())).findFirst().orElseThrow();
+        assertEquals(2, training.getSerieCount());
+        assertEquals(14, training.getTotalPoints());
+        assertEquals(70.0, training.getAveragePercent(), 0.01);
+        assertEquals(80.0, training.getBestPercent().get(), 0.01);
+
+        assertEquals(1, summary.getPassen().size());
+        assertEquals(14, summary.getPassen().get(0).getTotalPoints());
+        assertEquals(2, summary.getPassen().get(0).getSerieCount());
+        assertEquals(1, summary.getWettkaempfe().size());
+        assertEquals(9, summary.getWettkaempfe().get(0).getTotalPoints());
+    }
+
+    @Test
+    void getLeaderboard_ranksByBestPercent() {
+        var alice = UUID.randomUUID();
+        var bob = UUID.randomUUID();
+        var now = Instant.now();
+        when(scoreRepository.findForLeaderboard(isNull(), isNull(), isNull(), any())).thenReturn(List.of(
+            row(alice, "TRAINING", 9, 10, UUID.randomUUID(), null, now),
+            row(alice, "TRAINING", 5, 10, UUID.randomUUID(), null, now),
+            row(bob, "TRAINING", 8, 10, UUID.randomUUID(), null, now)
+        ));
+        var aliceUser = mock(User.class);
+        when(aliceUser.getId()).thenReturn(alice);
+        when(aliceUser.getFullName()).thenReturn("Alice");
+        var bobUser = mock(User.class);
+        when(bobUser.getId()).thenReturn(bob);
+        when(bobUser.getFullName()).thenReturn("Bob");
+        when(userRepository.findAllById(any())).thenReturn(List.of(aliceUser, bobUser));
+
+        var board = service().getLeaderboard(null, null, null, "best", 10, null);
+
+        assertEquals(2, board.getEntries().size());
+        assertEquals("Alice", board.getEntries().get(0).getDisplayName());
+        assertEquals(90.0, board.getEntries().get(0).getBestPercent(), 0.01);
+        assertEquals(70.0, board.getEntries().get(0).getAveragePercent(), 0.01);
+    }
 }

@@ -3,7 +3,6 @@ package ch.jp.shooting.api;
 import ch.jp.shooting.service.PlayInstanceService;
 import ch.jp.smartground.api.PlayInstanceApi;
 import ch.jp.smartground.model.CompleteBlockRequest;
-import ch.jp.smartground.model.MyPlayResultEntry;
 import ch.jp.smartground.model.PlayInstanceResponse;
 import ch.jp.smartground.model.StartPasseInstanceRequest;
 import org.jspecify.annotations.NullMarked;
@@ -58,10 +57,5 @@ public class PlayInstanceController implements PlayInstanceApi {
     public ResponseEntity<PlayInstanceResponse> completeBlock(UUID instanceId, UUID blockId,
             CompleteBlockRequest completeBlockRequest) {
         return ResponseEntity.ok(playInstanceService.completeBlock(instanceId, blockId, completeBlockRequest));
-    }
-
-    @Override
-    public ResponseEntity<List<MyPlayResultEntry>> listMyPlayResults() {
-        return ResponseEntity.ok(playInstanceService.listMyPlayResults());
     }
 }

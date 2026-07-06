@@ -14,7 +14,6 @@ import ch.jp.shooting.model.PlayInstance;
 import ch.jp.shooting.repository.PasseRepository;
 import ch.jp.shooting.repository.PlayInstanceRepository;
 import ch.jp.smartground.model.CompleteBlockRequest;
-import ch.jp.smartground.model.MyPlayResultEntry;
 import ch.jp.smartground.model.PageMeta;
 import ch.jp.smartground.model.PlayInstanceResponse;
 import ch.jp.smartground.model.PlayResultPage;
@@ -34,7 +33,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 // Geschäftslogik für Play-Instanzen (Passe-Läufe)
@@ -276,47 +274,6 @@ public class PlayInstanceService {
             throw new PlayInstanceNotFoundException(resultId);
         }
         return toPlayResultResponse(instance);
-    }
-
-    /** Abgeschlossene Läufe, an denen der aktuelle User (per QR-Checkin) teilgenommen hat. */
-    public List<MyPlayResultEntry> listMyPlayResults() {
-        var user = securityHelper.currentUser();
-        var uid = user.getId();
-        return playInstanceRepository.findCompletedByParticipantUserId(uid.toString()).stream()
-            .map(inst -> toMyPlayResultEntry(inst, uid))
-            .filter(Objects::nonNull)
-            .toList();
-    }
-
-    /** Summiert die eigenen Punkte über alle Blöcke; null wenn der User nirgends wirklich teilnahm. */
-    @Nullable
-    private MyPlayResultEntry toMyPlayResultEntry(PlayInstance inst, UUID uid) {
-        int total = 0;
-        int max = 0;
-        boolean teilgenommen = false;
-        String rangeName = null;
-        for (var block : PlayMapper.parseBlocks(inst.getStateJson())) {
-            if (rangeName == null && block.rangeName() != null) rangeName = block.rangeName();
-            if (block.result() == null) continue;
-            for (var pr : block.result().playerResults()) {
-                if (uid.equals(pr.userId())) {
-                    total += pr.totalPoints();
-                    max += pr.maxPoints();
-                    teilgenommen = true;
-                }
-            }
-        }
-        if (!teilgenommen) return null; // falsch-positiver LIKE-Treffer
-        var entry = new MyPlayResultEntry()
-            .resultId(inst.getInstanceId())
-            .templateName(inst.getTemplateName())
-            .rangeName(rangeName)
-            .totalPoints(total)
-            .maxPoints(max);
-        if (inst.getCompletedAt() != null) {
-            entry.completedAt(OffsetDateTime.ofInstant(inst.getCompletedAt(), ZoneOffset.UTC));
-        }
-        return entry;
     }
 
     // ── Private Hilfsmethoden ─────────────────────────────────────────────────
