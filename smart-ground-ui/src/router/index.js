@@ -50,6 +50,7 @@ const routes = [
   { path: '/wettkampf/:id/rangliste', component: () => import('@/views/shooter/CompetitionResultsView.vue'), props: true, meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
   { path: '/meine-passen',         component: PasseManagementView,          meta: { layout: 'shooter', permission: 'PLAY_SERIES' } },
   { path: '/profil',               component: ShooterProfilView,            meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },
+  { path: '/bestenliste',          component: () => import('@/views/shooter/ShooterBestenlisteView.vue'), meta: { layout: 'shooter', permission: 'VIEW_REMOTE' } },
   { path: '/wettkampf',            component: () => import('@/views/shooter/CompetitionManagementView.vue'), meta: { layout: 'shooter', permission: 'PLAY_COMPETITION' } },
 ];
 

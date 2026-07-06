@@ -44,6 +44,14 @@
         <span class="tile-desc">Konto & Daten</span>
       </button>
 
+      <button class="app-tile app-tile--available app-tile--cyan" data-testid="open-bestenliste" @click="router.push('/bestenliste')">
+        <div class="tile-icon-wrap">
+          <Icons icon="stats" :size="36" color="#1a1a2e" />
+        </div>
+        <span class="tile-label">Bestenliste</span>
+        <span class="tile-desc">Ranglisten & Rekorde</span>
+      </button>
+
       <button v-if="canManage" class="app-tile app-tile--available app-tile--green" data-testid="open-admin" @click="router.push('/ranges')">
         <div class="tile-icon-wrap">
           <Icons icon="templates" :size="36" color="#1a1a2e" />
