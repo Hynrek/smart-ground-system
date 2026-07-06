@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { login as loginApi, getMe } from '../services/authApi.js';
 import { updateUser as updateUserApi } from '../services/userApi.js';
+import { resetAppData } from './dataLifecycle.js';
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('sg_token') || null);
@@ -33,6 +34,7 @@ export const useAuthStore = defineStore('auth', () => {
       const data = await loginApi(username, password);
       token.value = data.token;
       localStorage.setItem('sg_token', data.token);
+      resetAppData(); // clear any prior session's data before loading this user's
       await _loadProfile();
     } catch (err) {
       // Authentifizierungsstatus bei Fehler vollständig zurücksetzen
@@ -84,6 +86,7 @@ export const useAuthStore = defineStore('auth', () => {
     profile.value = null;
     permissions.value = [];
     localStorage.removeItem('sg_token');
+    resetAppData();
   };
 
   return {
