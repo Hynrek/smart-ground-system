@@ -56,6 +56,14 @@ class SecurityTest(unittest.TestCase):
         mqttutils.message_callback(CMD_TOPIC, _cmd("ON", "a"))  # busy
         self.assertEqual(len(self._exec_acks()), 1)
 
+    def test_block_and_unblock_produce_no_exec_ack(self):
+        # BLOCK/UNBLOCK sind Sicherheits-Meta-Befehle und duerfen den
+        # commandsProcessed-Zaehler des Backends (gespeist von .../executed) nicht erhoehen.
+        self._arm("a")
+        mqttutils.message_callback(CMD_TOPIC, _cmd("BLOCK", "a"))
+        mqttutils.message_callback(CMD_TOPIC, _cmd("UNBLOCK", "a"))
+        self.assertEqual(self._exec_acks(), [])
+
     def test_admin_block_then_on_ignored(self):
         self._arm("a")
         mqttutils.message_callback(CMD_TOPIC, _cmd("BLOCK", "a"))

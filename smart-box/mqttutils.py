@@ -306,14 +306,15 @@ def message_callback(topic, msg):
             return
 
         # --- Admin-Befehle (BLOCK/UNBLOCK) ---
+        # Kein Executed-ACK: BLOCK/UNBLOCK sind Sicherheits-Meta-Befehle, keine
+        # Geräte-Aktuierung, und sollen den commandsProcessed-Zähler des Backends
+        # (gespeist von .../executed) nicht erhöhen.
         if command == "BLOCK":
-            if _admin_block_device(device_id):
-                _send_device_command_ack(device_id)
+            _admin_block_device(device_id)
             return
 
         if command == "UNBLOCK":
-            if _admin_unblock_device(device_id):
-                _send_device_command_ack(device_id)
+            _admin_unblock_device(device_id)
             return
 
         # --- Sicherheits-Checks für ON/OFF ---
