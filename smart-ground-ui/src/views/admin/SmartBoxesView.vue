@@ -84,6 +84,7 @@
             @remove-device="removeDevice"
             @update-device="updateDevice"
             @rename-box="renameBox"
+            @delete-box="deleteBox"
           />
         </div>
 
@@ -216,6 +217,14 @@ const updateDevice = async ({ deviceId, updates }) => {
 const renameBox = ({ boxId, alias }) => {
   smartBoxStore.updateSmartBox(boxId, { alias });
   smartBoxStore.saveSmartBox(boxId);
+};
+
+const deleteBox = async (boxId) => {
+  try {
+    await smartBoxStore.deleteSmartBox(boxId);
+  } catch (e) {
+    console.error('Failed to delete SmartBox:', e);
+  }
 };
 </script>
 
