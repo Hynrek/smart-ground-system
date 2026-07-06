@@ -567,7 +567,7 @@ watch(rufModalOpen, async (open) => {
     draftRufPeak.value    = store.rufPeak;
     draftRufDauer.value   = store.rufDauer;
     draftRufTotzeit.value = store.rufTotzeit / 1000;
-    await startListening(() => { /* preview only — no fire */ }, { totzeit: 0 });
+    await startListening(() => { /* preview only — no fire */ }, { totzeit: 0, preview: true });
   } else {
     stopListening();
   }

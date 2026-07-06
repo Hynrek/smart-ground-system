@@ -29,7 +29,7 @@ export function useVoiceTrigger(settings) {
     wouldTrigger.value = false
   }
 
-  const startAnalysis = (onTrigger, threshold, dauer) => {
+  const startAnalysis = (onTrigger, threshold, dauer, preview) => {
     const dataArray = new Uint8Array(analyser.frequencyBinCount)
 
     const tick = () => {
@@ -47,8 +47,15 @@ export function useVoiceTrigger(settings) {
         wouldTrigger.value = held >= dauer
         if (!triggered && held >= dauer) {
           triggered = true
-          stopListening()
           onTrigger()
+          if (preview) {
+            // Preview mode: keep listening so the meter can be tested repeatedly
+            // instead of cutting the mic like a real trigger would.
+            peakStart = null
+            triggered = false
+          } else {
+            stopListening()
+          }
           return
         }
       } else {
@@ -82,7 +89,7 @@ export function useVoiceTrigger(settings) {
         analyser.fftSize = 256
         const source = audioCtx.createMediaStreamSource(stream)
         source.connect(analyser)
-        startAnalysis(onTrigger, threshold, dauer)
+        startAnalysis(onTrigger, threshold, dauer, overrides.preview)
       } catch {
         micDenied.value = true
       }

@@ -120,6 +120,21 @@ describe('useVoiceTrigger', () => {
     expect(micDenied.value).toBe(true)
   })
 
+  it('preview mode keeps listening (mic not cut) after the trigger condition fires', async () => {
+    setupMocks(new Uint8Array(128).fill(200))
+    const onTrigger = vi.fn()
+    const { startListening } = useVoiceTrigger({ rufPeak: 10, rufDauer: 50, rufTotzeit: 0 })
+    await startListening(onTrigger, { preview: true })
+    vi.advanceTimersByTime(100)
+    expect(onTrigger).toHaveBeenCalledTimes(1)
+    expect(mockTrackStop).not.toHaveBeenCalled()
+    expect(mockCtxClose).not.toHaveBeenCalled()
+
+    // Sustaining the peak again should be able to trigger repeatedly
+    vi.advanceTimersByTime(100)
+    expect(onTrigger.mock.calls.length).toBeGreaterThan(1)
+  })
+
   it('stopListening during Totzeit prevents getUserMedia from being called', async () => {
     setupMocks()
     const onTrigger = vi.fn()
