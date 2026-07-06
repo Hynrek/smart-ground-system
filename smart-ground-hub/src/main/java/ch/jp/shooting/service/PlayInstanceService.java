@@ -26,6 +26,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -176,6 +177,7 @@ public class PlayInstanceService {
     }
 
     /** Schliesst einen Block ab und speichert Spieler-Ergebnisse. */
+    @Transactional
     public PlayInstanceResponse completeBlock(UUID instanceId, UUID blockId, CompleteBlockRequest request) {
         var instance = playInstanceRepository.findById(instanceId)
             .orElseThrow(() -> new PlayInstanceNotFoundException(instanceId));
