@@ -122,8 +122,8 @@ describe('ShooterPlayPage group setup — reorder & starter', () => {
     const store = usePlaySessionStore()
     const startSpy = vi.spyOn(store, 'startGroupPlay').mockResolvedValue(undefined)
     const wrapper = openSetup(store)
-    await wrapper.get('.add-player-btn').trigger('click') // 2 shooters now
-    await wrapper.get('.modal-actions .btn-primary').trigger('click')
+    await wrapper.get('.gsm-add-btn').trigger('click') // 2 shooters now
+    await wrapper.get('.gsm-actions .gsm-btn--primary').trigger('click')
     const starterIndex = startSpy.mock.calls[0].at(-1)
     expect(starterIndex).toBe(0)
   })
@@ -132,13 +132,13 @@ describe('ShooterPlayPage group setup — reorder & starter', () => {
     const store = usePlaySessionStore()
     const startSpy = vi.spyOn(store, 'startGroupPlay').mockResolvedValue(undefined)
     const wrapper = openSetup(store)
-    await wrapper.get('.add-player-btn').trigger('click') // Schütze 1, Schütze 2
+    await wrapper.get('.gsm-add-btn').trigger('click') // Schütze 1, Schütze 2
 
     // Mark the second shooter as starter
-    await wrapper.findAll('.player-star-btn')[1].trigger('click')
+    await wrapper.findAll('.gsm-star-btn')[1].trigger('click')
     // Move the second shooter up to row 1
-    await wrapper.findAll('.player-move-up')[1].trigger('click')
-    await wrapper.get('.modal-actions .btn-primary').trigger('click')
+    await wrapper.findAll('.gsm-move-up')[1].trigger('click')
+    await wrapper.get('.gsm-actions .gsm-btn--primary').trigger('click')
 
     const args = startSpy.mock.calls[0]
     const passedPlayers = args[0]
@@ -155,7 +155,7 @@ describe('ShooterPlayPage — Serie Anschauen preview', () => {
     const store = usePlaySessionStore()
     store.setPendingGroupSerien([{ steps: [soloStep] }])
     const wrapper = mountPage()
-    const labels = wrapper.findAll('.modal-actions .btn').map((n) => n.text())
+    const labels = wrapper.findAll('.gsm-actions .gsm-btn').map((n) => n.text())
     expect(labels).toContain('Serie anschauen')
   })
 

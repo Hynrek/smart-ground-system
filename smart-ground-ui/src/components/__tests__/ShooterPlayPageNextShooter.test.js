@@ -64,7 +64,7 @@ const mountAtGroupSetup = async (players = mockPlayers) => {
   })
   await nextTick()
   // Trigger the real beginGroupPlay flow via the modal's "Starten" button.
-  await wrapper.find('.btn-primary').trigger('click')
+  await wrapper.find('.gsm-btn--primary').trigger('click')
   await nextTick()
   return { wrapper, store }
 }

@@ -514,51 +514,15 @@
     </div>
 
     <!-- ── Inline Passe Start Modal ──────────────────── -->
-    <div v-if="startingPasse" class="start-modal-overlay" @click.self="cancelStartPasse">
-      <div class="start-modal">
-        <h3 class="start-modal-title">{{ startingPasse.name }} starten</h3>
-
-        <div class="start-modal-players">
-          <div
-            v-for="(player, i) in startModalPlayers"
-            :key="player.id"
-            class="start-player-row"
-          >
-            <span class="start-player-num">{{ i + 1 }}:</span>
-            <input
-              v-model="player.displayName"
-              class="start-player-input"
-              type="text"
-              :placeholder="`Schütze ${i + 1}`"
-              maxlength="30"
-            />
-            <button
-              v-if="startModalPlayers.length > 1"
-              class="icon-btn icon-btn--danger"
-              @click="removeStartModalPlayer(i)"
-            >
-              <Icons icon="x" :size="11" color="var(--sg-color-danger-bg)" />
-            </button>
-          </div>
-        </div>
-
-        <button class="add-player-btn" @click="addStartModalPlayer">
-          + Schütze hinzufügen
-        </button>
-
-        <div class="start-modal-actions">
-          <button class="action-btn action-btn--cancel" @click="cancelStartPasse">Abbrechen</button>
-          <button
-            class="action-btn action-btn--start"
-            :disabled="startModalPlayers.length === 0"
-            @click="confirmStartPasse"
-          >
-            <Icons icon="play" :size="14" color="var(--sg-accent)" />
-            Starten
-          </button>
-        </div>
-      </div>
-    </div>
+    <GroupSetupModal
+      v-if="startingPasse"
+      v-model:players="startModalPlayers"
+      :title="`${startingPasse.name} starten`"
+      id-prefix="sp"
+      :player-defaults="{ type: 'guest' }"
+      @cancel="cancelStartPasse"
+      @confirm="confirmStartPasse"
+    />
   </div>
 </template>
 
@@ -570,6 +534,7 @@ import { useAuthStore } from '@/stores/authStore.js';
 import { usePlaySessionStore } from '@/stores/playSessionStore.js';
 import { useActivePasseStore } from '@/stores/activePasseStore.js';
 import Icons from '@/components/Icons.vue';
+import GroupSetupModal from '@/components/GroupSetupModal.vue';
 import { stepModeLabel, modeDotStyle } from '@/constants/stepModes.js';
 import { useUrlTab } from '@/composables/useUrlTab.js';
 import { useRevalidate } from '@/composables/useRevalidate.js';
@@ -606,15 +571,6 @@ const openStartModal = (passe) => {
   startingPasse.value = passe;
   _nextStartPlayerId = 1;
   startModalPlayers.value = [{ id: `sp-${_nextStartPlayerId++}`, displayName: 'Schütze 1', type: 'guest' }];
-};
-
-const addStartModalPlayer = () => {
-  const n = startModalPlayers.value.length + 1;
-  startModalPlayers.value.push({ id: `sp-${_nextStartPlayerId++}`, displayName: `Schütze ${n}`, type: 'guest' });
-};
-
-const removeStartModalPlayer = (index) => {
-  startModalPlayers.value.splice(index, 1);
 };
 
 const confirmStartPasse = () => {
@@ -1586,97 +1542,6 @@ const confirmRenameSession = (sessionId) => {
   text-align: right;
 }
 
-/* ── Start modal ──────────────────────────────────── */
-.start-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 24px;
-}
-
-.start-modal {
-  background: rgba(24, 24, 40, 0.98);
-  border: 1.5px solid var(--sg-border);
-  border-radius: 20px;
-  padding: 24px;
-  width: 100%;
-  max-width: 340px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.start-modal-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--sg-text-primary);
-  margin: 0;
-  text-align: center;
-}
-
-.start-modal-players {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.start-player-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.start-player-num {
-  font-size: 13px;
-  font-weight: 700;
-  color: color-mix(in srgb, var(--sg-accent) 70%, transparent);
-  min-width: 20px;
-}
-
-.start-player-input {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--sg-border);
-  border-radius: 8px;
-  color: var(--sg-text-primary);
-  font-size: 13px;
-  font-family: inherit;
-  padding: 8px 10px;
-  outline: none;
-}
-
-.start-player-input:focus {
-  border-color: color-mix(in srgb, var(--sg-accent) 30%, transparent);
-}
-
-.add-player-btn {
-  background: transparent;
-  border: 1px dashed var(--sg-border-input);
-  border-radius: 8px;
-  color: var(--sg-text-faint);
-  font-size: 12px;
-  font-family: inherit;
-  padding: 8px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.add-player-btn:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--sg-text-muted);
-}
-
-.start-modal-actions {
-  display: flex;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
 
 /* ── Block status list ───────────────────────────── */
 .block-status-list {

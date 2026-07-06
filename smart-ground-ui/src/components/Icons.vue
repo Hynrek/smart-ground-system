@@ -82,6 +82,8 @@ const iconPaths = {
   stats: 'M2 13.5h12M5 13.5V9M8 13.5V4.5M11 13.5V7',
   home: 'M2 7l6-5 6 5M4 6.5V13h8V6.5M6.5 13V9.5h3V13',
   mic: 'M8 1a2 2 0 00-2 2v5a2 2 0 004 0V3a2 2 0 00-2-2zM4.5 7A3.5 3.5 0 008 10.5 3.5 3.5 0 0011.5 7M8 10.5V13M6 13h4',
+  play: 'M4 2.5v11l9-5.5-9-5.5z',
+  eye: 'M1 8s2.7-5 7-5 7 5 7 5-2.7 5-7 5-7-5-7-5zM8 6a2 2 0 100 4 2 2 0 000-4z',
 };
 
 const iconPath = computed(() => iconPaths[props.icon] || '');

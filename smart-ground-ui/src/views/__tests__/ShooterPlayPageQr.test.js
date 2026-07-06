@@ -35,21 +35,21 @@ describe('ShooterPlayPage QR check-in', () => {
 
   it('shows a QR add button in the group setup', () => {
     const wrapper = mountGroupSetup()
-    expect(wrapper.find('.add-player-qr-btn').exists()).toBe(true)
+    expect(wrapper.find('.gsm-add-qr-btn').exists()).toBe(true)
   })
 
   it('opens the scan modal on click', async () => {
     const wrapper = mountGroupSetup()
     expect(wrapper.findComponent({ name: 'QrScanModal' }).exists()).toBe(false)
 
-    await wrapper.get('.add-player-qr-btn').trigger('click')
+    await wrapper.get('.gsm-add-qr-btn').trigger('click')
 
     expect(wrapper.findComponent({ name: 'QrScanModal' }).exists()).toBe(true)
   })
 
   it('adds a resolved account player with a badge and closes the modal', async () => {
     const wrapper = mountGroupSetup()
-    await wrapper.get('.add-player-qr-btn').trigger('click')
+    await wrapper.get('.gsm-add-qr-btn').trigger('click')
 
     wrapper.findComponent({ name: 'QrScanModal' }).vm.$emit('resolved', {
       userId: 'acc-1',
@@ -57,9 +57,9 @@ describe('ShooterPlayPage QR check-in', () => {
     })
     await wrapper.vm.$nextTick()
 
-    const names = wrapper.findAll('.player-display-name').map((n) => n.text())
+    const names = wrapper.findAll('.gsm-player-name').map((n) => n.text())
     expect(names).toContain('Anna Muster')
-    expect(wrapper.find('.player-account-badge').exists()).toBe(true)
+    expect(wrapper.find('.gsm-player-account-badge').exists()).toBe(true)
     expect(wrapper.findComponent({ name: 'QrScanModal' }).exists()).toBe(false)
   })
 
@@ -67,16 +67,16 @@ describe('ShooterPlayPage QR check-in', () => {
     const wrapper = mountGroupSetup()
     const scanned = { userId: 'acc-1', displayName: 'Anna Muster' }
 
-    await wrapper.get('.add-player-qr-btn').trigger('click')
+    await wrapper.get('.gsm-add-qr-btn').trigger('click')
     wrapper.findComponent({ name: 'QrScanModal' }).vm.$emit('resolved', scanned)
     await wrapper.vm.$nextTick()
 
-    await wrapper.get('.add-player-qr-btn').trigger('click')
+    await wrapper.get('.gsm-add-qr-btn').trigger('click')
     wrapper.findComponent({ name: 'QrScanModal' }).vm.$emit('resolved', scanned)
     await wrapper.vm.$nextTick()
 
-    const names = wrapper.findAll('.player-display-name').map((n) => n.text())
+    const names = wrapper.findAll('.gsm-player-name').map((n) => n.text())
     expect(names.filter((n) => n === 'Anna Muster')).toHaveLength(1)
-    expect(wrapper.get('.qr-scan-notice').text()).toContain('bereits in der Gruppe')
+    expect(wrapper.get('.gsm-qr-notice').text()).toContain('bereits in der Gruppe')
   })
 })
