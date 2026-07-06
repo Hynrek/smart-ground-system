@@ -64,6 +64,3 @@ export async function resolveUserByQr(token) {
   return apiFetch(`/users/by-qr/${encodeURIComponent(token)}`)
 }
 
-export async function fetchMyPlayResults() {
-  return apiFetch('/users/me/play-results')
-}

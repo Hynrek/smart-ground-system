@@ -2,10 +2,9 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import * as userApi from '@/services/userApi.js'
 
-// Own QR check-in token and personal play results (profile page)
+// Own QR check-in token (profile page) and QR resolve for group setup
 export const useProfileStore = defineStore('profile', () => {
   const qrToken = ref(null)
-  const myResults = ref([])
   const isLoading = ref(false)
   const error = ref(null)
 
@@ -33,21 +32,9 @@ export const useProfileStore = defineStore('profile', () => {
     }
   }
 
-  const loadMyResults = async () => {
-    isLoading.value = true
-    error.value = null
-    try {
-      myResults.value = await userApi.fetchMyPlayResults()
-    } catch (e) {
-      error.value = e.message
-    } finally {
-      isLoading.value = false
-    }
-  }
-
   // Resolve a scanned token. Errors (incl. e.status === 404) propagate to the
   // caller so the scan modal can show inline feedback and keep scanning.
   const resolveCheckinToken = async (token) => userApi.resolveUserByQr(token)
 
-  return { qrToken, myResults, isLoading, error, loadQrToken, rotateQrToken, loadMyResults, resolveCheckinToken }
+  return { qrToken, isLoading, error, loadQrToken, rotateQrToken, resolveCheckinToken }
 })

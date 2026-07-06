@@ -7,7 +7,6 @@ vi.mock('@/services/userApi.js', () => ({
   fetchMyQrToken: vi.fn(),
   rotateMyQrToken: vi.fn(),
   resolveUserByQr: vi.fn(),
-  fetchMyPlayResults: vi.fn(),
 }))
 
 describe('profileStore', () => {
@@ -44,15 +43,6 @@ describe('profileStore', () => {
 
     expect(store.error).toBe('boom')
     expect(store.qrToken).toBeNull()
-  })
-
-  it('loadMyResults stores the result list', async () => {
-    userApi.fetchMyPlayResults.mockResolvedValue([{ resultId: 'r1', totalPoints: 12 }])
-    const store = useProfileStore()
-
-    await store.loadMyResults()
-
-    expect(store.myResults).toHaveLength(1)
   })
 
   it('resolveCheckinToken passes through the resolved user and rethrows errors', async () => {
