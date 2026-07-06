@@ -721,11 +721,11 @@ function formatDate(value) {
 
 .score-group-tab.active {
   color: var(--sg-text-primary);
-  border-color: var(--sg-brand);
+  border-color: var(--sg-accent);
 }
 
 .score-group-tab:focus-visible {
-  outline: 2px solid var(--sg-brand);
+  outline: 2px solid var(--sg-accent);
   outline-offset: 2px;
 }
 </style>
