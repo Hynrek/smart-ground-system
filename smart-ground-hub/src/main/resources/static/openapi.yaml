@@ -189,20 +189,98 @@ paths:
         '404':
           description: Unknown or rotated token
 
-  /api/users/me/play-results:
+  /api/users/me/scores:
     get:
-      summary: List completed play runs the calling user participated in
-      operationId: listMyPlayResults
-      tags: [PlayInstance]
+      summary: List the calling user's Serie scores, newest first
+      operationId: listMyScores
+      tags: [Score]
+      parameters:
+        - name: context
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ScoreContext'
+        - name: serieId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, default: 0 }
+        - name: size
+          in: query
+          required: false
+          schema: { type: integer, default: 20 }
       responses:
         '200':
-          description: Completed runs with the user's own score, newest first
+          description: Page of the user's Serie score rows
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/MyPlayResultEntry'
+                $ref: '#/components/schemas/UserScorePage'
+
+  /api/users/me/scores/summary:
+    get:
+      summary: Aggregate score statistics for the calling user
+      operationId: getMyScoreSummary
+      tags: [Score]
+      responses:
+        '200':
+          description: Per-context stats plus grouped Passe/Wettkampf totals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserScoreSummary'
+
+  /api/scores/leaderboard:
+    get:
+      summary: Serie score leaderboard across users
+      operationId: getScoreLeaderboard
+      tags: [Score]
+      parameters:
+        - name: serieId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: rangeId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: context
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ScoreContext'
+        - name: metric
+          in: query
+          required: false
+          description: Ranking metric
+          schema: { type: string, enum: [best, average], default: best }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 10, maximum: 100 }
+        - name: from
+          in: query
+          required: false
+          description: Only count Serien completed at or after this instant
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Ranked entries, best first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderboardResponse'
 
   /api/users/{id}:
     get:
@@ -3175,24 +3253,119 @@ components:
           type: string
           description: Absent if the user has no profile picture.
 
-    MyPlayResultEntry:
+    # ───── User Scores ────────────────────────────────────────────────────────
+
+    ScoreContext:
+      type: string
+      enum: [TRAINING, COMPETITION]
+
+    UserSerieScoreEntry:
       type: object
-      description: One completed run with the calling user's own aggregated score.
+      description: One user's result for one completed Serie.
       properties:
-        resultId:
+        id: { type: string, format: uuid }
+        context:
+          $ref: '#/components/schemas/ScoreContext'
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+        serieId: { type: string, format: uuid }
+        serieAlias: { type: string }
+        playInstanceId: { type: string, format: uuid, nullable: true }
+        sessionId: { type: string, format: uuid, nullable: true }
+        passeIndex: { type: integer, nullable: true }
+        parentName:
+          type: string
+          nullable: true
+          description: Display label of the parent (training template or session name)
+        rangeId: { type: string, format: uuid, nullable: true }
+        rangeName: { type: string, nullable: true }
+        completedAt: { type: string, format: date-time }
+        stepStates:
+          type: array
+          description: Self-contained step breakdown copy
+          items:
+            $ref: '#/components/schemas/StepStateRecord'
+
+    UserScorePage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSerieScoreEntry'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    ScoreContextSummary:
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/ScoreContext'
+        serieCount: { type: integer }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+        averagePercent:
+          type: number
+          format: double
+          description: Mean of per-Serie hit percentages
+        bestPercent:
+          type: number
+          format: double
+          nullable: true
+
+    GroupedScoreSummary:
+      type: object
+      description: Aggregated score of one Passe (training instance) or Wettkampf (session).
+      properties:
+        key:
           type: string
           format: uuid
-        templateName:
-          type: string
-        rangeName:
-          type: string
-        completedAt:
-          type: string
-          format: date-time
-        totalPoints:
-          type: integer
-        maxPoints:
-          type: integer
+          description: playInstanceId (training) or sessionId (competition)
+        label: { type: string, nullable: true }
+        context:
+          $ref: '#/components/schemas/ScoreContext'
+        serieCount: { type: integer }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+        lastCompletedAt: { type: string, format: date-time }
+
+    UserScoreSummary:
+      type: object
+      properties:
+        contexts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScoreContextSummary'
+        passen:
+          type: array
+          description: Training Passen, newest first
+          items:
+            $ref: '#/components/schemas/GroupedScoreSummary'
+        wettkaempfe:
+          type: array
+          description: Competition sessions, newest first
+          items:
+            $ref: '#/components/schemas/GroupedScoreSummary'
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        serieCount: { type: integer }
+        bestPercent: { type: number, format: double }
+        averagePercent: { type: number, format: double }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+
+    LeaderboardResponse:
+      type: object
+      properties:
+        metric: { type: string, enum: [best, average] }
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardEntry'
 
     # ───── Play Instances ─────────────────────────────────────────────────────
 
