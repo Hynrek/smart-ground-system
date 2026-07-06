@@ -42,6 +42,7 @@ public class CompetitionProgressService {
     private final ObjectMapper objectMapper;
     private final SerieRepository serieRepository;
     private final PositionLabelResolver positionLabelResolver;
+    private final UserScoreService userScoreService;
 
     public CompetitionProgressService(
             CompetitionSerieResultRepository csrRepository,
@@ -50,7 +51,8 @@ public class CompetitionProgressService {
             PlayerResultRepository playerResultRepository,
             ObjectMapper objectMapper,
             SerieRepository serieRepository,
-            PositionLabelResolver positionLabelResolver) {
+            PositionLabelResolver positionLabelResolver,
+            UserScoreService userScoreService) {
         this.csrRepository = csrRepository;
         this.sessionRepository = sessionRepository;
         this.groupRepository = groupRepository;
@@ -58,6 +60,7 @@ public class CompetitionProgressService {
         this.objectMapper = objectMapper;
         this.serieRepository = serieRepository;
         this.positionLabelResolver = positionLabelResolver;
+        this.userScoreService = userScoreService;
     }
 
     public SessionProgressResponse completeSerie(
@@ -88,6 +91,10 @@ public class CompetitionProgressService {
         csr = csrRepository.save(csr);
 
         writePlayerResults(session, group, passeIndex, serieId, request.getResults(), false);
+
+        // Score-Projektion: eine Zeile pro registriertem User dieser Serie
+        userScoreService.recordCompetitionSerie(csr, group, resolveSerieAlias(serieId),
+            request.getResults(), false);
 
         if (session.getStatus() == SessionStatus.ACTIVE && isAllPassenDoneForAllGroups(session)) {
             session.setStatus(SessionStatus.PRE_COMPLETE);
@@ -142,6 +149,8 @@ public class CompetitionProgressService {
         csr.setSerieSnapshotJson(buildSerieSnapshotJson(serieId));
         csrRepository.save(csr);
         writePlayerResults(session, group, passeIndex, serieId, request.getResults(), true);
+        userScoreService.recordCompetitionSerie(csr, group, resolveSerieAlias(serieId),
+            request.getResults(), true);
         return buildSessionProgressResponse(sessionId);
     }
 
@@ -163,6 +172,13 @@ public class CompetitionProgressService {
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
+
+    /** Anzeigename der Serie zum Abschlusszeitpunkt; Fallback auf die Id. */
+    private String resolveSerieAlias(UUID serieId) {
+        return serieRepository.findById(serieId)
+            .map(s -> s.getName() != null ? s.getName() : serieId.toString())
+            .orElse(serieId.toString());
+    }
 
     private boolean isAllPassenDoneForAllGroups(LiveSession session) throws Exception {
         PasseSnapshot[] passen = parsePassen(session.getProgramSnapshots());

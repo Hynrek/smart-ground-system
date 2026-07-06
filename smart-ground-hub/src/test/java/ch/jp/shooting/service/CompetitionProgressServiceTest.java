@@ -31,6 +31,7 @@ class CompetitionProgressServiceTest {
     @Mock PlayerResultRepository playerResultRepository;
     @Mock SerieRepository serieRepository;
     @Mock PositionLabelResolver positionLabelResolver;
+    @Mock UserScoreService userScoreService;
     @InjectMocks CompetitionProgressService progressService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -82,6 +83,25 @@ class CompetitionProgressServiceTest {
         verify(csrRepository).save(argThat(r ->
             r.getPasseIndex() == 0 && r.getSerieId().equals(serieId)
         ));
+    }
+
+    @Test
+    void completeSerie_recordsUserScores() throws Exception {
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(groupRepository.findByIdAndSessionId(groupId, sessionId)).thenReturn(Optional.of(group));
+        when(csrRepository.existsBySessionIdAndGroupIdAndPasseIndexAndSerieId(
+            any(), any(), anyInt(), any())).thenReturn(false);
+        when(csrRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(groupRepository.findBySessionId(any())).thenReturn(List.of(group));
+        when(csrRepository.findBySessionIdAndGroupId(any(), any())).thenReturn(List.of());
+
+        CompleteSerieRequest req = new CompleteSerieRequest();
+        req.setPasseIndex(org.openapitools.jackson.nullable.JsonNullable.of(0));
+
+        progressService.completeSerie(sessionId, groupId, serieId, req);
+
+        verify(userScoreService).recordCompetitionSerie(
+            any(CompetitionSerieResult.class), any(ShooterGroup.class), anyString(), anyList(), eq(false));
     }
 
     @Test
@@ -269,6 +289,39 @@ class CompetitionProgressServiceTest {
                     && ((Number) forSerie.get(0).get("totalPoints")).intValue() == 2;
             } catch (Exception e) { return false; }
         }));
+    }
+
+    @Test
+    void correctSerie_recordsUserScoresWithReplace() throws Exception {
+        session.setStatus(SessionStatus.PRE_COMPLETE);
+        UUID memberId = UUID.randomUUID();
+        SessionPlayer m1 = new SessionPlayer(); setPlayerId(m1, memberId); m1.setDisplayName("Max");
+        group.getMembers().add(m1);
+        var existingCsr = new CompetitionSerieResult(session, group, 0, serieId);
+        existingCsr.setResults("[]");
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(groupRepository.findByIdAndSessionId(groupId, sessionId)).thenReturn(Optional.of(group));
+        when(csrRepository.findBySessionIdAndGroupIdAndPasseIndexAndSerieId(any(), any(), anyInt(), any()))
+            .thenReturn(Optional.of(existingCsr));
+        when(csrRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        var pr = new PlayerResult(session, m1);
+        pr.setProgramResults(objectMapper.writeValueAsString(List.of(
+            java.util.Map.of("passeIndex", 0, "serieId", serieId.toString(), "totalPoints", 1, "maxPoints", 2))));
+        when(playerResultRepository.findBySessionIdAndPlayerId(any(), eq(memberId))).thenReturn(Optional.of(pr));
+        when(playerResultRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(groupRepository.findBySessionId(any())).thenReturn(List.of(group));
+        when(csrRepository.findBySessionIdAndGroupId(any(), any())).thenReturn(List.of(existingCsr));
+
+        var req = new ch.jp.smartground.model.CompleteSerieRequest();
+        req.setPasseIndex(org.openapitools.jackson.nullable.JsonNullable.of(0));
+        var pres = new ch.jp.smartground.model.PlayerResult();
+        pres.setPlayerId(memberId.toString()); pres.setTotalPoints(2); pres.setMaxPoints(2);
+        req.setResults(List.of(pres));
+
+        progressService.correctSerieResult(sessionId, groupId, serieId, req);
+
+        verify(userScoreService).recordCompetitionSerie(
+            any(CompetitionSerieResult.class), any(ShooterGroup.class), anyString(), anyList(), eq(true));
     }
 
     @Test
