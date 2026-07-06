@@ -54,6 +54,7 @@
     <GroupSetupModal
       v-model:players="groupPlayers"
       v-model:starter-id="starterId"
+      v-model:preview-first="previewFirst"
       :title="_isCompetitionMode ? (_rotteName ?? 'Rotte') : 'Gruppe einrichten'"
       :subtitle="_isCompetitionMode ? (_serieName ?? '') : ''"
       :editable="false"
@@ -67,7 +68,6 @@
       :qr-notice="qrScanNotice"
       @cancel="cancelGroupSetup"
       @confirm="beginGroupPlay"
-      @preview="previewFromSetup"
       @qr-scan="openQrScan"
     />
     <QrScanModal v-if="qrScanOpen" @close="qrScanOpen = false" @resolved="addScannedPlayer" />
@@ -550,6 +550,7 @@ if (store.pendingPasseInfo) {
 
 // ── Reorder + starter marker (non-competition group setup) ─────────────────────
 const starterId = ref(null);
+const previewFirst = ref(false);
 
 // Default the starter to the first shooter; keep it valid as the list changes.
 watch(groupPlayers, (list) => {
@@ -584,7 +585,12 @@ const addScannedPlayer = (user) => {
   });
 };
 
-const beginGroupPlay = () => {
+const beginGroupPlay = (viewSeriesFirst) => {
+  // Always initiate the play (and the starting shooter) up front. When the user
+  // opted to preview first, overlay the walkthrough on top of the started play:
+  // previewMode wins in the template, so it looks like play hasn't begun. Ending
+  // or stopping the preview drops straight into the live play, where the
+  // needsPreview gate holds the first shooter at any not-yet-previewed step.
   store.startGroupPlay(
     groupPlayers.value,
     props.rangeId,
@@ -596,7 +602,9 @@ const beginGroupPlay = () => {
     _blockContext.value?.sessionId ?? null,
     starterIndex.value,
   );
-  if (store.isMultiPlayer) {
+  if (viewSeriesFirst) {
+    store.startPreview();
+  } else if (store.isMultiPlayer) {
     pendingFirstShooter.value = true;
     showNextShooterOverlay.value = true;
   }
@@ -613,7 +621,6 @@ const previewTotal = computed(() => {
   return prog ? prog.reduce((sum, seg) => sum + seg.steps.length, 0) : 0;
 });
 
-const previewFromSetup = () => { store.startPreview(); };
 const handlePreviewTap = () => { store.advancePreviewStep(); };
 const handlePreviewNoBird = () => { store.retryPreviewStep(); };
 

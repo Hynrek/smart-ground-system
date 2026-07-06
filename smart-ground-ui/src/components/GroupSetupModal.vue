@@ -51,15 +51,22 @@
             </button>
           </template>
 
-          <button
+          <label
             v-if="allowStarter"
-            class="gsm-star-btn"
+            class="gsm-starter-radio"
             :class="{ 'is-starter': starterId === player.id }"
             :title="starterId === player.id ? 'Startet' : 'Als Starter markieren'"
-            @click="setStarter(player.id)"
           >
-            Start
-          </button>
+            <input
+              v-model="starterId"
+              type="radio"
+              class="gsm-radio-input"
+              :name="`${idPrefix}-starter`"
+              :value="player.id"
+            />
+            <span class="gsm-radio-dot" aria-hidden="true"></span>
+            <span class="gsm-radio-label">Start</span>
+          </label>
 
           <button
             v-if="allowRemove && players.length > 1"
@@ -79,19 +86,23 @@
       </button>
       <p v-if="qrNotice" class="gsm-qr-notice">{{ qrNotice }}</p>
 
+      <label v-if="allowPreview" class="gsm-preview-check">
+        <input v-model="previewFirst" type="checkbox" class="gsm-checkbox-input" />
+        <span class="gsm-checkbox-box" aria-hidden="true">
+          <Icons icon="check" :size="11" color="var(--sg-surface-0)" />
+        </span>
+        <span class="gsm-checkbox-label">Serie zuerst anschauen</span>
+      </label>
+
       <div class="gsm-actions">
         <button class="gsm-btn gsm-btn--cancel" @click="emit('cancel')">
           <Icons icon="x" :size="14" class="gsm-btn-icon" />
           <span class="gsm-btn-label">Abbrechen</span>
         </button>
-        <button v-if="allowPreview" class="gsm-btn gsm-btn--preview" @click="emit('preview')">
-          <Icons icon="eye" :size="14" class="gsm-btn-icon" />
-          <span class="gsm-btn-label">Serie anschauen</span>
-        </button>
         <button
           class="gsm-btn gsm-btn--primary"
           :disabled="players.length === 0"
-          @click="emit('confirm')"
+          @click="onConfirm"
         >
           <Icons icon="play" :size="14" class="gsm-btn-icon" />
           <span class="gsm-btn-label">{{ confirmLabel }}</span>
@@ -122,17 +133,20 @@ const props = defineProps({
   playerDefaults: { type: Object, default: () => ({}) },
 })
 
-const emit = defineEmits(['cancel', 'confirm', 'preview', 'qr-scan'])
+const emit = defineEmits(['cancel', 'confirm', 'qr-scan'])
 
 const players = defineModel('players', { default: () => [] })
 const starterId = defineModel('starterId', { default: null })
+const previewFirst = defineModel('previewFirst', { default: false })
 
-let _nextId = 1
+const onConfirm = () => {
+  emit('confirm', previewFirst.value)
+}
 
 const addPlayer = () => {
   const n = players.value.length + 1
   players.value.push({
-    id: `${props.idPrefix}-${_nextId++}`,
+    id: `${props.idPrefix}-${crypto.randomUUID()}`,
     displayName: `Schütze ${n}`,
     ...props.playerDefaults,
   })
@@ -140,10 +154,6 @@ const addPlayer = () => {
 
 const removePlayer = (index) => {
   players.value.splice(index, 1)
-}
-
-const setStarter = (id) => {
-  starterId.value = id
 }
 
 const moveUp = (i) => {
@@ -286,7 +296,10 @@ const moveDown = (i) => {
   transform: rotate(180deg);
 }
 
-.gsm-star-btn {
+.gsm-starter-radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-height: 48px;
   padding: 6px 12px;
   border-radius: 8px;
@@ -300,10 +313,54 @@ const moveDown = (i) => {
   transition: all 0.15s;
 }
 
-.gsm-star-btn.is-starter {
+.gsm-starter-radio.is-starter {
   background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
   border-color: color-mix(in srgb, var(--sg-accent) 40%, transparent);
   color: var(--sg-accent);
+}
+
+.gsm-radio-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.gsm-radio-dot {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--sg-border-input);
+  background: rgba(255, 255, 255, 0.05);
+  transition: all 0.15s;
+  position: relative;
+}
+
+.gsm-starter-radio.is-starter .gsm-radio-dot {
+  border-color: var(--sg-accent);
+}
+
+.gsm-starter-radio.is-starter .gsm-radio-dot::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--sg-accent);
+}
+
+.gsm-radio-input:focus-visible ~ .gsm-radio-dot {
+  outline: 2px solid var(--sg-accent);
+  outline-offset: 2px;
+}
+
+.gsm-radio-label {
+  white-space: nowrap;
 }
 
 .gsm-remove-btn {
@@ -346,6 +403,64 @@ const moveDown = (i) => {
   font-size: 0.9rem;
   text-align: center;
   margin: 4px 0 0;
+}
+
+.gsm-preview-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 4px 2px;
+}
+
+.gsm-checkbox-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.gsm-checkbox-box {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid var(--sg-border-input);
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.gsm-checkbox-box :deep(svg) {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.gsm-checkbox-input:checked ~ .gsm-checkbox-box {
+  background: var(--sg-accent);
+  border-color: var(--sg-accent);
+}
+
+.gsm-checkbox-input:checked ~ .gsm-checkbox-box :deep(svg) {
+  opacity: 1;
+}
+
+.gsm-checkbox-input:focus-visible ~ .gsm-checkbox-box {
+  outline: 2px solid var(--sg-accent);
+  outline-offset: 2px;
+}
+
+.gsm-checkbox-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sg-text-muted);
 }
 
 .gsm-actions {
@@ -396,16 +511,6 @@ const moveDown = (i) => {
 
 .gsm-btn--cancel:hover {
   background: rgba(252, 129, 129, 0.18);
-}
-
-.gsm-btn--preview {
-  background: color-mix(in srgb, var(--sg-accent) 12%, transparent);
-  color: var(--sg-accent);
-  border: 1px solid color-mix(in srgb, var(--sg-accent) 30%, transparent);
-}
-
-.gsm-btn--preview:hover {
-  background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
 }
 
 .gsm-btn--primary {

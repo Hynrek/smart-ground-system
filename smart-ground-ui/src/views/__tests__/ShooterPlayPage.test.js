@@ -135,7 +135,7 @@ describe('ShooterPlayPage group setup — reorder & starter', () => {
     await wrapper.get('.gsm-add-btn').trigger('click') // Schütze 1, Schütze 2
 
     // Mark the second shooter as starter
-    await wrapper.findAll('.gsm-star-btn')[1].trigger('click')
+    await wrapper.findAll('.gsm-radio-input')[1].setValue()
     // Move the second shooter up to row 1
     await wrapper.findAll('.gsm-move-up')[1].trigger('click')
     await wrapper.get('.gsm-actions .gsm-btn--primary').trigger('click')
@@ -151,12 +151,25 @@ describe('ShooterPlayPage group setup — reorder & starter', () => {
 describe('ShooterPlayPage — Serie Anschauen preview', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
-  it('shows the Serie anschauen button in group setup', () => {
+  it('shows the Serie anschauen checkbox in group setup', () => {
     const store = usePlaySessionStore()
     store.setPendingGroupSerien([{ steps: [soloStep] }])
     const wrapper = mountPage()
-    const labels = wrapper.findAll('.gsm-actions .gsm-btn').map((n) => n.text())
-    expect(labels).toContain('Serie anschauen')
+    expect(wrapper.find('.gsm-preview-check').text()).toContain('Serie zuerst anschauen')
+  })
+
+  it('starts the play AND overlays the preview when the checkbox is checked and Starten is clicked', async () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien([{ steps: [soloStep] }])
+    const startSpy = vi.spyOn(store, 'startGroupPlay').mockResolvedValue(undefined)
+    const previewSpy = vi.spyOn(store, 'startPreview')
+    const wrapper = mountPage()
+    await wrapper.get('.gsm-checkbox-input').setValue(true)
+    await wrapper.get('.gsm-actions .gsm-btn--primary').trigger('click')
+    // The play is initiated (starting shooter) so the preview can gate it, and
+    // the preview walkthrough is shown on top.
+    expect(startSpy).toHaveBeenCalled()
+    expect(previewSpy).toHaveBeenCalled()
   })
 
   it('renders the preview screen and Überspringen calls skipPreviewStep', async () => {

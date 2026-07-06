@@ -507,38 +507,44 @@ export const usePlaySessionStore = defineStore('playSession', () => {
     previewMode.value = true;
   };
 
+  // Best-effort device fire: preview is a visual walkthrough, not a scored action,
+  // so a failed/unreachable device command must not block the walkthrough cursor.
+  const _firePreviewCommand = async (rangeId, posId) => {
+    try {
+      await sendPositionCommand(rangeId, posId);
+    } catch (err) {
+      console.error('Failed to send position command during preview:', err);
+    }
+  };
+
   // Fire the current preview step's devices (no scoring). Mirrors advancePlayStep's
   // branch structure for a_schuss two-tap and raffale two-throw timing.
   const advancePreviewStep = async () => {
     const step = previewStep.value;
     if (!step) return;
     const rangeId = currentRangeId.value;
-    try {
-      if (step.type === StepType.SOLO) {
-        await sendPositionCommand(rangeId, _posId(step));
-        _advancePreviewCursor();
-      } else if (step.type === StepType.PAIR) {
-        await Promise.all([
-          sendPositionCommand(rangeId, _posId1(step)),
-          sendPositionCommand(rangeId, _posId2(step)),
-        ]);
-        _advancePreviewCursor();
-      } else if (step.type === StepType.A_SCHUSS) {
-        if (previewPartial.value === null) {
-          await sendPositionCommand(rangeId, _posId1(step));
-          previewPartial.value = PartialStep.FIRST;
-        } else {
-          await sendPositionCommand(rangeId, _posId2(step));
-          _advancePreviewCursor(); // resets previewPartial
-        }
-      } else if (step.type === StepType.RAFFALE) {
-        if (!previewRaffaleStarted.value) {
-          await sendPositionCommand(rangeId, _posId(step));
-          previewRaffaleStarted.value = true;
-        }
+    if (step.type === StepType.SOLO) {
+      await _firePreviewCommand(rangeId, _posId(step));
+      _advancePreviewCursor();
+    } else if (step.type === StepType.PAIR) {
+      await Promise.all([
+        _firePreviewCommand(rangeId, _posId1(step)),
+        _firePreviewCommand(rangeId, _posId2(step)),
+      ]);
+      _advancePreviewCursor();
+    } else if (step.type === StepType.A_SCHUSS) {
+      if (previewPartial.value === null) {
+        await _firePreviewCommand(rangeId, _posId1(step));
+        previewPartial.value = PartialStep.FIRST;
+      } else {
+        await _firePreviewCommand(rangeId, _posId2(step));
+        _advancePreviewCursor(); // resets previewPartial
       }
-    } catch (err) {
-      console.error('Failed to send position command during preview:', err);
+    } else if (step.type === StepType.RAFFALE) {
+      if (!previewRaffaleStarted.value) {
+        await _firePreviewCommand(rangeId, _posId(step));
+        previewRaffaleStarted.value = true;
+      }
     }
   };
 

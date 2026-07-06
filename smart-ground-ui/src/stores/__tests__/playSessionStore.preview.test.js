@@ -92,6 +92,36 @@ describe('playSessionStore — preview', () => {
     expect(store.needsPreview).toBe(false)
   })
 
+  // Mirrors the "preview first" group-start mechanic: startGroupPlay initiates the
+  // play (and starting shooter) up front, then the preview overlays on top.
+  it('after a full preview-first start, the starting shooter is not gated', async () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(prog())
+    await store.startGroupPlay([{ id: 'A', displayName: 'A' }])
+    store.startPreview()
+    // Walk the whole series (3 SOLO steps).
+    await store.advancePreviewStep()
+    await store.advancePreviewStep()
+    await store.advancePreviewStep()
+    expect(store.previewStep).toBeNull()
+    store.stopPreview()
+    expect(store.needsPreview).toBe(false) // fully previewed → play runs unblocked
+  })
+
+  it('after a partial preview-first start, the starting shooter is gated at the first unseen step', async () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(prog())
+    await store.startGroupPlay([{ id: 'A', displayName: 'A' }])
+    store.startPreview()
+    await store.advancePreviewStep() // frontier = 1 (only p0 seen)
+    store.stopPreview()
+
+    expect(store.currentStepIndex).toBe(0)
+    expect(store.needsPreview).toBe(false) // scored index 0 < frontier 1 → plays p0
+    store.currentStepIndex = 1
+    expect(store.needsPreview).toBe(true)  // reached the un-previewed step → gated
+  })
+
   it('advancePreviewStep on an a_schuss step fires both positions in two phases before advancing the frontier', async () => {
     const aSchussProg = () => [{
       steps: [
