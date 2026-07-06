@@ -76,6 +76,12 @@ public class SmartBox {
     @Column(name = "config_synced", nullable = false)
     private boolean configSynced = false;
 
+    // Soft-Delete: gesetzt wenn eine Box (z.B. defekt) aus dem System entfernt wurde.
+    // Die Zeile bleibt für Historie erhalten; die API blendet sie aus.
+    @Column(name = "deleted_at")
+    @Nullable
+    private Instant deletedAt;
+
     @OneToMany(mappedBy = "smartBox", fetch = FetchType.LAZY)
     private List<Device> devices = new ArrayList<>();
 
@@ -110,4 +116,6 @@ public class SmartBox {
     public List<Device> getDevices() { return devices; }
     public boolean isConfigSynced() { return configSynced; }
     public void setConfigSynced(boolean configSynced) { this.configSynced = configSynced; }
+    public @Nullable Instant getDeletedAt() { return deletedAt; }
+    public void setDeletedAt(@Nullable Instant deletedAt) { this.deletedAt = deletedAt; }
 }
