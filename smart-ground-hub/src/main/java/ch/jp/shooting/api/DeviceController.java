@@ -16,10 +16,12 @@ import ch.jp.shooting.mapper.EntityMappers;
 import ch.jp.shooting.model.Device;
 import ch.jp.shooting.model.DeviceTypeGroup;
 import ch.jp.shooting.model.Range;
+import ch.jp.shooting.model.RangePosition;
 import ch.jp.shooting.model.SmartBox;
 import ch.jp.shooting.repository.DeviceRepository;
 import ch.jp.shooting.repository.DeviceTypeGroupRepository;
 import ch.jp.shooting.repository.DeviceTypeRepository;
+import ch.jp.shooting.repository.RangePositionRepository;
 import ch.jp.shooting.repository.RangeRepository;
 import ch.jp.shooting.repository.SmartBoxRepository;
 import ch.jp.smartground.api.DeviceApi;
@@ -37,6 +39,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.core.Authentication;
@@ -54,6 +57,7 @@ public class DeviceController implements DeviceApi {
     private final DeviceTypeGroupRepository deviceTypeGroupRepository;
     private final DeviceTypeRepository deviceTypeRepository;
     private final RangeRepository rangeRepository;
+    private final RangePositionRepository rangePositionRepository;
     private final MqttCommandPublisher mqttCommandPublisher;
     private final SmartBoxConfigPushService configPushService;
     private final ReservationService reservationService;
@@ -66,6 +70,7 @@ public class DeviceController implements DeviceApi {
             DeviceTypeGroupRepository deviceTypeGroupRepository,
             DeviceTypeRepository deviceTypeRepository,
             RangeRepository rangeRepository,
+            RangePositionRepository rangePositionRepository,
             MqttCommandPublisher mqttCommandPublisher,
             SmartBoxConfigPushService configPushService,
             ReservationService reservationService,
@@ -76,6 +81,7 @@ public class DeviceController implements DeviceApi {
         this.deviceTypeGroupRepository = deviceTypeGroupRepository;
         this.deviceTypeRepository = deviceTypeRepository;
         this.rangeRepository = rangeRepository;
+        this.rangePositionRepository = rangePositionRepository;
         this.mqttCommandPublisher = mqttCommandPublisher;
         this.configPushService = configPushService;
         this.reservationService = reservationService;
@@ -222,9 +228,18 @@ public class DeviceController implements DeviceApi {
     }
 
     @Override
+    @Transactional
     public ResponseEntity<Void> deleteDevice(@PathVariable UUID id) {
         Device device = deviceRepository.findById(id)
             .orElseThrow(() -> new DeviceNotFoundException(id));
+
+        // Zuvor die Range-Position freigeben, sonst verletzt der FK range_positions.device_id.
+        RangePosition position = device.getRangePosition();
+        if (position != null) {
+            position.setDevice(null);
+            rangePositionRepository.save(position);
+        }
+
         deviceRepository.delete(device);
         return ResponseEntity.noContent().build();
     }

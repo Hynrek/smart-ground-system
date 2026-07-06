@@ -3,24 +3,27 @@ package ch.jp.shooting.api;
 import ch.jp.shooting.exception.DeviceNotFoundException;
 import ch.jp.shooting.model.Device;
 import ch.jp.shooting.model.DeviceType;
+import ch.jp.shooting.model.RangePosition;
 import ch.jp.shooting.model.SmartBox;
 import ch.jp.shooting.repository.DeviceRepository;
 import ch.jp.shooting.repository.DeviceTypeRepository;
+import ch.jp.shooting.repository.RangePositionRepository;
 import ch.jp.shooting.repository.SmartBoxRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,6 +41,9 @@ class DeviceControllerTest {
 
     @Mock
     private ch.jp.shooting.config.MqttCommandPublisher mqttCommandPublisher;
+
+    @Mock
+    private RangePositionRepository rangePositionRepository;
 
     @InjectMocks
     private DeviceController controller;
@@ -86,5 +92,22 @@ class DeviceControllerTest {
 
         assertThatThrownBy(() -> controller.getDevice(unknownId))
                 .isInstanceOf(DeviceNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("deleteDevice unassigns the range position before deleting the device")
+    void deleteDevice_unassignsRangePositionBeforeDeletingDevice() {
+        RangePosition position = new RangePosition();
+        position.setDevice(testDevice);
+        testDevice.setRangePosition(position);
+        when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(testDevice));
+
+        var result = controller.deleteDevice(deviceId);
+
+        assertThat(result.getStatusCode().value()).isEqualTo(204);
+        ArgumentCaptor<RangePosition> cap = ArgumentCaptor.forClass(RangePosition.class);
+        verify(rangePositionRepository).save(cap.capture());
+        assertThat(cap.getValue().getDevice()).isNull();
+        verify(deviceRepository).delete(testDevice);
     }
 }
