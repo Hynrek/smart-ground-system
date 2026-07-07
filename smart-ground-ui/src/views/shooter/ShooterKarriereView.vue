@@ -70,25 +70,78 @@
         Noch keine Ergebnisse — checke dich am Stand per QR-Code ein.
       </p>
 
-      <!-- Serien: individual rows -->
+      <!-- Serien: flat list of standalone Serie runs -->
       <template v-if="scoreGroup === 'serien'">
-        <div v-for="r in scoreStore.scores" :key="r.id" class="result-row">
-          <div class="result-main">
-            <span class="result-name">{{ r.serieAlias }}</span>
-            <span class="result-meta">{{ r.parentName ?? '—' }} · {{ r.rangeName ?? '—' }} · {{ formatDate(r.completedAt) }}</span>
+        <SerieScoreCard v-for="r in scoreStore.scores" :key="r.id" :serie="r" />
+      </template>
+
+      <!-- Passen: group header per Passe, drills into its Serien -->
+      <template v-else-if="scoreGroup === 'passen'">
+        <div v-for="g in scoreStore.passen" :key="g.key" class="score-group">
+          <div class="score-group__header">
+            <div class="score-group__main">
+              <span class="score-group__name">{{ g.label ?? '—' }}</span>
+              <span class="score-group__meta">{{ g.serieCount }} Serien · {{ formatDate(g.lastCompletedAt) }}</span>
+            </div>
+            <span class="score-group__score">{{ g.totalPoints }}/{{ g.maxPoints }}</span>
+            <button
+              type="button"
+              class="score-group__toggle"
+              data-testid="passe-group-toggle"
+              :aria-expanded="isPasseExpanded(g.key)"
+              :aria-label="isPasseExpanded(g.key) ? 'Serien ausblenden' : 'Serien anzeigen'"
+              @click="togglePasse(g.key)"
+            >
+              <Icons :icon="isPasseExpanded(g.key) ? 'chevron' : 'chevronDown'" :size="16" />
+            </button>
           </div>
-          <span class="result-score">{{ r.totalPoints }}/{{ r.maxPoints }}</span>
+          <div v-if="isPasseExpanded(g.key)" class="score-group__children">
+            <SerieScoreCard v-for="s in g.serien" :key="s.id" :serie="s" />
+          </div>
         </div>
       </template>
 
-      <!-- Passen / Wettkämpfe: grouped rows -->
+      <!-- Wettkämpfe: session header → Passe header → Serien -->
       <template v-else>
-        <div v-for="g in currentScoreRows" :key="g.key" class="result-row">
-          <div class="result-main">
-            <span class="result-name">{{ g.label ?? '—' }}</span>
-            <span class="result-meta">{{ g.serieCount }} Serien · {{ formatDate(g.lastCompletedAt) }}</span>
+        <div v-for="w in scoreStore.wettkaempfe" :key="w.key" class="score-group">
+          <div class="score-group__header">
+            <div class="score-group__main">
+              <span class="score-group__name">{{ w.label ?? '—' }}</span>
+              <span class="score-group__meta">{{ w.serieCount }} Serien · {{ formatDate(w.lastCompletedAt) }}</span>
+            </div>
+            <span class="score-group__score">{{ w.totalPoints }}/{{ w.maxPoints }}</span>
+            <button
+              type="button"
+              class="score-group__toggle"
+              data-testid="wettkampf-group-toggle"
+              :aria-expanded="isWettkampfExpanded(w.key)"
+              :aria-label="isWettkampfExpanded(w.key) ? 'Passen ausblenden' : 'Passen anzeigen'"
+              @click="toggleWettkampf(w.key)"
+            >
+              <Icons :icon="isWettkampfExpanded(w.key) ? 'chevron' : 'chevronDown'" :size="16" />
+            </button>
           </div>
-          <span class="result-score">{{ g.totalPoints }}/{{ g.maxPoints }}</span>
+          <div v-if="isWettkampfExpanded(w.key)" class="score-group__children">
+            <div v-for="(p, passeIndex) in w.passen" :key="passeIndex" class="score-subgroup">
+              <div class="score-group__header">
+                <span class="score-group__name">Passe {{ passeIndex + 1 }}</span>
+                <span class="score-group__score">{{ p.totalPoints }}/{{ p.maxPoints }}</span>
+                <button
+                  type="button"
+                  class="score-group__toggle"
+                  data-testid="wettkampf-passe-toggle"
+                  :aria-expanded="isWettkampfPasseExpanded(w.key, passeIndex)"
+                  :aria-label="isWettkampfPasseExpanded(w.key, passeIndex) ? 'Serien ausblenden' : 'Serien anzeigen'"
+                  @click="toggleWettkampfPasse(w.key, passeIndex)"
+                >
+                  <Icons :icon="isWettkampfPasseExpanded(w.key, passeIndex) ? 'chevron' : 'chevronDown'" :size="16" />
+                </button>
+              </div>
+              <div v-if="isWettkampfPasseExpanded(w.key, passeIndex)" class="score-group__children">
+                <SerieScoreCard v-for="s in p.serien" :key="s.id" :serie="s" />
+              </div>
+            </div>
+          </div>
         </div>
       </template>
 
@@ -98,13 +151,14 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProfileStore } from '@/stores/profileStore.js'
 import { useScoreStore } from '@/stores/scoreStore.js'
 import { buildCheckinPayload } from '@/constants/qr.js'
 import QRCode from 'qrcode'
 import Icons from '@/components/Icons.vue'
+import SerieScoreCard from '@/components/shooter/SerieScoreCard.vue'
 
 const router = useRouter()
 const profileStore = useProfileStore()
@@ -116,11 +170,39 @@ const scoreGroup = ref('serien')
 const statsContexts = computed(() =>
   (scoreStore.summary?.contexts ?? []).filter((c) => c.serieCount > 0))
 
+// Drives only the per-tab empty state — the actual rows are rendered directly
+// from the level-scoped store fields (scores / passen / wettkaempfe) below.
 const currentScoreRows = computed(() => {
-  if (scoreGroup.value === 'passen') return scoreStore.summary?.passen ?? []
-  if (scoreGroup.value === 'wettkaempfe') return scoreStore.summary?.wettkaempfe ?? []
+  if (scoreGroup.value === 'passen') return scoreStore.passen
+  if (scoreGroup.value === 'wettkaempfe') return scoreStore.wettkaempfe
   return scoreStore.scores
 })
+
+// Expand/collapse state for the Passen and Wettkämpfe drill-down groups.
+// Keyed by group key (Passe) or `${sessionKey}:${passeIndex}` (Wettkampf → Passe).
+const expandedPassen = reactive(new Set())
+const expandedWettkaempfe = reactive(new Set())
+const expandedWettkampfPassen = reactive(new Set())
+
+const isPasseExpanded = (key) => expandedPassen.has(key)
+const togglePasse = (key) => {
+  if (expandedPassen.has(key)) expandedPassen.delete(key)
+  else expandedPassen.add(key)
+}
+
+const isWettkampfExpanded = (key) => expandedWettkaempfe.has(key)
+const toggleWettkampf = (key) => {
+  if (expandedWettkaempfe.has(key)) expandedWettkaempfe.delete(key)
+  else expandedWettkaempfe.add(key)
+}
+
+const isWettkampfPasseExpanded = (sessionKey, passeIndex) =>
+  expandedWettkampfPassen.has(`${sessionKey}:${passeIndex}`)
+const toggleWettkampfPasse = (sessionKey, passeIndex) => {
+  const k = `${sessionKey}:${passeIndex}`
+  if (expandedWettkampfPassen.has(k)) expandedWettkampfPassen.delete(k)
+  else expandedWettkampfPassen.add(k)
+}
 
 const tabs = [
   { id: 'qr', label: 'QR-Code' },
@@ -131,7 +213,14 @@ const activeTab = ref('qr')
 // Lazy-load tab data on first visit
 watch(activeTab, async (tab) => {
   if (tab === 'qr' && !profileStore.qrToken) await profileStore.loadQrToken()
-  if (tab === 'ergebnisse') await Promise.all([scoreStore.loadSummary(), scoreStore.loadScores()])
+  if (tab === 'ergebnisse') {
+    await Promise.all([
+      scoreStore.loadSummary(),
+      scoreStore.loadScores({ kind: 'SERIE' }),
+      scoreStore.loadPassen(),
+      scoreStore.loadWettkaempfe(),
+    ])
+  }
 }, { immediate: true })
 
 // Re-render the QR canvas whenever the token changes (initial load + rotation)
@@ -289,32 +378,87 @@ function formatDate(value) {
   padding: 24px 16px;
 }
 
-.result-row {
+.score-group {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--sg-border);
+  flex-direction: column;
+  gap: var(--sg-space-2);
+  padding: var(--sg-space-4);
+  border-radius: var(--sg-radius-card);
+  border: 1px solid var(--sg-border);
+  background: var(--sg-bg-panel);
+  margin-bottom: var(--sg-space-3);
 }
 
-.result-main {
+.score-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sg-space-2);
+  padding: var(--sg-space-3);
+  border-radius: var(--sg-radius-card);
+  border: 1px solid var(--sg-border);
+  margin-bottom: var(--sg-space-2);
+}
+
+.score-group__header {
+  display: flex;
+  align-items: center;
+  gap: var(--sg-space-3);
+}
+
+.score-group__main {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.result-name {
+.score-group__name {
   font-weight: 600;
+  color: var(--sg-text-primary);
 }
 
-.result-meta {
+.score-group__meta {
   color: var(--sg-text-faint);
   font-size: 0.85rem;
 }
 
-.result-score {
+.score-group__score {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  color: var(--sg-text-primary);
+}
+
+.score-group__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: var(--sg-radius-btn);
+  background: transparent;
+  color: var(--sg-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.score-group__toggle:hover {
+  background: var(--sg-accent-subtle);
+  color: var(--sg-text-primary);
+}
+
+.score-group__toggle:focus-visible {
+  outline: 2px solid var(--sg-accent);
+  outline-offset: 2px;
+}
+
+.score-group__children {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sg-space-2);
+  padding-top: var(--sg-space-2);
+  border-top: 1px solid var(--sg-border);
 }
 
 .score-stats {
