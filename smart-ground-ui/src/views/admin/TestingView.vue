@@ -20,11 +20,17 @@
       <!-- Schiessplatz Setup -->
       <section class="card">
         <h2>Schiessplatz Setup</h2>
-        <p class="hint">Erstellt Vorderlader, Trapstand, Rollhase, Kippreh (falls noch nicht vorhanden).</p>
+        <p class="hint">Erstellt Vorderlader, Trapstand, Rollhase, Kippreh mit je 8 Positionen, 2 SmartBoxes (4 Geräte je Box) und weist alle 32 Geräte den Positionen zu (falls noch nicht vorhanden).</p>
         <Button :disabled="rangeBusy" @click="onSeedRanges">4 Plätze erstellen</Button>
         <ul v-if="rangeResult.length" class="result-list">
           <li v-for="r in rangeResult" :key="r.id">
-            {{ r.name }} — <span :class="r.created ? 'ok' : 'muted'">{{ r.created ? 'erstellt' : 'bereits vorhanden' }}</span>
+            {{ r.name }} —
+            <span v-if="r.positionsCreated > 0" class="ok">
+              erstellt · {{ r.positionsCreated }} Positionen · {{ r.boxesCreated }} Boxen · {{ r.devicesAssigned }} Geräte zugeordnet
+            </span>
+            <span v-else :class="r.created ? 'ok' : 'muted'">
+              {{ r.created ? 'erstellt' : 'bereits vorhanden' }}
+            </span>
           </li>
         </ul>
         <p v-if="rangeError" class="result err">{{ rangeError }}</p>
