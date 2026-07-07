@@ -339,6 +339,28 @@
         </template>
       </div>
     </div>
+
+    <!-- Solo Serie start: confirms shooter identity + recording toggle before launch -->
+    <SoloSerieStartModal
+      v-if="soloStartSerie"
+      @confirm="onSoloSerieConfirm"
+      @cancel="soloStartSerie = null"
+    />
+
+    <!-- Group Serie start: reuses the shared group/QR setup modal to collect players
+         before persisting the Serie instance (recording is implicit for groups). -->
+    <GroupSetupModal
+      v-if="groupStartSerie"
+      v-model:players="groupStartPlayers"
+      :title="`${groupStartSerie.name} als Gruppe starten`"
+      id-prefix="gs"
+      allow-qr
+      :player-defaults="{ type: 'guest' }"
+      @cancel="cancelGroupSerieStart"
+      @confirm="onGroupSerieConfirm"
+      @qr-scan="openGroupSerieQrScan"
+    />
+    <QrScanModal v-if="groupSerieQrOpen" @close="groupSerieQrOpen = false" @resolved="onGroupSerieQrResolved" />
   </div>
 </template>
 
@@ -354,6 +376,9 @@ import { useActivePasseStore } from '@/stores/activePasseStore.js';
 import { useCompetitionEventStore } from '@/stores/competitionEventStore.js';
 import Icons from '@/components/Icons.vue';
 import CompetitionFlyoutContent from '@/components/shooter-remote/CompetitionFlyoutContent.vue';
+import SoloSerieStartModal from '@/components/shooter-remote/SoloSerieStartModal.vue';
+import GroupSetupModal from '@/components/GroupSetupModal.vue';
+import QrScanModal from '@/components/shooter/QrScanModal.vue';
 import { stepModeLabel, stepNotation, modeBadgeStyle } from '@/constants/stepModes.js';
 
 const router = useRouter();
@@ -372,6 +397,13 @@ const serieNameInput = ref('');
 const saveAsRange = ref(false);
 const nameInputRef = ref(null);
 const expandedSerieId = ref(null);
+
+// ── Serie start modals (solo confirm / group setup) ─────────────────────────
+const soloStartSerie = ref(null); // Serie awaiting solo-start confirmation, or null
+const groupStartSerie = ref(null); // Serie awaiting group setup, or null
+const groupStartPlayers = ref([]);
+const groupSerieQrOpen = ref(false);
+let _nextGroupStartPlayerId = 1;
 
 const competitionInstance = computed(() => {
   const ctxId = store.competitionContext?.instanceId
@@ -536,23 +568,98 @@ const buildSerieSegment = (serie) => ({
   steps: serie.steps,
 });
 
-const playSerieSolo = (serie) => {
-  const tempPasse = {
-    id: `temp_${serie.id}`,
-    name: serie.name,
-    serien: [buildSerieSegment(serie)],
-  };
-  passeStore.savedPassen.push(tempPasse);
-  playStore.playPasseWithScore(tempPasse.id, [], currentRangeId.value);
-  passeStore.savedPassen = passeStore.savedPassen.filter((p) => p.id !== tempPasse.id);
+// Builds a backend PlayerRef from a shooter identity resolved via auth/QR — `id`
+// mirrors `userId` for checked-in accounts so recorded scores link back to the user.
+const toPlayerRef = ({ id, userId, displayName }) => ({
+  id: userId ?? id,
+  type: userId ? 'user' : 'guest',
+  userId: userId ?? null,
+  displayName,
+});
+
+// Starts the real persisted Serie instance and launches its single block through
+// the same block-play path range Passe blocks use (setPendingGroupSerien +
+// startGroupPlay), so completion writes a UserSerieScore row.
+const launchPersistedSerie = async (serie, players) => {
+  const instance = await activePasseStore.startSerie(serie, players);
+  const block = instance.blocks[0];
+  const rangeId = currentRangeId.value;
+  const range = rangeStore.ranges.find((r) => r.id === rangeId);
+  playStore.setPendingGroupSerien([buildSerieSegment(serie)]);
+  await playStore.startGroupPlay(
+    players,
+    rangeId,
+    range?.name ?? null,
+    instance.instanceId,
+    block.blockId,
+    null,
+    'training',
+  );
   isOpen.value = false;
-  router.push({ path: `/remote/${currentRangeId.value}/play`, query: route.query });
+  router.push({ path: `/remote/${rangeId}/play`, query: route.query });
+};
+
+const playSerieSolo = (serie) => {
+  soloStartSerie.value = serie;
+};
+
+const onSoloSerieConfirm = async ({ record, shooter }) => {
+  const serie = soloStartSerie.value;
+  soloStartSerie.value = null;
+  if (!serie) return;
+
+  if (!record) {
+    // Practice run — unsaved, same ephemeral client-side playback as before.
+    const tempPasse = {
+      id: `temp_${serie.id}`,
+      name: serie.name,
+      serien: [buildSerieSegment(serie)],
+    };
+    passeStore.savedPassen.push(tempPasse);
+    playStore.playPasseWithScore(tempPasse.id, [], currentRangeId.value);
+    passeStore.savedPassen = passeStore.savedPassen.filter((p) => p.id !== tempPasse.id);
+    isOpen.value = false;
+    router.push({ path: `/remote/${currentRangeId.value}/play`, query: route.query });
+    return;
+  }
+
+  await launchPersistedSerie(serie, [toPlayerRef(shooter)]);
 };
 
 const playSerieGroup = (serie) => {
-  playStore.setPendingGroupSerien([buildSerieSegment(serie)]);
-  isOpen.value = false;
-  router.push({ path: `/remote/${currentRangeId.value}/play`, query: route.query });
+  groupStartSerie.value = serie;
+  _nextGroupStartPlayerId = 1;
+  groupStartPlayers.value = [
+    { id: `gs-${_nextGroupStartPlayerId++}`, displayName: 'Schütze 1', type: 'guest' },
+  ];
+};
+
+const openGroupSerieQrScan = () => {
+  groupSerieQrOpen.value = true;
+};
+
+const onGroupSerieQrResolved = (user) => {
+  groupSerieQrOpen.value = false;
+  if (groupStartPlayers.value.some((p) => p.userId === user.userId)) return;
+  groupStartPlayers.value.push({
+    id: `gs-${_nextGroupStartPlayerId++}`,
+    displayName: user.displayName,
+    userId: user.userId,
+  });
+};
+
+const cancelGroupSerieStart = () => {
+  groupStartSerie.value = null;
+  groupStartPlayers.value = [];
+};
+
+const onGroupSerieConfirm = async () => {
+  const serie = groupStartSerie.value;
+  if (!serie || groupStartPlayers.value.length === 0) return;
+  const players = groupStartPlayers.value.map(toPlayerRef);
+  groupStartSerie.value = null;
+  groupStartPlayers.value = [];
+  await launchPersistedSerie(serie, players);
 };
 
 const editSerie = (serieId) => {
