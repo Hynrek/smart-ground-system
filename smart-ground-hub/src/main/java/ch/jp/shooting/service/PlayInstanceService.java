@@ -69,28 +69,29 @@ public class PlayInstanceService {
         var passe = passeRepository.findById(request.getPasseId())
             .orElseThrow(() -> new PasseNotFoundException(request.getPasseId()));
         var serien = passeService.resolveLiveSerien(passe);
-        return buildAndSaveInstance(passe.getId(), passe.getName(), serien, request.getPlayers());
+        return buildAndSaveInstance(passe.getId(), passe.getName(), serien, request.getPlayers(), "passe");
     }
 
     /**
-     * Startet einen Einzel-Serie-Lauf als einblockige Passe-Instanz.
+     * Startet einen Einzel-Serie-Lauf als einblockige Instanz.
      * Erwartet einen Serien-Listen-Snapshot (gleiche Form wie {@code Passe.serienJson}),
      * der genau eine Serie enthält. Es wird KEINE persistierte Passe benötigt.
      */
     public PlayInstanceResponse startSerieInstance(UUID serieId, String serieName,
-                                                   String serienSnapshotJson, List<PlayerRef> players) {
+                                                   String serienSnapshotJson, List<PlayerRef> players,
+                                                   String type) {
         var serien = PlayMapper.parseEmbeddedSerien(serienSnapshotJson);
         if (serien.size() != 1) {
             throw new IllegalArgumentException(
                 "Serien-Snapshot für startSerieInstance muss genau eine Serie enthalten, enthält aber: " + serien.size());
         }
-        return buildAndSaveInstance(serieId, serieName, serien, players);
+        return buildAndSaveInstance(serieId, serieName, serien, players, type);
     }
 
-    /** Baut aus einer Serien-Liste eine aktive Passe-Instanz und speichert sie. */
+    /** Baut aus einer Serien-Liste eine aktive Instanz und speichert sie. */
     private PlayInstanceResponse buildAndSaveInstance(UUID templateId, String templateName,
                                                       List<EmbeddedSerieRecord> serien,
-                                                      List<PlayerRef> players) {
+                                                      List<PlayerRef> players, String type) {
         var owner = securityHelper.currentUser();
 
         var blocks = serien.stream().map(s ->
@@ -106,7 +107,7 @@ public class PlayInstanceService {
             .toList();
 
         var instance = new PlayInstance();
-        instance.setType("passe");
+        instance.setType(type);
         instance.setTemplateId(templateId);
         instance.setTemplateName(templateName);
         instance.setOwner(owner);

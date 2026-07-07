@@ -63,7 +63,7 @@ class TiebreakerServiceTest {
         var instanceResp = new ch.jp.smartground.model.PlayInstanceResponse();
         UUID instanceId = UUID.randomUUID();
         instanceResp.setInstanceId(instanceId);
-        when(playInstanceService.startSerieInstance(eq(serieId), eq("Stech-Serie"), anyString(), anyList()))
+        when(playInstanceService.startSerieInstance(eq(serieId), eq("Stech-Serie"), anyString(), anyList(), eq("stechen")))
                 .thenReturn(instanceResp);
 
         var activeInst = new ch.jp.smartground.model.PlayInstanceResponse();
@@ -96,7 +96,7 @@ class TiebreakerServiceTest {
         assertEquals("Stech-Serie", node.get("alias").asText());
         assertTrue(node.get("steps").isArray());
 
-        verify(playInstanceService).startSerieInstance(eq(serieId), eq("Stech-Serie"), anyString(), anyList());
+        verify(playInstanceService).startSerieInstance(eq(serieId), eq("Stech-Serie"), anyString(), anyList(), eq("stechen"));
         verify(playerResultRepo, never()).save(any());
     }
 
@@ -152,7 +152,7 @@ class TiebreakerServiceTest {
 
         var instanceResp = new ch.jp.smartground.model.PlayInstanceResponse();
         instanceResp.setInstanceId(UUID.randomUUID());
-        when(playInstanceService.startSerieInstance(eq(serieId), eq("Stech-Serie"), anyString(), anyList()))
+        when(playInstanceService.startSerieInstance(eq(serieId), eq("Stech-Serie"), anyString(), anyList(), eq("stechen")))
                 .thenReturn(instanceResp);
 
         var activeInst = new ch.jp.smartground.model.PlayInstanceResponse();

@@ -47,13 +47,13 @@ class PlayInstanceServiceTest {
                 .type(PlayerRef.TypeEnum.USER)
                 .displayName("Anna"));
 
-        service.startSerieInstance(serieId, "Stech-Serie", snapshot, players);
+        service.startSerieInstance(serieId, "Stech-Serie", snapshot, players, "serie");
 
         ArgumentCaptor<PlayInstance> captor = ArgumentCaptor.forClass(PlayInstance.class);
         verify(playInstanceRepository).save(captor.capture());
         PlayInstance saved = captor.getValue();
 
-        assertEquals("passe", saved.getType());
+        assertEquals("serie", saved.getType());
         assertEquals(serieId, saved.getTemplateId());
         assertEquals("Stech-Serie", saved.getTemplateName());
 
@@ -146,7 +146,7 @@ class PlayInstanceServiceTest {
     @Test
     void startSerieInstance_rejectsSnapshotWithoutExactlyOneSerie() {
         assertThrows(IllegalArgumentException.class, () ->
-            service.startSerieInstance(java.util.UUID.randomUUID(), "X", "[]", java.util.List.of()));
+            service.startSerieInstance(java.util.UUID.randomUUID(), "X", "[]", java.util.List.of(), "serie"));
     }
 
     @Test

@@ -96,6 +96,48 @@ class UserScoreServiceTest {
         assertEquals(8, captor.getValue().getTotalPoints());
     }
 
+    private PlayInstance completedInstanceOfType(UUID blockId, UUID userId, String type) {
+        var inst = completedInstance(blockId, userId);
+        inst.setType(type);
+        return inst;
+    }
+
+    @Test
+    void recordTrainingInstance_serieType_writesSerieKind() {
+        var blockId = UUID.randomUUID();
+        var userId = UUID.randomUUID();
+        when(scoreRepository.findBySourceIdAndUserId(any(), any())).thenReturn(Optional.empty());
+
+        service().recordTrainingInstance(completedInstanceOfType(blockId, userId, "serie"));
+
+        var captor = ArgumentCaptor.forClass(UserSerieScore.class);
+        verify(scoreRepository).save(captor.capture());
+        assertEquals("SERIE", captor.getValue().getKind());
+    }
+
+    @Test
+    void recordTrainingInstance_passeType_writesPasseKind() {
+        var blockId = UUID.randomUUID();
+        var userId = UUID.randomUUID();
+        when(scoreRepository.findBySourceIdAndUserId(any(), any())).thenReturn(Optional.empty());
+
+        service().recordTrainingInstance(completedInstanceOfType(blockId, userId, "passe"));
+
+        var captor = ArgumentCaptor.forClass(UserSerieScore.class);
+        verify(scoreRepository).save(captor.capture());
+        assertEquals("PASSE", captor.getValue().getKind());
+    }
+
+    @Test
+    void recordTrainingInstance_stechenType_writesNothing() {
+        var blockId = UUID.randomUUID();
+        var userId = UUID.randomUUID();
+
+        service().recordTrainingInstance(completedInstanceOfType(blockId, userId, "stechen"));
+
+        verify(scoreRepository, never()).save(any());
+    }
+
     // ── Wettkampf ──
 
     private ShooterGroup groupWithMember(UUID memberId, UUID userId) {
@@ -141,6 +183,7 @@ class UserScoreServiceTest {
         assertEquals(1, row.getPasseIndex());
         assertEquals("Feldschiessen", row.getParentName());
         assertEquals("Stich-Serie", row.getSerieAlias());
+        assertEquals("COMPETITION", row.getKind());
     }
 
     @Test

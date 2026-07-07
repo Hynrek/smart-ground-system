@@ -46,6 +46,9 @@ public class UserScoreService {
 
     /** Training: beim Abschluss der ganzen Instanz eine Zeile pro Block × User schreiben. */
     public void recordTrainingInstance(PlayInstance instance) {
+        // Stechen-Instanzen sind Wettkampf-Tiebreaker, keine Trainings-Serien — nie ins Score-History schreiben.
+        var type = instance.getType();
+        if (!"serie".equals(type) && !"passe".equals(type)) return;
         for (var block : PlayMapper.parseBlocks(instance.getStateJson())) {
             if (block.result() == null) continue;
             for (var pr : block.result().playerResults()) {
@@ -54,6 +57,7 @@ public class UserScoreService {
                     .orElseGet(UserSerieScore::new);
                 row.setUserId(pr.userId());
                 row.setContext("TRAINING");
+                row.setKind("serie".equals(type) ? "SERIE" : "PASSE");
                 row.setTotalPoints(pr.totalPoints());
                 row.setMaxPoints(pr.maxPoints());
                 row.setStepStatesJson(writeJson(pr.stepStates()));
@@ -85,6 +89,7 @@ public class UserScoreService {
                 .orElseGet(UserSerieScore::new);
             row.setUserId(userId);
             row.setContext("COMPETITION");
+            row.setKind("COMPETITION");
             row.setTotalPoints(pr.getTotalPoints() != null ? pr.getTotalPoints() : 0);
             row.setMaxPoints(pr.getMaxPoints() != null ? pr.getMaxPoints() : 0);
             row.setStepStatesJson(writeJson(pr.getStepStates()));

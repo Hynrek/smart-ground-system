@@ -233,7 +233,7 @@ public class TiebreakerService {
                         .displayName(p.getDisplayName()))
                 .toList();
         var instance = playInstanceService.startSerieInstance(
-                serie.getId(), serie.getName(), snapshot, playerRefs);
+                serie.getId(), serie.getName(), snapshot, playerRefs, "stechen");
         tb.setPlayInstanceId(instance.getInstanceId());
 
         tb.setStatus(TiebreakerStatus.ACTIVE);

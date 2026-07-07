@@ -3523,7 +3523,7 @@ components:
           format: uuid
         type:
           type: string
-          enum: [passe]
+          enum: [passe, serie, stechen]
         templateId:
           type: string
           format: uuid
@@ -3583,7 +3583,7 @@ components:
           format: uuid
         type:
           type: string
-          enum: [passe]
+          enum: [passe, serie, stechen]
         templateId:
           type: string
           format: uuid
@@ -3619,7 +3619,7 @@ components:
           format: uuid
         type:
           type: string
-          enum: [passe]
+          enum: [passe, serie, stechen]
         templateId:
           type: string
           format: uuid
