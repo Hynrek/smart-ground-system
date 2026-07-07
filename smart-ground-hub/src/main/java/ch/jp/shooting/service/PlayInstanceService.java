@@ -211,7 +211,10 @@ public class PlayInstanceService {
                         ss.getState() != null ? ss.getState().getValue() : "miss",
                         ss.getPointValue() != null ? ss.getPointValue() : 0,
                         ss.getNoBirds() != null ? ss.getNoBirds() : 0,
-                        ss.getPointsEarned() != null ? ss.getPointsEarned() : 0
+                        ss.getPointsEarned() != null ? ss.getPointsEarned() : 0,
+                        // type/letter(s) werden erst bei der Score-Projektion (UserScoreService)
+                        // aus der Serie-Definition angereichert, nicht hier im Live-State.
+                        null, null, null, null
                     ))
                     .toList(),
                 pr.getUserId()

@@ -3522,6 +3522,26 @@ components:
         pointsEarned:
           type: integer
           description: Actual points earned after any deductions
+        type:
+          $ref: '#/components/schemas/StepType'
+          description: >
+            Step type resolved from the Serie definition at record time (best-effort
+            enrichment, not present on rows recorded before this field existed).
+        letter:
+          type: string
+          nullable: true
+          description: >
+            Position letter (A, B, C …) for solo/raffale steps, resolved via
+            PositionLabelResolver at record time. Null if unresolved or the row
+            predates this field.
+        letter1:
+          type: string
+          nullable: true
+          description: First position letter for pair/a_schuss steps.
+        letter2:
+          type: string
+          nullable: true
+          description: Second position letter for pair/a_schuss steps.
 
     PlayerResult:
       type: object

@@ -1,6 +1,8 @@
 package ch.jp.shooting.service;
 
 import ch.jp.shooting.config.SecurityHelper;
+import ch.jp.shooting.dto.play.SerieSnapshotRecord;
+import ch.jp.shooting.dto.play.StepRecord;
 import ch.jp.shooting.mapper.PlayMapper;
 import ch.jp.shooting.model.CompetitionSerieResult;
 import ch.jp.shooting.model.PlayInstance;
@@ -33,15 +35,18 @@ public class UserScoreService {
     private final UserRepository userRepository;
     private final SecurityHelper securityHelper;
     private final ObjectMapper objectMapper;
+    private final PositionLabelResolver positionLabelResolver;
 
     public UserScoreService(UserSerieScoreRepository scoreRepository,
                             UserRepository userRepository,
                             SecurityHelper securityHelper,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            PositionLabelResolver positionLabelResolver) {
         this.scoreRepository = scoreRepository;
         this.userRepository = userRepository;
         this.securityHelper = securityHelper;
         this.objectMapper = objectMapper;
+        this.positionLabelResolver = positionLabelResolver;
     }
 
     /** Training: beim Abschluss der ganzen Instanz eine Zeile pro Block × User schreiben. */
@@ -51,6 +56,11 @@ public class UserScoreService {
         if (!"serie".equals(type) && !"passe".equals(type)) return;
         for (var block : PlayMapper.parseBlocks(instance.getStateJson())) {
             if (block.result() == null) continue;
+            // Step-Buchstaben/-Typ live auflösen (gleicher Mechanismus wie beim Wettkampf-Snapshot,
+            // PositionLabelResolver.resolveSteps), einmal pro Block statt pro Spieler.
+            var resolvedSteps = block.steps().isEmpty()
+                ? List.<StepRecord>of()
+                : positionLabelResolver.resolveSteps(block.steps());
             for (var pr : block.result().playerResults()) {
                 if (pr.userId() == null) continue; // anonyme Spieler und Gäste überspringen
                 var row = scoreRepository.findBySourceIdAndUserId(block.blockId(), pr.userId())
@@ -60,7 +70,7 @@ public class UserScoreService {
                 row.setKind("serie".equals(type) ? "SERIE" : "PASSE");
                 row.setTotalPoints(pr.totalPoints());
                 row.setMaxPoints(pr.maxPoints());
-                row.setStepStatesJson(writeJson(pr.stepStates()));
+                row.setStepStatesJson(writeJson(enrichTrainingStepStates(pr.stepStates(), resolvedSteps)));
                 row.setSerieId(block.serieId());
                 row.setSerieAlias(block.serieAlias());
                 row.setSourceId(block.blockId());
@@ -80,6 +90,12 @@ public class UserScoreService {
                                        String serieAlias,
                                        List<ch.jp.smartground.model.PlayerResult> results,
                                        boolean replaceExisting) {
+        // Step-Buchstaben/-Typ aus dem bereits eingefrorenen Serie-Snapshot übernehmen
+        // (CompetitionProgressService.buildSerieSnapshotJson setzt serieSnapshotJson VOR
+        // diesem Aufruf) — keine erneute Positions-Auflösung nötig, die Werte sind zum
+        // Abschlusszeitpunkt bereits aufgelöst worden.
+        var snapshotSteps = readSerieSnapshotSteps(csr.getSerieSnapshotJson());
+
         var writtenUserIds = new java.util.HashSet<UUID>();
         for (var pr : results) {
             UUID userId = resolveUserId(group, pr);
@@ -92,7 +108,7 @@ public class UserScoreService {
             row.setKind("COMPETITION");
             row.setTotalPoints(pr.getTotalPoints() != null ? pr.getTotalPoints() : 0);
             row.setMaxPoints(pr.getMaxPoints() != null ? pr.getMaxPoints() : 0);
-            row.setStepStatesJson(writeJson(pr.getStepStates()));
+            row.setStepStatesJson(writeJson(enrichCompetitionStepStates(pr.getStepStates(), snapshotSteps)));
             row.setSerieId(csr.getSerieId());
             row.setSerieAlias(serieAlias);
             row.setSourceId(csr.getId());
@@ -131,6 +147,67 @@ public class UserScoreService {
             return objectMapper.writeValueAsString(value);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             return null; // StepStates sind Zusatzinfo — Abschluss nicht daran scheitern lassen
+        }
+    }
+
+    /**
+     * Reichert Trainings-StepStates (Live-DTO) mit type/letter(s) aus den live über
+     * {@link PositionLabelResolver} aufgelösten Steps des Blocks an — best-effort per
+     * stepIndex-Lookup; fehlt der Step (z.B. Index ausserhalb der Liste), bleibt die
+     * Zeile unverändert (type/letter bleiben null).
+     */
+    private List<ch.jp.shooting.dto.play.StepStateRecord> enrichTrainingStepStates(
+            List<ch.jp.shooting.dto.play.StepStateRecord> stepStates, List<StepRecord> resolvedSteps) {
+        if (resolvedSteps.isEmpty()) return stepStates;
+        return stepStates.stream().map(s -> {
+            var step = stepAt(resolvedSteps, s.stepIndex());
+            if (step == null) return s;
+            return new ch.jp.shooting.dto.play.StepStateRecord(
+                s.playerId(), s.serieIndex(), s.stepIndex(), s.state(),
+                s.pointValue(), s.noBirds(), s.pointsEarned(),
+                step.type(), step.letter(), step.letter1(), step.letter2());
+        }).toList();
+    }
+
+    /**
+     * Reichert Wettkampf-StepStates (generiertes API-Modell) mit type/letter(s) aus dem
+     * bereits eingefrorenen Serie-Snapshot ({@code CompetitionSerieResult.serieSnapshotJson},
+     * gebaut von {@code CompetitionProgressService.buildSerieSnapshotJson}) an.
+     */
+    private List<ch.jp.smartground.model.StepStateRecord> enrichCompetitionStepStates(
+            List<ch.jp.smartground.model.StepStateRecord> stepStates, List<StepRecord> snapshotSteps) {
+        if (snapshotSteps.isEmpty()) return stepStates;
+        return stepStates.stream().map(s -> {
+            var idx = s.getStepIndex();
+            var step = idx != null ? stepAt(snapshotSteps, idx) : null;
+            if (step == null) return s;
+            return new ch.jp.smartground.model.StepStateRecord()
+                .playerId(s.getPlayerId())
+                .serieIndex(s.getSerieIndex())
+                .stepIndex(s.getStepIndex())
+                .state(s.getState())
+                .pointValue(s.getPointValue())
+                .noBirds(s.getNoBirds())
+                .pointsEarned(s.getPointsEarned())
+                .type(step.type() != null ? ch.jp.smartground.model.StepType.fromValue(step.type()) : null)
+                .letter(step.letter())
+                .letter1(step.letter1())
+                .letter2(step.letter2());
+        }).toList();
+    }
+
+    @Nullable
+    private StepRecord stepAt(List<StepRecord> steps, int index) {
+        return index >= 0 && index < steps.size() ? steps.get(index) : null;
+    }
+
+    /** Liest die aufgelösten Steps aus dem eingefrorenen Serie-Snapshot; leer, wenn kein Snapshot vorliegt. */
+    private List<StepRecord> readSerieSnapshotSteps(@Nullable String serieSnapshotJson) {
+        if (serieSnapshotJson == null) return List.of();
+        try {
+            return objectMapper.readValue(serieSnapshotJson, SerieSnapshotRecord.class).steps();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            return List.of(); // Snapshot unlesbar — Anreicherung best-effort, Score-Abschluss geht weiter
         }
     }
 

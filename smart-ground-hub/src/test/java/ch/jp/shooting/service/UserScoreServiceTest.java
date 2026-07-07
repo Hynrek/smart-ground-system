@@ -26,9 +26,14 @@ class UserScoreServiceTest {
     @Mock UserSerieScoreRepository scoreRepository;
     @Mock ch.jp.shooting.repository.auth.UserRepository userRepository;
     @Mock ch.jp.shooting.config.SecurityHelper securityHelper;
+    @Mock PositionLabelResolver positionLabelResolver;
 
     UserScoreService service() {
-        return new UserScoreService(scoreRepository, userRepository, securityHelper, new ObjectMapper());
+        // JsonNullableModule mirrors the production ObjectMapper bean (JacksonConfig) — the
+        // generated StepStateRecord's letter/letter1/letter2 fields are JsonNullable<String>.
+        var mapper = new ObjectMapper().registerModule(new org.openapitools.jackson.nullable.JsonNullableModule());
+        return new UserScoreService(scoreRepository, userRepository, securityHelper,
+            mapper, positionLabelResolver);
     }
 
     // ── Training ──
@@ -100,6 +105,42 @@ class UserScoreServiceTest {
         var inst = completedInstance(blockId, userId);
         inst.setType(type);
         return inst;
+    }
+
+    @Test
+    void recordTrainingInstance_enrichesStepStatesWithTypeAndLetterFromResolvedSteps() {
+        var blockId = UUID.randomUUID();
+        var userId = UUID.randomUUID();
+        var serieId = UUID.randomUUID();
+        var inst = new PlayInstance();
+        inst.setInstanceId(UUID.randomUUID());
+        inst.setType("passe");
+        inst.setTemplateId(UUID.randomUUID());
+        inst.setTemplateName("Trainings-Passe");
+        inst.setStatus("completed");
+        inst.setOwner(mock(User.class));
+        inst.setCompletedAt(Instant.now());
+        // one block, one solo step, one player with one matching stepState (stepIndex 0)
+        inst.setStateJson("[{\"blockId\":\"" + blockId + "\",\"serieId\":\"" + serieId
+            + "\",\"serieAlias\":\"Serie 1\",\"rangeId\":null,\"rangeName\":\"Platz 1\","
+            + "\"steps\":[{\"id\":\"s1\",\"type\":\"solo\",\"posId\":\"pos-1\"}],"
+            + "\"status\":\"done\",\"completedAt\":\"" + Instant.now() + "\",\"result\":{\"playerResults\":["
+            + "{\"playerId\":\"p1\",\"displayName\":\"Anna\",\"totalPoints\":8,\"maxPoints\":10,"
+            + "\"stepStates\":[{\"playerId\":\"p1\",\"serieIndex\":0,\"stepIndex\":0,\"state\":\"hit\","
+            + "\"pointValue\":1,\"noBirds\":0,\"pointsEarned\":1}],\"userId\":\"" + userId + "\"}"
+            + "]}}]");
+        when(scoreRepository.findBySourceIdAndUserId(any(), any())).thenReturn(Optional.empty());
+        // the resolver returns the same step but with letter/alias resolved from the position repo
+        var resolvedStep = new ch.jp.shooting.dto.play.StepRecord(
+            "s1", "solo", "pos-1", "Werfer A", null, null, null, null, "A", null, null);
+        when(positionLabelResolver.resolveSteps(any())).thenReturn(List.of(resolvedStep));
+
+        service().recordTrainingInstance(inst);
+
+        var captor = ArgumentCaptor.forClass(UserSerieScore.class);
+        verify(scoreRepository).save(captor.capture());
+        assertTrue(captor.getValue().getStepStatesJson().contains("\"type\":\"solo\""));
+        assertTrue(captor.getValue().getStepStatesJson().contains("\"letter\":\"A\""));
     }
 
     @Test
@@ -184,6 +225,35 @@ class UserScoreServiceTest {
         assertEquals("Feldschiessen", row.getParentName());
         assertEquals("Stich-Serie", row.getSerieAlias());
         assertEquals("COMPETITION", row.getKind());
+    }
+
+    @Test
+    void recordCompetitionSerie_enrichesStepStatesFromSerieSnapshot() {
+        var memberId = UUID.randomUUID();
+        var userId = UUID.randomUUID();
+        var group = groupWithMember(memberId, userId);
+        var result = csr(group);
+        // frozen snapshot (same mechanism CompetitionProgressService uses for completed results)
+        result.setSerieSnapshotJson("{\"serieName\":\"Feld 1\",\"rangeName\":\"Platz 1\","
+            + "\"steps\":[{\"id\":\"s1\",\"type\":\"pair\",\"posId1\":\"pos-1\",\"posId2\":\"pos-2\","
+            + "\"letter1\":\"A\",\"letter2\":\"B\"}]}");
+        when(scoreRepository.findBySourceIdAndUserId(any(), any())).thenReturn(Optional.empty());
+
+        var stepState = new ch.jp.smartground.model.StepStateRecord()
+            .playerId(memberId.toString()).serieIndex(0).stepIndex(0)
+            .state(ch.jp.smartground.model.StepState.DONE).pointValue(2).noBirds(0).pointsEarned(2);
+        var pr = new ch.jp.smartground.model.PlayerResult()
+            .playerId(memberId.toString()).displayName("Anna")
+            .totalPoints(7).maxPoints(10).stepStates(List.of(stepState));
+        service().recordCompetitionSerie(result, group, "Stich-Serie", List.of(pr), false);
+
+        var captor = ArgumentCaptor.forClass(UserSerieScore.class);
+        verify(scoreRepository).save(captor.capture());
+        var json = captor.getValue().getStepStatesJson();
+        assertNotNull(json);
+        assertTrue(json.contains("\"type\":\"pair\""));
+        assertTrue(json.contains("\"letter1\":\"A\""));
+        assertTrue(json.contains("\"letter2\":\"B\""));
     }
 
     @Test

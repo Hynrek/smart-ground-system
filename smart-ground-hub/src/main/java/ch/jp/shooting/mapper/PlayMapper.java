@@ -259,7 +259,11 @@ public final class PlayMapper {
             .state(StepState.fromValue(r.state()))
             .pointValue(r.pointValue())
             .noBirds(r.noBirds())
-            .pointsEarned(r.pointsEarned());
+            .pointsEarned(r.pointsEarned())
+            .type(r.type() != null ? StepType.fromValue(r.type()) : null)
+            .letter(r.letter())
+            .letter1(r.letter1())
+            .letter2(r.letter2());
     }
 
     // ── Low-level JSON helpers ───────────────────────────────────────────────
