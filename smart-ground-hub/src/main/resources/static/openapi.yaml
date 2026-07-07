@@ -554,7 +554,7 @@ paths:
 
   /api/testing/ranges/seed:
     post:
-      summary: Create the four standard test ranges if missing (idempotent, admin only)
+      summary: Create the four standard test ranges with 8 positions, 2 mock SmartBoxes (4 devices each) and full device-to-position assignment if missing (idempotent per range, admin only)
       operationId: seedTestRanges
       tags: [Testing]
       responses:
@@ -5085,7 +5085,7 @@ components:
           type: string
     SeededRange:
       type: object
-      required: [id, name, created]
+      required: [id, name, created, positionsCreated, boxesCreated, devicesAssigned]
       properties:
         id:
           type: string
@@ -5095,6 +5095,18 @@ components:
         created:
           type: boolean
           description: true if inserted by this call, false if it already existed
+        positionsCreated:
+          type: integer
+          format: int32
+          description: Number of RangePositions created for this range by this call (0 if it already had positions)
+        boxesCreated:
+          type: integer
+          format: int32
+          description: Number of mock SmartBoxes created for this range by this call
+        devicesAssigned:
+          type: integer
+          format: int32
+          description: Number of devices created and assigned to this range's positions by this call
     SeedRangesResponse:
       type: object
       required: [ranges]
