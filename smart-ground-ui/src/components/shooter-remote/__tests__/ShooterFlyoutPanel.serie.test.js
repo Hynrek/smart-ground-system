@@ -26,9 +26,11 @@ vi.mock('@/stores/playSessionStore.js', () => ({
 
 // SoloSerieStartModal (Task 6) emits 'confirm' with { record, shooter } — stub it to
 // fire immediately on mount so the test can drive playSerieSolo's confirm branch.
+// Renders the `error` prop so failure-path tests can assert it's surfaced.
 const SoloSerieStartModalStub = {
+  props: ['error'],
   emits: ['confirm', 'cancel'],
-  template: '<div class="solo-serie-start-modal-stub" />',
+  template: '<div class="solo-serie-start-modal-stub">{{ error }}</div>',
   mounted() {
     this.$emit('confirm', { record: true, shooter: { userId: 'u1', displayName: 'Max' } });
   },
@@ -112,6 +114,31 @@ describe('ShooterFlyoutPanel — persisted solo Serie start', () => {
       'training',
     );
     expect(router.currentRoute.value.path).toBe('/remote/range-1/play');
+  });
+
+  it('keeps the solo modal open and shows an error when startSerie rejects, instead of silently closing', async () => {
+    const { wrapper, router } = await mountPanel();
+    const remoteStore = useShooterRemoteStore();
+    const passeStore = usePasseStore();
+    const activePasseStore = useActivePasseStore();
+    seedSerie(passeStore, remoteStore);
+
+    vi.spyOn(activePasseStore, 'startSerie').mockRejectedValue(new Error('network down'));
+
+    await wrapper.find('.flyout-handle').trigger('click');
+    await wrapper.find('.serie-header-btn').trigger('click');
+    await wrapper.find('.action-play').trigger('click');
+    await flushPromises();
+
+    // Modal must still be present — must not silently disappear as if the run
+    // had been recorded — and it must display the failure to the shooter.
+    const modal = wrapper.find('.solo-serie-start-modal-stub');
+    expect(modal.exists()).toBe(true);
+    expect(modal.text()).toContain('konnte nicht gestartet werden');
+
+    // No navigation and no downstream play-session calls on failure.
+    expect(startGroupPlayMock).not.toHaveBeenCalled();
+    expect(router.currentRoute.value.path).toBe('/');
   });
 });
 

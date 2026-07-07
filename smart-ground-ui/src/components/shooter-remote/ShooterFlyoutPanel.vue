@@ -343,8 +343,9 @@
     <!-- Solo Serie start: confirms shooter identity + recording toggle before launch -->
     <SoloSerieStartModal
       v-if="soloStartSerie"
+      :error="soloSerieError"
       @confirm="onSoloSerieConfirm"
-      @cancel="soloStartSerie = null"
+      @cancel="cancelSoloSerieStart"
     />
 
     <!-- Group Serie start: reuses the shared group/QR setup modal to collect players
@@ -356,6 +357,7 @@
       id-prefix="gs"
       allow-qr
       :player-defaults="{ type: 'guest' }"
+      :error-message="groupSerieError"
       @cancel="cancelGroupSerieStart"
       @confirm="onGroupSerieConfirm"
       @qr-scan="openGroupSerieQrScan"
@@ -404,6 +406,11 @@ const groupStartSerie = ref(null); // Serie awaiting group setup, or null
 const groupStartPlayers = ref([]);
 const groupSerieQrOpen = ref(false);
 let _nextGroupStartPlayerId = 1;
+
+// Persisted-start failure messages: shown inline on the still-open modal rather
+// than letting the modal close silently (see launchPersistedSerie below).
+const soloSerieError = ref('');
+const groupSerieError = ref('');
 
 const competitionInstance = computed(() => {
   const ctxId = store.competitionContext?.instanceId
@@ -600,16 +607,22 @@ const launchPersistedSerie = async (serie, players) => {
 };
 
 const playSerieSolo = (serie) => {
+  soloSerieError.value = '';
   soloStartSerie.value = serie;
+};
+
+const cancelSoloSerieStart = () => {
+  soloStartSerie.value = null;
+  soloSerieError.value = '';
 };
 
 const onSoloSerieConfirm = async ({ record, shooter }) => {
   const serie = soloStartSerie.value;
-  soloStartSerie.value = null;
   if (!serie) return;
 
   if (!record) {
     // Practice run — unsaved, same ephemeral client-side playback as before.
+    soloStartSerie.value = null;
     const tempPasse = {
       id: `temp_${serie.id}`,
       name: serie.name,
@@ -623,10 +636,21 @@ const onSoloSerieConfirm = async ({ record, shooter }) => {
     return;
   }
 
-  await launchPersistedSerie(serie, [toPlayerRef(shooter)]);
+  // This path now persists a real Serie instance (network round-trip). Keep the
+  // modal open on failure — clearing soloStartSerie beforehand would make a failed
+  // startSerie look identical to a successful, silent run.
+  soloSerieError.value = '';
+  try {
+    await launchPersistedSerie(serie, [toPlayerRef(shooter)]);
+    soloStartSerie.value = null;
+  } catch (err) {
+    console.error('Failed to start persisted solo Serie:', err);
+    soloSerieError.value = 'Serie konnte nicht gestartet werden — bitte erneut versuchen.';
+  }
 };
 
 const playSerieGroup = (serie) => {
+  groupSerieError.value = '';
   groupStartSerie.value = serie;
   _nextGroupStartPlayerId = 1;
   groupStartPlayers.value = [
@@ -651,15 +675,26 @@ const onGroupSerieQrResolved = (user) => {
 const cancelGroupSerieStart = () => {
   groupStartSerie.value = null;
   groupStartPlayers.value = [];
+  groupSerieError.value = '';
 };
 
 const onGroupSerieConfirm = async () => {
   const serie = groupStartSerie.value;
   if (!serie || groupStartPlayers.value.length === 0) return;
   const players = groupStartPlayers.value.map(toPlayerRef);
-  groupStartSerie.value = null;
-  groupStartPlayers.value = [];
-  await launchPersistedSerie(serie, players);
+
+  // Same defensive ordering as the solo path: don't tear down the group setup
+  // state until startSerie has actually succeeded, so a rejection surfaces an
+  // error instead of silently vanishing back to the flyout panel.
+  groupSerieError.value = '';
+  try {
+    await launchPersistedSerie(serie, players);
+    groupStartSerie.value = null;
+    groupStartPlayers.value = [];
+  } catch (err) {
+    console.error('Failed to start persisted group Serie:', err);
+    groupSerieError.value = 'Serie konnte nicht gestartet werden — bitte erneut versuchen.';
+  }
 };
 
 const editSerie = (serieId) => {

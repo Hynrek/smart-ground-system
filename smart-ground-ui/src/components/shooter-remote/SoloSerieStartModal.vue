@@ -26,6 +26,8 @@
         <span class="record-toggle-label">Punkte aufzeichnen</span>
       </label>
 
+      <p v-if="error" class="start-modal-error" role="alert">{{ error }}</p>
+
       <div class="modal-actions">
         <button class="action-btn action-btn--cancel" @click="cancel">
           Abbrechen
@@ -44,6 +46,13 @@
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/authStore.js'
 import QrScanModal from '@/components/shooter/QrScanModal.vue'
+
+defineProps({
+  // Surfaces a failure from the parent's persisted-start attempt (e.g. startSerie
+  // rejecting) so the shooter sees why the modal is still open instead of it
+  // silently closing as if the run had been recorded.
+  error: { type: String, default: '' },
+})
 
 const emit = defineEmits(['confirm', 'cancel'])
 
@@ -194,6 +203,14 @@ const cancel = () => {
   font-size: 14px;
   font-weight: 600;
   color: var(--sg-text-primary);
+}
+
+.start-modal-error {
+  margin: 0;
+  color: var(--sg-color-danger-text);
+  font-weight: 600;
+  text-align: center;
+  font-size: 13px;
 }
 
 .modal-actions {

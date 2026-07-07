@@ -86,6 +86,10 @@
       </button>
       <p v-if="qrNotice" class="gsm-qr-notice">{{ qrNotice }}</p>
 
+      <!-- Surfaces a failed confirm attempt (e.g. persisted Serie start rejecting)
+           so the caller can keep this modal open instead of it closing silently. -->
+      <p v-if="errorMessage" class="gsm-qr-notice" role="alert">{{ errorMessage }}</p>
+
       <label v-if="allowPreview" class="gsm-preview-check">
         <input v-model="previewFirst" type="checkbox" class="gsm-checkbox-input" />
         <span class="gsm-checkbox-box" aria-hidden="true">
@@ -122,6 +126,7 @@ const props = defineProps({
   subtitle: { type: String, default: '' },
   confirmLabel: { type: String, default: 'Starten' },
   qrNotice: { type: String, default: '' },
+  errorMessage: { type: String, default: '' },
   editable: { type: Boolean, default: true },
   allowAdd: { type: Boolean, default: true },
   allowRemove: { type: Boolean, default: true },
