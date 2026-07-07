@@ -200,6 +200,11 @@ paths:
           required: false
           schema:
             $ref: '#/components/schemas/ScoreContext'
+        - name: kind
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ScoreKind'
         - name: serieId
           in: query
           required: false
@@ -241,6 +246,36 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserScoreSummary'
 
+  /api/users/me/passen:
+    get:
+      summary: The caller's training Passen with their child Serien
+      operationId: listMyPassen
+      tags: [Score]
+      responses:
+        '200':
+          description: Passe groups, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PasseScoreGroup'
+
+  /api/users/me/wettkaempfe:
+    get:
+      summary: The caller's Wettkämpfe, nested Passe → Serie
+      operationId: listMyWettkaempfe
+      tags: [Score]
+      responses:
+        '200':
+          description: Wettkampf groups, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WettkampfScoreGroup'
+
   /api/scores/leaderboard:
     get:
       summary: Serie score leaderboard across users
@@ -260,6 +295,11 @@ paths:
           required: false
           schema:
             $ref: '#/components/schemas/ScoreContext'
+        - name: kind
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ScoreKind'
         - name: metric
           in: query
           required: false
@@ -2753,6 +2793,25 @@ paths:
         '404':
           description: Passe not found
 
+  /api/play-instances/serie:
+    post:
+      summary: Start a standalone Serie as a live play instance
+      operationId: startSerieInstance
+      tags: [PlayInstance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSerieInstanceRequest'
+      responses:
+        '201':
+          description: Created serie instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayInstanceResponse'
+
   /api/play-instances:
     get:
       summary: List play instances
@@ -3284,6 +3343,10 @@ components:
       type: string
       enum: [TRAINING, COMPETITION]
 
+    ScoreKind:
+      type: string
+      enum: [SERIE, PASSE, COMPETITION]
+
     UserSerieScoreEntry:
       type: object
       description: One user's result for one completed Serie.
@@ -3291,6 +3354,8 @@ components:
         id: { type: string, format: uuid }
         context:
           $ref: '#/components/schemas/ScoreContext'
+        kind:
+          $ref: '#/components/schemas/ScoreKind'
         totalPoints: { type: integer }
         maxPoints: { type: integer }
         serieId: { type: string, format: uuid }
@@ -3338,22 +3403,6 @@ components:
           format: double
           nullable: true
 
-    GroupedScoreSummary:
-      type: object
-      description: Aggregated score of one Passe (training instance) or Wettkampf (session).
-      properties:
-        key:
-          type: string
-          format: uuid
-          description: playInstanceId (training) or sessionId (competition)
-        label: { type: string, nullable: true }
-        context:
-          $ref: '#/components/schemas/ScoreContext'
-        serieCount: { type: integer }
-        totalPoints: { type: integer }
-        maxPoints: { type: integer }
-        lastCompletedAt: { type: string, format: date-time }
-
     UserScoreSummary:
       type: object
       properties:
@@ -3361,16 +3410,45 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ScoreContextSummary'
+
+    PasseScoreGroup:
+      type: object
+      properties:
+        key: { type: string, format: uuid, description: playInstanceId }
+        label: { type: string, nullable: true }
+        serieCount: { type: integer }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+        lastCompletedAt: { type: string, format: date-time }
+        serien:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSerieScoreEntry'
+
+    WettkampfPasseGroup:
+      type: object
+      properties:
+        passeIndex: { type: integer }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+        serien:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSerieScoreEntry'
+
+    WettkampfScoreGroup:
+      type: object
+      properties:
+        key: { type: string, format: uuid, description: sessionId }
+        label: { type: string, nullable: true }
+        serieCount: { type: integer }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+        lastCompletedAt: { type: string, format: date-time }
         passen:
           type: array
-          description: Training Passen, newest first
           items:
-            $ref: '#/components/schemas/GroupedScoreSummary'
-        wettkaempfe:
-          type: array
-          description: Competition sessions, newest first
-          items:
-            $ref: '#/components/schemas/GroupedScoreSummary'
+            $ref: '#/components/schemas/WettkampfPasseGroup'
 
     LeaderboardEntry:
       type: object
@@ -3559,6 +3637,16 @@ components:
         players:
           type: array
           minItems: 1
+          items:
+            $ref: '#/components/schemas/PlayerRef'
+
+    StartSerieInstanceRequest:
+      type: object
+      required: [serieId, players]
+      properties:
+        serieId: { type: string, format: uuid }
+        players:
+          type: array
           items:
             $ref: '#/components/schemas/PlayerRef'
 
