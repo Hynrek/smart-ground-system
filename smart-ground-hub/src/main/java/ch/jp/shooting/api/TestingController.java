@@ -47,7 +47,13 @@ public class TestingController implements TestingApi {
         List<SeededRange> ranges = testDataService.seedRanges().stream()
                 .map(sr -> {
                     Range r = sr.range();
-                    return new SeededRange().id(r.getId()).name(r.getName()).created(sr.created());
+                    return new SeededRange()
+                            .id(r.getId())
+                            .name(r.getName())
+                            .created(sr.created())
+                            .positionsCreated(sr.positionsCreated())
+                            .boxesCreated(sr.boxesCreated())
+                            .devicesAssigned(sr.devicesAssigned());
                 })
                 .toList();
         return ResponseEntity.ok(new SeedRangesResponse().ranges(ranges));
