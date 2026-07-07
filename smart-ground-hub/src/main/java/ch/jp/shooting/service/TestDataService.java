@@ -29,6 +29,7 @@ public class TestDataService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final RangeRepository rangeRepository;
+    private final RangePositionRepository positionRepository;
     private final SmartBoxRepository smartBoxRepository;
     private final DeviceRepository deviceRepository;
     private final DeviceTypeRepository deviceTypeRepository;
@@ -41,6 +42,7 @@ public class TestDataService {
             RoleRepository roleRepository,
             UserRoleRepository userRoleRepository,
             RangeRepository rangeRepository,
+            RangePositionRepository positionRepository,
             SmartBoxRepository smartBoxRepository,
             DeviceRepository deviceRepository,
             DeviceTypeRepository deviceTypeRepository,
@@ -51,6 +53,7 @@ public class TestDataService {
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
         this.rangeRepository = rangeRepository;
+        this.positionRepository = positionRepository;
         this.smartBoxRepository = smartBoxRepository;
         this.deviceRepository = deviceRepository;
         this.deviceTypeRepository = deviceTypeRepository;
@@ -91,30 +94,99 @@ public class TestDataService {
     private static final List<String> TEST_RANGE_NAMES =
             List.of("Vorderlader", "Trapstand", "Rollhase", "Kippreh");
 
-    public record SeededRange(Range range, boolean created) {}
+    // Positions-Labels für ein "ready to go"-Setup: 8 Positionen A–H je Platz.
+    private static final List<String> POSITION_LABELS =
+            List.of("A", "B", "C", "D", "E", "F", "G", "H");
 
+    private static final int DEVICES_PER_BOX = 4;
+
+    public record SeededRange(
+            Range range,
+            boolean created,
+            int positionsCreated,
+            int boxesCreated,
+            int devicesAssigned) {}
+
+    // Legt die 4 Standard-Ranges an (idempotent nach Name) und baut für jede neue Range
+    // (ohne bestehende Positionen) 8 Positionen + 2 Mock-SmartBoxes à 4 Geräte und weist
+    // alle 8 Geräte den 8 Positionen 1:1 zu. Ranges mit bereits vorhandenen Positionen
+    // werden nicht angetastet (auch nicht bei einer nur teilweise befüllten Range).
     @Transactional
     public List<SeededRange> seedRanges() {
         List<SeededRange> result = new ArrayList<>();
         for (String name : TEST_RANGE_NAMES) {
             Range existing = rangeRepository.findByName(name).orElse(null);
+            boolean created;
+            Range range;
             if (existing != null) {
-                result.add(new SeededRange(existing, false));
+                range = existing;
+                created = false;
             } else {
-                Range range = new Range();
-                range.setName(name);
-                result.add(new SeededRange(rangeRepository.save(range), true));
+                Range fresh = new Range();
+                fresh.setName(name);
+                range = rangeRepository.save(fresh);
+                created = true;
             }
+
+            if (positionRepository.countByRangeId(range.getId()) > 0) {
+                result.add(new SeededRange(range, created, 0, 0, 0));
+                continue;
+            }
+
+            List<RangePosition> positions = createPositions(range);
+            WerferDeviceTypeContext ctx = resolveWerferDeviceType();
+            int boxesCreated = buildBoxesAndAssignDevices(range, positions, ctx);
+            result.add(new SeededRange(range, created, positions.size(), boxesCreated, positions.size()));
         }
         return result;
     }
 
-    // Legt eine Mock-SmartBox mit N Geräten (Typ "Werfer") an, keiner Range zugeordnet.
-    @Transactional
-    public SmartBox createMockSmartBox(int deviceCount, @Nullable String alias) {
-        if (deviceCount < 1 || deviceCount > 50) {
-            throw new IllegalArgumentException("deviceCount must be between 1 and 50");
+    private List<RangePosition> createPositions(Range range) {
+        List<RangePosition> positions = new ArrayList<>();
+        for (int i = 0; i < POSITION_LABELS.size(); i++) {
+            RangePosition position = new RangePosition();
+            position.setRange(range);
+            position.setLabel(POSITION_LABELS.get(i));
+            position.setSortOrder(i);
+            positions.add(positionRepository.save(position));
         }
+        return positions;
+    }
+
+    // Baut 2 Mock-SmartBoxes à 4 Geräte und weist Box 1 → Positionen A–D, Box 2 → Positionen E–H zu.
+    private int buildBoxesAndAssignDevices(Range range, List<RangePosition> positions, WerferDeviceTypeContext ctx) {
+        int boxCount = positions.size() / DEVICES_PER_BOX;
+        for (int b = 0; b < boxCount; b++) {
+            SmartBox box = new SmartBox();
+            box.setMacAddress(generateUniqueMac());
+            box.setStatus(SmartBoxStates.OFFLINE);
+            box.setFirmwareConfig(ctx.firmware());
+            box.setAppVersion("0.6");
+            box.setAlias(range.getName() + " Box " + (b + 1));
+            SmartBox savedBox = smartBoxRepository.save(box);
+
+            for (int d = 0; d < DEVICES_PER_BOX; d++) {
+                RangePosition position = positions.get(b * DEVICES_PER_BOX + d);
+                Device device = new Device();
+                device.setSmartBox(savedBox);
+                device.setDeviceTypeGroup(ctx.group());
+                device.setDeviceType(ctx.deviceType());
+                device.setAlias("Werfer " + position.getLabel());
+                device.setRange(range);
+                device.setRangePosition(position);
+                Device savedDevice = deviceRepository.save(device);
+
+                position.setDevice(savedDevice);
+                positionRepository.save(position);
+            }
+        }
+        return boxCount;
+    }
+
+    private record WerferDeviceTypeContext(FirmwareConfig firmware, DeviceTypeGroup group, DeviceType deviceType) {}
+
+    // Löst FirmwareConfig/DeviceTypeGroup/DeviceType für den generischen "Werfer"-Mock auf.
+    private WerferDeviceTypeContext resolveWerferDeviceType() {
         FirmwareConfig firmware = firmwareConfigRepository
                 .findByVersionAndBoxType("0.6", "xiao-esp32s3")
                 .orElseThrow(() -> new IllegalStateException("FirmwareConfig 0.6/xiao-esp32s3 missing – seed did not run"));
@@ -126,11 +198,21 @@ public class TestDataService {
                 .findByGroupIdAndSignalType_FirmwareConfigId(werferGroup.getId(), firmware.getId())
                 .orElseThrow(() -> new IllegalStateException(
                         "DeviceType für Gruppe 'Wurfmaschine' und FirmwareConfig 0.6/xiao-esp32s3 fehlt – seed did not run"));
+        return new WerferDeviceTypeContext(firmware, werferGroup, werfer);
+    }
+
+    // Legt eine Mock-SmartBox mit N Geräten (Typ "Werfer") an, keiner Range zugeordnet.
+    @Transactional
+    public SmartBox createMockSmartBox(int deviceCount, @Nullable String alias) {
+        if (deviceCount < 1 || deviceCount > 50) {
+            throw new IllegalArgumentException("deviceCount must be between 1 and 50");
+        }
+        WerferDeviceTypeContext ctx = resolveWerferDeviceType();
 
         SmartBox box = new SmartBox();
         box.setMacAddress(generateUniqueMac());
         box.setStatus(SmartBoxStates.OFFLINE);
-        box.setFirmwareConfig(firmware);
+        box.setFirmwareConfig(ctx.firmware());
         box.setAppVersion("0.6");
         if (alias != null && !alias.isBlank()) {
             box.setAlias(alias.trim());
@@ -140,8 +222,8 @@ public class TestDataService {
         for (int i = 1; i <= deviceCount; i++) {
             Device device = new Device();
             device.setSmartBox(savedBox);
-            device.setDeviceTypeGroup(werferGroup);
-            device.setDeviceType(werfer);
+            device.setDeviceTypeGroup(ctx.group());
+            device.setDeviceType(ctx.deviceType());
             device.setAlias("Werfer " + i);
             deviceRepository.save(device);
         }
