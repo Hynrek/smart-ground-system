@@ -84,4 +84,20 @@ class UserSerieScoreRepositoryTest {
         assertEquals(2, repository.findForLeaderboard(null, null, null, Instant.EPOCH).size());
         assertEquals(0, repository.findForLeaderboard(null, null, null, now.plusSeconds(60)).size());
     }
+
+    @Test
+    void findByUserIdAndKind_returnsOnlyThatKind() {
+        var userId = java.util.UUID.randomUUID();
+        var now = java.time.Instant.now();
+        var serie = score(userId, java.util.UUID.randomUUID(), "TRAINING", 5, now);
+        serie.setKind("SERIE");
+        var passe = score(userId, java.util.UUID.randomUUID(), "TRAINING", 7, now.minusSeconds(60));
+        passe.setKind("PASSE");
+        repository.save(serie);
+        repository.save(passe);
+
+        var serien = repository.findByUserIdAndKindOrderByCompletedAtDesc(userId, "SERIE");
+        assertEquals(1, serien.size());
+        assertEquals("SERIE", serien.get(0).getKind());
+    }
 }

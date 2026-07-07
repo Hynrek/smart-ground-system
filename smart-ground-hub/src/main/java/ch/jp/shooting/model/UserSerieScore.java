@@ -19,7 +19,8 @@ import java.util.UUID;
     uniqueConstraints = @UniqueConstraint(columnNames = {"source_id", "user_id"}),
     indexes = {
         @Index(name = "idx_uss_user_completed", columnList = "user_id, completed_at DESC"),
-        @Index(name = "idx_uss_serie_points", columnList = "serie_id, total_points DESC")
+        @Index(name = "idx_uss_serie_points", columnList = "serie_id, total_points DESC"),
+        @Index(name = "idx_uss_user_kind_completed", columnList = "user_id, kind, completed_at DESC")
     })
 @NullMarked
 public class UserSerieScore {
@@ -36,6 +37,10 @@ public class UserSerieScore {
     /** 'TRAINING' | 'COMPETITION' */
     @Column(nullable = false, length = 12)
     private String context;
+
+    /** Strukturelle Kategorie: 'SERIE' | 'PASSE' | 'COMPETITION'. Feiner als context. */
+    @Column(nullable = false, length = 12)
+    private String kind = "PASSE";
 
     @Column(name = "total_points", nullable = false)
     private int totalPoints;
@@ -97,6 +102,8 @@ public class UserSerieScore {
     public void setUserId(UUID userId) { this.userId = userId; }
     public String getContext() { return context; }
     public void setContext(String context) { this.context = context; }
+    public String getKind() { return kind; }
+    public void setKind(String kind) { this.kind = kind; }
     public int getTotalPoints() { return totalPoints; }
     public void setTotalPoints(int totalPoints) { this.totalPoints = totalPoints; }
     public int getMaxPoints() { return maxPoints; }

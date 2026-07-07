@@ -23,6 +23,8 @@ public interface UserSerieScoreRepository extends JpaRepository<UserSerieScore, 
 
     List<UserSerieScore> findByUserIdOrderByCompletedAtDesc(UUID userId);
 
+    List<UserSerieScore> findByUserIdAndKindOrderByCompletedAtDesc(UUID userId, String kind);
+
     // from/to sind im Service immer gesetzt (EPOCH/now-Defaults) — vermeidet
     // typisierte Null-Parameter auf Timestamps; context/serieId bleiben optional.
     @Query("select s from UserSerieScore s where s.userId = :userId"
