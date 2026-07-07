@@ -4,6 +4,7 @@ import ch.jp.shooting.exception.InvalidTiebreakerStateException;
 import ch.jp.shooting.exception.PlayInstanceNotFoundException;
 import ch.jp.shooting.exception.SerieNotFoundException;
 import ch.jp.shooting.exception.TiebreakerNotFoundException;
+import ch.jp.shooting.mapper.PlayMapper;
 import ch.jp.shooting.model.CompetitionTiebreaker;
 import ch.jp.shooting.model.LiveSession;
 import ch.jp.shooting.model.PlayerResult;
@@ -212,7 +213,7 @@ public class TiebreakerService {
         // Serie-Vorlage laden — ein Stechen ist immer eine Einzel-Serie.
         Serie serie = serieRepo.findById(req.getTemplateId())
                 .orElseThrow(() -> new SerieNotFoundException(req.getTemplateId()));
-        String snapshot = ch.jp.shooting.mapper.PlayMapper.writeEmbeddedSerienFromSerie(serie);
+        String snapshot = PlayMapper.writeEmbeddedSerienFromSerie(serie);
 
         // Tiebreaker anlegen.
         CompetitionTiebreaker tb = new CompetitionTiebreaker(session, tieGroupId, roundNumber, tiePosition);

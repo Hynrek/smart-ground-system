@@ -136,8 +136,11 @@ public final class PlayMapper {
         try {
             serieNode.set("steps", objectMapper.readTree(steps == null || steps.isBlank() ? "[]" : steps));
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            log.warn("Steps-JSON für Serie {} nicht parsebar", serie.getId(), e);
-            serieNode.set("steps", objectMapper.createArrayNode());
+            // Ein Stechen bzw. ein Einzel-Serie-Lauf darf niemals stillschweigend mit leeren
+            // Steps starten – ein korruptes stepsJson muss laut fehlschlagen statt eine
+            // 0-Schritte-Runde zu erzeugen (siehe TiebreakerService.startTiebreaker /
+            // PlayInstanceService.startSerieInstance).
+            throw new RuntimeException("Steps-JSON für Serie " + serie.getId() + " nicht parsebar", e);
         }
         var arrayNode = objectMapper.createArrayNode();
         arrayNode.add(serieNode);
