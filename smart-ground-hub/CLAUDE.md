@@ -200,18 +200,52 @@ Serie  ──────────────────────▶  st
   - **Decision:** `serie_ids_json` (ordered ID references, live-joined) replaced the old embedded-snapshot `serien_json` — snapshots silently diverged from edited Serien. Old snapshot-based Passen were reset, not migrated (pre-v1.0, no upgrade path).
 ### PlayInstance (live execution)
 
-Created when a user starts running a Passe (or a single Serie for a Stechen round):
+Created when a user starts running a Passe, a standalone Serie, or a single Serie for a Stechen round:
 
 | Field | Values |
 |---|---|
-| `type` | `passe` |
+| `type` | `passe` \| `serie` \| `stechen` |
 | `status` | `active` \| `completed` \| `cancelled` |
 | `playersJson` | `PlayerRef[]` — participants |
 | `stateJson` | `PlayBlock[]` |
 
 **Lifecycle**: `startBlock()` → `completeBlock(results)` → all done → `completed`. `stopPlayInstance()` → `cancelled`.
 
+- Standalone Serie runs (`POST /api/play-instances/serie`) are created with `type="serie"` via `PlayInstanceService.startSerieInstance`.
+- Stechen (shoot-off) rounds reuse the same `startSerieInstance` path but pass `type="stechen"` (see `TiebreakerService.startTiebreaker`) — this is why `type` needed a third value beyond the original `passe`.
+- The OpenAPI `type` enum on `PlayInstanceResponse` / `PlayResultSummary` / `PlayResultResponse` was widened to `[passe, serie, stechen]` to match: those generated DTOs call `.fromValue()` on the entity's `type` string, which would throw for the new values otherwise.
+- `UserScoreService.recordTrainingInstance` only projects `passe` and `serie` instances into `UserSerieScore` — `stechen` instances are explicitly excluded (a shoot-off is not a scored training/competition activity in its own right; its result only orders a tie, per the Stechen section below).
+
 `SessionWebSocketService` pushes state changes to subscribed clients via STOMP.
+
+---
+
+## Domain: User Score Tracking (`UserSerieScore`)
+
+Every completed Serie result a registered user takes part in — whether run standalone/in a Passe (training) or as part of a competition — is projected into a flat `UserSerieScore` row (table `user_serie_scores`). Passe/Wettkampf totals are **never stored**, only aggregated on read from these rows; the source of truth remains `PlayInstance.stateJson` / `CompetitionSerieResult`, so the projection is always rebuildable.
+
+### `kind` — structural discriminator (`SERIE` \| `PASSE` \| `COMPETITION`)
+
+`UserSerieScore.kind` records *what structural container* a row belongs to, independent of `context` (`TRAINING` \| `COMPETITION`):
+- `SERIE` — a standalone Serie run (`PlayInstance.type = "serie"`), not part of any Passe.
+- `PASSE` — a Serie run as one step of a Passe (`PlayInstance.type = "passe"`); rows share `playInstanceId`.
+- `COMPETITION` — a Serie result recorded from `CompetitionSerieResult` (`recordCompetitionSerie`).
+
+`kind` is derived at write time (`UserScoreService.recordTrainingInstance` / `recordCompetitionSerie`) from which entity/type produced the row — it is never user-supplied. **Solo vs. group play does not affect `kind`**: it only affects which users get rows written (one row per participating user, always). The generated `ScoreKind` enum and `ScoreController`/`UserScoreService` filters (`context`, `kind`, `serieId`, date range) all key off this field.
+
+### Grouped reads
+
+`GET /users/me/passen` and `GET /users/me/wettkaempfe` (`ScoreController.listMyPassen` / `listMyWettkaempfe`, generated `PasseScoreGroup` / `WettkampfScoreGroup` / `WettkampfPasseGroup`) return the current user's Serie results **grouped by their parent** (Passe, or Session → Passe-index → Serie for competitions) — these **replace** the old flat summary `passen`/`wettkaempfe` arrays that used to live on `UserScoreSummary`. `UserScoreSummary` (`GET /users/me/score-summary`) now only carries aggregate totals; `GET /users/me/scores` (`listMyScores`, paged, filterable by `context`/`kind`/`serieId`/date range) remains the flat per-Serie feed.
+
+### `StepStateRecord` per-step enrichment (best-effort, no backfill)
+
+`UserSerieScoreEntry.stepStates` (nested in each `UserSerieScore` row's `stepStatesJson`) carries, per shot: `playerId`, `serieIndex`, `stepIndex`, `state`, `pointValue`, `noBirds`, `pointsEarned`, and — added later in this projection's life — `type`, `letter`, `letter1`, `letter2`. These four extra fields are resolved **best-effort at score-write time** by reusing the same `PositionLabelResolver` / `SerieSnapshotRecord` mechanism the competition-results path already used:
+- Training path (`UserScoreService.recordTrainingInstance`): resolved via `PositionLabelResolver.resolveSteps` against the block's **live** Serie steps.
+- Competition path (`recordCompetitionSerie`): read from the already-frozen `CompetitionSerieResult.serieSnapshotJson` (no live join — consistent with the "completed-result label snapshot" rule below).
+
+This lets the frontend's shooter score-history drill-down render the same per-clay `StepScorecard` breakdown the competition-admin view already shows.
+
+> **Caveat — no backfill.** `type`/`letter`/`letter1`/`letter2` were added to `StepStateRecord` after the projection had already been recording rows. There was **no backfill/migration** of existing rows (pre-v1.0, in keeping with the "schema can be rewritten freely" policy) — by design. Any reader of `UserSerieScore`/`UserSerieScoreEntry` must treat these four fields as **nullable/possibly-absent on older rows** and degrade gracefully (e.g. fall back to `stepIndex`-only rendering) rather than assume they are always populated.
 
 ---
 
@@ -304,9 +338,14 @@ guests            id, display_name, created_at
 serien            id, name, ownership(user|range), range_id→ranges?, owner_id→users,
                   steps_json TEXT, published boolean (default false), created_at
 passen            id, name, owner_id→users, serie_ids_json TEXT, created_at
-play_instances    instanceId, type(passe), template_id UUID, template_name,
+play_instances    instanceId, type(passe|serie|stechen), template_id UUID, template_name,
                   status(active|completed|cancelled), owner_id→users, players_json TEXT,
                   state_json TEXT, started_at, completed_at?
+user_serie_scores id, user_id→users, context(TRAINING|COMPETITION), kind(SERIE|PASSE|COMPETITION),
+                  total_points, max_points, step_states_json TEXT?, serie_id, serie_alias,
+                  source_id (idempotency key), play_instance_id?, session_id?, group_id?,
+                  passe_index?, parent_name?, range_id?, range_name?, completed_at
+                  UNIQUE(source_id, user_id)
 ```
 
 ### Competition / Session tables
