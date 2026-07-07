@@ -56,18 +56,18 @@ class UserSerieScoreRepositoryTest {
         repository.save(score(UUID.randomUUID(), UUID.randomUUID(), "TRAINING", 9, now));
 
         // no filters: both rows of this user, newest first
-        var all = repository.findFiltered(userId, null, null,
+        var all = repository.findFiltered(userId, null, null, null,
             Instant.EPOCH, now.plusSeconds(60), PageRequest.of(0, 20));
         assertEquals(2, all.getTotalElements());
         assertEquals("COMPETITION", all.getContent().get(0).getContext());
 
         // context filter
-        var training = repository.findFiltered(userId, "TRAINING", null,
+        var training = repository.findFiltered(userId, "TRAINING", null, null,
             Instant.EPOCH, now.plusSeconds(60), PageRequest.of(0, 20));
         assertEquals(1, training.getTotalElements());
 
         // time window excludes the older row
-        var recent = repository.findFiltered(userId, null, null,
+        var recent = repository.findFiltered(userId, null, null, null,
             now.minusSeconds(60), now.plusSeconds(60), PageRequest.of(0, 20));
         assertEquals(1, recent.getTotalElements());
     }
@@ -80,9 +80,9 @@ class UserSerieScoreRepositoryTest {
         repository.save(s1);
         repository.save(score(UUID.randomUUID(), UUID.randomUUID(), "COMPETITION", 8, now));
 
-        assertEquals(1, repository.findForLeaderboard("TRAINING", null, null, Instant.EPOCH).size());
-        assertEquals(2, repository.findForLeaderboard(null, null, null, Instant.EPOCH).size());
-        assertEquals(0, repository.findForLeaderboard(null, null, null, now.plusSeconds(60)).size());
+        assertEquals(1, repository.findForLeaderboard("TRAINING", null, null, null, Instant.EPOCH).size());
+        assertEquals(2, repository.findForLeaderboard(null, null, null, null, Instant.EPOCH).size());
+        assertEquals(0, repository.findForLeaderboard(null, null, null, null, now.plusSeconds(60)).size());
     }
 
     @Test

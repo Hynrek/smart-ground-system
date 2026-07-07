@@ -5,6 +5,7 @@ import ch.jp.smartground.api.PlayInstanceApi;
 import ch.jp.smartground.model.CompleteBlockRequest;
 import ch.jp.smartground.model.PlayInstanceResponse;
 import ch.jp.smartground.model.StartPasseInstanceRequest;
+import ch.jp.smartground.model.StartSerieInstanceRequest;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +30,13 @@ public class PlayInstanceController implements PlayInstanceApi {
             StartPasseInstanceRequest startPasseInstanceRequest) {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(playInstanceService.startPasseInstance(startPasseInstanceRequest));
+    }
+
+    @Override
+    public ResponseEntity<PlayInstanceResponse> startSerieInstance(
+            StartSerieInstanceRequest startSerieInstanceRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(playInstanceService.startSerieInstance(startSerieInstanceRequest));
     }
 
     @Override

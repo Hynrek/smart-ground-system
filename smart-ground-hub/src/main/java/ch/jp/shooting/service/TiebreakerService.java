@@ -29,8 +29,6 @@ import ch.jp.smartground.model.TiebreakerResponse;
 import ch.jp.smartground.model.TiedBlock;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -214,7 +212,7 @@ public class TiebreakerService {
         // Serie-Vorlage laden — ein Stechen ist immer eine Einzel-Serie.
         Serie serie = serieRepo.findById(req.getTemplateId())
                 .orElseThrow(() -> new SerieNotFoundException(req.getTemplateId()));
-        String snapshot = buildSerieSnapshot(serie);
+        String snapshot = ch.jp.shooting.mapper.PlayMapper.writeEmbeddedSerienFromSerie(serie);
 
         // Tiebreaker anlegen.
         CompetitionTiebreaker tb = new CompetitionTiebreaker(session, tieGroupId, roundNumber, tiePosition);
@@ -238,25 +236,6 @@ public class TiebreakerService {
 
         tb.setStatus(TiebreakerStatus.ACTIVE);
         return toResponse(tbRepo.save(tb));
-    }
-
-    /**
-     * Baut aus einer einzelnen Serie einen Serien-Listen-Snapshot in der Form, die
-     * {@code PlayMapper.parseEmbeddedSerien} konsumiert: {@code [{id, alias, rangeId, rangeName, steps}]}.
-     */
-    private String buildSerieSnapshot(Serie serie) throws Exception {
-        ObjectNode serieNode = objectMapper.createObjectNode();
-        serieNode.put("id", serie.getId().toString());
-        serieNode.put("alias", serie.getName());
-        if (serie.getRange() != null) {
-            serieNode.put("rangeId", serie.getRange().getId().toString());
-            serieNode.put("rangeName", serie.getRange().getName());
-        }
-        String steps = serie.getStepsJson();
-        serieNode.set("steps", objectMapper.readTree(steps == null || steps.isBlank() ? "[]" : steps));
-        ArrayNode arrayNode = objectMapper.createArrayNode();
-        arrayNode.add(serieNode);
-        return objectMapper.writeValueAsString(arrayNode);
     }
 
     // ── Stechen auflisten ──────────────────────────────────────────────────────

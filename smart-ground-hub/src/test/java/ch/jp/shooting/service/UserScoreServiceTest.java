@@ -245,7 +245,7 @@ class UserScoreServiceTest {
     }
 
     @Test
-    void getMyScoreSummary_aggregatesContextsAndGroups() {
+    void getMyScoreSummary_aggregatesContexts() {
         var userId = UUID.randomUUID();
         var me = mock(User.class);
         when(me.getId()).thenReturn(userId);
@@ -268,12 +268,46 @@ class UserScoreServiceTest {
         assertEquals(14, training.getTotalPoints());
         assertEquals(70.0, training.getAveragePercent(), 0.01);
         assertEquals(80.0, training.getBestPercent().get(), 0.01);
+    }
 
-        assertEquals(1, summary.getPassen().size());
-        assertEquals(14, summary.getPassen().get(0).getTotalPoints());
-        assertEquals(2, summary.getPassen().get(0).getSerieCount());
-        assertEquals(1, summary.getWettkaempfe().size());
-        assertEquals(9, summary.getWettkaempfe().get(0).getTotalPoints());
+    @Test
+    void listMyPassen_groupsTrainingPasseRowsByInstance() {
+        var userId = java.util.UUID.randomUUID();
+        var me = mock(ch.jp.shooting.model.auth.User.class);
+        when(me.getId()).thenReturn(userId);
+        when(securityHelper.currentUser()).thenReturn(me);
+        var passeId = java.util.UUID.randomUUID();
+        var now = java.time.Instant.now();
+        var r1 = row(userId, "TRAINING", 8, 10, passeId, null, now); r1.setKind("PASSE");
+        var r2 = row(userId, "TRAINING", 6, 10, passeId, null, now.minusSeconds(60)); r2.setKind("PASSE");
+        var serieRow = row(userId, "TRAINING", 9, 10, null, null, now); serieRow.setKind("SERIE");
+        when(scoreRepository.findByUserIdOrderByCompletedAtDesc(userId))
+            .thenReturn(java.util.List.of(r1, r2, serieRow));
+
+        var groups = service().listMyPassen();
+        assertEquals(1, groups.size());
+        assertEquals(passeId, groups.get(0).getKey());
+        assertEquals(2, groups.get(0).getSerien().size());
+        assertEquals(14, groups.get(0).getTotalPoints());
+    }
+
+    @Test
+    void listMyWettkaempfe_nestsSessionPasseSerie() {
+        var userId = java.util.UUID.randomUUID();
+        var me = mock(ch.jp.shooting.model.auth.User.class);
+        when(me.getId()).thenReturn(userId);
+        when(securityHelper.currentUser()).thenReturn(me);
+        var sessionId = java.util.UUID.randomUUID();
+        var now = java.time.Instant.now();
+        var c1 = row(userId, "COMPETITION", 7, 10, null, sessionId, now); c1.setKind("COMPETITION"); c1.setPasseIndex(1);
+        var c2 = row(userId, "COMPETITION", 8, 10, null, sessionId, now); c2.setKind("COMPETITION"); c2.setPasseIndex(2);
+        when(scoreRepository.findByUserIdOrderByCompletedAtDesc(userId))
+            .thenReturn(java.util.List.of(c1, c2));
+
+        var groups = service().listMyWettkaempfe();
+        assertEquals(1, groups.size());
+        assertEquals(2, groups.get(0).getPassen().size());
+        assertEquals(15, groups.get(0).getTotalPoints());
     }
 
     @Test
@@ -281,7 +315,7 @@ class UserScoreServiceTest {
         var alice = UUID.randomUUID();
         var bob = UUID.randomUUID();
         var now = Instant.now();
-        when(scoreRepository.findForLeaderboard(isNull(), isNull(), isNull(), any())).thenReturn(List.of(
+        when(scoreRepository.findForLeaderboard(isNull(), isNull(), isNull(), isNull(), any())).thenReturn(List.of(
             row(alice, "TRAINING", 9, 10, UUID.randomUUID(), null, now),
             row(alice, "TRAINING", 5, 10, UUID.randomUUID(), null, now),
             row(bob, "TRAINING", 8, 10, UUID.randomUUID(), null, now)
@@ -294,7 +328,7 @@ class UserScoreServiceTest {
         when(bobUser.getFullName()).thenReturn("Bob");
         when(userRepository.findAllById(any())).thenReturn(List.of(aliceUser, bobUser));
 
-        var board = service().getLeaderboard(null, null, null, "best", 10, null);
+        var board = service().getLeaderboard(null, null, null, null, "best", 10, null);
 
         assertEquals(2, board.getEntries().size());
         assertEquals("Alice", board.getEntries().get(0).getDisplayName());

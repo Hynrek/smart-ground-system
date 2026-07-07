@@ -29,11 +29,13 @@ public interface UserSerieScoreRepository extends JpaRepository<UserSerieScore, 
     // typisierte Null-Parameter auf Timestamps; context/serieId bleiben optional.
     @Query("select s from UserSerieScore s where s.userId = :userId"
         + " and (:context is null or s.context = :context)"
+        + " and (:kind is null or s.kind = :kind)"
         + " and (:serieId is null or s.serieId = :serieId)"
         + " and s.completedAt >= :from and s.completedAt <= :to"
         + " order by s.completedAt desc")
     Page<UserSerieScore> findFiltered(@Param("userId") UUID userId,
                                       @Param("context") @Nullable String context,
+                                      @Param("kind") @Nullable String kind,
                                       @Param("serieId") @Nullable UUID serieId,
                                       @Param("from") Instant from,
                                       @Param("to") Instant to,
@@ -41,10 +43,12 @@ public interface UserSerieScoreRepository extends JpaRepository<UserSerieScore, 
 
     @Query("select s from UserSerieScore s where"
         + " (:context is null or s.context = :context)"
+        + " and (:kind is null or s.kind = :kind)"
         + " and (:serieId is null or s.serieId = :serieId)"
         + " and (:rangeId is null or s.rangeId = :rangeId)"
         + " and s.completedAt >= :from")
     List<UserSerieScore> findForLeaderboard(@Param("context") @Nullable String context,
+                                            @Param("kind") @Nullable String kind,
                                             @Param("serieId") @Nullable UUID serieId,
                                             @Param("rangeId") @Nullable UUID rangeId,
                                             @Param("from") Instant from);

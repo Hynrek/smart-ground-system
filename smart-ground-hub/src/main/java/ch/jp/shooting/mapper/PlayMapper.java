@@ -119,6 +119,31 @@ public final class PlayMapper {
         return parseList(json, new TypeReference<>() {});
     }
 
+    /**
+     * Baut aus einer einzelnen Serie einen Serien-Listen-Snapshot in der Form, die
+     * {@link #parseEmbeddedSerien} konsumiert: {@code [{id, alias, rangeId, rangeName, steps}]}.
+     * Wird für Einzel-Serie-Läufe verwendet (Stechen-Runden, {@code startSerieInstance}).
+     */
+    public static String writeEmbeddedSerienFromSerie(Serie serie) {
+        var serieNode = objectMapper.createObjectNode();
+        serieNode.put("id", serie.getId().toString());
+        serieNode.put("alias", serie.getName());
+        if (serie.getRange() != null) {
+            serieNode.put("rangeId", serie.getRange().getId().toString());
+            serieNode.put("rangeName", serie.getRange().getName());
+        }
+        String steps = serie.getStepsJson();
+        try {
+            serieNode.set("steps", objectMapper.readTree(steps == null || steps.isBlank() ? "[]" : steps));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            log.warn("Steps-JSON für Serie {} nicht parsebar", serie.getId(), e);
+            serieNode.set("steps", objectMapper.createArrayNode());
+        }
+        var arrayNode = objectMapper.createArrayNode();
+        arrayNode.add(serieNode);
+        return writeValue(arrayNode);
+    }
+
     public static String writeSerieIds(List<java.util.UUID> ids) {
         return writeValue(ids.stream().map(java.util.UUID::toString).toList());
     }

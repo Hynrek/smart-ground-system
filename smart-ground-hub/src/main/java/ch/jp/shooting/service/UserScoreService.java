@@ -142,13 +142,13 @@ public class UserScoreService {
 
     @Transactional(readOnly = true)
     public ch.jp.smartground.model.UserScorePage listMyScores(
-            @Nullable String context, @Nullable UUID serieId,
+            @Nullable String context, @Nullable String kind, @Nullable UUID serieId,
             @Nullable OffsetDateTime from, @Nullable OffsetDateTime to,
             int page, int size) {
         var userId = securityHelper.currentUser().getId();
         var fromInstant = from != null ? from.toInstant() : java.time.Instant.EPOCH;
         var toInstant = to != null ? to.toInstant() : java.time.Instant.now().plusSeconds(60);
-        var result = scoreRepository.findFiltered(userId, context, serieId,
+        var result = scoreRepository.findFiltered(userId, context, kind, serieId,
             fromInstant, toInstant, org.springframework.data.domain.PageRequest.of(page, size));
         var meta = new ch.jp.smartground.model.PageMeta()
             .page(result.getNumber()).size(result.getSize())
@@ -177,35 +177,69 @@ public class UserScoreService {
                     .mapToDouble(r -> percent(r.getTotalPoints(), r.getMaxPoints())).max().orElse(0.0));
             summary.addContextsItem(ctx);
         }
-
-        // Gruppierung: Training nach playInstanceId, Wettkampf nach sessionId.
-        // rows sind absteigend sortiert — LinkedHashMap erhält "neueste zuerst".
-        var passen = new java.util.LinkedHashMap<UUID, ch.jp.smartground.model.GroupedScoreSummary>();
-        var wettkaempfe = new java.util.LinkedHashMap<UUID, ch.jp.smartground.model.GroupedScoreSummary>();
-        for (var r : rows) {
-            UUID key = "TRAINING".equals(r.getContext()) ? r.getPlayInstanceId() : r.getSessionId();
-            if (key == null) continue;
-            var target = "TRAINING".equals(r.getContext()) ? passen : wettkaempfe;
-            var g = target.computeIfAbsent(key, k -> new ch.jp.smartground.model.GroupedScoreSummary()
-                .key(k).label(r.getParentName())
-                .context(ch.jp.smartground.model.ScoreContext.fromValue(r.getContext()))
-                .serieCount(0).totalPoints(0).maxPoints(0)
-                .lastCompletedAt(java.time.OffsetDateTime.ofInstant(r.getCompletedAt(), java.time.ZoneOffset.UTC)));
-            g.serieCount(g.getSerieCount() + 1)
-             .totalPoints(g.getTotalPoints() + r.getTotalPoints())
-             .maxPoints(g.getMaxPoints() + r.getMaxPoints());
-        }
-        summary.passen(new java.util.ArrayList<>(passen.values()));
-        summary.wettkaempfe(new java.util.ArrayList<>(wettkaempfe.values()));
         return summary;
+    }
+
+    /** Trainings-Passen des aktuellen Users, gruppiert nach playInstanceId, mit Kind-Serien. */
+    @Transactional(readOnly = true)
+    public java.util.List<ch.jp.smartground.model.PasseScoreGroup> listMyPassen() {
+        var userId = securityHelper.currentUser().getId();
+        var groups = new java.util.LinkedHashMap<UUID, ch.jp.smartground.model.PasseScoreGroup>();
+        for (var s : scoreRepository.findByUserIdOrderByCompletedAtDesc(userId)) {
+            if (!"PASSE".equals(s.getKind()) || s.getPlayInstanceId() == null) continue;
+            var g = groups.computeIfAbsent(s.getPlayInstanceId(), k ->
+                new ch.jp.smartground.model.PasseScoreGroup()
+                    .key(k).label(s.getParentName())
+                    .serieCount(0).totalPoints(0).maxPoints(0)
+                    .lastCompletedAt(s.getCompletedAt().atOffset(java.time.ZoneOffset.UTC))
+                    .serien(new java.util.ArrayList<>()));
+            g.setSerieCount(g.getSerieCount() + 1);
+            g.setTotalPoints(g.getTotalPoints() + s.getTotalPoints());
+            g.setMaxPoints(g.getMaxPoints() + s.getMaxPoints());
+            g.getSerien().add(toEntry(s));
+        }
+        return new java.util.ArrayList<>(groups.values());
+    }
+
+    /** Wettkämpfe des aktuellen Users: Session → Passe (passeIndex) → Serie. */
+    @Transactional(readOnly = true)
+    public java.util.List<ch.jp.smartground.model.WettkampfScoreGroup> listMyWettkaempfe() {
+        var userId = securityHelper.currentUser().getId();
+        var sessions = new java.util.LinkedHashMap<UUID, ch.jp.smartground.model.WettkampfScoreGroup>();
+        var passenBySession = new java.util.HashMap<UUID, java.util.LinkedHashMap<Integer, ch.jp.smartground.model.WettkampfPasseGroup>>();
+        for (var s : scoreRepository.findByUserIdOrderByCompletedAtDesc(userId)) {
+            if (!"COMPETITION".equals(s.getKind()) || s.getSessionId() == null) continue;
+            var g = sessions.computeIfAbsent(s.getSessionId(), k ->
+                new ch.jp.smartground.model.WettkampfScoreGroup()
+                    .key(k).label(s.getParentName())
+                    .serieCount(0).totalPoints(0).maxPoints(0)
+                    .lastCompletedAt(s.getCompletedAt().atOffset(java.time.ZoneOffset.UTC))
+                    .passen(new java.util.ArrayList<>()));
+            g.setSerieCount(g.getSerieCount() + 1);
+            g.setTotalPoints(g.getTotalPoints() + s.getTotalPoints());
+            g.setMaxPoints(g.getMaxPoints() + s.getMaxPoints());
+            int idx = s.getPasseIndex() != null ? s.getPasseIndex() : 0;
+            var passeMap = passenBySession.computeIfAbsent(s.getSessionId(), k -> new java.util.LinkedHashMap<>());
+            var pg = passeMap.computeIfAbsent(idx, k -> {
+                var np = new ch.jp.smartground.model.WettkampfPasseGroup()
+                    .passeIndex(k).totalPoints(0).maxPoints(0)
+                    .serien(new java.util.ArrayList<>());
+                g.getPassen().add(np);
+                return np;
+            });
+            pg.setTotalPoints(pg.getTotalPoints() + s.getTotalPoints());
+            pg.setMaxPoints(pg.getMaxPoints() + s.getMaxPoints());
+            pg.getSerien().add(toEntry(s));
+        }
+        return new java.util.ArrayList<>(sessions.values());
     }
 
     @Transactional(readOnly = true)
     public ch.jp.smartground.model.LeaderboardResponse getLeaderboard(
-            @Nullable UUID serieId, @Nullable UUID rangeId, @Nullable String context,
+            @Nullable UUID serieId, @Nullable UUID rangeId, @Nullable String context, @Nullable String kind,
             String metric, int limit, @Nullable OffsetDateTime from) {
         var fromInstant = from != null ? from.toInstant() : java.time.Instant.EPOCH;
-        var rows = scoreRepository.findForLeaderboard(context, serieId, rangeId, fromInstant);
+        var rows = scoreRepository.findForLeaderboard(context, kind, serieId, rangeId, fromInstant);
 
         var byUser = rows.stream().collect(java.util.stream.Collectors.groupingBy(UserSerieScore::getUserId));
         var names = new java.util.HashMap<UUID, String>();
@@ -241,6 +275,7 @@ public class UserScoreService {
         var entry = new ch.jp.smartground.model.UserSerieScoreEntry()
             .id(s.getId())
             .context(ch.jp.smartground.model.ScoreContext.fromValue(s.getContext()))
+            .kind(ch.jp.smartground.model.ScoreKind.fromValue(s.getKind()))
             .totalPoints(s.getTotalPoints())
             .maxPoints(s.getMaxPoints())
             .serieId(s.getSerieId())

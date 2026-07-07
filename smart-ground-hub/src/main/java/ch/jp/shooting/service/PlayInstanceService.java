@@ -9,10 +9,12 @@ import ch.jp.shooting.dto.play.PlayerResultRecord;
 import ch.jp.shooting.exception.BlockStateException;
 import ch.jp.shooting.exception.PasseNotFoundException;
 import ch.jp.shooting.exception.PlayInstanceNotFoundException;
+import ch.jp.shooting.exception.SerieNotFoundException;
 import ch.jp.shooting.mapper.PlayMapper;
 import ch.jp.shooting.model.PlayInstance;
 import ch.jp.shooting.repository.PasseRepository;
 import ch.jp.shooting.repository.PlayInstanceRepository;
+import ch.jp.shooting.repository.SerieRepository;
 import ch.jp.smartground.model.CompleteBlockRequest;
 import ch.jp.smartground.model.PageMeta;
 import ch.jp.smartground.model.PlayInstanceResponse;
@@ -21,6 +23,7 @@ import ch.jp.smartground.model.PlayResultResponse;
 import ch.jp.smartground.model.PlayResultSummary;
 import ch.jp.smartground.model.PlayerRef;
 import ch.jp.smartground.model.StartPasseInstanceRequest;
+import ch.jp.smartground.model.StartSerieInstanceRequest;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.PageRequest;
@@ -44,6 +47,7 @@ public class PlayInstanceService {
     private final PlayInstanceRepository playInstanceRepository;
     private final PasseRepository passeRepository;
     private final PasseService passeService;
+    private final SerieRepository serieRepository;
     private final SecurityHelper securityHelper;
     private final PositionLabelResolver positionLabelResolver;
     private final UserScoreService userScoreService;
@@ -51,12 +55,14 @@ public class PlayInstanceService {
     public PlayInstanceService(PlayInstanceRepository playInstanceRepository,
                                PasseRepository passeRepository,
                                PasseService passeService,
+                               SerieRepository serieRepository,
                                SecurityHelper securityHelper,
                                PositionLabelResolver positionLabelResolver,
                                UserScoreService userScoreService) {
         this.playInstanceRepository = playInstanceRepository;
         this.passeRepository = passeRepository;
         this.passeService = passeService;
+        this.serieRepository = serieRepository;
         this.securityHelper = securityHelper;
         this.positionLabelResolver = positionLabelResolver;
         this.userScoreService = userScoreService;
@@ -70,6 +76,14 @@ public class PlayInstanceService {
             .orElseThrow(() -> new PasseNotFoundException(request.getPasseId()));
         var serien = passeService.resolveLiveSerien(passe);
         return buildAndSaveInstance(passe.getId(), passe.getName(), serien, request.getPlayers(), "passe");
+    }
+
+    /** Startet einen Einzel-Serie-Lauf als einblockige Instanz direkt aus einer Serie-Vorlage. */
+    public PlayInstanceResponse startSerieInstance(StartSerieInstanceRequest request) {
+        var serie = serieRepository.findById(request.getSerieId())
+            .orElseThrow(() -> new SerieNotFoundException(request.getSerieId()));
+        var snapshot = PlayMapper.writeEmbeddedSerienFromSerie(serie);
+        return startSerieInstance(serie.getId(), serie.getName(), snapshot, request.getPlayers(), "serie");
     }
 
     /**
