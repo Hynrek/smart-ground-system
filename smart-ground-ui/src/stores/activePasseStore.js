@@ -31,13 +31,13 @@ export const useActivePasseStore = defineStore('activePasse', () => {
     }
   }
 
-  const startTraining = async (template, players) => {
+  const startSerie = async (serie, players) => {
     try {
-      const instance = await playInstanceApi.startTrainingInstance(template.id, players)
+      const instance = await playInstanceApi.startSerieInstance(serie.id, players)
       activeInstances.value.push(instance)
       return instance
     } catch (e) {
-      console.error('Failed to start Training instance:', e)
+      console.error('Failed to start Serie instance:', e)
       throw e
     }
   }
@@ -115,7 +115,7 @@ export const useActivePasseStore = defineStore('activePasse', () => {
     completedInstances,
     loadFromStorage,
     startPasse,
-    startTraining,
+    startSerie,
     getBlocksForRange,
     markBlockInProgress,
     markBlockDone,

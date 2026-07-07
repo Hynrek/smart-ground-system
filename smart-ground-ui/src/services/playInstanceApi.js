@@ -8,10 +8,10 @@ export async function startPasseInstance(passeId, players) {
   });
 }
 
-export async function startTrainingInstance(trainingId, players) {
-  return apiFetch('/play-instances/training', {
+export async function startSerieInstance(serieId, players) {
+  return apiFetch('/play-instances/serie', {
     method: 'POST',
-    body: JSON.stringify({ trainingId, players }),
+    body: JSON.stringify({ serieId, players }),
   });
 }
 

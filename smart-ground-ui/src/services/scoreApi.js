@@ -22,3 +22,11 @@ export async function fetchMyScoreSummary() {
 export async function fetchLeaderboard(params) {
   return apiFetch(`/scores/leaderboard${toQuery(params)}`)
 }
+
+export async function fetchMyPassen() {
+  return apiFetch('/users/me/passen')
+}
+
+export async function fetchMyWettkaempfe() {
+  return apiFetch('/users/me/wettkaempfe')
+}

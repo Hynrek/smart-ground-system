@@ -7,6 +7,8 @@ vi.mock('@/services/scoreApi.js', () => ({
   fetchMyScores: vi.fn(),
   fetchMyScoreSummary: vi.fn(),
   fetchLeaderboard: vi.fn(),
+  fetchMyPassen: vi.fn(),
+  fetchMyWettkaempfe: vi.fn(),
 }))
 
 describe('scoreStore', () => {
@@ -48,5 +50,20 @@ describe('scoreStore', () => {
     const store = useScoreStore()
     await store.loadLeaderboard({ metric: 'best' })
     expect(store.leaderboard.entries).toHaveLength(1)
+  })
+
+  it('loadPassen stores grouped passen', async () => {
+    scoreApi.fetchMyPassen.mockResolvedValue([{ key: 'p1', serien: [], totalPoints: 14 }])
+    const store = useScoreStore()
+    await store.loadPassen()
+    expect(store.passen).toHaveLength(1)
+    expect(store.passen[0].totalPoints).toBe(14)
+  })
+
+  it('loadWettkaempfe stores grouped wettkaempfe', async () => {
+    scoreApi.fetchMyWettkaempfe.mockResolvedValue([{ key: 'w1', passen: [], totalPoints: 15 }])
+    const store = useScoreStore()
+    await store.loadWettkaempfe()
+    expect(store.wettkaempfe).toHaveLength(1)
   })
 })

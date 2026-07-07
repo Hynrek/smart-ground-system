@@ -8,6 +8,8 @@ export const useScoreStore = defineStore('score', () => {
   const scoresMeta = ref(null)
   const summary = ref(null)
   const leaderboard = ref(null)
+  const passen = ref([])
+  const wettkaempfe = ref([])
   const isLoading = ref(false)
   const error = ref(null)
 
@@ -23,6 +25,7 @@ export const useScoreStore = defineStore('score', () => {
     }
   }
 
+  // params is forwarded as-is to fetchMyScores (e.g. { context, kind, page, ... })
   const loadScores = (params = {}) => run(async () => {
     const page = await scoreApi.fetchMyScores(params)
     scores.value = page.content ?? []
@@ -37,5 +40,27 @@ export const useScoreStore = defineStore('score', () => {
     leaderboard.value = await scoreApi.fetchLeaderboard(params)
   })
 
-  return { scores, scoresMeta, summary, leaderboard, isLoading, error, loadScores, loadSummary, loadLeaderboard }
+  const loadPassen = () => run(async () => {
+    passen.value = await scoreApi.fetchMyPassen()
+  })
+
+  const loadWettkaempfe = () => run(async () => {
+    wettkaempfe.value = await scoreApi.fetchMyWettkaempfe()
+  })
+
+  return {
+    scores,
+    scoresMeta,
+    summary,
+    leaderboard,
+    passen,
+    wettkaempfe,
+    isLoading,
+    error,
+    loadScores,
+    loadSummary,
+    loadLeaderboard,
+    loadPassen,
+    loadWettkaempfe,
+  }
 })
