@@ -89,25 +89,28 @@ const cancel = () => {
 .modal-overlay {
   position: fixed;
   inset: 0;
+  /* Scrim alpha has no --sg-* token in this codebase; matches the same
+     rgba(0, 0, 0, ...) convention used by sibling overlays (QrScanModal,
+     UserFormModal, StechenPanel, PlayerHandoverScreen). */
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
-  padding: 24px;
+  padding: var(--sg-space-6);
 }
 
 .start-modal {
-  background: rgba(24, 24, 40, 0.98);
+  background: var(--sg-bg-card);
   border: 1.5px solid var(--sg-border);
   border-radius: 20px;
-  padding: 24px;
+  padding: var(--sg-space-6);
   width: 100%;
   max-width: 380px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--sg-space-4);
 }
 
 .modal-header {
@@ -136,10 +139,10 @@ const cancel = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--sg-color-neutral-bg);
   border: 1px solid var(--sg-border);
   border-radius: 12px;
-  padding: 12px 16px;
+  padding: var(--sg-space-3) var(--sg-space-4);
 }
 
 .shooter-label {
@@ -168,14 +171,14 @@ const cancel = () => {
 }
 
 .change-shooter-btn:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--sg-color-neutral-bg);
   color: var(--sg-text-muted);
 }
 
 .record-toggle-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sg-space-3);
   min-height: 48px;
   cursor: pointer;
 }
@@ -195,9 +198,9 @@ const cancel = () => {
 
 .modal-actions {
   display: flex;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  gap: var(--sg-space-2);
+  padding-top: var(--sg-space-2);
+  border-top: 1px solid var(--sg-border);
 }
 
 .action-btn {
@@ -218,13 +221,13 @@ const cancel = () => {
 }
 
 .action-btn--start {
-  background: rgba(79, 195, 247, 0.12);
-  border-color: rgba(79, 195, 247, 0.3);
+  background: var(--sg-accent-tint);
+  border-color: color-mix(in srgb, var(--sg-accent) 30%, transparent);
   color: var(--sg-accent);
 }
 
 .action-btn--start:hover {
-  background: rgba(79, 195, 247, 0.2);
+  background: color-mix(in srgb, var(--sg-accent) 20%, transparent);
 }
 
 .action-btn--cancel {
@@ -234,6 +237,6 @@ const cancel = () => {
 }
 
 .action-btn--cancel:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--sg-color-neutral-bg);
 }
 </style>
