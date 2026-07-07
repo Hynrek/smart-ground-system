@@ -350,9 +350,9 @@ class UserScoreServiceTest {
         var now = java.time.Instant.now();
         var r1 = row(userId, "TRAINING", 8, 10, passeId, null, now); r1.setKind("PASSE");
         var r2 = row(userId, "TRAINING", 6, 10, passeId, null, now.minusSeconds(60)); r2.setKind("PASSE");
-        var serieRow = row(userId, "TRAINING", 9, 10, null, null, now); serieRow.setKind("SERIE");
-        when(scoreRepository.findByUserIdOrderByCompletedAtDesc(userId))
-            .thenReturn(java.util.List.of(r1, r2, serieRow));
+        // Kind-Filter (SERIE) passiert jetzt in der Query — die Repository-Stub liefert nur noch PASSE-Zeilen.
+        when(scoreRepository.findByUserIdAndKindOrderByCompletedAtDesc(userId, "PASSE"))
+            .thenReturn(java.util.List.of(r1, r2));
 
         var groups = service().listMyPassen();
         assertEquals(1, groups.size());
@@ -371,7 +371,7 @@ class UserScoreServiceTest {
         var now = java.time.Instant.now();
         var c1 = row(userId, "COMPETITION", 7, 10, null, sessionId, now); c1.setKind("COMPETITION"); c1.setPasseIndex(1);
         var c2 = row(userId, "COMPETITION", 8, 10, null, sessionId, now); c2.setKind("COMPETITION"); c2.setPasseIndex(2);
-        when(scoreRepository.findByUserIdOrderByCompletedAtDesc(userId))
+        when(scoreRepository.findByUserIdAndKindOrderByCompletedAtDesc(userId, "COMPETITION"))
             .thenReturn(java.util.List.of(c1, c2));
 
         var groups = service().listMyWettkaempfe();

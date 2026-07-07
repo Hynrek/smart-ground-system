@@ -262,8 +262,9 @@ public class UserScoreService {
     public java.util.List<ch.jp.smartground.model.PasseScoreGroup> listMyPassen() {
         var userId = securityHelper.currentUser().getId();
         var groups = new java.util.LinkedHashMap<UUID, ch.jp.smartground.model.PasseScoreGroup>();
-        for (var s : scoreRepository.findByUserIdOrderByCompletedAtDesc(userId)) {
-            if (!"PASSE".equals(s.getKind()) || s.getPlayInstanceId() == null) continue;
+        // Kind-Filter geschieht bereits in der Query (idx_uss_user_kind_completed) — hier nur noch der Null-Check.
+        for (var s : scoreRepository.findByUserIdAndKindOrderByCompletedAtDesc(userId, "PASSE")) {
+            if (s.getPlayInstanceId() == null) continue;
             var g = groups.computeIfAbsent(s.getPlayInstanceId(), k ->
                 new ch.jp.smartground.model.PasseScoreGroup()
                     .key(k).label(s.getParentName())
@@ -284,8 +285,9 @@ public class UserScoreService {
         var userId = securityHelper.currentUser().getId();
         var sessions = new java.util.LinkedHashMap<UUID, ch.jp.smartground.model.WettkampfScoreGroup>();
         var passenBySession = new java.util.HashMap<UUID, java.util.LinkedHashMap<Integer, ch.jp.smartground.model.WettkampfPasseGroup>>();
-        for (var s : scoreRepository.findByUserIdOrderByCompletedAtDesc(userId)) {
-            if (!"COMPETITION".equals(s.getKind()) || s.getSessionId() == null) continue;
+        // Kind-Filter geschieht bereits in der Query (idx_uss_user_kind_completed) — hier nur noch der Null-Check.
+        for (var s : scoreRepository.findByUserIdAndKindOrderByCompletedAtDesc(userId, "COMPETITION")) {
+            if (s.getSessionId() == null) continue;
             var g = sessions.computeIfAbsent(s.getSessionId(), k ->
                 new ch.jp.smartground.model.WettkampfScoreGroup()
                     .key(k).label(s.getParentName())
