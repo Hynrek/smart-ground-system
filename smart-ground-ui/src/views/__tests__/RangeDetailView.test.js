@@ -96,3 +96,29 @@ describe('RangeDetailView device picker', () => {
     expect(wrapper.findComponent(DeviceSearchModal).exists()).toBe(false)
   })
 })
+
+describe('RangeDetailView tray visibility', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+  })
+  afterEach(() => { window.matchMedia = originalMatchMedia })
+
+  it('renders the drag tray above the breakpoint', async () => {
+    stubMatchMedia(false)
+    const wrapper = await mountView()
+    expect(wrapper.find('.assign-panel').exists()).toBe(true)
+  })
+
+  it('does not render the drag tray below the breakpoint', async () => {
+    stubMatchMedia(true)
+    const wrapper = await mountView()
+    expect(wrapper.find('.assign-panel').exists()).toBe(false)
+  })
+
+  it('queries the 640px breakpoint', async () => {
+    stubMatchMedia(true)
+    await mountView()
+    expect(window.matchMedia).toHaveBeenCalledWith('(max-width: 640px)')
+  })
+})

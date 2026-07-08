@@ -57,7 +57,7 @@
             Aktionsmodus
           </button>
 
-          <Button :variant="assignOpen ? 'ghost' : 'primary'" @click="toggleAssignPanel">
+          <Button v-if="!isMobile" :variant="assignOpen ? 'ghost' : 'primary'" @click="toggleAssignPanel">
             <template #icon>
               <Icons :icon="assignOpen ? 'x' : 'plus'" :size="13" />
             </template>
@@ -123,7 +123,7 @@
     </div>
 
     <!-- Slide-in panel -->
-    <div class="assign-panel" :class="{ open: assignOpen }">
+    <div v-if="!isMobile" class="assign-panel" :class="{ open: assignOpen }">
       <div class="panel-inner">
         <div class="panel-header">
           <div class="panel-title">Freie Geräte</div>
@@ -184,8 +184,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { useMediaQuery } from '@/composables/useMediaQuery.js';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useSmartBoxStore } from '@/stores/smartBoxStore.js';
@@ -213,6 +214,11 @@ const currentReservation = ref(null);
 const isReserving = ref(false);
 const actionMode = ref(false);
 const assignOpen = ref(false);
+// Below 640px a 256px tray plus a 180px position card cannot coexist: the
+// tray would collapse .detail-content to its padding and make every drop
+// target unreachable. Phones assign via the picker instead.
+const isMobile = useMediaQuery('(max-width: 640px)');
+watch(isMobile, (mobile) => { if (mobile) assignOpen.value = false; });
 const draggingDevice = ref(null);
 const firedDevices = ref({});
 const showUserModal = ref(false);
