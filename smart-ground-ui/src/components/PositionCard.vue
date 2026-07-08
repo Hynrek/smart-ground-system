@@ -127,9 +127,19 @@
 
     <!-- Empty slot -->
     <template v-else>
-      <div class="empty-slot">
-        <Icons icon="plus" :size="16" color="rgba(255,255,255,0.45)" />
-        <span>Gerät hierher ziehen</span>
+      <button
+        v-if="isAdmin"
+        class="empty-slot"
+        type="button"
+        :aria-label="`Gerät zu Position ${position.label} zuordnen`"
+        @click="$emit('assign-device')"
+      >
+        <Icons icon="plus" :size="16" />
+        <span>Gerät zuordnen</span>
+      </button>
+      <div v-else class="empty-slot">
+        <Icons icon="plus" :size="16" />
+        <span>Kein Gerät zugeordnet</span>
       </div>
       <!-- Disabled fire button in action mode -->
       <button v-if="actionMode" class="fire-btn fire-btn--disabled" disabled>
@@ -165,6 +175,7 @@ const emit = defineEmits([
   'rename',
   'delete-position',
   'fire',
+  'assign-device',
 ]);
 
 const authStore = useAuthStore();
@@ -360,6 +371,21 @@ function cancelRename() {
   color: var(--sg-text-faint);
   font-size: 12px;
   font-weight: 500;
+  /* button reset — the admin form is a <button>, the non-admin form a <div> */
+  width: 100%;
+  min-height: 48px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.empty-slot:not(button) { cursor: default; }
+
+.empty-slot:focus-visible {
+  outline: 2px solid var(--sg-accent);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 /* ── Kebab (hover-reveal) ── */

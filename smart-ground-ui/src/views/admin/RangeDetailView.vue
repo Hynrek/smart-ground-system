@@ -1,6 +1,6 @@
 ﻿<template>
   <div class="range-detail-view">
-    <div class="detail-content">
+    <div ref="detailContentEl" class="detail-content">
       <Breadcrumb :items="breadcrumbItems" />
 
       <!-- Header -->
@@ -57,7 +57,7 @@
             Aktionsmodus
           </button>
 
-          <Button :variant="assignOpen ? 'ghost' : 'primary'" @click="toggleAssignPanel">
+          <Button v-if="!isMobile" :variant="assignOpen ? 'ghost' : 'primary'" @click="toggleAssignPanel">
             <template #icon>
               <Icons :icon="assignOpen ? 'x' : 'plus'" :size="13" />
             </template>
@@ -110,6 +110,7 @@
           @rename="(label) => handleRename(pos.id, label)"
           @delete-position="handleDeletePosition(pos.id)"
           @fire="(deviceId) => fireDevice(deviceId)"
+          @assign-device="openDevicePicker(pos.id)"
         />
 
         <!-- Ghost card: always one after the last real position -->
@@ -122,7 +123,7 @@
     </div>
 
     <!-- Slide-in panel -->
-    <div class="assign-panel" :class="{ open: assignOpen }">
+    <div v-if="!isMobile" class="assign-panel" :class="{ open: assignOpen }">
       <div class="panel-inner">
         <div class="panel-header">
           <div class="panel-title">Freie Geräte</div>
@@ -172,12 +173,21 @@
     >
       {{ draggingDevice.alias }}
     </div>
+
+    <DeviceSearchModal
+      v-if="showDeviceModal"
+      :devices="unassignedDevices"
+      @select="handleSelectDevice"
+      @close="closeDevicePicker"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { useMediaQuery } from '@/composables/useMediaQuery.js';
+import { scrollNearEdge } from '@/composables/useDragAutoScroll.js';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useSmartBoxStore } from '@/stores/smartBoxStore.js';
@@ -190,6 +200,7 @@ import Button from '@/components/Button.vue';
 import Icons from '@/components/Icons.vue';
 import TypeChip from '@/components/TypeChip.vue';
 import PositionCard from '@/components/PositionCard.vue';
+import DeviceSearchModal from '@/components/DeviceSearchModal.vue';
 
 const props = defineProps({ id: { type: String, required: true } });
 
@@ -204,7 +215,13 @@ const currentReservation = ref(null);
 const isReserving = ref(false);
 const actionMode = ref(false);
 const assignOpen = ref(false);
+// Below 640px a 256px tray plus a 180px position card cannot coexist: the
+// tray would collapse .detail-content to its padding and make every drop
+// target unreachable. Phones assign via the picker instead.
+const isMobile = useMediaQuery('(max-width: 640px)');
+watch(isMobile, (mobile) => { if (mobile) assignOpen.value = false; });
 const draggingDevice = ref(null);
+const detailContentEl = ref(null);
 const firedDevices = ref({});
 const showUserModal = ref(false);
 const isAssigning = ref(false);
@@ -265,12 +282,13 @@ const assignedDeviceIds = computed(() =>
   new Set(rangePositions.value.map(p => p.device?.id).filter(Boolean))
 );
 
+const unassignedDevices = computed(() =>
+  deviceStore.devices.filter(d => !d.rangeId && !assignedDeviceIds.value.has(d.id))
+);
+
 const allSidebarGroups = computed(() => {
-  const unassigned = deviceStore.devices.filter(
-    d => !d.rangeId && !assignedDeviceIds.value.has(d.id)
-  );
-  if (unassigned.length === 0) return [];
-  return [{ label: 'Nicht zugeteilt', devices: unassigned }];
+  if (unassignedDevices.value.length === 0) return [];
+  return [{ label: 'Nicht zugeteilt', devices: unassignedDevices.value }];
 });
 
 // ── Drag & drop (pointer-based: works with mouse AND touch) ──────────────────
@@ -306,21 +324,9 @@ const onDragMove = (event) => {
     try { dragCandidate.el.setPointerCapture(dragCandidate.pointerId); } catch { /* detached el */ }
   }
   dragGhost.value = { x: event.clientX, y: event.clientY };
-  autoScrollNearEdge(event.clientY);
+  scrollNearEdge(detailContentEl.value, event.clientY, window.innerHeight);
   const hit = document.elementFromPoint(event.clientX, event.clientY);
   dropTargetId.value = hit?.closest('[data-position-id]')?.dataset.positionId ?? null;
-};
-
-// While a finger drags, the page can't be scrolled — nudge the scroll
-// container when the pointer nears the top/bottom edge so off-screen
-// positions stay reachable on small screens.
-const AUTOSCROLL_EDGE_PX = 72;
-const AUTOSCROLL_STEP_PX = 14;
-const autoScrollNearEdge = (clientY) => {
-  const container = document.querySelector('.layout-main');
-  if (!container) return;
-  if (clientY < AUTOSCROLL_EDGE_PX) container.scrollTop -= AUTOSCROLL_STEP_PX;
-  else if (clientY > window.innerHeight - AUTOSCROLL_EDGE_PX) container.scrollTop += AUTOSCROLL_STEP_PX;
 };
 
 const onDragEnd = async () => {
@@ -350,6 +356,26 @@ const handleAddPosition = async () => {
 const handleDropOnPosition = async (positionId, deviceId) => {
   try { await rangeStore.assignDeviceToPosition(props.id, positionId, deviceId); }
   catch (e) { console.error('Failed to assign device:', e); }
+};
+
+// ── Tap-to-assign picker (works on every viewport; the only keyboard path) ────
+const pickerPositionId = ref(null);
+const showDeviceModal = ref(false);
+
+const openDevicePicker = (positionId) => {
+  pickerPositionId.value = positionId;
+  showDeviceModal.value = true;
+};
+
+const closeDevicePicker = () => {
+  showDeviceModal.value = false;
+  pickerPositionId.value = null;
+};
+
+const handleSelectDevice = async (device) => {
+  const positionId = pickerPositionId.value;
+  closeDevicePicker();
+  if (positionId) await handleDropOnPosition(positionId, device.id);
 };
 
 const removeDeviceFromPosition = async (positionId) => {
