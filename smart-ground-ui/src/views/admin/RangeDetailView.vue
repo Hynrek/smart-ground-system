@@ -110,6 +110,7 @@
           @rename="(label) => handleRename(pos.id, label)"
           @delete-position="handleDeletePosition(pos.id)"
           @fire="(deviceId) => fireDevice(deviceId)"
+          @assign-device="openDevicePicker(pos.id)"
         />
 
         <!-- Ghost card: always one after the last real position -->
@@ -172,6 +173,13 @@
     >
       {{ draggingDevice.alias }}
     </div>
+
+    <DeviceSearchModal
+      v-if="showDeviceModal"
+      :devices="unassignedDevices"
+      @select="handleSelectDevice"
+      @close="closeDevicePicker"
+    />
   </div>
 </template>
 
@@ -190,6 +198,7 @@ import Button from '@/components/Button.vue';
 import Icons from '@/components/Icons.vue';
 import TypeChip from '@/components/TypeChip.vue';
 import PositionCard from '@/components/PositionCard.vue';
+import DeviceSearchModal from '@/components/DeviceSearchModal.vue';
 
 const props = defineProps({ id: { type: String, required: true } });
 
@@ -265,12 +274,13 @@ const assignedDeviceIds = computed(() =>
   new Set(rangePositions.value.map(p => p.device?.id).filter(Boolean))
 );
 
+const unassignedDevices = computed(() =>
+  deviceStore.devices.filter(d => !d.rangeId && !assignedDeviceIds.value.has(d.id))
+);
+
 const allSidebarGroups = computed(() => {
-  const unassigned = deviceStore.devices.filter(
-    d => !d.rangeId && !assignedDeviceIds.value.has(d.id)
-  );
-  if (unassigned.length === 0) return [];
-  return [{ label: 'Nicht zugeteilt', devices: unassigned }];
+  if (unassignedDevices.value.length === 0) return [];
+  return [{ label: 'Nicht zugeteilt', devices: unassignedDevices.value }];
 });
 
 // ── Drag & drop (pointer-based: works with mouse AND touch) ──────────────────
@@ -350,6 +360,26 @@ const handleAddPosition = async () => {
 const handleDropOnPosition = async (positionId, deviceId) => {
   try { await rangeStore.assignDeviceToPosition(props.id, positionId, deviceId); }
   catch (e) { console.error('Failed to assign device:', e); }
+};
+
+// ── Tap-to-assign picker (works on every viewport; the only keyboard path) ────
+const pickerPositionId = ref(null);
+const showDeviceModal = ref(false);
+
+const openDevicePicker = (positionId) => {
+  pickerPositionId.value = positionId;
+  showDeviceModal.value = true;
+};
+
+const closeDevicePicker = () => {
+  showDeviceModal.value = false;
+  pickerPositionId.value = null;
+};
+
+const handleSelectDevice = async (device) => {
+  const positionId = pickerPositionId.value;
+  closeDevicePicker();
+  if (positionId) await handleDropOnPosition(positionId, device.id);
 };
 
 const removeDeviceFromPosition = async (positionId) => {
