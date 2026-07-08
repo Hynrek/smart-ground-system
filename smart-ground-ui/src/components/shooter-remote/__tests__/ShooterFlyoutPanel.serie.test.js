@@ -24,16 +24,23 @@ vi.mock('@/stores/playSessionStore.js', () => ({
   }),
 }));
 
-// SoloSerieStartModal (Task 6) emits 'confirm' with { record, shooter } — stub it to
-// fire immediately on mount so the test can drive playSerieSolo's confirm branch.
+// SoloSerieStartModal (Task 6) emits 'confirm' with { record, shooter } — tests
+// drive that emit explicitly via confirmSoloModal below. It must NOT fire from
+// mounted(): the stubbed Teleport remounts its subtree on every re-render, so a
+// confirm-on-mount stub loops forever when the failure path keeps the modal open
+// and updates the `error` prop (confirm → reject → error → remount → confirm…).
 // Renders the `error` prop so failure-path tests can assert it's surfaced.
 const SoloSerieStartModalStub = {
   props: ['error'],
   emits: ['confirm', 'cancel'],
   template: '<div class="solo-serie-start-modal-stub">{{ error }}</div>',
-  mounted() {
-    this.$emit('confirm', { record: true, shooter: { userId: 'u1', displayName: 'Max' } });
-  },
+};
+
+const confirmSoloModal = async (wrapper) => {
+  wrapper
+    .findComponent(SoloSerieStartModalStub)
+    .vm.$emit('confirm', { record: true, shooter: { userId: 'u1', displayName: 'Max' } });
+  await flushPromises();
 };
 
 const makeRouter = () => createRouter({
@@ -96,7 +103,7 @@ describe('ShooterFlyoutPanel — persisted solo Serie start', () => {
     await wrapper.find('.flyout-handle').trigger('click');
     await wrapper.find('.serie-header-btn').trigger('click');
     await wrapper.find('.action-play').trigger('click');
-    await flushPromises();
+    await confirmSoloModal(wrapper);
 
     expect(startSerieSpy).toHaveBeenCalledWith(
       { ...passeStore.savedSerien[0], type: 'user' }, // userSerien tags entries with UI-only `type: 'user'`
@@ -131,7 +138,7 @@ describe('ShooterFlyoutPanel — persisted solo Serie start', () => {
     await wrapper.find('.flyout-handle').trigger('click');
     await wrapper.find('.serie-header-btn').trigger('click');
     await wrapper.find('.action-play').trigger('click');
-    await flushPromises();
+    await confirmSoloModal(wrapper);
 
     // Modal must still be present — must not silently disappear as if the run
     // had been recorded — and it must display the failure to the shooter.
