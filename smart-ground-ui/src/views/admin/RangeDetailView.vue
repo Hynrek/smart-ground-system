@@ -1,6 +1,6 @@
 ﻿<template>
   <div class="range-detail-view">
-    <div class="detail-content">
+    <div ref="detailContentEl" class="detail-content">
       <Breadcrumb :items="breadcrumbItems" />
 
       <!-- Header -->
@@ -187,6 +187,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useMediaQuery } from '@/composables/useMediaQuery.js';
+import { scrollNearEdge } from '@/composables/useDragAutoScroll.js';
 import { useRangeStore } from '@/stores/rangeStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useSmartBoxStore } from '@/stores/smartBoxStore.js';
@@ -220,6 +221,7 @@ const assignOpen = ref(false);
 const isMobile = useMediaQuery('(max-width: 640px)');
 watch(isMobile, (mobile) => { if (mobile) assignOpen.value = false; });
 const draggingDevice = ref(null);
+const detailContentEl = ref(null);
 const firedDevices = ref({});
 const showUserModal = ref(false);
 const isAssigning = ref(false);
@@ -322,21 +324,9 @@ const onDragMove = (event) => {
     try { dragCandidate.el.setPointerCapture(dragCandidate.pointerId); } catch { /* detached el */ }
   }
   dragGhost.value = { x: event.clientX, y: event.clientY };
-  autoScrollNearEdge(event.clientY);
+  scrollNearEdge(detailContentEl.value, event.clientY, window.innerHeight);
   const hit = document.elementFromPoint(event.clientX, event.clientY);
   dropTargetId.value = hit?.closest('[data-position-id]')?.dataset.positionId ?? null;
-};
-
-// While a finger drags, the page can't be scrolled — nudge the scroll
-// container when the pointer nears the top/bottom edge so off-screen
-// positions stay reachable on small screens.
-const AUTOSCROLL_EDGE_PX = 72;
-const AUTOSCROLL_STEP_PX = 14;
-const autoScrollNearEdge = (clientY) => {
-  const container = document.querySelector('.layout-main');
-  if (!container) return;
-  if (clientY < AUTOSCROLL_EDGE_PX) container.scrollTop -= AUTOSCROLL_STEP_PX;
-  else if (clientY > window.innerHeight - AUTOSCROLL_EDGE_PX) container.scrollTop += AUTOSCROLL_STEP_PX;
 };
 
 const onDragEnd = async () => {
