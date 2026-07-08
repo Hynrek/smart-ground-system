@@ -51,7 +51,10 @@ const mountPanel = async () => {
   const wrapper = mount(ShooterFlyoutPanel, {
     global: {
       plugins: [router],
-      stubs: { Icons: true, SoloSerieStartModal: SoloSerieStartModalStub },
+      // The panel teleports its modals to <body> — .flyout-wrapper sets
+      // pointer-events: none, which a nested modal would inherit. Stub the
+      // Teleport so the modals render in place and stay queryable via wrapper.
+      stubs: { Icons: true, SoloSerieStartModal: SoloSerieStartModalStub, teleport: true },
     },
   });
   return { wrapper, router };
@@ -156,7 +159,7 @@ describe('ShooterFlyoutPanel — persisted group Serie start', () => {
     const wrapper = mount(ShooterFlyoutPanel, {
       global: {
         plugins: [router],
-        stubs: { Icons: true, SoloSerieStartModal: true },
+        stubs: { Icons: true, SoloSerieStartModal: true, teleport: true },
       },
     });
     const remoteStore = useShooterRemoteStore();

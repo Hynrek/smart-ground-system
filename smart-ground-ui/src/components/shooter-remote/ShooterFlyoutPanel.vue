@@ -340,29 +340,37 @@
       </div>
     </div>
 
-    <!-- Solo Serie start: confirms shooter identity + recording toggle before launch -->
-    <SoloSerieStartModal
-      v-if="soloStartSerie"
-      :error="soloSerieError"
-      @confirm="onSoloSerieConfirm"
-      @cancel="cancelSoloSerieStart"
-    />
+    <!-- Modals are teleported out of .flyout-wrapper on purpose. The wrapper sets
+         pointer-events: none (so the range grid behind stays clickable while the
+         panel is closed) and each of its interactive children re-enables it; a
+         nested modal would inherit `none` and be click-dead. Teleporting also
+         frees the overlay's z-index from the wrapper's z-index: 30 stacking
+         context, so it layers above the rest of the page. -->
+    <Teleport to="body">
+      <!-- Solo Serie start: confirms shooter identity + recording toggle before launch -->
+      <SoloSerieStartModal
+        v-if="soloStartSerie"
+        :error="soloSerieError"
+        @confirm="onSoloSerieConfirm"
+        @cancel="cancelSoloSerieStart"
+      />
 
-    <!-- Group Serie start: reuses the shared group/QR setup modal to collect players
-         before persisting the Serie instance (recording is implicit for groups). -->
-    <GroupSetupModal
-      v-if="groupStartSerie"
-      v-model:players="groupStartPlayers"
-      :title="`${groupStartSerie.name} als Gruppe starten`"
-      id-prefix="gs"
-      allow-qr
-      :player-defaults="{ type: 'guest' }"
-      :error-message="groupSerieError"
-      @cancel="cancelGroupSerieStart"
-      @confirm="onGroupSerieConfirm"
-      @qr-scan="openGroupSerieQrScan"
-    />
-    <QrScanModal v-if="groupSerieQrOpen" @close="groupSerieQrOpen = false" @resolved="onGroupSerieQrResolved" />
+      <!-- Group Serie start: reuses the shared group/QR setup modal to collect players
+           before persisting the Serie instance (recording is implicit for groups). -->
+      <GroupSetupModal
+        v-if="groupStartSerie"
+        v-model:players="groupStartPlayers"
+        :title="`${groupStartSerie.name} als Gruppe starten`"
+        id-prefix="gs"
+        allow-qr
+        :player-defaults="{ type: 'guest' }"
+        :error-message="groupSerieError"
+        @cancel="cancelGroupSerieStart"
+        @confirm="onGroupSerieConfirm"
+        @qr-scan="openGroupSerieQrScan"
+      />
+      <QrScanModal v-if="groupSerieQrOpen" @close="groupSerieQrOpen = false" @resolved="onGroupSerieQrResolved" />
+    </Teleport>
   </div>
 </template>
 
