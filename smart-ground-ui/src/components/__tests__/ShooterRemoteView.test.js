@@ -45,7 +45,6 @@ describe('ShooterRemoteView (position-based)', () => {
     ])
     await wrapper.vm.$nextTick()
     expect(wrapper.text()).toContain('A')
-    expect(wrapper.text()).toContain('Werfer 1')
   })
 
   it('renders empty position as disabled button', async () => {

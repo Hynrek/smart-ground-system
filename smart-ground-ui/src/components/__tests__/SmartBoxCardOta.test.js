@@ -11,10 +11,12 @@ const box = {
 describe('SmartBoxCard OTA panel', () => {
   beforeEach(() => setActivePinia(createPinia()));
 
-  it('renders the OTA panel for the box', () => {
+  it('renders the OTA panel for the box once the toggle is opened', async () => {
     const wrapper = mount(SmartBoxCard, {
       props: { box, devices: [], allDevicesCount: 0 },
     });
+    expect(wrapper.find('.ota-panel').exists()).toBe(false);
+    await wrapper.find('.ota-toggle-btn').trigger('click');
     expect(wrapper.find('.ota-panel').exists()).toBe(true);
   });
 });
