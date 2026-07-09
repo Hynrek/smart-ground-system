@@ -71,9 +71,10 @@ smart-box/
 │   └── umqtt/                          # Vendored umqtt.simple (uploaded with the app code)
 ├── systemconfig/
 │   ├── accesspoint_config.json         # AP SSID/password (read-only at runtime)
-│   └── firmware_config.json            # App version + capability manifest + config schema version (read-only at runtime)
+│   ├── firmware_config.json            # App version + capability manifest + config schema version (read-only at runtime)
+│   └── ca.crt                          # Pinned Dev-CA root (PEM), used as MQTT TLS cadata (read-only at runtime)
 ├── userconfig/
-│   ├── client_config.json              # WiFi credentials + broker IP (written by setup portal)
+│   ├── client_config.json              # WiFi credentials + broker IP + MQTT dynsec username/password (written by setup portal / config-push)
 │   ├── device_config.json              # Active device/GPIO config + config_schema_version (written after each config push)
 │   └── ota_state.json                  # OTA probation state (phase, version, boot_attempts) — written during updates
 ├── tests/                              # Host tests (CPython + stubs) — see Host Tests
@@ -89,12 +90,13 @@ smart-box/
 ## Module Responsibilities
 
 ### `main.py`
-Selects the board module at the very top of the file via `sys.platform` → `boards/<name>.py` map, registers it as `sys.modules["board"]`, and calls `board.board_init()`. This happens before all other imports because `hardware.py` needs `board.LED_PIN` at module load time. Uses `board.WDT_TIMEOUT_MS` for the watchdog timeout. Loads `userconfig/client_config.json`; falls back to `start_ap()` if absent or incomplete (`client_network_ssid` or `broker_ip` missing). Pre-loads GPIO from `userconfig/device_config.json` before MQTT connects. Honors `broker_port` (default 1883). Connects MQTT, sends discovery **once on boot**, then runs the main polling loop. Activates a `machine.WDT` (timeout `WDT_TIMEOUT_MS`, 8 s) immediately before the loop — main-loop only, since AP/first-connect can legitimately wait; feeds it each tick and threads it through the reconnect helpers. Checks WiFi and MQTT connection before every `check_msg()` call; calls `update_device_pulses()` on every tick. Publishes a **heartbeat** (`publish_heartbeat`) every `PUBLISH_INTERVAL_S` (20 s) instead of re-announcing discovery, and runs `gc.collect()` after each publish.
+Selects the board module at the very top of the file via `sys.platform` → `boards/<name>.py` map, registers it as `sys.modules["board"]`, and calls `board.board_init()`. This happens before all other imports because `hardware.py` needs `board.LED_PIN` at module load time. Uses `board.WDT_TIMEOUT_MS` for the watchdog timeout. Loads `userconfig/client_config.json`; falls back to `start_ap()` if absent or incomplete (`client_network_ssid` or `broker_ip` missing). Pre-loads GPIO from `userconfig/device_config.json` before MQTT connects. Honors `broker_port` (default 8883, TLS). Passes `mqtt_username`/`mqtt_password` from `client_config.json` (both optional) through to `connect_mqtt()`. Connects MQTT, sends discovery **once on boot**, then runs the main polling loop. Activates a `machine.WDT` (timeout `WDT_TIMEOUT_MS`, 8 s) immediately before the loop — main-loop only, since AP/first-connect can legitimately wait; feeds it each tick and threads it through the reconnect helpers. Checks WiFi and MQTT connection before every `check_msg()` call; calls `update_device_pulses()` on every tick. Publishes a **heartbeat** (`publish_heartbeat`) every `PUBLISH_INTERVAL_S` (20 s) instead of re-announcing discovery, and runs `gc.collect()` after each publish.
 
 ### `mqttutils.py`
 Everything MQTT-related plus security:
-- `connect_mqtt(client_id, broker, port)` — connects, subscribes to `smartboxes/{mac}/command` and `smartboxes/{mac}/config`, stores the client globally so ACKs and discovery reuse the same connection
-- `reconnect_mqtt()` — retries `connect_mqtt` up to `RECONNECT_ATTEMPTS` (12) times with `RECONNECT_DELAY_S` (10 s) between attempts
+- `connect_mqtt(client_id, broker, port=8883, user=None, password=None)` — connects over **TLS** (`ssl=True`, `ssl_params={"cert_reqs": ussl.CERT_REQUIRED, "cadata": <systemconfig/ca.crt bytes>}`, see **MQTT TLS + Credentials** below) with the given dynsec `user`/`password`, subscribes to `smartboxes/{mac}/command`, `smartboxes/{mac}/config`, and `smartboxes/{mac}/ota`, stores the client globally so ACKs and discovery reuse the same connection. Refuses to connect (returns `None`) if `systemconfig/ca.crt` is missing — never falls back to unverified TLS or plaintext.
+- `reconnect_mqtt()` — retries `connect_mqtt` up to `RECONNECT_ATTEMPTS` (12) times with `RECONNECT_DELAY_S` (10 s) between attempts, reusing the last-used `user`/`password` (module globals `_mqtt_user`/`_mqtt_password`)
+- `load_ca_cert()` — reads `systemconfig/ca.crt` (PEM bytes, cached after first load, like `load_firmware_config()`)
 - `message_callback(topic, msg)` — central router: `/config` → `_handle_config()`, `/command` → validates, applies security checks, calls `gpio_manager.set()`
 - `_handle_config(payload)` — resets GPIO, rebuilds device map, saves to flash, sends ACK only if ≥1 device was initialised successfully
 - `_send_config_ack()` — publishes `OK` to `smartboxes/{mac}/config/ack`
@@ -104,6 +106,7 @@ Everything MQTT-related plus security:
 - `reconnect_mqtt(wdt=None)` — retries `connect_mqtt`; feeds the optional watchdog during the wait
 - `load_device_config()` / `save_device_config(devices)` — read/write `userconfig/device_config.json`
 - `load_firmware_config()` — reads `systemconfig/firmware_config.json` (cached in module global after first load)
+- `_persist_mqtt_credentials(username, password)` — read-modify-write merge of `mqtt_username`/`mqtt_password` into `userconfig/client_config.json`, preserving existing WiFi/broker fields. The **only** place `client_config.json` is written outside `accesspoint.py`'s first-setup form — kept centralized here rather than duplicated across `main.py`/`accesspoint.py`.
 - `update_device_pulses()` — thin wrapper around `gpio_manager.tick()`
 - `_update_known_devices(devices)` — rebuilds `_known_devices` set; prunes stale `_blocked_devices` entries
 
@@ -221,7 +224,12 @@ The XIAO ESP32-S3 has 512 KB internal SRAM plus 8 MB PSRAM (the SPIRAM kernel im
    mpremote connect <port> cp -r lib :lib
    mpremote connect <port> cp systemconfig/accesspoint_config.json :systemconfig/accesspoint_config.json
    mpremote connect <port> cp systemconfig/firmware_config.json :systemconfig/firmware_config.json
+   mpremote connect <port> cp systemconfig/ca.crt :systemconfig/ca.crt
    ```
+   **Replace `systemconfig/ca.crt` with the real Dev-CA root for the target environment
+   before flashing** — the copy checked into this repo is a throwaway placeholder (see
+   the file's own doc entry above); a box flashed with the placeholder cannot verify (and
+   therefore cannot connect to) any real broker.
 
 ### First Boot
 
@@ -271,16 +279,94 @@ The SmartBox MAC address (12-char lowercase hex) is used as the per-box topic se
       "signal_duration_ms": 500,
       "blocked": false
     }
-  ]
+  ],
+  "mqttUsername": "aabbccddeeff",
+  "mqttPassword": "s3cr3t"
 }
 ```
 `device` is `"GPIO"` or `"LED"`. For GPIO, `command` is the pin number as a string. LED devices use the onboard LED. The firmware ignores any extra keys (e.g. a `delay_ms` still sent by an older backend).
+
+`mqttUsername`/`mqttPassword` are **optional and camelCase** (wire-payload convention,
+unlike `client_config.json`'s local `mqtt_username`/`mqtt_password` snake_case keys — see
+below) and appear **only on the very first config push after a brand-new box's
+registration** (Task D, `SmartBoxConfigPushService`). `mqttutils._handle_config()`
+persists both fields into `userconfig/client_config.json` when present (via
+`_persist_mqtt_credentials()`) and updates the module globals `_mqtt_user`/
+`_mqtt_password` so the **next** reconnect/reboot uses them — see **MQTT TLS +
+Credentials** below for why this isn't an immediate hot-swap.
 
 ### Command payload (Backend → `smartboxes/{mac}/command`)
 ```json
 { "command": "ON", "commandId": "<uuid>", "deviceId": "<uuid>", "signalDurationMs": 500 }
 ```
 Valid `command` values: `ON`, `OFF`, `BLOCK`, `UNBLOCK`. `signalDurationMs` is an optional override for the per-device config value. (Delay is no longer handled by firmware — see Known Issues.)
+
+---
+
+## MQTT TLS + Credentials (decision, 2026-07-09 — Task C of the MQTT TLS + client auth initiative)
+
+The broker (`smart-ground-deploy`'s Mosquitto, Task A) now requires TLS on port 8883 and
+dynsec username/password auth (no anonymous access). `connect_mqtt()` connects with
+`ssl=True`, `ssl_params={"cert_reqs": ussl.CERT_REQUIRED, "cadata": <systemconfig/ca.crt
+bytes>}`, and the `user`/`password` kwargs — never falls back to plaintext or unverified
+TLS. See `connect_mqtt`'s docstring in `mqttutils.py` and the `systemconfig/ca.crt` /
+`userconfig/client_config.json` entries above for the file-level details.
+
+**Verified vs. best-effort:** `MQTTClient(..., ssl=True, ssl_params={...})` is exactly
+`umqtt.simple`'s documented `__init__` signature (`lib/umqtt/simple.py:10-11`), and its
+`connect()` calls `ussl.wrap_socket(self.sock, **self.ssl_params)` (`lib/umqtt/simple.py:
+59-61`) — both verified by reading the vendored source, not guessed. What is **not**
+verified on real hardware: whether this project's exact pinned MicroPython build (kernel
+v1.28.0, `ESP32_GENERIC_S3-SPIRAM_OCT`, per the Stack & Versions section) accepts `cadata`
+as raw PEM bytes (what this code passes, i.e. the literal contents of `ca.crt`) versus
+requiring DER, and whether `ussl.wrap_socket`'s parameter name is exactly `cadata` on that
+build. This is implemented against the plan's own wording ("`ssl_params` mit gepinnter
+Root-CA (`cadata`)") and is exactly what Phase 4's hardware verification must confirm —
+tracked, not yet done.
+
+**Credential flow:**
+- `userconfig/client_config.json` gains two **optional** local-convention (snake_case)
+  keys: `mqtt_username`, `mqtt_password`. `main.py`'s `load_config()` needs no change to
+  read them (it already returns the whole dict); the `connect_mqtt(...)` call site passes
+  `user=config.get('mqtt_username')`, `password=config.get('mqtt_password')`.
+- A brand-new, factory-flashed box has neither key present → connects with
+  `user=None, password=None`, which the hardened broker rejects. This is expected and
+  **not fixed by this task** — see "Bootstrap credential — not yet implemented" below.
+- When the backend delivers fresh credentials (the one-time `mqttUsername`/`mqttPassword`
+  fields on a config push, camelCase, see the Config payload section above),
+  `mqttutils._handle_config()` persists them via `_persist_mqtt_credentials()` (a
+  read-modify-write merge, so existing WiFi/broker fields survive) and updates
+  `_mqtt_user`/`_mqtt_password` module globals.
+- **Reconnect-timing decision:** persisting does **not** trigger an immediate
+  `reconnect_mqtt()`. `_handle_config()` runs inside the call stack of
+  `client.check_msg()` → `wait_msg()` → `cb()` on the *currently active* socket;
+  tearing that socket down and opening a new one from inside its own callback is a
+  re-entrancy risk (the outer `wait_msg()`/`check_msg()` frame still expects to finish
+  reading from the socket it started with). Instead, the new credentials take effect
+  automatically on the **next natural reconnect** — a WiFi drop, a broker-initiated
+  disconnect, or a reboot — because `reconnect_mqtt()` always reads the current
+  `_mqtt_user`/`_mqtt_password` globals. The box keeps using its current (e.g. bootstrap)
+  session for the remainder of the current connection, which is safe since nothing revokes
+  that session mid-flight.
+
+### Bootstrap credential — not yet implemented
+
+The original plan (item 11) describes a factory-flashed **bootstrap credential** (a
+dynsec `bootstrap` role: write-only discovery + own config-topic read) that a brand-new
+box uses to authenticate its very first connection, before the backend has provisioned its
+real identity. **This role does not exist yet** — Task A/B only created `backend` and
+`smartbox` dynsec roles; creating `bootstrap` was explicitly out of scope for Task C (it
+would touch `smart-ground-deploy/dynsec-init.sh`, a different repo). Concretely, today:
+- An unprovisioned box (no `mqtt_username`/`mqtt_password` in `client_config.json`) cannot
+  connect to the hardened broker at all, and therefore can never receive the first
+  credentialed config push — there is currently no way for it to bootstrap itself.
+- The `connect_mqtt(client_id, broker, port, user, password)` code path itself is correct
+  and identical regardless of which of the three cases applies (absent/`None`, a manually
+  provisioned bootstrap credential, or the box's own post-registration credential) — only
+  the *values* differ, not the code.
+- A real bootstrap story (the `bootstrap` dynsec role + a flash-time step that writes an
+  initial `mqtt_username`/`mqtt_password` into `client_config.json`) needs its own
+  follow-up plan item; do not invent one ad hoc.
 
 ---
 
@@ -388,16 +474,44 @@ Describes the App Code release; read when building the discovery payload. `app_v
 >
 > **BLOCK/UNBLOCK are not part of any capability's `commands` list.** They are security meta-commands handled directly in `mqttutils.message_callback`, independent of which capabilities a device has — this is intentional so a new capability can never accidentally ship without being blockable.
 
-### `userconfig/client_config.json` (written by captive portal)
+### `systemconfig/ca.crt` (pinned Dev-CA root — ships with every App-Code OTA release)
+
+PEM-encoded root certificate of the Mosquitto broker's Dev-CA (see
+`smart-ground-deploy/mosquitto/docker-entrypoint.sh`, Task A — the CA is generated per
+environment/deployment). Loaded by `mqttutils.load_ca_cert()` and passed as
+`ssl_params={"cadata": <raw file bytes>}` to `MQTTClient(..., ssl=True, ...)` in
+`connect_mqtt()`. **Rotation runs entirely through App-Code OTA** — this file is never
+written at runtime, and swapping it for a new/rotated CA is just another release, same as
+bumping `firmware_config.json`. The version checked into this repo is a **throwaway
+self-signed placeholder** (see the file's Subject CN) — replace it with the real
+environment's `ca.crt` at provisioning/flash time; do not ship the placeholder to a real
+device expecting to reach a real broker (`ussl.wrap_socket(cert_reqs=CERT_REQUIRED, ...)`
+will simply refuse to verify the broker's actual server cert against it, and the box will
+never connect). `tools/pack_ota.py`'s `DEFAULT_FILES` includes it alongside
+`firmware_config.json`.
+
+### `userconfig/client_config.json` (written by captive portal / config-push)
 
 ```json
 {
   "client_network_ssid": "MyNetwork",
   "client_network_pw": "mypassword",
-  "broker_ip": "192.168.1.100"
+  "broker_ip": "192.168.1.100",
+  "mqtt_username": "aabbccddeeff",
+  "mqtt_password": "s3cr3t"
 }
 ```
-`broker_port` is optional (defaults to 1883). Never hardcode these values. This file — like everything under `userconfig/` — is never part of an OTA release; see the protection rule under `systemconfig/firmware_config.json` above.
+`broker_port` is optional (defaults to 8883, TLS). `mqtt_username`/`mqtt_password` are
+optional (snake_case, matching this file's local convention — **not** the wire payload's
+camelCase `mqttUsername`/`mqttPassword`, see below): absent on a freshly-flashed,
+unprovisioned box (`connect_mqtt()` then connects with `user=None, password=None`, which
+fails authentication against the hardened broker — expected until a bootstrap credential
+or the box's own post-registration credential is present, see **MQTT TLS + Credentials**
+below). Written either by `accesspoint.py`'s captive-portal form (WiFi/broker fields only,
+full overwrite) or by `mqttutils._persist_mqtt_credentials()` (credential fields only,
+merge — see below). Never hardcode these values. This file — like everything under
+`userconfig/` — is never part of an OTA release; see the protection rule under
+`systemconfig/firmware_config.json` above.
 
 ### `userconfig/device_config.json` (written by SmartBox after config push)
 
@@ -552,6 +666,39 @@ All OTA logic lives here (the one module allowed to `import os`, for directory o
 - Trigger `smartboxes/{mac}/ota`: `{ "type": "APP"|"FIRMWARE", "version", "url", "sha256", "size" }` (`sha256` = manifest/image hash).
 - Status `smartboxes/{mac}/ota/status`: `{ "version", "phase", "progress", "detail" }`, phase ∈ `DOWNLOADING|VERIFYING|APPLYING|APPLIED|FAILED|ROLLED_BACK`.
 - App manifest `GET {url}/manifest.json`: `{ "appVersion", "files": [ { "path", "sha256", "size" } ] }`; files at `GET {url}/files/{path}`. Firmware image at `GET {url}`.
+
+### OTA download path — CA-pinning investigation (Task C, 2026-07-09)
+
+The MQTT TLS + client auth initiative (Task A/B/C) hardened the **MQTT control channel**
+(port 8883, `systemconfig/ca.crt` pinned). The **OTA HTTP download path**
+(`ota.py`'s `_default_http_stream` → `urequests.get(url)`, and `_do_firmware_update`'s
+image download) is a **genuinely separate channel and was investigated, not changed**:
+
+- The `url` a device downloads from comes from the backend's `OtaPublishService`
+  (`smart-ground-backend`), whose `ota.base-url` property defaults to
+  `http://localhost:8080` (`application.properties`/`application-h2.properties`) — **plain
+  HTTP**, and it points at the backend's own embedded Spring Boot HTTP server (the same
+  port serving the REST API), **not** at Mosquitto. No `server.ssl.*` properties exist
+  anywhere in the backend config, so today this channel has no TLS at all — the Dev-CA
+  pinned for the MQTT broker is unrelated to it and would not apply even if this path were
+  TLS'd, since the backend's REST server would need its own (possibly different) server
+  certificate/CA pairing.
+- Because the URL is plain HTTP by default, `urequests.get()` needs no CA at all today —
+  there's nothing to pin. If `ota.base-url` is ever changed to `https://...`, `ota.py`'s
+  integrity model (MQTT-supplied `sha256` verifying every downloaded file, `OtaError` on
+  mismatch, live code never touched until fully verified) already protects against a
+  **tampered artifact**, but does **not** protect against **who you talk to** without
+  cert verification (a MITM could still serve a *validly-hashed* response for a different
+  request, or simply observe/deny traffic) — the same class of gap TLS closes on the MQTT
+  side.
+- **Not a trivial one-liner**, so left as a follow-up rather than implemented here:
+  enabling TLS on this path would mean (1) deciding whether to TLS the backend's whole
+  REST API (a much bigger, unrelated change) or stand up a separate download endpoint,
+  (2) `urequests` (MicroPython's bundled minimal HTTP client) has limited/unverified
+  support for passing a custom CA/cadata the way `ussl.wrap_socket()` does directly in
+  `mqttutils.py` — this needs its own investigation before implementation, and (3) the
+  trust anchor might not even be the same Dev-CA as Mosquitto's (different server, could
+  be a different cert). Tracked as an open follow-up item, not implemented in Task C.
 
 ### Known OTA limitations
 

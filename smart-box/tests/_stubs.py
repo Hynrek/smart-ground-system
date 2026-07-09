@@ -124,10 +124,15 @@ umqtt = types.ModuleType("umqtt")
 umqtt_simple = types.ModuleType("umqtt.simple")
 
 class MQTTClient:
-    def __init__(self, client_id, broker, port=1883, keepalive=0):
+    def __init__(self, client_id, broker, port=1883, keepalive=0,
+                 user=None, password=None, ssl=False, ssl_params=None):
         self.client_id = client_id
         self.broker = broker
         self.port = port
+        self.user = user
+        self.password = password
+        self.ssl = ssl
+        self.ssl_params = ssl_params
         self.published = []
         self.subscribed = []
         self.cb = None
@@ -148,6 +153,14 @@ class MQTTClient:
 umqtt_simple.MQTTClient = MQTTClient
 sys.modules["umqtt"] = umqtt
 sys.modules["umqtt.simple"] = umqtt_simple
+
+# --- ussl (TLS-Konstanten für connect_mqtt's ssl_params; wrap_socket wird auf dem Host
+#     nie aufgerufen, da der MQTTClient-Stub oben keine echte Socket-Verbindung öffnet) ---
+ussl = types.ModuleType("ussl")
+ussl.CERT_NONE = 0
+ussl.CERT_OPTIONAL = 1
+ussl.CERT_REQUIRED = 2
+sys.modules["ussl"] = ussl
 
 # --- board (auto-Selektion für Host-Tests) ---
 _board_stub = types.ModuleType("board")
