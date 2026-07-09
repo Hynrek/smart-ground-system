@@ -5,6 +5,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +22,15 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.GenericMessage;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
@@ -41,6 +51,21 @@ public class MqttConfig {
     @Value("${mqtt.clientId:smartrange-backend}")
     private String clientId;
 
+    // Dynsec login for the backend's own well-known client (username "backend" by
+    // convention — see smart-ground-deploy/dynsec-init.sh). Empty defaults so the
+    // app still boots against a plaintext/no-auth broker (e.g. tests) without these set.
+    @Value("${mqtt.username:}")
+    private String username;
+
+    @Value("${mqtt.password:}")
+    private String password;
+
+    // Filesystem path to the Dev-CA's ca.crt (see smart-ground-deploy README's
+    // "Cert volume/path convention"). Only needed for ssl:// broker URLs; left
+    // blank for plaintext tcp:// connections (e.g. tests).
+    @Value("${mqtt.tls.ca-cert-path:}")
+    private String tlsCaCertPath;
+
     private ThreadPoolTaskExecutor inboundExecutor;
     private MessageChannel inboundChannel;
 
@@ -50,7 +75,56 @@ public class MqttConfig {
         options.setServerURIs(new String[]{brokerUrl});
         options.setAutomaticReconnect(true);
         options.setCleanStart(true);
+
+        if (!username.isBlank()) {
+            options.setUserName(username);
+        }
+        if (!password.isBlank()) {
+            options.setPassword(password.getBytes(StandardCharsets.UTF_8));
+        }
+
+        SSLSocketFactory tlsSocketFactory = buildTlsSocketFactory();
+        if (tlsSocketFactory != null) {
+            options.setSocketFactory(tlsSocketFactory);
+        }
+
         return options;
+    }
+
+    /**
+     * Builds a trust-only {@link SSLSocketFactory} that trusts the locally generated
+     * Dev-CA (see Task A / smart-ground-deploy's mosquitto entrypoint) so Paho can
+     * validate the {@code ssl://} broker's TLS certificate — the JVM's default
+     * truststore has no reason to trust it. No client certificate is presented here
+     * (server-cert verification only, not mTLS — the plan chose username/password
+     * client auth over client certs). Returns {@code null} if no CA cert path is
+     * configured, in which case the caller leaves Paho's default socket factory in
+     * place (used by plaintext {@code tcp://} connections, e.g. tests).
+     */
+    private @Nullable SSLSocketFactory buildTlsSocketFactory() {
+        if (tlsCaCertPath.isBlank()) {
+            return null;
+        }
+        try (InputStream caInput = new FileInputStream(tlsCaCertPath)) {
+            CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+            Certificate caCert = certificateFactory.generateCertificate(caInput);
+
+            // Trust-only store: no password needed, holds just the one Dev-CA cert.
+            KeyStore trustStore = KeyStore.getInstance("PKCS12");
+            trustStore.load(null, null);
+            trustStore.setCertificateEntry("mqtt-dev-ca", caCert);
+
+            TrustManagerFactory trustManagerFactory =
+                TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(trustStore);
+
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+            return sslContext.getSocketFactory();
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                "Failed to build MQTT TLS trust store from mqtt.tls.ca-cert-path=" + tlsCaCertPath, e);
+        }
     }
 
     @Bean
