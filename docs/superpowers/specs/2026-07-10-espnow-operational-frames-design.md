@@ -18,8 +18,10 @@ Gemeinsamer Wrapper (Abschnitt 4 des Protokoll-Specs, hier nur referenziert, nic
 
 ```
 body = counter_nonce(4) ‖ ciphertext ‖ tag(16)
-ciphertext, tag = AES-256-GCM-Encrypt(K_S, nonce = 0x00000000 ‖ counter_nonce, aad = header, plaintext = <typ-spezifischer Klartext-Body>)
+ciphertext, tag = AES-256-GCM-Encrypt(K_S, nonce = 0x0000000000000000 ‖ counter_nonce, aad = header, plaintext = <typ-spezifischer Klartext-Body>)
 ```
+
+`counter_nonce` ist 4 Byte; der volle GCM-Nonce ist 12 Byte — 8 führende Null-Bytes gefolgt vom 4-Byte-Zähler ("padded auf 12 Byte mit führenden Nullen", Protokoll-Spec Abschnitt 4). Das unterscheidet sich von der Pairing-Nonce-Auffüllung (`PAIR_OFFER`, Baustein B), wo ein 8-Byte-Nonce mit 4 führenden Null-Bytes auf 12 Byte aufgefüllt wird — hier ist es umgekehrt: 4-Byte-Zähler mit 8 führenden Null-Bytes.
 
 ## Frame-Katalog
 
