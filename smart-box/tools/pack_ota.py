@@ -30,8 +30,11 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Files that make up the App Code (device-agnostic). systemconfig/firmware_config.json
 # ships with every release: it carries the release metadata (app_version,
 # config_schema_version, capabilities) the box reports in its discovery payload.
-# userconfig/ is device-owned state (WiFi credentials, device config, ota_state) and is
-# NEVER shipped via OTA — ota.py rejects manifests containing userconfig/ paths.
+# systemconfig/ca.crt ships with every release too: the gepinnte Dev-CA-Root used by
+# mqttutils.connect_mqtt()'s TLS ssl_params (cadata) — rotated only via App-Code-OTA,
+# never at runtime. userconfig/ is device-owned state (WiFi credentials, device config,
+# ota_state, and — as of Task C — the MQTT dynsec username/password) and is NEVER shipped
+# via OTA — ota.py rejects manifests containing userconfig/ paths.
 DEFAULT_FILES = [
     "main.py",
     "mqttutils.py",
@@ -43,6 +46,7 @@ DEFAULT_FILES = [
     "boards/pico2w.py",
     "boards/xiao_esp32s3.py",
     "systemconfig/firmware_config.json",
+    "systemconfig/ca.crt",
 ]
 
 FIRMWARE_CONFIG = "systemconfig/firmware_config.json"

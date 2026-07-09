@@ -9,7 +9,9 @@ import board as _board
 RECONNECT_ATTEMPTS   = 12
 RECONNECT_DELAY_S    = 10
 FIRMWARE_CONFIG_PATH = "systemconfig/firmware_config.json"   # Release-Metadaten (app_version, capabilities) – wird nur per App-Code-OTA aktualisiert
+CA_CERT_PATH         = "systemconfig/ca.crt"                 # Gepinnte Dev-CA-Root (PEM) – Teil des App-Code-Release, Rotation nur per OTA
 DEVICE_CONFIG_PATH   = "userconfig/device_config.json"       # Dynamisch – aktive Geräte vom Backend
+CLIENT_CONFIG_PATH   = "userconfig/client_config.json"       # WiFi/Broker/MQTT-Zugangsdaten – von main.py/accesspoint.py geschrieben, hier nur für den Credential-Merge gelesen
 ADMIN_BLOCK_TOKEN    = "ADMIN"  # Token für manuelle Admin-Blockierung (keine Auto-Freigabe)
 
 try:
@@ -22,9 +24,11 @@ except Exception:
         MQTTClient = None
 
 # --- Modul-globaler Zustand ---
-_client_id   = None
-_mqtt_broker = None
-_mqtt_port   = 1883
+_client_id     = None
+_mqtt_broker   = None
+_mqtt_port     = 8883
+_mqtt_user     = None   # dynsec-Benutzername (MAC) – None solange unprovisioniert
+_mqtt_password = None   # dynsec-Passwort – None solange unprovisioniert
 _mqtt_client = None     # Aktive persistente MQTT-Verbindung
 _known_devices = set()  # Autorisierte Geräte-IDs
 _blocked_devices = {}   # Admin-blockierte Geräte: device_id -> ADMIN_BLOCK_TOKEN
@@ -32,6 +36,9 @@ _wdt = None             # vom main gesetzt, für OTA-Download-Watchdog-Feeding
 
 # Firmware-Konfiguration einmalig beim Modulstart laden – Version ändert sich nie zur Laufzeit
 _firmware_config = None
+
+# Gepinnte Dev-CA-Root einmalig laden – Teil des App-Code-Release, ändert sich nie zur Laufzeit
+_ca_cert_data = None
 
 
 # =============================================================================
@@ -67,6 +74,28 @@ def load_firmware_config():
         return {}
 
 
+def load_ca_cert():
+    """
+    Lädt den gepinnten Dev-CA-Root aus systemconfig/ca.crt (PEM, Bytes).
+    Diese Datei ist Teil des App-Code-Release (wie firmware_config.json) und wird
+    NIE zur Laufzeit geschrieben – Rotation läuft ausschliesslich über App-Code-OTA.
+    Gibt die Rohbytes zurück (für ssl_params['cadata']), oder None wenn die Datei
+    fehlt (z.B. unprovisionierte Box vor der ersten Flash-Bestückung).
+    """
+    global _ca_cert_data
+    if _ca_cert_data is not None:
+        return _ca_cert_data
+    try:
+        with open(CA_CERT_PATH, 'rb') as f:
+            data = f.read()
+            _ca_cert_data = data
+            print("Dev-CA-Root geladen ({} Bytes).".format(len(data)))
+            return data
+    except OSError as e:
+        print("Dev-CA-Root nicht gefunden:", e)
+        return None
+
+
 def load_device_config():
     """
     Lädt die zuletzt gespeicherte Gerätekonfiguration von der Flash-Disk.
@@ -100,6 +129,38 @@ def save_device_config(devices):
         print("Gerätekonfiguration gespeichert ({} Gerät(e)).".format(len(devices)))
     except OSError as e:
         print("Fehler beim Speichern der Gerätekonfiguration:", e)
+
+
+def _persist_mqtt_credentials(mqtt_username, mqtt_password):
+    """
+    Schreibt frisch vom Backend gelieferte MQTT-Zugangsdaten (dynsec-Username/Passwort)
+    nach userconfig/client_config.json – read-modify-write, damit bestehende WiFi-/
+    Broker-Felder (client_network_ssid, broker_ip, ...) erhalten bleiben.
+
+    Einziger Schreibort für client_config.json ausserhalb von accesspoint.py's
+    Ersteinrichtungs-Formular (das die Datei komplett neu schreibt) – bewusst hier statt
+    in main.py oder accesspoint.py, um die Lese-/Schreiblogik dieser Datei nicht auf drei
+    Module zu verteilen.
+
+    Wird nur bei der einmaligen Credential-Auslieferung nach Neu-Provisionierung
+    aufgerufen (mqttUsername/mqttPassword im Config-Push) – siehe _handle_config().
+    """
+    try:
+        try:
+            with open(CLIENT_CONFIG_PATH, 'r') as f:
+                data = json.load(f)
+        except (OSError, ValueError) as e:
+            print("client_config.json nicht lesbar, wird neu angelegt:", e)
+            data = {}
+        data['mqtt_username'] = mqtt_username
+        data['mqtt_password'] = mqtt_password
+        with open(CLIENT_CONFIG_PATH, 'w') as f:
+            json.dump(data, f)
+        print("MQTT-Zugangsdaten in client_config.json gespeichert.")
+        return True
+    except OSError as e:
+        print("MQTT-Zugangsdaten konnten nicht gespeichert werden:", e)
+        return False
 
 
 def set_watchdog(wdt):
@@ -185,11 +246,17 @@ def _handle_config(payload_bytes):
 
     Payload-Schema (JSON):
         { "devices": [ { "device_id", "alias", "direction", "device",
-                         "command", "signal_duration_ms", "blocked" }, ... ] }
+                         "command", "signal_duration_ms", "blocked" }, ... ],
+          "mqttUsername": "...", "mqttPassword": "..." }
 
     Firmware-Informationen (Version, Box-Typ, Fähigkeiten) sind in
     systemconfig/firmware_config.json hinterlegt und werden vom Config-Push NICHT
     überschrieben (aktualisiert werden sie nur durch ein App-Code-OTA-Release).
+
+    mqttUsername/mqttPassword sind optional und erscheinen NUR beim allerersten
+    Config-Push nach Neu-Provisionierung einer Box (siehe Task D, SmartBoxConfigPushService).
+    Wenn vorhanden, werden sie nach userconfig/client_config.json persistiert, damit sie
+    einen Reboot überleben – siehe _persist_mqtt_credentials().
 
     Schritte:
       1. JSON parsen
@@ -197,6 +264,7 @@ def _handle_config(payload_bytes):
       3. GPIO-Manager neu aufbauen
       4. Nur die Geräteliste auf Flash speichern
       5. ACK an Backend senden
+      6. Frische MQTT-Zugangsdaten (falls vorhanden) persistieren
     """
     try:
         data = json.loads(payload_bytes)
@@ -205,6 +273,8 @@ def _handle_config(payload_bytes):
         return
 
     devices = data.get("devices", [])
+    new_mqtt_username = data.get("mqttUsername")
+    new_mqtt_password = data.get("mqttPassword")
     del data
     print("Config-Push empfangen mit {} Gerät(en).".format(len(devices)))
 
@@ -226,6 +296,21 @@ def _handle_config(payload_bytes):
 
     # ACK an Backend publizieren
     _send_config_ack()
+
+    # Frische Zugangsdaten (nur beim ersten Push nach Neu-Provisionierung vorhanden)
+    # persistieren, damit sie einen Reboot überleben. Bewusst KEIN sofortiger Reconnect
+    # hier: wir befinden uns mitten im Callstack von client.check_msg()/wait_msg() auf
+    # der aktuell aktiven Socket-Verbindung; ein reconnect_mqtt() an dieser Stelle würde
+    # diese Verbindung unter dem eigenen Aufrufer wegziehen (Re-Entrancy-Risiko). Die neuen
+    # Zugangsdaten werden stattdessen nur in den Modul-Globals + auf Flash übernommen und
+    # greifen automatisch beim nächsten natürlichen Reconnect (WiFi-Drop, Broker-Neustart,
+    # Reboot) über reconnect_mqtt()'s Nutzung von _mqtt_user/_mqtt_password. Bis dahin läuft
+    # die aktuelle Session mit den bisherigen (z.B. Bootstrap-)Zugangsdaten weiter.
+    if new_mqtt_username and new_mqtt_password:
+        global _mqtt_user, _mqtt_password
+        if _persist_mqtt_credentials(new_mqtt_username, new_mqtt_password):
+            _mqtt_user = new_mqtt_username
+            _mqtt_password = new_mqtt_password
 
 
 def _send_config_ack():
@@ -346,11 +431,20 @@ def message_callback(topic, msg):
 # MQTT-Verbindung
 # =============================================================================
 
-def connect_mqtt(client_id, mqtt_broker, port=1883):
+def connect_mqtt(client_id, mqtt_broker, port=8883, user=None, password=None):
     """
-    Verbindet mit dem MQTT-Broker und abonniert die gerätespezifischen Topics.
-    Speichert den aktiven Client global, damit ACK- und Discovery-Publishes ihn
-    wiederverwenden können (keine ephemeren Verbindungen).
+    Verbindet mit dem MQTT-Broker über TLS (gepinnte Dev-CA-Root) und abonniert die
+    gerätespezifischen Topics. Speichert den aktiven Client global, damit ACK- und
+    Discovery-Publishes ihn wiederverwenden können (keine ephemeren Verbindungen).
+
+    user/password sind die dynsec-Zugangsdaten (siehe userconfig/client_config.json,
+    Schlüssel mqtt_username/mqtt_password) – None bedeutet eine unprovisionierte Box
+    (Bootstrap-Zugangsdaten fehlen), was gegen den gehärteten Broker fehlschlägt; das
+    ist erwartetes Verhalten, siehe smart-box/CLAUDE.md.
+
+    TLS: cert_reqs=CERT_REQUIRED gegen die in systemconfig/ca.crt gepinnte Dev-CA-Root
+    (siehe load_ca_cert()). Fehlt die CA-Datei, wird NICHT auf unverifiziertes TLS oder
+    Klartext zurückgefallen – die Verbindung wird verweigert (kein stilles Downgrade).
 
     Abonnierte Topics:
       - smartboxes/{mac}/command  → Steuerbefehle
@@ -358,22 +452,36 @@ def connect_mqtt(client_id, mqtt_broker, port=1883):
 
     Gibt den verbundenen MQTTClient zurück, oder None bei Fehler.
     """
-    global _client_id, _mqtt_broker, _mqtt_port, _mqtt_client
+    global _client_id, _mqtt_broker, _mqtt_port, _mqtt_user, _mqtt_password, _mqtt_client
 
     if MQTTClient is None:
         print("MQTT-Bibliothek nicht verfügbar – Verbindung nicht möglich.")
         return None
 
-    _client_id   = client_id
-    _mqtt_broker = mqtt_broker
-    _mqtt_port   = port
+    _client_id     = client_id
+    _mqtt_broker   = mqtt_broker
+    _mqtt_port     = port
+    _mqtt_user     = user
+    _mqtt_password = password
+
+    ca_data = load_ca_cert()
+    if ca_data is None:
+        print("MQTT-Verbindung abgebrochen: Dev-CA-Root fehlt, kein ungepinntes TLS erlaubt.")
+        _mqtt_client = None
+        return None
+
+    # ussl ist auf dem MicroPython-Zielgerät vorhanden; auf dem Host-Test-Stub bereitgestellt.
+    import ussl
+    ssl_params = {"cert_reqs": ussl.CERT_REQUIRED, "cadata": ca_data}
 
     command_topic = "smartboxes/{}/command".format(client_id)
     config_topic  = "smartboxes/{}/config".format(client_id)
     ota_topic     = "smartboxes/{}/ota".format(client_id)
 
     try:
-        client = MQTTClient(client_id, mqtt_broker, port=port, keepalive=60)
+        client = MQTTClient(client_id, mqtt_broker, port=port, keepalive=60,
+                             user=user, password=password,
+                             ssl=True, ssl_params=ssl_params)
         client.set_callback(message_callback)
         # connect() blockiert (umqtt.simple kennt kein socket_timeout). Bei einem sehr
         # langsamen/nicht erreichbaren Broker (>WDT_TIMEOUT_MS) setzt der Watchdog die Box
@@ -383,7 +491,7 @@ def connect_mqtt(client_id, mqtt_broker, port=1883):
         client.subscribe(config_topic)
         client.subscribe(ota_topic)
         _mqtt_client = client  # Globale Referenz für ACK/Discovery-Publishes
-        print("MQTT verbunden. Abonniert:", command_topic, ",", config_topic, "und", ota_topic)
+        print("MQTT verbunden (TLS). Abonniert:", command_topic, ",", config_topic, "und", ota_topic)
         return client
     except Exception as e:
         print("MQTT-Verbindung fehlgeschlagen:", e)
@@ -393,12 +501,13 @@ def connect_mqtt(client_id, mqtt_broker, port=1883):
 
 def reconnect_mqtt(wdt=None):
     """
-    Stellt die MQTT-Verbindung mit den zuletzt verwendeten Parametern wieder her.
-    Füttert den optionalen Watchdog während der Wartezeit.
+    Stellt die MQTT-Verbindung mit den zuletzt verwendeten Parametern (inkl. der zuletzt
+    gültigen Zugangsdaten _mqtt_user/_mqtt_password) wieder her. Füttert den optionalen
+    Watchdog während der Wartezeit.
     """
     for attempt in range(RECONNECT_ATTEMPTS):
         print("MQTT Wiederverbindung, Versuch", attempt + 1)
-        client = connect_mqtt(_client_id, _mqtt_broker, _mqtt_port)
+        client = connect_mqtt(_client_id, _mqtt_broker, _mqtt_port, _mqtt_user, _mqtt_password)
         if client:
             return client
         feed_sleep_ms(RECONNECT_DELAY_S * 1000, wdt)

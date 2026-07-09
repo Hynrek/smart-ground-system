@@ -103,13 +103,19 @@ try:
             _ota_confirm = ota.confirm_boot_healthy()      # beendet Probezeit, ("APPLIED", v) oder None
             _ota_pending = ota.take_pending_report()       # ("ROLLED_BACK", v) nach Reboot oder None
 
-            # MQTT verbinden (broker_port aus Config respektieren, Default 1883)
+            # MQTT verbinden (broker_port aus Config respektieren, Default 8883/TLS).
+            # mqtt_username/mqtt_password sind optional: fehlen sie (unprovisionierte Box,
+            # kein Bootstrap-Credential geflasht), verbindet sich connect_mqtt() mit
+            # user=None/password=None, was gegen den gehärteten Broker fehlschlägt – das
+            # ist erwartetes Verhalten, siehe smart-box/CLAUDE.md "Bootstrap credential".
             try:
-                broker_port = int(config.get('broker_port') or 1883)
+                broker_port = int(config.get('broker_port') or 8883)
             except (ValueError, TypeError):
-                broker_port = 1883
+                broker_port = 8883
 
-            client = connect_mqtt(CLIENT_ID, config['broker_ip'], broker_port)
+            client = connect_mqtt(CLIENT_ID, config['broker_ip'], broker_port,
+                                   user=config.get('mqtt_username'),
+                                   password=config.get('mqtt_password'))
             if not client:
                 print("MQTT-Verbindung fehlgeschlagen. Neustart in 5 Sekunden...")
                 time.sleep(5)
