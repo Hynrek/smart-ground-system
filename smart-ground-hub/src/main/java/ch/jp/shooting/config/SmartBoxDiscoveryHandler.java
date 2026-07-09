@@ -40,15 +40,18 @@ public class SmartBoxDiscoveryHandler implements MessageHandler {
     private final FirmwareConfigRepository firmwareConfigRepository;
     private final ObjectMapper objectMapper;
     private final SmartBoxConfigPushService configPushService;
+    private final SmartBoxCredentialService credentialService;
 
     public SmartBoxDiscoveryHandler(SmartBoxRepository smartBoxRepository,
                                     FirmwareConfigRepository firmwareConfigRepository,
                                     ObjectMapper objectMapper,
-                                    SmartBoxConfigPushService configPushService) {
+                                    SmartBoxConfigPushService configPushService,
+                                    SmartBoxCredentialService credentialService) {
         this.smartBoxRepository = smartBoxRepository;
         this.firmwareConfigRepository = firmwareConfigRepository;
         this.objectMapper = objectMapper;
         this.configPushService = configPushService;
+        this.credentialService = credentialService;
     }
 
     @Override
@@ -64,10 +67,28 @@ public class SmartBoxDiscoveryHandler implements MessageHandler {
             DiscoveryPayload payload = objectMapper.readValue(json, DiscoveryPayload.class);
             SmartBox box = upsertSmartBox(payload);
 
-            // Konfiguration nach Discovery sofort pushen, damit die Box ihre GPIO-Belegung kennt
-            configPushService.push(box);
+            // Nur eine brandneue Box (noch kein mqttUsername) bekommt hier einen Broker-Login.
+            // Eine bereits provisionierte Box (z.B. nach Reboot) darf KEIN neues Passwort
+            // bekommen – das würde die aktuell von ihr verwendeten Zugangsdaten sofort
+            // entwerten und die Box aussperren.
+            String provisionedPassword = null;
+            if (box.getMqttUsername() == null) {
+                provisionedPassword = credentialService.provisionCredentials(box);
+            }
+
+            // Konfiguration nach Discovery sofort pushen, damit die Box ihre GPIO-Belegung kennt.
+            // Bei frischer Provisionierung reist das einmalige Passwort im selben Push mit.
+            if (provisionedPassword != null) {
+                configPushService.push(box, provisionedPassword);
+            } else {
+                configPushService.push(box);
+            }
 
         } catch (Exception e) {
+            // Deckt auch eine fehlgeschlagene Provisionierung ab (ungültige MAC, Broker nicht
+            // erreichbar): geloggt, nicht rethrown. Eine noch nicht provisionierte Box (mqttUsername
+            // bleibt null) versucht es bei der nächsten Discovery erneut – bewusst keine Sonder-
+            // behandlung, damit der Discovery-Flow nie an einem Broker-Ausfall hängen bleibt.
             log.warn("Fehler beim Verarbeiten der Discovery-Message: {}", e.getMessage());
         }
     }

@@ -3,9 +3,11 @@ package ch.jp.shooting.config;
 import ch.jp.shooting.model.*;
 import ch.jp.shooting.repository.DeviceRepository;
 import ch.jp.shooting.repository.DeviceTypeRepository;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -60,9 +62,30 @@ public class SmartBoxConfigPushService {
         boolean blocked
     ) {}
 
-    public record DeviceConfigPayload(String firmwareVersion, List<DeviceConfigEntry> devices) {}
+    // mqttUsername/mqttPassword sind nur beim allerersten Push nach der Provisionierung gesetzt
+    // (frisch erzeugter Broker-Login). JsonInclude(NON_NULL) hält die bestehende Payload-Form
+    // für alle anderen Pushes unverändert (Felder fehlen dann im JSON statt als null zu erscheinen).
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record DeviceConfigPayload(
+        String firmwareVersion,
+        List<DeviceConfigEntry> devices,
+        @Nullable String mqttUsername,
+        @Nullable String mqttPassword
+    ) {}
 
+    /** Regulärer Config-Push ohne Broker-Zugangsdaten (bereits provisionierte Boxen). */
     public void push(SmartBox smartBox) {
+        push(smartBox, null);
+    }
+
+    /**
+     * Config-Push, der optional frisch provisionierte Broker-Zugangsdaten mit ausliefert.
+     *
+     * @param mqttPassword das gerade erzeugte Klartext-Passwort, oder {@code null} für einen
+     *                     regulären Push ohne Zugangsdaten. Wird NUR hier durchgereicht, nie
+     *                     persistiert. {@code mqttUsername} wird aus der Box gelesen.
+     */
+    public void push(SmartBox smartBox, @Nullable String mqttPassword) {
         String mac = smartBox.getMacAddress();
         UUID boxId = smartBox.getId();
         if (boxId == null) {
@@ -71,7 +94,7 @@ public class SmartBoxConfigPushService {
         }
 
         try {
-            DeviceConfigPayload payload = buildPayload(smartBox);
+            DeviceConfigPayload payload = buildPayload(smartBox, mqttPassword);
             String topic = TOPIC_CONFIG_TEMPLATE.formatted(mac);
 
             String json = objectMapper.writeValueAsString(payload);
@@ -91,7 +114,7 @@ public class SmartBoxConfigPushService {
         }
     }
 
-    private DeviceConfigPayload buildPayload(SmartBox box) {
+    private DeviceConfigPayload buildPayload(SmartBox box, @Nullable String mqttPassword) {
         FirmwareConfig firmware = box.getFirmwareConfig();
         if (firmware == null) {
             throw new FirmwareNotResolvedException(box.getId());
@@ -122,7 +145,9 @@ public class SmartBoxConfigPushService {
             ));
         }
 
-        return new DeviceConfigPayload(firmware.getVersion(), entries);
+        // mqttUsername nur mitgeben, wenn wir auch ein (frisches) Passwort ausliefern.
+        String mqttUsername = mqttPassword != null ? box.getMqttUsername() : null;
+        return new DeviceConfigPayload(firmware.getVersion(), entries, mqttUsername, mqttPassword);
     }
 
     public static class FirmwareNotResolvedException extends RuntimeException {

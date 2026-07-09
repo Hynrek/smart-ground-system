@@ -7,6 +7,7 @@ import ch.jp.smartground.model.SmartBoxPageResponse;
 import ch.jp.smartground.model.SmartBoxResponse;
 import ch.jp.smartground.model.SmartBoxStatus;
 import ch.jp.shooting.config.SmartBoxConfigPushService;
+import ch.jp.shooting.config.SmartBoxCredentialService;
 import ch.jp.shooting.exception.SmartBoxNotFoundException;
 import ch.jp.shooting.model.Device;
 import ch.jp.shooting.model.RangePosition;
@@ -35,15 +36,18 @@ public class SmartBoxController implements SmartBoxApi {
     private final SmartBoxConfigPushService configPushService;
     private final DeviceRepository deviceRepository;
     private final RangePositionRepository rangePositionRepository;
+    private final SmartBoxCredentialService credentialService;
 
     public SmartBoxController(SmartBoxRepository smartBoxRepository,
                                SmartBoxConfigPushService configPushService,
                                DeviceRepository deviceRepository,
-                               RangePositionRepository rangePositionRepository) {
+                               RangePositionRepository rangePositionRepository,
+                               SmartBoxCredentialService credentialService) {
         this.smartBoxRepository = smartBoxRepository;
         this.configPushService = configPushService;
         this.deviceRepository = deviceRepository;
         this.rangePositionRepository = rangePositionRepository;
+        this.credentialService = credentialService;
     }
 
     @Override
@@ -92,6 +96,13 @@ public class SmartBoxController implements SmartBoxApi {
     @Transactional
     public ResponseEntity<Void> deleteSmartBox(@PathVariable("id") UUID id) {
         SmartBox box = findBox(id);
+
+        // Broker-Login zuerst widerrufen (löscht den dynsec-Client, trennt aktive Sessions).
+        // Kein stiller Fallback: schlägt der Broker-Aufruf fehl, wirft revokeCredentials eine
+        // MqttDynsecException, die diese @Transactional-Methode zurückrollt – die Box bleibt
+        // dann bewusst NICHT (soft-)gelöscht, statt eine revozierte Box mit noch gültigem
+        // Broker-Login zu hinterlassen. Der Admin sieht den Fehler und kann es erneut versuchen.
+        credentialService.revokeCredentials(box);
 
         // Geräte hängen physisch an den GPIO-Pins dieser Box – sie werden mitgelöscht.
         // Zuvor jede Range-Position freigeben, sonst verletzt der FK range_positions.device_id.

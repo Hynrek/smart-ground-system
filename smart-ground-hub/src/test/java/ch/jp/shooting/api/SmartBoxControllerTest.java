@@ -1,6 +1,7 @@
 package ch.jp.shooting.api;
 
 import ch.jp.shooting.config.SmartBoxConfigPushService;
+import ch.jp.shooting.config.SmartBoxCredentialService;
 import ch.jp.shooting.exception.SmartBoxNotFoundException;
 import ch.jp.shooting.model.Device;
 import ch.jp.shooting.model.RangePosition;
@@ -31,10 +32,12 @@ class SmartBoxControllerTest {
     @Mock SmartBoxConfigPushService configPushService;
     @Mock DeviceRepository deviceRepository;
     @Mock RangePositionRepository rangePositionRepository;
+    @Mock SmartBoxCredentialService credentialService;
 
     private SmartBoxController controller() {
         return new SmartBoxController(
-            smartBoxRepository, configPushService, deviceRepository, rangePositionRepository);
+            smartBoxRepository, configPushService, deviceRepository, rangePositionRepository,
+            credentialService);
     }
 
     @Test
@@ -76,6 +79,37 @@ class SmartBoxControllerTest {
         verify(rangePositionRepository).save(cap.capture());
         assertThat(cap.getValue().getDevice()).isNull();
         verify(deviceRepository).deleteAll(List.of(device));
+    }
+
+    @Test
+    void deleteRevokesBrokerCredentialsBeforeSoftDelete() {
+        UUID boxId = UUID.randomUUID();
+        SmartBox box = new SmartBox();
+        box.setId(boxId);
+        when(smartBoxRepository.findByIdAndDeletedAtIsNull(boxId)).thenReturn(Optional.of(box));
+        when(deviceRepository.findBySmartBoxId(boxId)).thenReturn(List.of());
+        when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
+
+        controller().deleteSmartBox(boxId);
+
+        verify(credentialService).revokeCredentials(box);
+    }
+
+    @Test
+    void deleteRollsBackWhenBrokerRevokeFails() {
+        UUID boxId = UUID.randomUUID();
+        SmartBox box = new SmartBox();
+        box.setId(boxId);
+        when(smartBoxRepository.findByIdAndDeletedAtIsNull(boxId)).thenReturn(Optional.of(box));
+        // Broker-Revoke schlägt fehl -> kein stiller Fallback, Fehler propagiert (Transaktion rollt zurück).
+        doThrow(new ch.jp.shooting.exception.MqttDynsecException("Broker weg"))
+            .when(credentialService).revokeCredentials(box);
+
+        assertThatThrownBy(() -> controller().deleteSmartBox(boxId))
+            .isInstanceOf(ch.jp.shooting.exception.MqttDynsecException.class);
+        // Box darf NICHT soft-gelöscht werden und Geräte nicht angefasst werden.
+        assertThat(box.getDeletedAt()).isNull();
+        verify(deviceRepository, never()).deleteAll(any());
     }
 
     @Test

@@ -16,10 +16,11 @@ class SmartBoxMqttRouterTest {
     @Mock SmartBoxConfigAckHandler configAck;
     @Mock SmartBoxDeviceExecutedHandler executed;
     @Mock SmartBoxOtaStatusHandler otaStatus;
+    @Mock MqttDynsecClient dynsecClient;
 
     @Test
     void otaStatusTopicRoutesToOtaHandlerNotStatusHandler() {
-        var router = new SmartBoxMqttRouter(discovery, status, configAck, executed, otaStatus);
+        var router = new SmartBoxMqttRouter(discovery, status, configAck, executed, otaStatus, dynsecClient);
         var msg = MessageBuilder.withPayload("{}".getBytes())
             .setHeader("mqtt_receivedTopic", "smartboxes/aabbccddeeff/ota/status").build();
         router.handleMessage(msg);
@@ -29,11 +30,22 @@ class SmartBoxMqttRouterTest {
 
     @Test
     void plainStatusTopicStillRoutesToStatusHandler() {
-        var router = new SmartBoxMqttRouter(discovery, status, configAck, executed, otaStatus);
+        var router = new SmartBoxMqttRouter(discovery, status, configAck, executed, otaStatus, dynsecClient);
         var msg = MessageBuilder.withPayload("{}".getBytes())
             .setHeader("mqtt_receivedTopic", "smartboxes/aabbccddeeff/status").build();
         router.handleMessage(msg);
         verify(status).handleMessage(msg);
         verify(otaStatus, never()).handleMessage(any());
+    }
+
+    @Test
+    void dynsecResponseTopicRoutesToDynsecClient() {
+        var router = new SmartBoxMqttRouter(discovery, status, configAck, executed, otaStatus, dynsecClient);
+        var msg = MessageBuilder.withPayload("{\"responses\":[]}".getBytes())
+            .setHeader("mqtt_receivedTopic", MqttConfig.TOPIC_DYNSEC_RESPONSE).build();
+        router.handleMessage(msg);
+        verify(dynsecClient).handleResponse(msg);
+        verify(discovery, never()).handleMessage(any());
+        verify(status, never()).handleMessage(any());
     }
 }
