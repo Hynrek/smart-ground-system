@@ -194,7 +194,7 @@ To mount it read-only from another compose service: `mosquitto_certs:/some/path:
 To test with `mosquitto_pub`/`mosquitto_sub` from the host, copy the CA out once:
 ```bash
 docker cp smartground-mosquitto_deploy:/mosquitto/config/certs/ca.crt ./ca.crt
-mosquitto_pub -h localhost -p 8883 --cafile ca.crt -u <username> -P <password> -t devices/discovery -m hello
+mosquitto_pub -h localhost -p 8883 --cafile ca.crt -u <username> -P <password> -t smartboxes/discovery -m hello
 ```
 
 ### Listeners
@@ -256,10 +256,10 @@ env var) **and** re-run `dynsec-init.sh`'s client-password step (or run
 are two independent stores of the same secret, not linked automatically after the
 first bootstrap.
 
-- **`backend`** — read/write `devices/#` and `$CONTROL/#` (needed for dynsec admin
+- **`backend`** — read/write `smartboxes/#` and `$CONTROL/#` (needed for dynsec admin
   and future auto-provisioning of SmartBox clients).
-- **`smartbox`** — write-only `devices/discovery`; read/write scoped to its own
-  `devices/<mac>/...` subtree via the dynsec `%u` (username) pattern — the plan sets
+- **`smartbox`** — write-only `smartboxes/discovery`; read/write scoped to its own
+  `smartboxes/<mac>/...` subtree via the dynsec `%u` (username) pattern — the plan sets
   each SmartBox's MQTT **username = its MAC address**, so `%u` resolves correctly
   without needing per-client ACL entries.
 
@@ -267,7 +267,7 @@ first bootstrap.
   the dynsec username being safe. Usernames assigned to `smartbox`-role clients
   **must** be validated as MAC-address format (or otherwise free of `+`/`#`/wildcard
   characters) at provisioning time — a username containing an MQTT wildcard would
-  turn `devices/%u/#` into `devices/+/#` or `devices/#`, defeating the "Box A
+  turn `smartboxes/%u/#` into `smartboxes/+/#` or `smartboxes/#`, defeating the "Box A
   darf Topics von Box B weder lesen noch beschreiben" isolation goal. This is
   currently safe because usernames are admin-assigned via `createClient`, not
   client-supplied; whoever implements the backend's device-provisioning /
@@ -285,11 +285,11 @@ first bootstrap.
 This part **was actually run against a live broker** during this task (not just
 documented): roles were created, verified with `dynsec getRole backend|smartbox`, and
 exercised end-to-end with a throwaway `smartbox`-role client over TLS — publishing to
-its own `devices/<mac>/status` and `devices/discovery` succeeded, publishing to
+its own `smartboxes/<mac>/status` and `smartboxes/discovery` succeeded, publishing to
 another device's topic and to `$CONTROL/#` was silently dropped (ACL deny, QoS 0), and
-subscribing to the broad `devices/#` wildcard was rejected at `SUBSCRIBE` time
+subscribing to the broad `smartboxes/#` wildcard was rejected at `SUBSCRIBE` time
 (`SUBACK` reason code 128 — "not authorized"), while subscribing to its own
-`devices/<mac>/cmd` succeeded. See `.superpowers/sdd/task-A-report.md` for the full
+`smartboxes/<mac>/cmd` succeeded. See `.superpowers/sdd/task-A-report.md` for the full
 transcript.
 
 **Not scripted (left for Task D / an operator):** creating **per-SmartBox** dynsec

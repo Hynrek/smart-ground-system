@@ -23,9 +23,9 @@
 # MQTT_PASSWORD pairing this depends on.
 #
 # ACLs implement the plan's two roles:
-#   backend  — read/write devices/#, read/write $CONTROL/# (dynsec admin)
-#   smartbox — write-only devices/discovery; read/write scoped to its own
-#              devices/<mac>/... tree via the %u (username) substitution
+#   backend  — read/write smartboxes/#, read/write $CONTROL/# (dynsec admin)
+#   smartbox — write-only smartboxes/discovery; read/write scoped to its own
+#              smartboxes/<mac>/... tree via the %u (username) substitution
 #              pattern — the plan sets username = MAC per SmartBox.
 set -eu
 
@@ -52,9 +52,9 @@ CTRL_OPTS="-h 127.0.0.1 -p 1883 -u admin -P $ADMIN_PASSWORD $*"
 
 echo "== creating role: backend =="
 mosquitto_ctrl $CTRL_OPTS dynsec createRole backend
-mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL backend publishClientSend    "devices/#"  allow 10
-mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL backend publishClientReceive "devices/#"  allow 10
-mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL backend subscribePattern     "devices/#"  allow 10
+mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL backend publishClientSend    "smartboxes/#"  allow 10
+mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL backend publishClientReceive "smartboxes/#"  allow 10
+mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL backend subscribePattern     "smartboxes/#"  allow 10
 mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL backend publishClientSend    '$CONTROL/#' allow 10
 mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL backend publishClientReceive '$CONTROL/#' allow 10
 mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL backend subscribePattern     '$CONTROL/#' allow 10
@@ -62,21 +62,21 @@ mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL backend subscribePattern     '$CONTR
 echo "== creating role: smartbox =="
 mosquitto_ctrl $CTRL_OPTS dynsec createRole smartbox
 # Every SmartBox may announce itself on the shared discovery topic...
-mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL smartbox publishClientSend "devices/discovery" allow 10
+mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL smartbox publishClientSend "smartboxes/discovery" allow 10
 # ...but only read/write its OWN device subtree, keyed by username (= MAC).
 # SECURITY: the "%u" below is substituted with the connecting client's dynsec
 # username. This is only a safe per-device boundary because dynsec usernames
 # are admin-assigned here (via `createClient`, not client-supplied). If a
 # future provisioning step lets a device's username be attacker-influenced or
 # unvalidated, a username containing MQTT wildcard characters ("+" or "#")
-# would turn "devices/%u/#" into "devices/+/#" or "devices/#", defeating the
+# would turn "smartboxes/%u/#" into "smartboxes/+/#" or "smartboxes/#", defeating the
 # per-device isolation this ACL exists to enforce. Whoever implements the
 # backend's device-provisioning/user-lifecycle code MUST validate that
 # smartbox-role usernames are MAC-address-formatted (or otherwise free of
 # "+"/"#"/wildcard characters) before calling `createClient`.
-mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL smartbox publishClientSend    "devices/%u/#" allow 10
-mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL smartbox publishClientReceive "devices/%u/#" allow 10
-mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL smartbox subscribePattern     "devices/%u/#" allow 10
+mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL smartbox publishClientSend    "smartboxes/%u/#" allow 10
+mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL smartbox publishClientReceive "smartboxes/%u/#" allow 10
+mosquitto_ctrl $CTRL_OPTS dynsec addRoleACL smartbox subscribePattern     "smartboxes/%u/#" allow 10
 
 echo "== creating client: backend (the backend's own dynsec login) =="
 # Non-interactive path: `createClient <user>` (no -p, prompts interactively
