@@ -1,0 +1,57 @@
+{
+  "constants": {
+    "k_box": "a20139cb0c00d928bf1e06b82c7b8b6f3ba449adef768ca5096e6ddc1326b3d4",
+    "box_uuid": "0102030405060708090a0b0c0d0e0f10",
+    "box_mac": "aabbccddeeff",
+    "node_mac": "001122334455",
+    "dest_broadcast": "ffffffffffff",
+    "nonce_b": "1111111111111111",
+    "nonce_n": "2222222222222222",
+    "session_key_info_utf8": "smart-ground-espnow-session",
+    "session_key_info_hex": "736d6172742d67726f756e642d6573706e6f772d73657373696f6e"
+  },
+  "pair_discover": {
+    "dest_mac": "ffffffffffff",
+    "src_mac": "aabbccddeeff",
+    "frame_id": 1,
+    "ttl": 1,
+    "type": 1,
+    "header": "ffffffffffffaabbccddeeff01000101",
+    "box_uuid": "0102030405060708090a0b0c0d0e0f10",
+    "nonce_b": "1111111111111111",
+    "mic": "f11a08a46a1f7e8b1d7202bf4873f3f1",
+    "frame": "ffffffffffffaabbccddeeff010001010102030405060708090a0b0c0d0e0f101111111111111111f11a08a46a1f7e8b1d7202bf4873f3f1"
+  },
+  "pair_offer": {
+    "dest_mac": "aabbccddeeff",
+    "src_mac": "001122334455",
+    "frame_id": 2,
+    "ttl": 1,
+    "type": 2,
+    "header": "aabbccddeeff00112233445502000102",
+    "radio_id": 0,
+    "channel": 1,
+    "nonce_n": "2222222222222222",
+    "gcm_nonce": "000000002222222222222222",
+    "plaintext_nonce_b": "1111111111111111",
+    "ciphertext": "2024a8e339088aae",
+    "tag": "0a37de8edd01d48a6b69174c0b1b9052",
+    "frame": "aabbccddeeff00112233445502000102000122222222222222222024a8e339088aae0a37de8edd01d48a6b69174c0b1b9052"
+  },
+  "pair_confirm": {
+    "dest_mac": "001122334455",
+    "src_mac": "aabbccddeeff",
+    "frame_id": 3,
+    "ttl": 1,
+    "type": 3,
+    "header": "001122334455aabbccddeeff03000103",
+    "nonce_n": "2222222222222222",
+    "mic": "5c041c3878e3e49900601765b94f9faf",
+    "frame": "001122334455aabbccddeeff0300010322222222222222225c041c3878e3e49900601765b94f9faf"
+  },
+  "session_key": {
+    "salt": "11111111111111112222222222222222",
+    "info_hex": "736d6172742d67726f756e642d6573706e6f772d73657373696f6e",
+    "k_s": "34b984b1c7d1dc599ade9a01fa14f04a3d56285317fc0ad2b1d134913a95fe6e"
+  }
+}
