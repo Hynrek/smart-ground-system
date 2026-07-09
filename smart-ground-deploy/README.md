@@ -234,14 +234,27 @@ this task** — not just docs:
   mounted at `/mosquitto/config/dynsec` — separate from the certs volume; no other
   service needs to mount it.
 
-**Role setup (scripted, run once against a live broker):**
+**Role + backend client setup (scripted, run once against a live broker):**
 `dynsec-init.sh` is bind-mounted into the container at
-`/mosquitto/config/dynsec-init.sh` and creates the two roles the plan calls for, via
-`mosquitto_ctrl` over the internal plaintext listener:
+`/mosquitto/config/dynsec-init.sh` and creates the two roles the plan calls for, plus
+the backend's own dynsec client login, via `mosquitto_ctrl` over the internal
+plaintext listener:
 
 ```bash
-docker compose exec mosquitto sh /mosquitto/config/dynsec-init.sh "$MQTT_DYNSEC_ADMIN_PASSWORD"
+docker compose exec mosquitto sh /mosquitto/config/dynsec-init.sh "$MQTT_DYNSEC_ADMIN_PASSWORD" "$MQTT_BACKEND_PASSWORD"
 ```
+
+**`MQTT_BACKEND_PASSWORD` <-> `MQTT_PASSWORD` pairing (Task B):** the backend
+container authenticates as dynsec username `backend`, password taken from its own
+`MQTT_PASSWORD` env var (`docker-compose.yml`'s `app` service sets
+`MQTT_PASSWORD: ${MQTT_BACKEND_PASSWORD}`, so both read from the **same** `.env` var).
+`dynsec-init.sh`'s second argument sets that same password on the dynsec side
+(`setClientPassword backend <password>`). If you ever change
+`MQTT_BACKEND_PASSWORD` in `.env`, you must **both** restart `app` (to pick up the new
+env var) **and** re-run `dynsec-init.sh`'s client-password step (or run
+`mosquitto_ctrl ... dynsec setClientPassword backend <new-password>` directly) — they
+are two independent stores of the same secret, not linked automatically after the
+first bootstrap.
 
 - **`backend`** — read/write `devices/#` and `$CONTROL/#` (needed for dynsec admin
   and future auto-provisioning of SmartBox clients).
@@ -279,11 +292,13 @@ subscribing to the broad `devices/#` wildcard was rejected at `SUBSCRIBE` time
 `devices/<mac>/cmd` succeeded. See `.superpowers/sdd/task-A-report.md` for the full
 transcript.
 
-**Not scripted (left for Task B / an operator):** creating the actual per-client users
-(`createClient <username> -p <password>`) and assigning them the `backend` or
-`smartbox` role (`addClientRole <username> backend|smartbox 10`) — that depends on
-credentials the backend/SmartBox provisioning flow generates, which is out of scope
-here. `dynsec-init.sh` prints the exact follow-up commands at the end of its output.
+**Not scripted (left for Task D / an operator):** creating **per-SmartBox** dynsec
+clients (`createClient <mac> -p <password>`, `addClientRole <mac> smartbox 10`) and
+deleting them when a box is decommissioned — that's the dynamic user-lifecycle
+service, a separate later task. The backend's own `backend` client (above) *is*
+scripted here since it's a single, well-known login the backend bootstraps for
+itself. `dynsec-init.sh` prints the exact follow-up commands for per-box clients at
+the end of its output.
 
 ### Production TLS (out of scope here)
 

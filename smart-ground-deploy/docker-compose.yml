@@ -80,12 +80,23 @@ services:
       - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      # Connects to mosquitto over TLS (8883) with its own dynsec login
+      # (username "backend", created by dynsec-init.sh — see README.md
+      # "Dynsec bootstrap"). MQTT_PASSWORD must equal MQTT_BACKEND_PASSWORD
+      # below, since that's the password dynsec-init.sh assigns this same
+      # "backend" client.
+      MQTT_BROKER_URL: ssl://mosquitto:8883
+      MQTT_USERNAME: backend
+      MQTT_PASSWORD: ${MQTT_BACKEND_PASSWORD}
+      MQTT_TLS_CA_CERT_PATH: /certs/ca.crt
+    volumes:
+      # Read-only: trust the broker's Dev-CA cert for the ssl:// connection
+      # above. See smart-ground-deploy README's "Cert volume/path convention".
+      - mosquitto_certs:/certs:ro
     depends_on:
       db:
         condition: service_healthy
       mosquitto:
-        # Connects over the internal network at mosquitto:1883 (plaintext)
-        # until Task B switches it to TLS on 8883 with dynsec credentials.
         condition: service_started
     networks:
       - smartground
