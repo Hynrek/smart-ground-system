@@ -61,6 +61,7 @@ smart-box/
 ├── ota.py                              # OTA: download/verify/stage/apply App Code + esp32.Partition firmware update
 ├── espnow_crypto.py                    # AES-256-GCM (ucryptolib ECB + hand-rolled GHASH/CTR) + HKDF-SHA256 (ESP-NOW pairing/session keys)
 ├── frame_envelope.py                   # Klartext-Routing-Header (pack/unpack) + Duplikat-Erkennung (SeenCache) fuer ESP-NOW-Frames
+├── pairing_codec.py                    # Baut/parst DISCOVER/OFFER/CONFIRM unter K_Box + leitet K_S ab (ESP-NOW-Pairing, ADR-003)
 ├── hardware.py                         # GpioManager class + onboard LED
 ├── networkutils.py                     # WiFi connect/reconnect helpers
 ├── accesspoint.py                      # Captive portal for first-time WiFi setup
