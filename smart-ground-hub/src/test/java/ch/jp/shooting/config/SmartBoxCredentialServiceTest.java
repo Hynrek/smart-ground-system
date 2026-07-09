@@ -33,29 +33,34 @@ class SmartBoxCredentialServiceTest {
     @Test
     void provisionCreatesBrokerLoginSetsUsernameAndReturnsPassword() {
         when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
-        SmartBox b = box("AA:BB:CC:DD:EE:FF");
+        // Reales Format: colonlose 12-Hex-MAC, wie sie von networkutils.py get_mac_address()
+        // erzeugt und unverändert überall (MQTT-Client-ID, Topics, Discovery-Payload) verwendet wird.
+        SmartBox b = box("aabbccddeeff");
 
         String password = service().provisionCredentials(b);
 
         assertThat(password).isNotBlank();
         // Username == MAC am Broker angelegt, mit genau diesem Passwort.
-        verify(dynsecClient).createSmartboxClient(eq("AA:BB:CC:DD:EE:FF"), eq(password));
-        assertThat(b.getMqttUsername()).isEqualTo("AA:BB:CC:DD:EE:FF");
+        verify(dynsecClient).createSmartboxClient(eq("aabbccddeeff"), eq(password));
+        assertThat(b.getMqttUsername()).isEqualTo("aabbccddeeff");
         verify(smartBoxRepository).save(b);
     }
 
     @Test
     void provisionGeneratesDistinctHighEntropyPasswords() {
         when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
-        String p1 = service().provisionCredentials(box("AA:BB:CC:DD:EE:01"));
-        String p2 = service().provisionCredentials(box("AA:BB:CC:DD:EE:02"));
+        String p1 = service().provisionCredentials(box("aabbccddee01"));
+        String p2 = service().provisionCredentials(box("aabbccddee02"));
         assertThat(p1).isNotEqualTo(p2);
         assertThat(p1.length()).isGreaterThanOrEqualTo(24);
     }
 
     @Test
-    void provisionRejectsColonlessMacWithoutTouchingBroker() {
-        SmartBox b = box("aabbccddeeff");
+    void provisionRejectsColonSeparatedMacWithoutTouchingBroker() {
+        // Das System verwendet ausschließlich das colonlose Format; ein colon-getrenntes
+        // Format ("AA:BB:CC:DD:EE:FF") tritt in der realen Firmware nie auf und muss abgelehnt
+        // werden, damit ein tatsächlich falsch formatierter Wert nicht stillschweigend akzeptiert wird.
+        SmartBox b = box("AA:BB:CC:DD:EE:FF");
         assertThatThrownBy(() -> service().provisionCredentials(b))
             .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(dynsecClient);
@@ -65,14 +70,14 @@ class SmartBoxCredentialServiceTest {
     @Test
     void provisionRejectsWildcardInjectionAttempt() {
         // Ein Username mit MQTT-Wildcards würde die smartboxes/%u/#-Isolation aushebeln.
-        assertThatThrownBy(() -> service().provisionCredentials(box("AA:BB:CC:DD:EE:+#")))
+        assertThatThrownBy(() -> service().provisionCredentials(box("aabbccdd##")))
             .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(dynsecClient);
     }
 
     @Test
     void provisionDoesNotSaveUsernameWhenBrokerCreateFails() {
-        SmartBox b = box("AA:BB:CC:DD:EE:FF");
+        SmartBox b = box("aabbccddeeff");
         doThrow(new MqttDynsecException("Broker weg")).when(dynsecClient).createSmartboxClient(any(), any());
 
         assertThatThrownBy(() -> service().provisionCredentials(b))
@@ -85,19 +90,19 @@ class SmartBoxCredentialServiceTest {
     @Test
     void revokeDeletesBrokerLoginAndClearsUsername() {
         when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
-        SmartBox b = box("AA:BB:CC:DD:EE:FF");
-        b.setMqttUsername("AA:BB:CC:DD:EE:FF");
+        SmartBox b = box("aabbccddeeff");
+        b.setMqttUsername("aabbccddeeff");
 
         service().revokeCredentials(b);
 
-        verify(dynsecClient).deleteSmartboxClient("AA:BB:CC:DD:EE:FF");
+        verify(dynsecClient).deleteSmartboxClient("aabbccddeeff");
         assertThat(b.getMqttUsername()).isNull();
         verify(smartBoxRepository).save(b);
     }
 
     @Test
     void revokeIsNoOpWhenBoxHasNoBrokerLogin() {
-        SmartBox b = box("AA:BB:CC:DD:EE:FF"); // mqttUsername == null
+        SmartBox b = box("aabbccddeeff"); // mqttUsername == null
         service().revokeCredentials(b);
         verifyNoInteractions(dynsecClient);
         verify(smartBoxRepository, never()).save(any());
@@ -105,14 +110,14 @@ class SmartBoxCredentialServiceTest {
 
     @Test
     void revokeRethrowsAndKeepsUsernameWhenBrokerDeleteFails() {
-        SmartBox b = box("AA:BB:CC:DD:EE:FF");
-        b.setMqttUsername("AA:BB:CC:DD:EE:FF");
+        SmartBox b = box("aabbccddeeff");
+        b.setMqttUsername("aabbccddeeff");
         doThrow(new MqttDynsecException("Broker weg")).when(dynsecClient).deleteSmartboxClient(any());
 
         assertThatThrownBy(() -> service().revokeCredentials(b))
             .isInstanceOf(MqttDynsecException.class);
         // Kein stiller Fallback: Username bleibt gesetzt, damit DB/Broker nicht heimlich divergieren.
-        assertThat(b.getMqttUsername()).isEqualTo("AA:BB:CC:DD:EE:FF");
+        assertThat(b.getMqttUsername()).isEqualTo("aabbccddeeff");
         verify(smartBoxRepository, never()).save(any());
     }
 }

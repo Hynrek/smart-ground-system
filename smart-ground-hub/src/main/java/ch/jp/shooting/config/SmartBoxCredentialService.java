@@ -28,12 +28,17 @@ public class SmartBoxCredentialService {
     private static final Logger log = LoggerFactory.getLogger(SmartBoxCredentialService.class);
 
     /**
-     * Strikte MAC-Adress-Validierung (Doppelpunkt-getrennte Hex-Paare). SICHERHEITSKRITISCH:
-     * Der dynsec-Username wird via {@code smartboxes/%u/#}-ACL (siehe dynsec-init.sh) in die
-     * Topic-Isolation eingesetzt. Ein Username mit MQTT-Wildcards ({@code +}/{@code #}) würde
-     * diese Isolation aushebeln – daher werden ausschließlich saubere MAC-Adressen zugelassen.
+     * Strikte MAC-Adress-Validierung (12 Hex-Zeichen ohne Trennzeichen – das Format, das die
+     * Firmware tatsächlich erzeugt, siehe {@code networkutils.py}'s {@code get_mac_address()}:
+     * {@code ''.join('{:02x}'.format(b) for b in mac)}, z.B. {@code aabbccddeeff}). Dieses
+     * Format wird unverändert als MQTT-Client-ID, in jedem {@code smartboxes/{mac}/...}-Topic
+     * und als {@code mac}-Feld im Discovery-Payload verwendet – keine Normalisierung irgendwo
+     * in dieser Codebase. SICHERHEITSKRITISCH: Der dynsec-Username wird via
+     * {@code smartboxes/%u/#}-ACL (siehe dynsec-init.sh) in die Topic-Isolation eingesetzt. Ein
+     * Username mit MQTT-Wildcards ({@code +}/{@code #}) würde diese Isolation aushebeln – daher
+     * werden ausschließlich saubere Hex-MAC-Adressen zugelassen.
      */
-    static final Pattern MAC_PATTERN = Pattern.compile("^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$");
+    static final Pattern MAC_PATTERN = Pattern.compile("^[0-9A-Fa-f]{12}$");
 
     private final MqttDynsecClient dynsecClient;
     private final SmartBoxRepository smartBoxRepository;
@@ -56,7 +61,7 @@ public class SmartBoxCredentialService {
         String mac = box.getMacAddress();
         if (!MAC_PATTERN.matcher(mac).matches()) {
             throw new IllegalArgumentException(
-                "Ungültige MAC-Adresse für dynsec-Provisionierung (erwartet AA:BB:CC:DD:EE:FF): " + mac);
+                "Ungültige MAC-Adresse für dynsec-Provisionierung (erwartet 12 Hex-Zeichen ohne Trennzeichen, z.B. aabbccddeeff): " + mac);
         }
 
         String password = generatePassword();

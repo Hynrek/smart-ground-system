@@ -128,4 +128,34 @@ class MqttDynsecClientTest {
             .isInstanceOf(MqttDynsecException.class)
             .hasMessageContaining("Timeout");
     }
+
+    @Test
+    void staleResponseFromTimedOutRequestIsRejectedNotMisattributedToNextRequest() {
+        // Request A ("createClient") läuft in einen Timeout: der Broker antwortet nie
+        // innerhalb der Frist. sendCommand wirft, `finally` setzt `pending` auf null.
+        // Request B ("deleteClient") startet danach; BEVOR B seine eigene Antwort erhält,
+        // trifft A's verspätete Antwort ein und wird an B's inzwischen gesetztes `pending`-
+        // Future geliefert (handleResponse kennt keine Korrelation, siehe Klassen-Javadoc).
+        // checkResponse muss das anhand des `command`-Felds erkennen und ablehnen, statt A's
+        // stale "createClient"-Erfolg fälschlich als B's "deleteClient"-Ergebnis zu akzeptieren.
+        MqttDynsecClient client = new MqttDynsecClient(mqttOutboundChannel, mapper, 100);
+        when(mqttOutboundChannel.send(any()))
+            .thenReturn(true) // A: Broker antwortet nie -> Timeout
+            .thenAnswer(inv -> {
+                // B's Publish-Aufruf: statt B's eigener Antwort spielen wir A's verspätete
+                // (stale) Antwort für "createClient" in B's pending-Future zurück.
+                client.handleResponse(MessageBuilder.withPayload(ok("createClient").getBytes()).build());
+                return true;
+            });
+
+        assertThatThrownBy(() -> client.createSmartboxClient("aabbccddeeff", "pw"))
+            .isInstanceOf(MqttDynsecException.class)
+            .hasMessageContaining("Timeout");
+
+        // B ("deleteClient") darf NICHT stillschweigend als Erfolg durchgehen, nur weil
+        // irgendeine fehlerfreie Antwort ankam – sie gehört zum falschen Kommando.
+        assertThatThrownBy(() -> client.deleteSmartboxClient("aabbccddeeff"))
+            .isInstanceOf(MqttDynsecException.class)
+            .hasMessageContaining("deleteClient");
+    }
 }

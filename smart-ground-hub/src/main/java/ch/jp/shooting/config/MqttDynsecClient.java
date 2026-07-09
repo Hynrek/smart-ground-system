@@ -205,13 +205,29 @@ public class MqttDynsecClient {
         }
     }
 
-    /** Prüft die {@code responses[0]} auf ein {@code error}-Feld und wirft ggf. eine {@link MqttDynsecException}. */
+    /**
+     * Prüft die {@code responses[0]} auf ein {@code error}-Feld und wirft ggf. eine
+     * {@link MqttDynsecException}. Prüft außerdem, dass {@code responses[0].command} zum
+     * erwarteten Kommando passt: Da das Response-Topic fest ist und keine Korrelationsdaten
+     * zurückgespiegelt werden (siehe Klassen-Javadoc), kann eine verspätete Antwort eines
+     * bereits per Timeout abgelaufenen Requests fälschlich dem NÄCHSTEN Request zugeordnet
+     * werden ({@link #pending} wurde im {@code finally} von {@link #sendCommand} bereits durch
+     * ein neues Future ersetzt). Eine falsch zugeordnete Antwort wird als Fehler behandelt statt
+     * still akzeptiert zu werden.
+     */
     private void checkResponse(String expectedCommand, JsonNode response) {
         JsonNode responses = response.path("responses");
         if (!responses.isArray() || responses.isEmpty()) {
             throw new MqttDynsecException("Unerwartete dynsec-Antwort (keine 'responses'): " + response, null);
         }
         JsonNode first = responses.get(0);
+        JsonNode commandField = first.get("command");
+        if (commandField != null && !commandField.isNull() && !expectedCommand.equals(commandField.asText())) {
+            throw new MqttDynsecException(
+                "Veraltete/falsch zugeordnete dynsec-Antwort für Kommando '" + expectedCommand
+                + "' erhalten (tatsächlich: '" + commandField.asText() + "') – vermutlich eine verspätete "
+                + "Antwort eines abgelaufenen Requests.", null);
+        }
         JsonNode error = first.get("error");
         if (error != null && !error.isNull()) {
             String errorText = error.asText();
