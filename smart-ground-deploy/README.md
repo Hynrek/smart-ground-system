@@ -250,6 +250,25 @@ docker compose exec mosquitto sh /mosquitto/config/dynsec-init.sh "$MQTT_DYNSEC_
   each SmartBox's MQTT **username = its MAC address**, so `%u` resolves correctly
   without needing per-client ACL entries.
 
+  **Security note:** the `%u`-scoped ACL's per-device isolation depends entirely on
+  the dynsec username being safe. Usernames assigned to `smartbox`-role clients
+  **must** be validated as MAC-address format (or otherwise free of `+`/`#`/wildcard
+  characters) at provisioning time — a username containing an MQTT wildcard would
+  turn `devices/%u/#` into `devices/+/#` or `devices/#`, defeating the "Box A
+  darf Topics von Box B weder lesen noch beschreiben" isolation goal. This is
+  currently safe because usernames are admin-assigned via `createClient`, not
+  client-supplied; whoever implements the backend's device-provisioning /
+  user-lifecycle service next must preserve that validation.
+
+  **Recovery from a partial failure:** `dynsec-init.sh` is not idempotent (it uses
+  `set -eu` and aborts on the first error). If it fails partway through — e.g. a
+  transient `mosquitto_ctrl` failure mid-role — a rerun will immediately fail at
+  `createRole` with "role already exists". To recover, manually delete the
+  half-configured role(s) (`mosquitto_ctrl ... dynsec deleteRole backend|smartbox`,
+  plus `deleteClient <username>` for any client created against them) before
+  rerunning the script. See the comment block in `dynsec-init.sh` for the exact
+  commands.
+
 This part **was actually run against a live broker** during this task (not just
 documented): roles were created, verified with `dynsec getRole backend|smartbox`, and
 exercised end-to-end with a throwaway `smartbox`-role client over TLS — publishing to
