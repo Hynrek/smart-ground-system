@@ -50,6 +50,14 @@ import java.util.concurrent.locks.ReentrantLock;
  *   <li>{@code deleteClient} trennt eine aktive Session automatisch mit (live verifiziert:
  *       der verbundene Client wird sofort mit „Not authorized“ getrennt). Ein separates
  *       {@code disconnectClient} existiert in dynsec 2.1.2 NICHT (liefert „Unknown command“).</li>
+ *   <li><b>Executor-Hinweis:</b> Die Antwort auf {@link #RESPONSE_TOPIC} läuft über denselben
+ *       {@code mqttInboundChannel}-Executor-Pool wie alle anderen Inbound-Handler, einschließlich
+ *       Aufrufer dieser Klasse (z.B. {@code SmartBoxDiscoveryHandler}). Ein zu klein konfigurierter
+ *       Pool kombiniert mit einem entfernten/unbegrenzten Response-Timeout könnte dadurch zum
+ *       Deadlock führen (der wartende Thread wäre derselbe, der die Antwort verarbeiten müsste).
+ *       Aktuell verhindern das die Pool-Größe (siehe {@code MqttConfig.mqttInboundExecutor()},
+ *       {@code corePoolSize=4}/{@code maxPoolSize=16}) und der begrenzte
+ *       {@code mqtt.dynsec.response-timeout-ms} (Default 5000&nbsp;ms).</li>
  * </ul>
  */
 @Component
