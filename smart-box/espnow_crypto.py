@@ -86,7 +86,18 @@ def _aes_ecb_block(key, block):
     return ucryptolib.aes(key, _MODE_ECB).encrypt(block)
 
 
+def _ct_equal(a, b):
+    if len(a) != len(b):
+        return False
+    diff = 0
+    for x, y in zip(a, b):
+        diff |= x ^ y
+    return diff == 0
+
+
 def aes256_gcm_encrypt(key, iv, aad, plaintext):
+    if len(iv) != 12:
+        raise ValueError("AES-GCM: nur 96-Bit-IV (12 Byte) unterstuetzt")
     h = _aes_ecb_block(key, bytes(16))
     j0 = iv + b"\x00\x00\x00\x01"
     counter = _inc32(j0)
@@ -104,6 +115,10 @@ def aes256_gcm_encrypt(key, iv, aad, plaintext):
 
 
 def aes256_gcm_decrypt(key, iv, aad, ciphertext_and_tag):
+    if len(ciphertext_and_tag) < 16:
+        raise ValueError("AES-GCM: Eingabe kuerzer als der 16-Byte-Tag")
+    if len(iv) != 12:
+        raise ValueError("AES-GCM: nur 96-Bit-IV (12 Byte) unterstuetzt")
     ciphertext = ciphertext_and_tag[:-16]
     expected_tag = ciphertext_and_tag[-16:]
     h = _aes_ecb_block(key, bytes(16))
@@ -111,7 +126,7 @@ def aes256_gcm_decrypt(key, iv, aad, ciphertext_and_tag):
     j0 = iv + b"\x00\x00\x00\x01"
     e_j0 = _aes_ecb_block(key, j0)
     tag = _xor(s, e_j0)
-    if tag != expected_tag:
+    if not _ct_equal(tag, expected_tag):
         raise ValueError("AES-GCM: Tag stimmt nicht ueberein")
     counter = _inc32(j0)
     plaintext = bytearray()

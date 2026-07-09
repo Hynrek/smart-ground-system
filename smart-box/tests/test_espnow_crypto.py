@@ -10,6 +10,15 @@ _FIXTURE_PATH = os.path.join(
     "..", "docs", "espnow", "crypto-test-vectors.json",
 )
 
+if not os.path.isfile(_FIXTURE_PATH):
+    raise unittest.SkipTest(
+        "Krypto-Test-Vektoren nicht gefunden unter " + _FIXTURE_PATH +
+        " — dieses Modul braucht das smart-box-Repo als Sub-Checkout im"
+        " smart-ground-Monorepo (docs/espnow/crypto-test-vectors.json liegt"
+        " dort, nicht in diesem Repo). Bei einem eigenstaendigen Checkout von"
+        " smartground-firmware werden diese Tests uebersprungen."
+    )
+
 
 def _load_fixture():
     with open(_FIXTURE_PATH) as f:
