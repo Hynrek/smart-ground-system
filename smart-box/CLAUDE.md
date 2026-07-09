@@ -43,7 +43,7 @@ Do not leave decisions only in commit messages or conversation history — this 
 ## Language & Runtime
 
 - **MicroPython 1.23+** only — no CPython-specific syntax or libraries
-- Allowed stdlib modules: `network`, `time`, `machine`, `json`, `sys`, `gc`, `os` (only in `ota.py`), `hashlib` (`ota.py`, `espnow_crypto.py`)
+- Allowed stdlib modules: `network`, `time`, `machine`, `json`, `sys`, `gc`, `os` (only in `ota.py`), `hashlib` (`ota.py`, `espnow_crypto.py`), `struct` (`frame_envelope.py`)
 - MQTT: `umqtt.simple` (preferred); fall back to `umqtt.robust`
 - OTA HTTP download uses `urequests` (lazy-imported inside `ota.py`'s `_default_http_stream`)
 - No `asyncio` / `uasyncio` — all logic is synchronous and polling-based
@@ -60,6 +60,7 @@ smart-box/
 ├── mqttutils.py                        # MQTT connection, message routing, security, config persistence, OTA status
 ├── ota.py                              # OTA: download/verify/stage/apply App Code + esp32.Partition firmware update
 ├── espnow_crypto.py                    # AES-256-GCM (ucryptolib ECB + hand-rolled GHASH/CTR) + HKDF-SHA256 (ESP-NOW pairing/session keys)
+├── frame_envelope.py                   # Klartext-Routing-Header (pack/unpack) + Duplikat-Erkennung (SeenCache) fuer ESP-NOW-Frames
 ├── hardware.py                         # GpioManager class + onboard LED
 ├── networkutils.py                     # WiFi connect/reconnect helpers
 ├── accesspoint.py                      # Captive portal for first-time WiFi setup
