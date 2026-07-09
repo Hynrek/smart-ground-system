@@ -89,8 +89,9 @@ docker compose up
 
 # Terminal 2: Run backend
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=postgres
-# Server: http://localhost:8080 | PostgreSQL: 5432 | Mosquitto: 1883
+# Server: http://localhost:8080 | PostgreSQL: 5432 | Mosquitto: ssl://localhost:8883 (TLS)
 # Swagger UI: http://localhost:8080/swagger-ui.html
+# postgres profile needs a manually-extracted ca.crt for MQTT_TLS_CA_CERT_PATH — see application-postgres.properties
 
 # Tests (H2 in-memory, no Docker needed)
 ./mvnw test
@@ -118,8 +119,11 @@ docker compose up
 |---|---|---|
 | `DB_HOST` / `DB_PORT` / `DB_NAME` | `db` / `5432` / `smartground` | PostgreSQL connection |
 | `DB_USERNAME` / `DB_PASSWORD` | `postgres` / `postgres` | PostgreSQL credentials |
-| `MQTT_BROKER_URL` | `tcp://mosquitto:1883` | Mosquitto broker |
+| `MQTT_BROKER_URL` | `ssl://mosquitto:8883` | Mosquitto broker (TLS) |
 | `MQTT_CLIENT_ID` | `smartrange-backend` | MQTT client ID |
+| `MQTT_USERNAME` | `backend` | Dynsec login username |
+| `MQTT_PASSWORD` | *(empty)* | Dynsec login password — never hardcode |
+| `MQTT_TLS_CA_CERT_PATH` | *(empty)* | Path to Dev-CA `ca.crt` trusted for the `ssl://` broker |
 | `cors.allowed-origins` | `http://localhost:5173` | Vue dev server |
 
 ---
