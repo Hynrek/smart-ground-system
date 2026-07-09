@@ -19,18 +19,21 @@ public class SmartBoxMqttRouter implements MessageHandler {
     private final SmartBoxConfigAckHandler      configAckHandler;
     private final SmartBoxDeviceExecutedHandler deviceExecutedHandler;
     private final SmartBoxOtaStatusHandler      otaStatusHandler;
+    private final MqttDynsecClient              dynsecClient;
 
     public SmartBoxMqttRouter(
             SmartBoxDiscoveryHandler discoveryHandler,
             SmartBoxStatusHandler statusHandler,
             SmartBoxConfigAckHandler configAckHandler,
             SmartBoxDeviceExecutedHandler deviceExecutedHandler,
-            SmartBoxOtaStatusHandler otaStatusHandler) {
+            SmartBoxOtaStatusHandler otaStatusHandler,
+            MqttDynsecClient dynsecClient) {
         this.discoveryHandler      = discoveryHandler;
         this.statusHandler         = statusHandler;
         this.configAckHandler      = configAckHandler;
         this.deviceExecutedHandler = deviceExecutedHandler;
         this.otaStatusHandler      = otaStatusHandler;
+        this.dynsecClient          = dynsecClient;
     }
 
     @Override
@@ -41,7 +44,10 @@ public class SmartBoxMqttRouter implements MessageHandler {
             return;
         }
 
-        if (topic.endsWith("/discovery")) {
+        if (topic.equals(MqttConfig.TOPIC_DYNSEC_RESPONSE)) {
+            // Antwort der dynsec-Kontroll-API ($CONTROL/...) – kein SmartBox-Topic.
+            dynsecClient.handleResponse(message);
+        } else if (topic.endsWith("/discovery")) {
             discoveryHandler.handleMessage(message);
         } else if (topic.endsWith("/ota/status")) {     // VOR /status prüfen!
             otaStatusHandler.handleMessage(message);

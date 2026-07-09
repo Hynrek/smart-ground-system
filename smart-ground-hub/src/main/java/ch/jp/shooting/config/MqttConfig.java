@@ -44,6 +44,11 @@ public class MqttConfig {
     static final String TOPIC_CFG_ACK    = "smartboxes/+/config/ack";
     static final String TOPIC_DEVICE_EXECUTED = "smartboxes/+/device/+/executed";
     static final String TOPIC_OTA_STATUS = "smartboxes/+/ota/status";
+    // Festes Antwort-Topic des dynsec-Plugins (live gegen mosquitto 2.1.2 verifiziert). Wird
+    // über den vorhandenen Inbound-Adapter abonniert – der Backend-Login hat via Rolle
+    // `backend` volle $CONTROL/#-Rechte (Task A/B). Vom SmartBoxMqttRouter an MqttDynsecClient
+    // geroutet. Kein zweiter MQTT-Connection nötig.
+    static final String TOPIC_DYNSEC_RESPONSE = "$CONTROL/dynamic-security/v1/response";
 
     @Value("${mqtt.broker.url:tcp://mosquitto:1883}")
     private String brokerUrl;
@@ -191,11 +196,13 @@ public class MqttConfig {
             TOPIC_STATUS,
             TOPIC_CFG_ACK,
             TOPIC_DEVICE_EXECUTED,
-            TOPIC_OTA_STATUS
+            TOPIC_OTA_STATUS,
+            TOPIC_DYNSEC_RESPONSE
         );
         adapter.setOutputChannel(mqttInboundChannel);
-        log.info("MQTT Inbound Adapter gestartet – Topics: {}, {}, {}, {}, {}",
-            TOPIC_DISCOVERY, TOPIC_STATUS, TOPIC_CFG_ACK, TOPIC_DEVICE_EXECUTED, TOPIC_OTA_STATUS);
+        log.info("MQTT Inbound Adapter gestartet – Topics: {}, {}, {}, {}, {}, {}",
+            TOPIC_DISCOVERY, TOPIC_STATUS, TOPIC_CFG_ACK, TOPIC_DEVICE_EXECUTED, TOPIC_OTA_STATUS,
+            TOPIC_DYNSEC_RESPONSE);
         return adapter;
     }
 

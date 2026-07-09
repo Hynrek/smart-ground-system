@@ -17,6 +17,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,11 +26,13 @@ class SmartBoxDiscoveryHandlerTest {
     @Mock SmartBoxRepository smartBoxRepository;
     @Mock FirmwareConfigRepository firmwareConfigRepository;
     @Mock SmartBoxConfigPushService configPushService;
+    @Mock SmartBoxCredentialService credentialService;
 
     @Test
     void capturesAppVersionAndFirmwareVersion() {
         var handler = new SmartBoxDiscoveryHandler(
-            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService);
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService,
+            credentialService);
         when(smartBoxRepository.findByMacAddress("aabbccddeeff")).thenReturn(Optional.empty());
         when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -46,7 +49,8 @@ class SmartBoxDiscoveryHandlerTest {
     @Test
     void resolvesFirmwareConfigByAppVersionNotKernelVersion() {
         var handler = new SmartBoxDiscoveryHandler(
-            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService);
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService,
+            credentialService);
         FirmwareConfig fc = new FirmwareConfig();
         when(smartBoxRepository.findByMacAddress("aabbccddeeff")).thenReturn(Optional.empty());
         when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
@@ -70,7 +74,8 @@ class SmartBoxDiscoveryHandlerTest {
     @Test
     void createsNewFirmwareConfigWhenVersionUnknown() {
         var handler = new SmartBoxDiscoveryHandler(
-            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService);
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService,
+            credentialService);
         when(smartBoxRepository.findByMacAddress("aabbccddeeff")).thenReturn(Optional.empty());
         when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
         when(firmwareConfigRepository.findByVersionAndBoxType("1.0", "xiao-esp32s3"))
@@ -97,7 +102,8 @@ class SmartBoxDiscoveryHandlerTest {
     @Test
     void updatesExistingFirmwareConfigCapabilitiesOnRediscovery() {
         var handler = new SmartBoxDiscoveryHandler(
-            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService);
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService,
+            credentialService);
         FirmwareConfig existing = new FirmwareConfig("0.6", "xiao-esp32s3");
         when(smartBoxRepository.findByMacAddress("aabbccddeeff")).thenReturn(Optional.empty());
         when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
@@ -121,7 +127,8 @@ class SmartBoxDiscoveryHandlerTest {
     @Test
     void firmwareConfigAlwaysSetOnBoxAfterDiscovery() {
         var handler = new SmartBoxDiscoveryHandler(
-            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService);
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService,
+            credentialService);
         when(smartBoxRepository.findByMacAddress("aabbccddeeff")).thenReturn(Optional.empty());
         when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
         when(firmwareConfigRepository.findByVersionAndBoxType(any(), any()))
@@ -141,9 +148,55 @@ class SmartBoxDiscoveryHandlerTest {
     }
 
     @Test
+    void provisionsBrokerLoginForNewBoxAndDeliversPasswordInConfigPush() {
+        var handler = new SmartBoxDiscoveryHandler(
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService,
+            credentialService);
+        when(smartBoxRepository.findByMacAddress("aabbccddeeff")).thenReturn(Optional.empty());
+        when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
+        when(firmwareConfigRepository.findByVersionAndBoxType(any(), any())).thenReturn(Optional.empty());
+        when(firmwareConfigRepository.save(any(FirmwareConfig.class))).thenAnswer(i -> i.getArgument(0));
+        // Neue Box (mqttUsername == null) -> provisionCredentials liefert das frische Passwort.
+        when(credentialService.provisionCredentials(any(SmartBox.class))).thenReturn("fresh-pw");
+
+        String json = "{\"mac\":\"aabbccddeeff\",\"appVersion\":\"0.7\","
+                    + "\"firmwareVersion\":\"micropython-1.23.0\",\"boxType\":\"xiao-esp32s3\",\"ip\":\"1.2.3.4\"}";
+        handler.handleMessage(MessageBuilder.withPayload(json.getBytes()).build());
+
+        verify(credentialService).provisionCredentials(any(SmartBox.class));
+        // Passwort MUSS im selben Push mitgegeben werden.
+        verify(configPushService).push(any(SmartBox.class), eq("fresh-pw"));
+        verify(configPushService, never()).push(any(SmartBox.class));
+    }
+
+    @Test
+    void doesNotReprovisionAlreadyProvisionedBoxOnRediscovery() {
+        var handler = new SmartBoxDiscoveryHandler(
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService,
+            credentialService);
+        SmartBox existing = new SmartBox();
+        existing.setMacAddress("aabbccddeeff");
+        existing.setMqttUsername("aabbccddeeff"); // bereits provisioniert
+        when(smartBoxRepository.findByMacAddress("aabbccddeeff")).thenReturn(Optional.of(existing));
+        when(smartBoxRepository.save(any(SmartBox.class))).thenAnswer(i -> i.getArgument(0));
+        when(firmwareConfigRepository.findByVersionAndBoxType(any(), any())).thenReturn(Optional.empty());
+        when(firmwareConfigRepository.save(any(FirmwareConfig.class))).thenAnswer(i -> i.getArgument(0));
+
+        String json = "{\"mac\":\"aabbccddeeff\",\"appVersion\":\"0.7\","
+                    + "\"firmwareVersion\":\"micropython-1.23.0\",\"boxType\":\"xiao-esp32s3\",\"ip\":\"1.2.3.4\"}";
+        handler.handleMessage(MessageBuilder.withPayload(json.getBytes()).build());
+
+        // KEIN neues Passwort -> Box würde sonst ausgesperrt.
+        verify(credentialService, never()).provisionCredentials(any());
+        verify(configPushService).push(existing);
+        verify(configPushService, never()).push(any(SmartBox.class), any());
+    }
+
+    @Test
     void reactivatesSoftDeletedBoxOnRediscovery() {
         var handler = new SmartBoxDiscoveryHandler(
-            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService);
+            smartBoxRepository, firmwareConfigRepository, new ObjectMapper(), configPushService,
+            credentialService);
         SmartBox deleted = new SmartBox();
         deleted.setMacAddress("aabbccddeeff");
         deleted.setDeletedAt(java.time.Instant.now());
