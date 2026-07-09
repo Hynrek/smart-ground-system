@@ -43,7 +43,7 @@ Do not leave decisions only in commit messages or conversation history — this 
 ## Language & Runtime
 
 - **MicroPython 1.23+** only — no CPython-specific syntax or libraries
-- Allowed stdlib modules: `network`, `time`, `machine`, `json`, `sys`, `gc`, `os` (only in `ota.py`), `hashlib` (only in `ota.py`)
+- Allowed stdlib modules: `network`, `time`, `machine`, `json`, `sys`, `gc`, `os` (only in `ota.py`), `hashlib` (`ota.py`, `espnow_crypto.py`)
 - MQTT: `umqtt.simple` (preferred); fall back to `umqtt.robust`
 - OTA HTTP download uses `urequests` (lazy-imported inside `ota.py`'s `_default_http_stream`)
 - No `asyncio` / `uasyncio` — all logic is synchronous and polling-based
@@ -59,6 +59,7 @@ smart-box/
 ├── main.py                             # Entry point; auto-runs on boot (incl. OTA boot supervisor)
 ├── mqttutils.py                        # MQTT connection, message routing, security, config persistence, OTA status
 ├── ota.py                              # OTA: download/verify/stage/apply App Code + esp32.Partition firmware update
+├── espnow_crypto.py                    # AES-256-GCM (ucryptolib ECB + hand-rolled GHASH/CTR) + HKDF-SHA256 (ESP-NOW pairing/session keys)
 ├── hardware.py                         # GpioManager class + onboard LED
 ├── networkutils.py                     # WiFi connect/reconnect helpers
 ├── accesspoint.py                      # Captive portal for first-time WiFi setup
@@ -709,3 +710,32 @@ image download) is a **genuinely separate channel and was investigated, not chan
 ### Manual (cable) re-flash — still the recovery path
 
 If a box is bricked (e.g. before OTA is deployed, or a kernel that won't boot): on the ESP32-S3, re-flash MicroPython over USB with `esptool`, then re-upload project files via `mpremote`/Thonny.
+
+---
+
+## ESP-NOW Crypto (`espnow_crypto.py`, added 2026-07-09 — Baustein A of the ESP-NOW migration)
+
+`ucryptolib` (MicroPython's built-in crypto module) supports `MODE_ECB`, `MODE_CBC`, and
+`MODE_CTR` — **no native GCM mode**. `espnow_crypto.py` builds AES-256-GCM itself: AES
+encryption goes through `ucryptolib.aes(key, ucryptolib.MODE_ECB)` (hardware-accelerated,
+one 16-byte block at a time), authentication (GHASH, GF(2^128) multiplication) is pure
+Python — portable, and cheap enough at ESP-NOW's 250-byte frame ceiling (≤16 blocks) that
+performance was not a design concern. `hmac_sha256`/`hkdf_extract`/`hkdf_expand` implement
+RFC 5869 HKDF by hand (`hmac` is not in MicroPython's stdlib).
+
+**Verified vs. best-effort** (same category as the MQTT TLS `cadata` note above): the pure
+Python GHASH/counter-mode assembly and the HMAC/HKDF construction are verified — both are
+tested against `docs/espnow/crypto-test-vectors.json`, cross-checked against Node.js's
+native (OpenSSL-backed) `crypto` module and RFC 5869's published test vector. **Not yet
+verified on real hardware:** that this pinned MicroPython build's `ucryptolib.MODE_ECB`
+constant is exactly `1` and that `ucryptolib.aes(key, 1).encrypt(data)` behaves as
+documented for 32-byte (AES-256) keys — host tests use a from-scratch pure-Python AES-256
+stub (`tests/_stubs.py`) instead of the real module, since `ucryptolib` doesn't exist
+under CPython. Tracked for Phase 1/2 hardware verification, not implemented here.
+
+Do not call `ucryptolib.aes(key, MODE_CTR, iv=...)` directly for the keystream — GCM's
+counter increments only the last 32 bits of the 16-byte counter block (`_inc32`), which is
+not guaranteed to match how a generic `MODE_CTR` implementation increments its counter.
+`espnow_crypto.py` sidesteps the ambiguity entirely by driving `MODE_ECB` one block at a
+time under its own `_inc32`, matching the GCM spec exactly regardless of what `MODE_CTR`
+does internally.

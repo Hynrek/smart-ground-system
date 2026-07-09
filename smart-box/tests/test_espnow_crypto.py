@@ -25,3 +25,42 @@ class HkdfTest(unittest.TestCase):
 
         okm = espnow_crypto.hkdf_expand(prk, bytes.fromhex(v["info"]), v["l"])
         self.assertEqual(okm, bytes.fromhex(v["okm"]))
+
+
+class AesGcmTest(unittest.TestCase):
+    def test_encrypt_matches_all_fixture_vectors(self):
+        vectors = _load_fixture()["aes256_gcm"]
+        self.assertTrue(vectors)
+
+        for v in vectors:
+            key = bytes.fromhex(v["key"])
+            iv = bytes.fromhex(v["iv"])
+            aad = bytes.fromhex(v["aad"])
+            plaintext = bytes.fromhex(v["plaintext"])
+            expected = bytes.fromhex(v["ciphertext"]) + bytes.fromhex(v["tag"])
+
+            actual = espnow_crypto.aes256_gcm_encrypt(key, iv, aad, plaintext)
+            self.assertEqual(actual, expected, "vector " + v["name"])
+
+    def test_decrypt_matches_all_fixture_vectors(self):
+        vectors = _load_fixture()["aes256_gcm"]
+
+        for v in vectors:
+            key = bytes.fromhex(v["key"])
+            iv = bytes.fromhex(v["iv"])
+            aad = bytes.fromhex(v["aad"])
+            ciphertext_and_tag = bytes.fromhex(v["ciphertext"]) + bytes.fromhex(v["tag"])
+            expected_plaintext = bytes.fromhex(v["plaintext"])
+
+            actual = espnow_crypto.aes256_gcm_decrypt(key, iv, aad, ciphertext_and_tag)
+            self.assertEqual(actual, expected_plaintext, "vector " + v["name"])
+
+    def test_decrypt_rejects_tampered_tag(self):
+        v = _load_fixture()["aes256_gcm"][0]
+        key = bytes.fromhex(v["key"])
+        iv = bytes.fromhex(v["iv"])
+        aad = bytes.fromhex(v["aad"])
+        tampered = bytes.fromhex(v["ciphertext"]) + bytes(bytearray(bytes.fromhex(v["tag"])[:-1]) + bytearray([0x00]))
+
+        with self.assertRaises(ValueError):
+            espnow_crypto.aes256_gcm_decrypt(key, iv, aad, tampered)
