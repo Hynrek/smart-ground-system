@@ -1,0 +1,51 @@
+{
+  "hkdf_sha256_rfc5869": [
+    {
+      "hash": "SHA-256",
+      "ikm": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+      "salt": "000102030405060708090a0b0c",
+      "info": "f0f1f2f3f4f5f6f7f8f9",
+      "l": 42,
+      "prk": "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5",
+      "okm": "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865"
+    }
+  ],
+  "aes256_gcm": [
+    {
+      "name": "aes256_gcm_populated",
+      "key": "76c28bf1ff1dd2affd8949f8f352aaa25a03e93d6509e7e02c5920a13e379f87",
+      "iv": "22cb0a3edab72caa40903755",
+      "aad": "feedfacedeadbeeffeedfacedeadbeefabaddad2",
+      "plaintext": "48656c6c6f2c20536d617274426f782120546869732069732061203235302d62797465206672616d6521",
+      "ciphertext": "0615b020d7fe787eb427f0ace1459aed48716d00a84e046808822d8a3b6946cba6ef75eaa5f829bb187a",
+      "tag": "d97d397d4ea18787bafc363636ca1aad"
+    },
+    {
+      "name": "aes256_gcm_empty",
+      "key": "0000000000000000000000000000000000000000000000000000000000000000",
+      "iv": "000000000000000000000000",
+      "aad": "",
+      "plaintext": "",
+      "ciphertext": "",
+      "tag": "530f8afbc74536b9a963b4f1c4cb738b"
+    },
+    {
+      "name": "aes256_gcm_single_block_no_aad",
+      "key": "7f4cee817aadde86ca41462f0ee4d2df4e7db865def0952f535cac69fcf132e5",
+      "iv": "139c0e7af6f6131c45cf0af3",
+      "aad": "",
+      "plaintext": "00000000000000000000000000000000",
+      "ciphertext": "87a74da07b599ee7eef2ab8cdfa9008c",
+      "tag": "2ac9c4e1b814b755e92419384bdda7de"
+    },
+    {
+      "name": "aes256_gcm_multiblock_with_aad",
+      "key": "4210f8f4dcae37c7698e1cbab994cd7c01fb43ee6fab2073bb6699a1dca7f112",
+      "iv": "89ed4adce2faa5642eb6d76e",
+      "aad": "000102030405060708090a0b0c0d0e0f",
+      "plaintext": "d41d8cd98f00b204e9800998ecf8427e00000000000000000000000000000000112233445566778899aabbccddeeff0011223344",
+      "ciphertext": "2a0201ffd9f83e3b6b31613aa2e20ea838b61b184a19ef94dad705ac78dca8fc40d523686e68156cd7102ae5850079ca56439bfe",
+      "tag": "00c206e3b1571b9be02d0c2be248beaf"
+    }
+  ]
+}
