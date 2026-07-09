@@ -196,3 +196,131 @@ class Partition:
 
 esp32.Partition = Partition
 sys.modules["esp32"] = esp32
+
+# --- ucryptolib (AES-256-ECB in reinem Python, nur fuer Host-Tests; echte Hardware nutzt
+#     das mitgelieferte ucryptolib-Modul — siehe espnow_crypto.py, das dieselbe API ruft) ---
+ucryptolib = types.ModuleType("ucryptolib")
+
+
+def _gmul(a, b):
+    p = 0
+    for _ in range(8):
+        if b & 1:
+            p ^= a
+        hi = a & 0x80
+        a = (a << 1) & 0xFF
+        if hi:
+            a ^= 0x1B
+        b >>= 1
+    return p
+
+
+def _build_sbox():
+    inv = [0] * 256
+    for x in range(1, 256):
+        for y in range(1, 256):
+            if _gmul(x, y) == 1:
+                inv[x] = y
+                break
+    sbox = [0] * 256
+    for x in range(256):
+        b = inv[x]
+        s = b
+        for shift in (1, 2, 3, 4):
+            s ^= ((b << shift) | (b >> (8 - shift))) & 0xFF
+        s ^= 0x63
+        sbox[x] = s
+    return sbox
+
+
+_SBOX = _build_sbox()
+
+_RCON = [0x01]
+for _ in range(13):
+    _prev = _RCON[-1]
+    _nxt = (_prev << 1) & 0xFF
+    if _prev & 0x80:
+        _nxt ^= 0x1B
+    _RCON.append(_nxt)
+
+
+def _key_expansion_256(key):
+    Nk, Nr = 8, 14
+    w = [list(key[4 * i:4 * i + 4]) for i in range(Nk)]
+    for i in range(Nk, 4 * (Nr + 1)):
+        temp = list(w[i - 1])
+        if i % Nk == 0:
+            temp = temp[1:] + temp[:1]
+            temp = [_SBOX[b] for b in temp]
+            temp[0] ^= _RCON[i // Nk - 1]
+        elif i % Nk == 4:
+            temp = [_SBOX[b] for b in temp]
+        w.append([a ^ b for a, b in zip(w[i - Nk], temp)])
+    return w
+
+
+def _add_round_key(state, w, round_):
+    for c in range(4):
+        word = w[round_ * 4 + c]
+        for r in range(4):
+            state[r][c] ^= word[r]
+
+
+def _sub_bytes(state):
+    for r in range(4):
+        for c in range(4):
+            state[r][c] = _SBOX[state[r][c]]
+
+
+def _shift_rows(state):
+    for r in range(1, 4):
+        state[r] = state[r][r:] + state[r][:r]
+
+
+def _mix_columns(state):
+    for c in range(4):
+        col = [state[r][c] for r in range(4)]
+        state[0][c] = _gmul(col[0], 2) ^ _gmul(col[1], 3) ^ col[2] ^ col[3]
+        state[1][c] = col[0] ^ _gmul(col[1], 2) ^ _gmul(col[2], 3) ^ col[3]
+        state[2][c] = col[0] ^ col[1] ^ _gmul(col[2], 2) ^ _gmul(col[3], 3)
+        state[3][c] = _gmul(col[0], 3) ^ col[1] ^ col[2] ^ _gmul(col[3], 2)
+
+
+def _aes256_encrypt_block(key, block):
+    Nr = 14
+    w = _key_expansion_256(key)
+    state = [[block[r + 4 * c] for c in range(4)] for r in range(4)]
+    _add_round_key(state, w, 0)
+    for rnd in range(1, Nr):
+        _sub_bytes(state)
+        _shift_rows(state)
+        _mix_columns(state)
+        _add_round_key(state, w, rnd)
+    _sub_bytes(state)
+    _shift_rows(state)
+    _add_round_key(state, w, Nr)
+    return bytes(state[r][c] for c in range(4) for r in range(4))
+
+
+class _Aes:
+    """Fake ucryptolib.aes — nur MODE_ECB, verarbeitet Vielfache von 16 Byte block-fuer-block."""
+
+    def __init__(self, key, mode, iv=None):
+        if mode != ucryptolib.MODE_ECB:
+            raise NotImplementedError("Host-Stub unterstuetzt nur MODE_ECB")
+        if len(key) != 32:
+            raise ValueError("nur AES-256 unterstuetzt (32-Byte-Key)")
+        self._key = key
+
+    def encrypt(self, data):
+        if len(data) % 16 != 0:
+            raise ValueError("Blocklaenge muss ein Vielfaches von 16 sein")
+        out = bytearray()
+        for i in range(0, len(data), 16):
+            out += _aes256_encrypt_block(self._key, data[i:i + 16])
+        return bytes(out)
+
+
+ucryptolib.MODE_ECB = 1
+ucryptolib.aes = _Aes
+sys.modules["ucryptolib"] = ucryptolib
