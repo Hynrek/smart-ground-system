@@ -90,7 +90,7 @@ Transport-Abstraktion über ESP-NOW (Betrieb) und WLAN (Wartung). Zustandsmaschi
 
 ### 9. Node-Image und Deployment
 
-dnsmasq (DHCP/DNS) + Ethernet-Bridge ins Client-Segment; die Funkzelle liefert **externe Dumb-AP-Hardware**, nicht das Node-Radio (kein hostapd am Node — siehe ADR-004 Amendment 2026-07-10). Selbstsigniertes Zertifikat (einmalig auf dem festen Tablet akzeptiert), lokale Auslieferung der Vue-App durch den Node, Clubhaus-Node (null Boxen), nächtlicher Backup-Dump des Hub auf externen Datenträger.
+hostapd + dnsmasq, selbstsigniertes Zertifikat (einmalig auf dem festen Tablet akzeptiert), lokale Auslieferung der Vue-App durch den Node, Clubhaus-Node (null Boxen), nächtlicher Backup-Dump des Hub auf externen Datenträger.
 
 **Deliverable:** Abnahmetest der Spec — 48 h mit ausgestecktem Hub durchgehend schiessen, danach vollständiger Abgleich ohne Datenverlust.
 
@@ -100,4 +100,4 @@ Aus der Spec, bewusst nicht eingeplant: physische Sicherheit (Node und SmartBox 
 
 ## Nachzuziehen
 
-Die Spec widerspricht ADR-001 bis ADR-004 (Abschnitt „Ersetzt/ändert bestehende Entscheide"). Die ADRs sind noch **nicht** angepasst. Ausserdem beschreiben `CLAUDE.md` (Wurzel) und `smart-ground-backend/CLAUDE.md` weiterhin die alte Architektur (Backend als einzige Autorität, MQTT als Transport). Eigenes Arbeitspaket, unabhängig von 1–9.
+Die Spec widerspricht ADR-001 bis ADR-004 (Abschnitt „Ersetzt/ändert bestehende Entscheide"). Die ADRs sind noch **nicht** angepasst. `CLAUDE.md` (Wurzel) und `smart-ground-hub/CLAUDE.md` (vormals `smart-ground-backend/CLAUDE.md`) wurden im Rahmen von Teilprojekt #7 bereits auf die neue Architektur (kein Backend-Alleinvertretungsanspruch mehr, kein MQTT als Transport) nachgezogen.
