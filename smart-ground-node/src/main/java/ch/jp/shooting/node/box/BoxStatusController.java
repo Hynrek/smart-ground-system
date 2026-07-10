@@ -2,11 +2,11 @@ package ch.jp.shooting.node.box;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.time.Instant;
@@ -26,7 +26,7 @@ public class BoxStatusController {
             ProblemDetail detail = ProblemDetail.forStatusAndDetail(
                     HttpStatus.NOT_FOUND, "Box " + macAddress + " ist nicht provisioniert.");
             detail.setType(URI.create("/errors/box-unknown"));
-            return new ResponseStatusException(HttpStatus.NOT_FOUND, detail.getDetail());
+            return new ErrorResponseException(HttpStatus.NOT_FOUND, detail, null);
         });
         record.setLastStatus(request.status());
         record.setLastSeenAt(Instant.now());

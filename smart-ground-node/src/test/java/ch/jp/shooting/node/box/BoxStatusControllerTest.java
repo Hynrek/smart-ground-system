@@ -7,10 +7,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.time.Instant;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -50,7 +53,13 @@ class BoxStatusControllerTest {
         record.setProvisionedAt(Instant.now());
         repository.save(record);
 
-        mockMvc = MockMvcBuilders.standaloneSetup(new BoxStatusController(repository)).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new BoxStatusController(repository))
+                .setControllerAdvice(new ProblemDetailAdvice())
+                .build();
+    }
+
+    @ControllerAdvice
+    static class ProblemDetailAdvice extends ResponseEntityExceptionHandler {
     }
 
     @Test
@@ -74,6 +83,7 @@ class BoxStatusControllerTest {
                 .content("""
                     {"status":"idle"}
                     """))
-            .andExpect(status().isNotFound());
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.type").value("/errors/box-unknown"));
     }
 }
