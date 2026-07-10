@@ -32,6 +32,12 @@ public final class OperationalCodec {
     }
 
     private static byte[] unwrap(byte[] frame, byte[] kS) {
+        // Laenge pruefen, bevor wir schneiden: zu kurze (z.B. manipulierte) Frames sollen
+        // als ungueltig gelten statt eine ArrayIndexOutOfBoundsException auszuloesen, damit
+        // verifyConfigAck/verifyHeartbeat wie vorgesehen "false" statt eines Absturzes liefern.
+        if (frame.length < FrameHeader.SIZE + COUNTER_NONCE_LENGTH) {
+            throw new IllegalArgumentException("Betriebs-Frame: zu kurz");
+        }
         byte[] headerBytes = Arrays.copyOfRange(frame, 0, FrameHeader.SIZE);
         byte[] counterNonce = Arrays.copyOfRange(frame, FrameHeader.SIZE, FrameHeader.SIZE + COUNTER_NONCE_LENGTH);
         byte[] ciphertextAndTag = Arrays.copyOfRange(frame, FrameHeader.SIZE + COUNTER_NONCE_LENGTH, frame.length);

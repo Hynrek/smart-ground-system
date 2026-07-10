@@ -218,6 +218,16 @@ class OperationalCodecTest {
     }
 
     @Test
+    void verifyConfigAck_rejectsTruncatedFrame() {
+        // FrameHeader.SIZE (16) + counter-nonce (4) = 20 bytes minimum; well short of that here
+        // (shorter than the header alone), so unwrap must reject it instead of throwing
+        // ArrayIndexOutOfBoundsException on a manipulated/truncated ESP-NOW frame.
+        byte[] shortFrame = new byte[FrameHeader.SIZE - 6];
+
+        assertThat(OperationalCodec.verifyConfigAck(shortFrame, kS())).isFalse();
+    }
+
+    @Test
     void parseDiscovery_rejectsTamperedTag() {
         byte[] frame = PairingTestVectors.hex(fixture().get("discovery").get("frame").asText());
         frame[frame.length - 1] ^= 0x01;
