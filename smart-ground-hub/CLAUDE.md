@@ -1,4 +1,4 @@
-# Smart Ground — Backend Development Guide
+# Smart Ground Hub — Backend Development Guide
 
 ## Project Overview
 
@@ -53,6 +53,13 @@ This project uses the Superpowers skill system. When working in this repo:
 ---
 
 ## Project Structure
+
+> **`model/` and the OpenAPI contract now live in separate repos.** `ch.jp.shooting.model.*`
+> (JPA entities) is the `domain` module and `ch.jp.smartground.*` (generated interfaces/DTOs)
+> is the `contracts` module — both in the sibling `smart-ground-contracts` repo, consumed here
+> via versioned Maven coordinates (`ch.jp.shooting:domain`, `ch.jp.smartground:contracts`).
+> After editing `domain` or `contracts`, run `mvn install` in `smart-ground-contracts` before
+> building the Hub — there is no multi-repo reactor.
 
 ```
 src/main/java/ch/jp/shooting/
@@ -460,10 +467,11 @@ Service layer → Database
 
 ### Workflow
 
-1. **Edit `src/main/resources/static/openapi.yaml`** — define or update the endpoint
-2. **Regenerate**: `./mvnw generate-sources`
-   - Output: `target/generated-sources/openapi/ch/jp/smartground/api/`
-3. **Implement**: `@RestController class FooController implements FooApi`
+1. **Edit `openapi.yaml`** in the sibling `smart-ground-contracts` repo, at `contracts/src/main/resources/openapi.yaml`
+2. **Regenerate + install**: in `smart-ground-contracts`, run `mvn install -pl contracts`
+3. **Regenerate Hub's dependency**: back in `smart-ground-hub`, run `./mvnw generate-sources`
+   - Output (via the `contracts` jar): `ch.jp.smartground.api` / `ch.jp.smartground.model`
+4. **Implement**: `@RestController class FooController implements FooApi`
 
 ### What counts as an API change
 
