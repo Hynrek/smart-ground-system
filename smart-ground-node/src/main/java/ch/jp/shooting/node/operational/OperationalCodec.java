@@ -5,7 +5,9 @@ import ch.jp.shooting.node.frame.FrameHeader;
 
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Baut und parst die Betriebs-Frames (CONFIG, CONFIG_ACK, COMMAND, EXECUTED, HEARTBEAT) unter K_S.
@@ -158,6 +160,70 @@ public final class OperationalCodec {
         }
     }
 
+    // --- DISCOVERY ---
+
+    public record ConfigField(int fieldId, int typeId, byte[] defaultBytes) {
+    }
+
+    public record DeviceTypeCapability(int deviceTypeId, int directionsBitmask, int commandsBitmask,
+                                        List<ConfigField> configFields) {
+    }
+
+    public record DiscoveryBody(int appVersionMajor, int appVersionMinor, int configSchemaVersion, String boxType,
+                                 List<DeviceTypeCapability> deviceTypes) {
+    }
+
+    public static byte[] buildDiscovery(FrameHeader header, byte[] counterNonce, byte[] kS, int appVersionMajor,
+                                         int appVersionMinor, int configSchemaVersion, String boxType,
+                                         List<DeviceTypeCapability> deviceTypes) {
+        byte[] boxTypeBytes = boxType.getBytes(StandardCharsets.UTF_8);
+        List<byte[]> parts = new ArrayList<>();
+        parts.add(new byte[]{(byte) appVersionMajor, (byte) appVersionMinor, (byte) configSchemaVersion,
+                (byte) boxTypeBytes.length});
+        parts.add(boxTypeBytes);
+        parts.add(new byte[]{(byte) deviceTypes.size()});
+        for (DeviceTypeCapability dt : deviceTypes) {
+            parts.add(new byte[]{(byte) dt.deviceTypeId(), (byte) dt.directionsBitmask(), (byte) dt.commandsBitmask(),
+                    (byte) dt.configFields().size()});
+            for (ConfigField f : dt.configFields()) {
+                parts.add(new byte[]{(byte) f.fieldId(), (byte) f.typeId(), (byte) f.defaultBytes().length});
+                parts.add(f.defaultBytes());
+            }
+        }
+        byte[] plaintext = concat(parts.toArray(new byte[0][]));
+        return wrap(header, counterNonce, plaintext, kS);
+    }
+
+    public static DiscoveryBody parseDiscovery(byte[] frame, byte[] kS) {
+        byte[] p = unwrap(frame, kS);
+        int pos = 0;
+        int major = p[pos++] & 0xFF;
+        int minor = p[pos++] & 0xFF;
+        int schemaVersion = p[pos++] & 0xFF;
+        int boxTypeLen = p[pos++] & 0xFF;
+        String boxType = new String(p, pos, boxTypeLen, StandardCharsets.UTF_8);
+        pos += boxTypeLen;
+        int deviceTypeCount = p[pos++] & 0xFF;
+        List<DeviceTypeCapability> deviceTypes = new ArrayList<>();
+        for (int i = 0; i < deviceTypeCount; i++) {
+            int deviceTypeId = p[pos++] & 0xFF;
+            int directionsBitmask = p[pos++] & 0xFF;
+            int commandsBitmask = p[pos++] & 0xFF;
+            int fieldCount = p[pos++] & 0xFF;
+            List<ConfigField> fields = new ArrayList<>();
+            for (int j = 0; j < fieldCount; j++) {
+                int fieldId = p[pos++] & 0xFF;
+                int typeId = p[pos++] & 0xFF;
+                int defaultLen = p[pos++] & 0xFF;
+                byte[] defaultBytes = Arrays.copyOfRange(p, pos, pos + defaultLen);
+                pos += defaultLen;
+                fields.add(new ConfigField(fieldId, typeId, defaultBytes));
+            }
+            deviceTypes.add(new DeviceTypeCapability(deviceTypeId, directionsBitmask, commandsBitmask, fields));
+        }
+        return new DiscoveryBody(major, minor, schemaVersion, boxType, deviceTypes);
+    }
+
     // --- Hilfsfunktionen ---
 
     static byte[] concat(byte[]... parts) {
@@ -180,5 +246,19 @@ public final class OperationalCodec {
 
     static int u16leAt(byte[] data, int offset) {
         return (data[offset] & 0xFF) | ((data[offset + 1] & 0xFF) << 8);
+    }
+
+    public static byte[] i32le(int value) {
+        return new byte[]{
+                (byte) (value & 0xFF),
+                (byte) ((value >> 8) & 0xFF),
+                (byte) ((value >> 16) & 0xFF),
+                (byte) ((value >> 24) & 0xFF)
+        };
+    }
+
+    public static int i32leAt(byte[] data, int offset) {
+        return (data[offset] & 0xFF) | ((data[offset + 1] & 0xFF) << 8)
+                | ((data[offset + 2] & 0xFF) << 16) | ((data[offset + 3] & 0xFF) << 24);
     }
 }

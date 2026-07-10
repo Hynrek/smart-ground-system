@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -155,5 +157,72 @@ class OperationalCodecTest {
         byte[] frame = PairingTestVectors.hex(v.get("frame").asText());
 
         assertThat(OperationalCodec.counterNonceOf(frame)).isEqualTo(PairingTestVectors.hex(v.get("counter_nonce").asText()));
+    }
+
+    @Test
+    void buildDiscovery_matchesFixtureFrame() {
+        JsonNode v = fixture().get("discovery");
+        JsonNode d = v.get("decoded");
+        FrameHeader header = headerFrom(v, FrameType.DISCOVERY);
+        String[] versionParts = d.get("app_version").asText().split("\\.");
+
+        List<OperationalCodec.DeviceTypeCapability> deviceTypes = new ArrayList<>();
+        for (JsonNode dt : d.get("device_types")) {
+            List<OperationalCodec.ConfigField> fields = new ArrayList<>();
+            for (JsonNode f : dt.get("config_fields")) {
+                fields.add(new OperationalCodec.ConfigField(f.get("field_id").asInt(), f.get("type_id").asInt(),
+                        OperationalCodec.i32le(f.get("default").asInt())));
+            }
+            deviceTypes.add(new OperationalCodec.DeviceTypeCapability(dt.get("device_type_id").asInt(),
+                    dt.get("directions_bitmask").asInt(), dt.get("commands_bitmask").asInt(), fields));
+        }
+
+        byte[] frame = OperationalCodec.buildDiscovery(header, PairingTestVectors.hex(v.get("counter_nonce").asText()),
+                kS(), Integer.parseInt(versionParts[0]), Integer.parseInt(versionParts[1]),
+                d.get("config_schema_version").asInt(), d.get("box_type").asText(), deviceTypes);
+
+        assertThat(frame).isEqualTo(PairingTestVectors.hex(v.get("frame").asText()));
+    }
+
+    @Test
+    void parseDiscovery_extractsFixtureFields() {
+        JsonNode v = fixture().get("discovery");
+        JsonNode d = v.get("decoded");
+        byte[] frame = PairingTestVectors.hex(v.get("frame").asText());
+        String[] versionParts = d.get("app_version").asText().split("\\.");
+
+        OperationalCodec.DiscoveryBody body = OperationalCodec.parseDiscovery(frame, kS());
+
+        assertThat(body.appVersionMajor()).isEqualTo(Integer.parseInt(versionParts[0]));
+        assertThat(body.appVersionMinor()).isEqualTo(Integer.parseInt(versionParts[1]));
+        assertThat(body.configSchemaVersion()).isEqualTo(d.get("config_schema_version").asInt());
+        assertThat(body.boxType()).isEqualTo(d.get("box_type").asText());
+        assertThat(body.deviceTypes()).hasSize(d.get("device_types").size());
+
+        for (int i = 0; i < body.deviceTypes().size(); i++) {
+            OperationalCodec.DeviceTypeCapability parsed = body.deviceTypes().get(i);
+            JsonNode expected = d.get("device_types").get(i);
+            assertThat(parsed.deviceTypeId()).isEqualTo(expected.get("device_type_id").asInt());
+            assertThat(parsed.directionsBitmask()).isEqualTo(expected.get("directions_bitmask").asInt());
+            assertThat(parsed.commandsBitmask()).isEqualTo(expected.get("commands_bitmask").asInt());
+            assertThat(parsed.configFields()).hasSize(expected.get("config_fields").size());
+            for (int j = 0; j < parsed.configFields().size(); j++) {
+                OperationalCodec.ConfigField parsedField = parsed.configFields().get(j);
+                JsonNode expectedField = expected.get("config_fields").get(j);
+                assertThat(parsedField.fieldId()).isEqualTo(expectedField.get("field_id").asInt());
+                assertThat(parsedField.typeId()).isEqualTo(expectedField.get("type_id").asInt());
+                assertThat(OperationalCodec.i32leAt(parsedField.defaultBytes(), 0))
+                        .isEqualTo(expectedField.get("default").asInt());
+            }
+        }
+    }
+
+    @Test
+    void parseDiscovery_rejectsTamperedTag() {
+        byte[] frame = PairingTestVectors.hex(fixture().get("discovery").get("frame").asText());
+        frame[frame.length - 1] ^= 0x01;
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> OperationalCodec.parseDiscovery(frame, kS()));
     }
 }
