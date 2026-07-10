@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ch.jp.smartground</groupId>
+        <artifactId>smart-ground-contracts-parent</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>contracts</artifactId>
+    <packaging>jar</packaging>
+    <name>contracts</name>
+    <description>OpenAPI-generated wire types (ch.jp.smartground.api / ch.jp.smartground.model) shared between Hub and Node.</description>
+
+    <dependencies>
+        <!-- Runtime deps the openapi-generator "spring" templates emit into every generated
+             model/interface (@Schema, JsonNullable, @Generated, @JsonProperty). Deliberately NOT
+             springdoc-openapi-starter-webmvc-ui — that pulls in spring-webmvc for serving Swagger
+             UI, a Hub-only web concern this library jar has no business depending on. Versions
+             match what smart-ground-backend's springdoc dependency resolves to today (see plan
+             investigation) so generated code compiles identically. -->
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openapitools</groupId>
+            <artifactId>jackson-databind-nullable</artifactId>
+            <version>0.2.6</version>
+        </dependency>
+        <!-- jackson-databind-nullable's own POM declares an unmanaged transitive
+             dependency on jackson-databind 2.14.0-rc2, which isn't in the local
+             offline cache. Pin to the versions smart-ground-backend's Spring Boot
+             BOM already resolves (see plan investigation), which are cached. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.21.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>2.21</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>2.21.2</version>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations-jakarta</artifactId>
+            <version>2.2.21</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+            <version>${jakarta.validation.version}</version>
+        </dependency>
+    </dependencies>
+</project>
