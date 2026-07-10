@@ -40,39 +40,6 @@ services:
       timeout: 5s
       retries: 5
 
-  mosquitto:
-    # Built locally from ./mosquitto (adds openssl + a cert-generating
-    # entrypoint on top of eclipse-mosquitto:2 — see mosquitto/Dockerfile).
-    # `docker compose up` builds it automatically if the tagged image isn't
-    # present yet; `docker compose build mosquitto` to force a rebuild.
-    build: ./mosquitto
-    image: smartground-mosquitto:local
-    container_name: smartground-mosquitto_deploy
-    environment:
-      MQTT_TLS_SANS: ${MQTT_TLS_SANS:-DNS:localhost,DNS:mosquitto,IP:127.0.0.1}
-      # Read directly by the dynsec plugin (not our entrypoint) the very
-      # first time it starts with no dynamic-security.json yet present.
-      # See README.md "Dynsec bootstrap".
-      MOSQUITTO_DYNSEC_PASSWORD: ${MQTT_DYNSEC_ADMIN_PASSWORD:-change-me-please}
-    ports:
-      # Only the TLS listener is published. Plaintext 1883 stays internal to
-      # the `smartground` network (reachable by `app`, not the host/internet)
-      # — see mosquitto.conf for why that split is a compose-layer, not a
-      # mosquitto.conf, concern. 9001 (websockets) was never used, dropped.
-      - "8883:8883"
-    volumes:
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-      - ./dynsec-init.sh:/mosquitto/config/dynsec-init.sh:ro
-      # Dev-CA + server cert, generated at container startup (see
-      # mosquitto/docker-entrypoint.sh). Task B/C: mount read-only
-      # (`mosquitto_certs:/path:ro`) to read ca.crt for TLS trust.
-      - mosquitto_certs:/mosquitto/config/certs
-      # Dynamic-security plugin state (users/roles/ACLs) — broker-internal,
-      # no other service needs to mount this. See dynsec-init.sh / README.
-      - mosquitto_dynsec:/mosquitto/config/dynsec
-    networks:
-      - smartground
-
   app:
     image: ${REGISTRY}/smart-ground-backend:${TAG:-latest}
     container_name: smartground-app_deploy
@@ -80,24 +47,9 @@ services:
       - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      # Connects to mosquitto over TLS (8883) with its own dynsec login
-      # (username "backend", created by dynsec-init.sh — see README.md
-      # "Dynsec bootstrap"). MQTT_PASSWORD must equal MQTT_BACKEND_PASSWORD
-      # below, since that's the password dynsec-init.sh assigns this same
-      # "backend" client.
-      MQTT_BROKER_URL: ssl://mosquitto:8883
-      MQTT_USERNAME: backend
-      MQTT_PASSWORD: ${MQTT_BACKEND_PASSWORD}
-      MQTT_TLS_CA_CERT_PATH: /certs/ca.crt
-    volumes:
-      # Read-only: trust the broker's Dev-CA cert for the ssl:// connection
-      # above. See smart-ground-deploy README's "Cert volume/path convention".
-      - mosquitto_certs:/certs:ro
     depends_on:
       db:
         condition: service_healthy
-      mosquitto:
-        condition: service_started
     networks:
       - smartground
 
@@ -123,8 +75,6 @@ services:
 volumes:
   postgres_data:
   tls_certs:
-  mosquitto_certs:
-  mosquitto_dynsec:
 
 networks:
   smartground:
