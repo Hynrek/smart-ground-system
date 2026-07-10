@@ -499,7 +499,7 @@ Service layer → Database
 
 **Practical checklist before committing a controller:**
 1. The endpoint is declared in `openapi.yaml` ✅
-2. `./mvnw generate-sources` has been run and the interface exists in `target/generated-sources/openapi/ch/jp/smartground/api/` ✅
+2. The generated interface (`ch.jp.smartground.api.FooApi`) is available — it arrives via the `contracts` dependency, already `mvn install`-ed from `smart-ground-contracts`; Hub does not generate it locally ✅
 3. The controller class signature is `class FooController implements FooApi` ✅
 4. No Spring mapping annotations (`@GetMapping` etc.) appear anywhere in the controller class ✅
 
@@ -535,7 +535,7 @@ Service layer → Database
 
 | File | Purpose |
 |---|---|
-| `src/main/resources/static/openapi.yaml` | REST API contract — source of truth for generated interfaces |
+| `smart-ground-contracts/contracts/src/main/resources/openapi.yaml` (sibling repo) | REST API contract — source of truth for generated interfaces |
 | `config/SecurityConfig.java` | Stateless Spring Security filter chain |
 | `config/JwtAuthenticationFilter.java` | Per-request JWT validation |
 | `service/JwtService.java` | Token generation/validation |
@@ -714,8 +714,8 @@ Design decisions:
 ## Common Tasks
 
 **New REST endpoint:**
-1. Edit `src/main/resources/static/openapi.yaml`
-2. Run `./mvnw generate-sources` — new interface appears in `target/generated-sources/openapi/ch/jp/smartground/api/`
+1. Edit `openapi.yaml` in the sibling `smart-ground-contracts` repo, at `contracts/src/main/resources/openapi.yaml`
+2. In `smart-ground-contracts`, run `mvn install -pl contracts` — this installs the newly-built `contracts` jar (with the regenerated `ch.jp.smartground.api`/`ch.jp.smartground.model` interfaces) into `~/.m2`. Back in Hub, `./mvnw generate-sources` (or the next `mvn test`/`mvn package`) simply resolves the updated dependency — Hub has no generator plugin of its own anymore
 3. Implement in `ch.jp.shooting.api/` controller
 4. Add exception(s) in `ch.jp.shooting.exception/` + register in `GlobalExceptionHandler`
 5. Add mapper logic in `EntityMappers` or a dedicated mapper class
