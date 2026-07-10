@@ -11,7 +11,7 @@ UART) from day one, never the backend's database or in-process APIs directly.
 ## Stack & Versions
 
 - **Java 25**, Spring Boot 4.0.5, Maven (system `mvn`, no wrapper committed)
-- Standalone Maven module (like `smart-ground-backend`), not part of a reactor build
+- Standalone Maven module (like `smart-ground-hub`), not part of a reactor build
 
 ## Project Structure
 
@@ -39,7 +39,7 @@ parses `pom.xml` directly — no ArchUnit, see that task's plan note for why) fa
 
 ## Conventions
 
-Same as `smart-ground-backend`: German comments for domain logic, English identifiers.
+Same as `smart-ground-hub`: German comments for domain logic, English identifiers.
 Contract-first for anything crossing a process boundary (MQTT payloads, HTTPS sync
 endpoints, UART framing) — see `docs/superpowers/specs/2026-07-09-espnow-protocol-contracts-design.md`
 for the wire formats this module implements.
