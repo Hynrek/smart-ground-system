@@ -1,14 +1,15 @@
 # Smart Ground — Monorepo Overview
 
-Smart Ground is an IoT system for managing shooting-range devices (clay pigeon throwers, LEDs, sensors) over MQTT.
+Smart Ground is an IoT system for managing shooting-range devices (clay pigeon throwers, LEDs, sensors). MQTT has been fully removed from the stack (sub-project #7, `erledigt`) — see Architecture below.
 
 ```
 smart-ground/
-├── smart-ground-hub/       # Spring Boot 4 REST API + MQTT broker integration
+├── smart-ground-hub/       # Spring Boot 4 REST API — sync/competition authority (MQTT removed)
+├── smart-ground-node/      # Spring Boot 4 process — box-api (HTTPS) for SmartBox discovery/status/OTA
 ├── smart-ground-contracts/ # Shared contracts (OpenAPI types) + domain (JPA entities) — own repo, consumed via Maven coordinates
 ├── smart-ground-ui/        # Vue 3 frontend
 ├── smart-box/              # MicroPython firmware (XIAO ESP32-S3; multi-board layer, Pico 2W parked)
-└── smart-ground-deploy/    # Deployment: docker-compose + Mosquitto config
+└── smart-ground-deploy/    # Deployment: docker-compose (no Mosquitto — MQTT removed)
 ```
 
 **No production release has been made.** Schema, API contracts, and migrations can be rewritten freely.
@@ -18,19 +19,21 @@ smart-ground/
 ## Architecture
 
 > ⚠️ **What follows describes the system as it exists today. It is superseded by [docs/superpowers/specs/2026-07-10-hub-node-architecture-design.md](./docs/superpowers/specs/2026-07-10-hub-node-architecture-design.md)** — a Hub/Node tier split that removes MQTT entirely and makes each Schiessplatz independently operable. Implementation is tracked in [docs/superpowers/plans/2026-07-10-hub-node-roadmap.md](./docs/superpowers/plans/2026-07-10-hub-node-roadmap.md). **Read both before starting architectural work.** This section is updated as the roadmap's sub-projects land.
+>
+> **Sub-project #7 (MQTT-Ausbau und `box-api`) is `erledigt`.** The diagram below documents the *old*, now-removed MQTT transport purely as historical context — MQTT/Mosquitto no longer exist anywhere in this stack (no broker, no client, no dynsec). SmartBox discovery, heartbeat/status, and OTA-artifact serving now go over HTTPS to `smart-ground-node`'s `box-api`; see [smart-ground-node/CLAUDE.md](./smart-ground-node/CLAUDE.md). Command dispatch (device commands, config push) has no replacement transport yet — it 501s pending the `node-channel` sub-project (#4).
 
 ```
-Client App  ──REST──▶  Backend  ──MQTT──▶  SmartBox  ──GPIO/LED──▶  Physical Device
+Client App  ──REST──▶  Backend  ──???──▶  SmartBox  ──GPIO/LED──▶  Physical Device
                            ▲                                              │
-SmartBox   ──MQTT──────────┘   (INPUT: sensor triggers, status)          │
+SmartBox   ──???──────────┘   (INPUT: sensor triggers, status)           │
 Client App  ──WS────▶  Backend  (STOMP/SockJS at /ws/shooting)           │
 ```
 
 - **Client → Backend**: REST (OpenAPI contract-first, generated interfaces)
-- **Backend → SmartBox**: MQTT publish (config push, commands)
-- **SmartBox → Backend**: MQTT publish (discovery, status, config ACK)
+- **Backend → SmartBox**: no transport yet (was MQTT publish; command dispatch now returns `501` — see node-channel, #4)
+- **SmartBox → Backend**: discovery/heartbeat go to `smart-ground-node`'s `box-api` over HTTPS, not to the Backend directly (was MQTT publish)
 - **Real-time push**: STOMP WebSocket at `/ws/shooting`
-- SmartBox identified by **MAC address** in MQTT; UUID is the stable DB primary key
+- SmartBox identified by **MAC address**; UUID is the stable DB primary key
 
 ---
 
@@ -38,7 +41,8 @@ Client App  ──WS────▶  Backend  (STOMP/SockJS at /ws/shooting)    
 
 Each sub-project has its own `CLAUDE.md` with full setup, schema, conventions, and task guides:
 
-- **[smart-ground-hub/CLAUDE.md](./smart-ground-hub/CLAUDE.md)** — Java 25, Spring Boot 4, dynamic RBAC, Serie/Passe/Play system, competitions, MQTT, OTA, OpenAPI
+- **[smart-ground-hub/CLAUDE.md](./smart-ground-hub/CLAUDE.md)** — Java 25, Spring Boot 4, dynamic RBAC, Serie/Passe/Play system, competitions, OTA, OpenAPI
+- **[smart-ground-node/CLAUDE.md](./smart-ground-node/CLAUDE.md)** — Java 25, Spring Boot 4, `box-api` (HTTPS: discovery/provisioning, status, OTA proxy), embedded H2 box registry
 - **[smart-ground-ui/CLAUDE.md](./smart-ground-ui/CLAUDE.md)** — Vue 3, Vite, Pinia, permission-based routing, Shooter Remote / Wettkampf features
 - **[smart-box/CLAUDE.md](./smart-box/CLAUDE.md)** — MicroPython, XIAO ESP32-S3, OTA, memory discipline
 
@@ -47,18 +51,23 @@ Each sub-project has its own `CLAUDE.md` with full setup, schema, conventions, a
 ## Running the Full Stack Locally
 
 ```bash
-# Terminal 1: Backend (PostgreSQL + Mosquitto via Docker)
+# Terminal 1: Backend (PostgreSQL via Docker)
 cd smart-ground-hub
 docker compose up
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=postgres
 # API: http://localhost:8080  |  Swagger: http://localhost:8080/swagger-ui.html
 
-# Terminal 2: Frontend
+# Terminal 2: Node (box-api — HTTPS, self-signed dev cert)
+cd smart-ground-node
+./mvnw spring-boot:run
+# box-api: https://localhost:8443/box-api/v1/...
+
+# Terminal 3: Frontend
 cd smart-ground-ui
 npm install
 npm run dev   # http://localhost:5173
 
-# Terminal 3: Firmware (requires a physical XIAO ESP32-S3)
+# Terminal 4: Firmware (requires a physical XIAO ESP32-S3)
 cd smart-box
 # See smart-box/CLAUDE.md for flashing instructions
 ```
@@ -79,6 +88,7 @@ cd smart-box
 
 ## What is Not Yet Implemented
 
+- Device command dispatch and config push (Backend → SmartBox) — both `501` since MQTT removal (#7); replacement transport is the `node-channel` sub-project (#4)
 - INPUT signal handling end-to-end (sensor → backend → trigger device)
 - Multi-SmartBox device assignment (data model ready; API not exposed)
 - Email / phone verification flows

@@ -30,7 +30,7 @@ Brainstorming entfällt — das Design ist entschieden und liegt in der Spec.
 | 4 | `node-channel` | 1 | offen | — |
 | 5 | `node-api`-Fassade | 4 | offen | — |
 | 6 | Offline-Login | 2 | offen | — |
-| 7 | MQTT-Ausbau und `box-api` | 1 | offen | — |
+| 7 | MQTT-Ausbau und `box-api` | 1 | erledigt | [2026-07-10-mqtt-ausbau-box-api.md](2026-07-10-mqtt-ausbau-box-api.md) |
 | 8 | Firmware: Transport + Wartungs-Zustandsmaschine | 7 | offen | — |
 | 9 | Node-Image und Deployment | 5, 7 | offen | — |
 
@@ -90,7 +90,7 @@ Transport-Abstraktion über ESP-NOW (Betrieb) und WLAN (Wartung). Zustandsmaschi
 
 ### 9. Node-Image und Deployment
 
-hostapd + dnsmasq, selbstsigniertes Zertifikat (einmalig auf dem festen Tablet akzeptiert), lokale Auslieferung der Vue-App durch den Node, Clubhaus-Node (null Boxen), nächtlicher Backup-Dump des Hub auf externen Datenträger.
+dnsmasq (DHCP/DNS) + Ethernet-Bridge ins Client-Segment; die Funkzelle liefert **externe Dumb-AP-Hardware**, nicht das Node-Radio (kein hostapd am Node — siehe ADR-004 Amendment 2026-07-10). Selbstsigniertes Zertifikat (einmalig auf dem festen Tablet akzeptiert), lokale Auslieferung der Vue-App durch den Node, Clubhaus-Node (null Boxen), nächtlicher Backup-Dump des Hub auf externen Datenträger.
 
 **Deliverable:** Abnahmetest der Spec — 48 h mit ausgestecktem Hub durchgehend schiessen, danach vollständiger Abgleich ohne Datenverlust.
 

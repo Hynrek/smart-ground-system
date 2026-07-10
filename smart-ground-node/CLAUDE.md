@@ -62,3 +62,56 @@ mvn test
 No hardware dependency yet (Baustein A is crypto primitives + module scaffold only).
 Later tasks (frame codec, UART, pairing) will add hardware-adjacent seams (serial port
 abstraction) analogous to `smart-box`'s `http_stream`/`esp32.Partition` test seams.
+
+## box-api (sub-project #7, `erledigt`)
+
+`smart-ground-node` now also serves a box-facing HTTPS API — `box-api` — that replaces the
+Hub's deleted MQTT integration for discovery, provisioning, and OTA-artifact serving. This
+is a *different* concern from the ESP-NOW↔MQTT bridge role described above: box-api is a
+plain synchronous HTTPS API a MicroPython client calls, not a frame-level bridge. Both live
+in this module because both run as the process closest to the physical boxes.
+
+### Package layout
+
+```
+src/main/java/ch/jp/shooting/node/box/
+├── BoxDiscoveryController.java   # POST /box-api/v1/discovery
+├── BoxDiscoveryRequest.java / BoxDiscoveryResponse.java
+├── BoxProvisioningService.java   # provision(): create-or-update BoxRecord, generate K_Box once per MAC
+├── BoxStatusController.java      # POST /box-api/v1/boxes/{macAddress}/status
+├── BoxStatusRequest.java
+├── BoxOtaController.java         # GET /box-api/v1/ota/app/{version}/manifest.json, /files/{*path}, /box-api/v1/ota/firmware/{version}
+├── BoxRecord.java                # JPA entity — embedded H2 box registry
+├── BoxRecordRepository.java
+└── KBoxGenerator.java            # 32 random bytes (SecureRandom) per box
+```
+
+All three controllers are hand-written (`@RestController` with plain `@PostMapping`/`@GetMapping`), not generated from `openapi.yaml` — same deliberate exception as the Hub's `OtaDownloadController`: the SmartBox is a MicroPython client, not a Java consumer of the `contracts` artifact.
+
+### Discovery / provisioning (`BoxDiscoveryController`, `BoxProvisioningService`)
+
+`POST /box-api/v1/discovery` — request: `{ macAddress, appVersion, firmwareVersion, boxType, capabilitiesJson }`; response: `{ kBoxBase64, wasNewlyProvisioned }`.
+
+`BoxProvisioningService.provision(...)` is **idempotent per MAC address**: it looks up `BoxRecord` by `macAddress`; if none exists, it creates one and generates a fresh `K_Box` via `KBoxGenerator` (32 `SecureRandom` bytes); if one already exists, it reuses the existing `K_Box` and just refreshes `appVersion`/`firmwareVersion`/`boxType`/`capabilitiesJson`. A box can call discovery on every boot without ever getting a new key — the key is generated exactly once per MAC, for the lifetime of the H2 registry row.
+
+### Status / heartbeat (`BoxStatusController`)
+
+`POST /box-api/v1/boxes/{macAddress}/status` — request: `{ status }`. Looks up the `BoxRecord` by MAC; `404` with a `/errors/box-unknown` `ProblemDetail` if the box was never provisioned (discovery must run first). On success, updates `lastStatus` and `lastSeenAt`.
+
+### OTA proxy (`BoxOtaController`)
+
+Three GETs (manifest, per-file, firmware image) that proxy byte-for-byte from the Hub's existing `OtaDownloadController` via `HubClient` (plain HTTP — Node and Hub trust each other on the same machine). This means the box never needs to know the Hub's address; it only ever talks to the Node. **Trigger/notification is not wired up** — a box currently has no way to be told an update is available (that requires `node-channel`, #4); this proxy only serves the *read* path for whenever a download is initiated.
+
+### Embedded H2 box registry (`BoxRecord`/`BoxRecordRepository`)
+
+A **separate, lightweight registry from the Hub's `SmartBox`/`FirmwareConfig` domain model** — this is Node-local state, not a replacement for Hub state. Columns: `macAddress` (unique), `kBox` (32 raw bytes), `boxType`, `appVersion`, `firmwareVersion`, `capabilitiesJson`, `provisionedAt`, `lastSeenAt`, `lastStatus`. Backed by a file-based H2 database at `${user.home}/.smartground-node/box-registry` (`spring.datasource.url` in `application.properties`), `ddl-auto=update`, so it survives process restarts (unlike an in-memory H2 instance) without needing a full PostgreSQL setup on the Node.
+
+### `K_Box` generation semantics (Task 5)
+
+`KBoxGenerator.generate()` returns 32 cryptographically random bytes (`java.security.SecureRandom`), matching the AES-256 key size the ESP-NOW crypto layer (`crypto/AesGcm.java`, `smart-box`'s `espnow_crypto.py`) expects. Generation is **idempotent per MAC** at the `BoxProvisioningService` layer (see above) — `KBoxGenerator` itself is stateless and simply produces fresh bytes each call; it is `BoxProvisioningService.provision()`'s create-vs-reuse branch that guarantees a given box only ever gets one `K_Box` for the life of its registry row.
+
+### HTTPS setup (Task 8)
+
+`box-api` is served over HTTPS on port **8443** (the Hub already claims 8080; Hub and Node run as two processes on the same machine at N=1 — see `application.properties`). TLS is terminated with a **self-signed dev keystore** checked into `src/main/resources/node-dev-keystore.p12` (`server.ssl.key-store=classpath:node-dev-keystore.p12`, alias `smartground-node`, password via `NODE_KEYSTORE_PASSWORD` env var, default `changeit` for dev). The firmware pins this dev CA/cert via `systemconfig/node_ca.crt` on the box side (see `smart-box/CLAUDE.md`).
+
+**Not yet done (deferred to sub-project #9, Node-Image und Deployment):** there is no `hostapd`/access-point setup on the Node yet. Today the Node is reached over a regular WiFi/LAN the box is already joined to (via `box_api_base_url` configured through the captive portal or manually) — there is no Node-hosted WiFi AP for boxes to join directly. That access-point story, along with a production (non-self-signed) certificate story, is explicitly out of scope here and tracked under #9.
