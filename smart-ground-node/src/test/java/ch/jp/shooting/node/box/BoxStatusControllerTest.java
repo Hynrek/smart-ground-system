@@ -4,7 +4,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -30,12 +33,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * file-based H2 datasource for the same reason — no in-memory test datasource is
  * configured for this module.
  */
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Transactional
 class BoxStatusControllerTest {
 
     @Autowired
     private BoxRecordRepository repository;
+
+    @LocalServerPort
+    private int port;
 
     private MockMvc mockMvc;
 
@@ -69,12 +75,16 @@ class BoxStatusControllerTest {
      * therefore still required for this standalone test to render a body — but it now exists
      * purely to reproduce, inside the test harness, the same rendering behavior the property
      * already provides in the real, Boot-autoconfigured application; it is no longer a
-     * substitute for that behavior. A genuine end-to-end test (real embedded server via
-     * {@code TestRestTemplate}, no test-only advice) was attempted but is not buildable in
-     * this offline environment: the cached {@code spring-boot-test} jar here does not expose
-     * {@code org.springframework.boot.test.web.client.TestRestTemplate} and there is no
-     * network access to fetch a complete one — the same constraint noted on this class
-     * regarding {@code @AutoConfigureMockMvc}.
+     * substitute for that behavior. A genuine end-to-end test against a real embedded server
+     * was attempted via {@code TestRestTemplate} first, but that class is absent from the
+     * cached {@code spring-boot-test-4.0.5.jar} in this offline environment (no network
+     * access to fetch a complete one — the same constraint noted on this class regarding
+     * {@code @AutoConfigureMockMvc}). {@code status_unknownBox_realEmbeddedServer_rendersProblemDetail404()}
+     * below provides that genuine end-to-end proof instead, using
+     * {@code org.springframework.test.web.servlet.client.RestTestClient} (in
+     * {@code spring-test-7.0.6.jar}, a transitive dependency here), backed by the synchronous
+     * {@code RestClient} from {@code spring-web} — no {@code TestRestTemplate} or
+     * WebFlux/Reactor required.
      */
     @ControllerAdvice
     static class ProblemDetailAdvice extends ResponseEntityExceptionHandler {
@@ -103,5 +113,40 @@ class BoxStatusControllerTest {
                     """))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.type").value("/errors/box-unknown"));
+    }
+
+    /**
+     * Genuine end-to-end proof, requested in review: a real HTTP request against the real
+     * embedded Tomcat instance ({@code webEnvironment = RANDOM_PORT} + {@code @LocalServerPort}),
+     * going through Boot's actual autoconfiguration (the {@code spring.mvc.problemdetails.enabled=true}
+     * property in {@code application.properties}) instead of the {@code ProblemDetailAdvice}
+     * test double declared above, which only exists to reproduce that behavior for the
+     * {@code standaloneSetup} tests in this class. {@code TestRestTemplate} is unavailable in
+     * this offline sandbox (see the class javadoc), so this uses {@code RestTestClient.bindToServer()},
+     * backed by the synchronous {@code RestClient} from {@code spring-web}, which is on the
+     * classpath here.
+     *
+     * <p>No seed data is needed — the case under test is an unknown MAC — so the outer
+     * {@code @Transactional} rollback (which would not apply to the embedded server's own
+     * connection/thread anyway) is irrelevant here. The MAC below is scoped to this test only
+     * and distinct from every other fixture MAC in this package, so it is guaranteed absent
+     * from the file-based H2 database regardless of run order.
+     */
+    @Test
+    void status_unknownBox_realEmbeddedServer_rendersProblemDetail404() {
+        RestTestClient client = RestTestClient.bindToServer()
+                .baseUrl("http://localhost:" + port)
+                .build();
+
+        client.post()
+                .uri("/box-api/v1/boxes/{mac}/status", "E2:E2:00:00:00:01")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("""
+                    {"status":"idle"}
+                    """)
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.type").isEqualTo("/errors/box-unknown");
     }
 }
