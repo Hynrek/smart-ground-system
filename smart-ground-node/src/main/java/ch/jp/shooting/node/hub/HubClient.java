@@ -24,4 +24,19 @@ public class HubClient {
                 .retrieve()
                 .body(LoginResponse.class);
     }
+
+    public byte[] fetchOtaAppManifest(String version) {
+        return restClient.get().uri("/api/ota/app/{version}/manifest.json", version)
+                .retrieve().body(byte[].class);
+    }
+
+    public byte[] fetchOtaAppFile(String version, String path) {
+        return restClient.get().uri("/api/ota/app/{version}/files{path}", version, path)
+                .retrieve().body(byte[].class);
+    }
+
+    public byte[] fetchOtaFirmware(String version) {
+        return restClient.get().uri("/api/ota/firmware/{version}", version)
+                .retrieve().body(byte[].class);
+    }
 }
