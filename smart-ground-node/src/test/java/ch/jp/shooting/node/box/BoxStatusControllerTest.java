@@ -58,6 +58,24 @@ class BoxStatusControllerTest {
                 .build();
     }
 
+    /**
+     * The app-level fix ({@code spring.mvc.problemdetails.enabled=true} in
+     * {@code application.properties}) is what makes the deployed app render
+     * {@link ch.jp.shooting.node.hub.ErrorResponseException}-style ProblemDetail bodies as
+     * real {@code application/problem+json} responses. It only takes effect through Boot's
+     * autoconfigured {@code DefaultErrorAttributes}/{@code ResponseEntityExceptionHandler}
+     * wiring, which {@link MockMvcBuilders#standaloneSetup} deliberately bypasses (it builds a
+     * bare {@code DispatcherServlet} with no Boot autoconfiguration at all). This advice is
+     * therefore still required for this standalone test to render a body — but it now exists
+     * purely to reproduce, inside the test harness, the same rendering behavior the property
+     * already provides in the real, Boot-autoconfigured application; it is no longer a
+     * substitute for that behavior. A genuine end-to-end test (real embedded server via
+     * {@code TestRestTemplate}, no test-only advice) was attempted but is not buildable in
+     * this offline environment: the cached {@code spring-boot-test} jar here does not expose
+     * {@code org.springframework.boot.test.web.client.TestRestTemplate} and there is no
+     * network access to fetch a complete one — the same constraint noted on this class
+     * regarding {@code @AutoConfigureMockMvc}.
+     */
     @ControllerAdvice
     static class ProblemDetailAdvice extends ResponseEntityExceptionHandler {
     }
