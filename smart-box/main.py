@@ -22,8 +22,10 @@ import network
 from networkutils import connect_wifi, reconnect_wifi, get_mac_address
 from accesspoint import start_ap
 from hardware import status_blink
-from mqttutils import publish_discovery, publish_heartbeat, connect_mqtt, reconnect_mqtt, load_device_config, load_firmware_config, update_device_pulses
-from mqttutils import _update_known_devices, set_watchdog, publish_ota_status
+from box_provisioning import discover_and_provision, send_heartbeat
+import box_api_client
+from mqttutils import load_device_config, load_firmware_config, update_device_pulses
+from mqttutils import _update_known_devices, set_watchdog
 import ota
 
 # --- KONFIGURATION ---
@@ -42,17 +44,21 @@ def load_config():
         return None
 
 
-client = None
-
 try:
     # Status-LED: 3x blinken signalisiert erfolgreichen Boot
     status_blink()
 
     config = load_config()
 
-    # Unvollständiges Profil -> Setup-Modus starten
-    if not config or not config.get('client_network_ssid') or not config.get('broker_ip'):
-        print("Kein gültiges WiFi-Profil. Starte Access Point für Einrichtung...")
+    # Unvollständiges Profil -> Setup-Modus starten.
+    # broker_ip wird nicht mehr geprüft (kein MQTT-Broker mehr) – stattdessen ist
+    # box_api_base_url das Pflichtfeld für den HTTPS-Transport zum Node-box-api.
+    # HINWEIS: accesspoint.py (Captive Portal) schreibt box_api_base_url noch nicht in
+    # client_config.json – das ist ausserhalb des Umfangs dieser Aufgabe (siehe main.py
+    # / box_provisioning.py / tests/test_box_provisioning.py im Task-Brief) und muss vor
+    # dem produktiven Einsatz des Captive-Portal-Flows nachgezogen werden.
+    if not config or not config.get('client_network_ssid') or not config.get('box_api_base_url'):
+        print("Kein gültiges WiFi-/box-api-Profil. Starte Access Point für Einrichtung...")
         start_ap()
 
     else:
@@ -103,26 +109,28 @@ try:
             _ota_confirm = ota.confirm_boot_healthy()      # beendet Probezeit, ("APPLIED", v) oder None
             _ota_pending = ota.take_pending_report()       # ("ROLLED_BACK", v) nach Reboot oder None
 
-            # MQTT verbinden (broker_port aus Config respektieren, Default 8883/TLS).
-            # mqtt_username/mqtt_password sind optional: fehlen sie (unprovisionierte Box,
-            # kein Bootstrap-Credential geflasht), verbindet sich connect_mqtt() mit
-            # user=None/password=None, was gegen den gehärteten Broker fehlschlägt – das
-            # ist erwartetes Verhalten, siehe smart-box/CLAUDE.md "Bootstrap credential".
-            try:
-                broker_port = int(config.get('broker_port') or 8883)
-            except (ValueError, TypeError):
-                broker_port = 8883
+            # box-api verbinden: Discovery + Provisioning in einem einzigen HTTPS-Call
+            # (ersetzt sowohl den früheren MQTT-Connect als auch das separate
+            # publish_discovery() – discover_and_provision() deckt beides ab, siehe
+            # box_provisioning.py). box_api_base_url ist Pflichtfeld (siehe Config-Check
+            # oben); firmware_version bleibt "unknown" (Default von discover_and_provision) –
+            # der bisherige Kernel-String (os.uname().release) würde einen neuen os-Import
+            # in main.py erfordern, was ausserhalb dieser Aufgabe liegt und hier bewusst
+            # nicht nachgezogen wird.
+            app_version = firmware_cfg.get("app_version", firmware_cfg.get("firmware_version", "unknown"))
+            capabilities_json = json.dumps(firmware_cfg.get("capabilities", {}))
+            box_api_base_url = config['box_api_base_url']
 
-            client = connect_mqtt(CLIENT_ID, config['broker_ip'], broker_port,
-                                   user=config.get('mqtt_username'),
-                                   password=config.get('mqtt_password'))
-            if not client:
-                print("MQTT-Verbindung fehlgeschlagen. Neustart in 5 Sekunden...")
+            try:
+                discover_and_provision(CLIENT_ID, box_api_base_url,
+                                        app_version=app_version,
+                                        box_type=board.BOX_TYPE,
+                                        capabilities_json=capabilities_json)
+            except Exception as e:
+                print("box-api Discovery/Provisioning fehlgeschlagen. Neustart in 5 Sekunden...", e)
                 time.sleep(5)
                 machine.reset()
 
-            # Discovery EINMALIG beim Boot → Backend erkennt Box und pusht Config
-            publish_discovery(CLIENT_ID)
             last_publish = time.time()
 
             # WLAN-Objekt einmalig vor der Schleife anlegen – nicht bei jedem Tick neu erzeugen
@@ -136,44 +144,46 @@ try:
 
             # OTA-Modul den Watchdog geben (für Download-Feeding)
             set_watchdog(wdt)
-            # Die im Boot-Supervisor ermittelten OTA-Berichte jetzt (MQTT steht) senden
+            # OTA-Statusmeldung entfällt mit MQTT — kein Ersatz in #7, siehe node-channel (#4).
+            # box-api's Status-Endpunkt (Task 7) meldet nur generischen Box-Status, keinen
+            # OTA-spezifischen Fortschritt (phase/progress/detail); ein Ersatz ist nicht
+            # Teil dieser Aufgabe (Task 11) und wird von Task 12 entschieden/entfernt. Bis
+            # dahin werden die hier ermittelten Berichte nur geloggt, nicht übertragen –
+            # kein toter Call gegen einen nicht mehr existierenden MQTT-Client.
             if _ota_confirm:
-                publish_ota_status(CLIENT_ID, _ota_confirm[0], _ota_confirm[1])
+                print("OTA-Bericht (nicht übertragen, kein box-api-Ersatz):", _ota_confirm)
             if _ota_pending:
-                publish_ota_status(CLIENT_ID, _ota_pending[0], _ota_pending[1])
+                print("OTA-Bericht (nicht übertragen, kein box-api-Ersatz):", _ota_pending)
 
-            # Hauptschleife: MQTT-Nachrichten und Heartbeat kooperativ verarbeiten
+            # Hauptschleife: Heartbeat kooperativ verarbeiten (kein MQTT-Polling mehr)
             while True:
                 wdt.feed()
 
-                # WiFi-Verbindung prüfen und bei Bedarf wiederherstellen
+                # WiFi-Verbindung prüfen und bei Bedarf wiederherstellen. Kein MQTT-Reconnect
+                # mehr danach – es existiert keine MQTT-Verbindung, die wiederhergestellt
+                # werden müsste; box-api-Aufrufe (Heartbeat) laufen ohnehin je Tick neu über
+                # HTTPS und scheitern/gelingen unabhängig vom WLAN-Zustand des vorigen Ticks.
                 if not wlan.isconnected():
                     print("WiFi-Verbindung verloren. Wiederverbindung wird versucht...")
                     if not reconnect_wifi(config['client_network_ssid'], config['client_network_pw'], wdt):
                         print("WiFi Wiederverbindung fehlgeschlagen. Neustart...")
                         machine.reset()
-                    client = reconnect_mqtt(wdt)
-                    if not client:
-                        print("MQTT Wiederverbindung fehlgeschlagen. Neustart...")
-                        machine.reset()
-
-                # MQTT-Nachrichten nicht-blockierend abrufen
-                try:
-                    client.check_msg()
-                except Exception as e:
-                    print("MQTT-Fehler:", e)
-                    client = reconnect_mqtt(wdt)
-                    if not client:
-                        print("MQTT nicht wiederherstellbar. Neustart...")
-                        machine.reset()
 
                 # Aktualisiere WERFER-Pulse (auto-off nach Duration)
                 update_device_pulses()
 
-                # Heartbeat periodisch senden (Liveness ohne Config-Push)
+                # Heartbeat periodisch senden (Liveness ohne Config-Push). send_heartbeat()
+                # selbst fängt keine Fehler ab (siehe box_provisioning.py) – hier lokal
+                # abfangen, damit ein vorübergehend nicht erreichbares box-api (z.B. Node
+                # kurz offline) nicht denselben Effekt hat wie ein Absturz (Watchdog-Reset).
+                # Entspricht dem bisherigen Verhalten von publish_heartbeat(), das Fehler
+                # intern loggte und False zurückgab statt zu eskalieren.
                 now = time.time()
                 if now - last_publish >= PUBLISH_INTERVAL_S:
-                    publish_heartbeat(CLIENT_ID)
+                    try:
+                        send_heartbeat(CLIENT_ID, box_api_base_url, "idle")
+                    except Exception as e:
+                        print("Heartbeat fehlgeschlagen:", e)
                     last_publish = now
                     gc.collect()  # Heap aufräumen nach periodischer Aktivität
 
@@ -191,11 +201,8 @@ except Exception as e:
     machine.reset()
 
 finally:
-    try:
-        if client:
-            client.disconnect()
-    except Exception as e:
-        print("MQTT-Trennung fehlgeschlagen:", e)
+    # Kein MQTT-Client mehr zu trennen (HTTPS/box-api ist zustandslos je Call) – der
+    # frühere "if client: client.disconnect()"-Schritt entfällt ersatzlos.
     try:
         # Eigene WLAN-Instanz anlegen – nicht auf äussere Variable verlassen,
         # die im Fehlerfall noch nicht definiert sein könnte.
