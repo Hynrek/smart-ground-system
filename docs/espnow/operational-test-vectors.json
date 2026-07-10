@@ -1,0 +1,135 @@
+{
+  "constants": {
+    "k_s": "9f3c1a7e2b5d8046c1e9a37f204b6d8e5a1c3f7092b4d6e8a0c2e4f6081a3c5d",
+    "box_mac": "aabbccddeeff",
+    "node_mac": "001122334455"
+  },
+  "discovery": {
+    "dest_mac": "001122334455",
+    "src_mac": "aabbccddeeff",
+    "frame_id": 10,
+    "ttl": 1,
+    "type": 16,
+    "header": "001122334455aabbccddeeff0a000110",
+    "plaintext": "01000108536d617274426f780200030301000004000000000102010100000496000000",
+    "counter_nonce": "00000000",
+    "gcm_nonce": "000000000000000000000000",
+    "ciphertext": "a93ce05d6cbd3d201fdcecbc20f243745cc06f7ec0706ae8161ec2bb3c566b8a147102",
+    "tag": "e3c6e349818a3d97c6e7bd532a766875",
+    "frame": "001122334455aabbccddeeff0a00011000000000a93ce05d6cbd3d201fdcecbc20f243745cc06f7ec0706ae8161ec2bb3c566b8a147102e3c6e349818a3d97c6e7bd532a766875",
+    "decoded": {
+      "app_version": "1.0",
+      "config_schema_version": 1,
+      "box_type": "SmartBox",
+      "device_types": [
+        {
+          "device_type_id": 0,
+          "directions_bitmask": 3,
+          "commands_bitmask": 3,
+          "config_fields": [
+            { "field_id": 0, "type_id": 0, "default": 0 }
+          ]
+        },
+        {
+          "device_type_id": 1,
+          "directions_bitmask": 2,
+          "commands_bitmask": 1,
+          "config_fields": [
+            { "field_id": 0, "type_id": 0, "default": 150 }
+          ]
+        }
+      ]
+    }
+  },
+  "config": {
+    "dest_mac": "aabbccddeeff",
+    "src_mac": "001122334455",
+    "frame_id": 11,
+    "ttl": 1,
+    "type": 17,
+    "header": "aabbccddeeff0011223344550b000111",
+    "plaintext": "0102030405060708090a0b0c0d0e0f1000010857657266657220310001024f4ef40100",
+    "counter_nonce": "01000000",
+    "gcm_nonce": "000000000000000001000000",
+    "ciphertext": "edab8fbca8f2c9ae786fde18fac3e5a23f40bcca0a2f9e696bf5d48944fc76fd23250a",
+    "tag": "453a82ec243d440b21da9b64ff4bf10a",
+    "frame": "aabbccddeeff0011223344550b00011101000000edab8fbca8f2c9ae786fde18fac3e5a23f40bcca0a2f9e696bf5d48944fc76fd23250a453a82ec243d440b21da9b64ff4bf10a",
+    "decoded": {
+      "device_id": "0102030405060708090a0b0c0d0e0f10",
+      "device_index": 0,
+      "device_count": 1,
+      "alias": "Werfer 1",
+      "device_type": 0,
+      "direction": 1,
+      "command": "ON",
+      "signal_duration_ms": 500,
+      "blocked": false
+    }
+  },
+  "config_ack": {
+    "dest_mac": "001122334455",
+    "src_mac": "aabbccddeeff",
+    "frame_id": 12,
+    "ttl": 1,
+    "type": 18,
+    "header": "001122334455aabbccddeeff0c000112",
+    "plaintext": "",
+    "counter_nonce": "02000000",
+    "gcm_nonce": "000000000000000002000000",
+    "ciphertext": "",
+    "tag": "5c41278ab8dc9b72f5c153cfa30096ca",
+    "frame": "001122334455aabbccddeeff0c000112020000005c41278ab8dc9b72f5c153cfa30096ca"
+  },
+  "command": {
+    "dest_mac": "aabbccddeeff",
+    "src_mac": "001122334455",
+    "frame_id": 13,
+    "ttl": 1,
+    "type": 19,
+    "header": "aabbccddeeff0011223344550d000113",
+    "plaintext": "202122232425262728292a2b2c2d2e2f0102030405060708090a0b0c0d0e0f1000f401",
+    "counter_nonce": "03000000",
+    "gcm_nonce": "000000000000000003000000",
+    "ciphertext": "2dc3c53bc085880220c534f3a3f36e66e750a5b2220745bfb7cdba61e4b4d6afd1cf0d",
+    "tag": "86d75d661a00e2153569cc11fd4f4626",
+    "frame": "aabbccddeeff0011223344550d000113030000002dc3c53bc085880220c534f3a3f36e66e750a5b2220745bfb7cdba61e4b4d6afd1cf0d86d75d661a00e2153569cc11fd4f4626",
+    "decoded": {
+      "command_id": "202122232425262728292a2b2c2d2e2f",
+      "device_id": "0102030405060708090a0b0c0d0e0f10",
+      "command": 0,
+      "signal_duration_ms": 500
+    }
+  },
+  "executed": {
+    "dest_mac": "001122334455",
+    "src_mac": "aabbccddeeff",
+    "frame_id": 14,
+    "ttl": 1,
+    "type": 20,
+    "header": "001122334455aabbccddeeff0e000114",
+    "plaintext": "202122232425262728292a2b2c2d2e2f0102030405060708090a0b0c0d0e0f10",
+    "counter_nonce": "04000000",
+    "gcm_nonce": "000000000000000004000000",
+    "ciphertext": "3761967d7ded97b698e1dcecd40e77dd57ad831f821c4e90bf0cdabb8d298f0c",
+    "tag": "2933c5f3d9ac608d7a0d1b1f7c3b974e",
+    "frame": "001122334455aabbccddeeff0e000114040000003761967d7ded97b698e1dcecd40e77dd57ad831f821c4e90bf0cdabb8d298f0c2933c5f3d9ac608d7a0d1b1f7c3b974e",
+    "decoded": {
+      "command_id": "202122232425262728292a2b2c2d2e2f",
+      "device_id": "0102030405060708090a0b0c0d0e0f10"
+    }
+  },
+  "heartbeat": {
+    "dest_mac": "001122334455",
+    "src_mac": "aabbccddeeff",
+    "frame_id": 15,
+    "ttl": 1,
+    "type": 21,
+    "header": "001122334455aabbccddeeff0f000115",
+    "plaintext": "",
+    "counter_nonce": "05000000",
+    "gcm_nonce": "000000000000000005000000",
+    "ciphertext": "",
+    "tag": "46c471b1f0ac48a6e2dd6fca8a6250a0",
+    "frame": "001122334455aabbccddeeff0f0001150500000046c471b1f0ac48a6e2dd6fca8a6250a0"
+  }
+}
