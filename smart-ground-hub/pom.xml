@@ -12,10 +12,10 @@
     </parent>
 
     <groupId>ch.jp.shooting</groupId>
-    <artifactId>smartground</artifactId>
+    <artifactId>smart-ground-hub</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
-    <name>smartground</name>
+    <name>smart-ground-hub</name>
     <description>SmartGround - IoT Device Management with MQTT Discovery</description>
 
     <properties>
