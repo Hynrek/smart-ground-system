@@ -17,6 +17,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -38,9 +40,6 @@ class DeviceControllerTest {
 
     @Mock
     private SmartBoxRepository smartBoxRepository;
-
-    @Mock
-    private ch.jp.shooting.config.MqttCommandPublisher mqttCommandPublisher;
 
     @Mock
     private RangePositionRepository rangePositionRepository;
@@ -109,5 +108,15 @@ class DeviceControllerTest {
         verify(rangePositionRepository).save(cap.capture());
         assertThat(cap.getValue().getDevice()).isNull();
         verify(deviceRepository).delete(testDevice);
+    }
+
+    @Test
+    @DisplayName("sendDeviceCommand returns 501 until node-channel exists")
+    void sendDeviceCommand_returns501_untilNodeChannelExists() {
+        when(deviceRepository.findById(deviceId)).thenReturn(Optional.of(testDevice));
+
+        assertThatThrownBy(() -> controller.sendDeviceCommand(deviceId))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("statusCode", HttpStatus.NOT_IMPLEMENTED);
     }
 }

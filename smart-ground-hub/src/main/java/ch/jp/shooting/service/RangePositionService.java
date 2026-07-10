@@ -1,6 +1,5 @@
 package ch.jp.shooting.service;
 
-import ch.jp.shooting.config.MqttCommandPublisher;
 import ch.jp.shooting.exception.ConflictException;
 import ch.jp.shooting.exception.DeviceNotFoundException;
 import ch.jp.shooting.exception.RangeNotFoundException;
@@ -40,18 +39,15 @@ public class RangePositionService {
     private final RangeRepository rangeRepository;
     private final RangePositionRepository positionRepository;
     private final DeviceRepository deviceRepository;
-    private final MqttCommandPublisher mqttCommandPublisher;
     private final ReservationService reservationService;
 
     public RangePositionService(RangeRepository rangeRepository,
                                 RangePositionRepository positionRepository,
                                 DeviceRepository deviceRepository,
-                                MqttCommandPublisher mqttCommandPublisher,
                                 ReservationService reservationService) {
         this.rangeRepository = rangeRepository;
         this.positionRepository = positionRepository;
         this.deviceRepository = deviceRepository;
-        this.mqttCommandPublisher = mqttCommandPublisher;
         this.reservationService = reservationService;
     }
 
@@ -188,14 +184,8 @@ public class RangePositionService {
             reservationService.markActivity(reservation.getId());
         }
 
-        String command = device.getDeviceType().getSignalType().getCommand();
-        String mac = device.getSmartBox().getMacAddress();
-        String topic = "smartboxes/" + mac + "/command";
-        int signalDurationMs = device.getDeviceType().getSignalDurationMs();
-
-        mqttCommandPublisher.publishToTopic(topic, command, device.getId().toString(), signalDurationMs);
-
-        return new CommandResponse().status("accepted");
+        throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
+            "Command-Dispatch nicht verfügbar — wartet auf node-channel (#4)");
     }
 
     // ── Play-Logik: posId → Device ────────────────────────────────────────────

@@ -1,6 +1,5 @@
 package ch.jp.shooting.api;
 
-import ch.jp.shooting.config.MqttCommandPublisher;
 import ch.jp.shooting.config.SecurityHelper;
 import ch.jp.shooting.config.SmartBoxConfigPushService;
 import ch.jp.shooting.exception.ConflictException;
@@ -58,7 +57,6 @@ public class DeviceController implements DeviceApi {
     private final DeviceTypeRepository deviceTypeRepository;
     private final RangeRepository rangeRepository;
     private final RangePositionRepository rangePositionRepository;
-    private final MqttCommandPublisher mqttCommandPublisher;
     private final SmartBoxConfigPushService configPushService;
     private final ReservationService reservationService;
     private final SecurityHelper securityHelper;
@@ -71,7 +69,6 @@ public class DeviceController implements DeviceApi {
             DeviceTypeRepository deviceTypeRepository,
             RangeRepository rangeRepository,
             RangePositionRepository rangePositionRepository,
-            MqttCommandPublisher mqttCommandPublisher,
             SmartBoxConfigPushService configPushService,
             ReservationService reservationService,
             SecurityHelper securityHelper,
@@ -82,7 +79,6 @@ public class DeviceController implements DeviceApi {
         this.deviceTypeRepository = deviceTypeRepository;
         this.rangeRepository = rangeRepository;
         this.rangePositionRepository = rangePositionRepository;
-        this.mqttCommandPublisher = mqttCommandPublisher;
         this.configPushService = configPushService;
         this.reservationService = reservationService;
         this.securityHelper = securityHelper;
@@ -272,20 +268,8 @@ public class DeviceController implements DeviceApi {
             }
         }
 
-        String command = device.getDeviceType().getSignalType().getCommand();
-        String mac = device.getSmartBox().getMacAddress();
-        String topic = "smartboxes/" + mac + "/command";
-
-        int signalDurationMs = device.getDeviceType().getSignalDurationMs();
-
-        mqttCommandPublisher.publishToTopic(topic, command, id.toString(), signalDurationMs);
-
-        // Statistik: gesendete Befehle hochzählen
-        device.setCommandsSent(device.getCommandsSent() + 1);
-        device.setLastCommandSentAt(java.time.Instant.now());
-        deviceRepository.save(device);
-
-        return ResponseEntity.ok(new CommandResponse().status("accepted"));
+        throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
+            "Command-Dispatch nicht verfügbar — wartet auf node-channel (#4)");
     }
 
     @Override
