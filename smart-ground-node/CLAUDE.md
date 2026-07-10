@@ -20,10 +20,22 @@ smart-ground-node/
 ├── pom.xml
 ├── src/main/java/ch/jp/shooting/node/
 │   ├── SmartGroundNodeApplication.java
-│   └── crypto/                         # AES-256-GCM + HKDF-SHA256 (ADR-002/ADR-003)
+│   ├── crypto/                         # AES-256-GCM + HKDF-SHA256 (ADR-002/ADR-003)
+│   └── hub/                            # HubClient + Hub communication
 └── src/test/java/ch/jp/shooting/node/
-    └── crypto/                         # Cross-verified against docs/espnow/crypto-test-vectors.json
+    ├── crypto/                         # Cross-verified against docs/espnow/crypto-test-vectors.json
+    └── architecture/                   # ModuleBoundaryTest (dependency guard)
 ```
+
+## Talking to the Hub
+
+Node depends on the Hub **only** through the `contracts` Maven artifact (`ch.jp.smartground:contracts`,
+built from the sibling `smart-ground-contracts` repo — run `mvn install` there after any contract
+change) and `ch.jp.shooting.node.hub.HubClient`. Never add a dependency on `smart-ground-hub` itself —
+`ModuleBoundaryTest` (`src/test/java/ch/jp/shooting/node/architecture/`, a plain JUnit test that
+parses `pom.xml` directly — no ArchUnit, see that task's plan note for why) fails the build if
+`pom.xml` ever declares a dependency on `ch.jp.shooting:smart-ground-hub`
+(no shared persistence, no repository reach-through).
 
 ## Conventions
 
