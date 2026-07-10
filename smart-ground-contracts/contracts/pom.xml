@@ -34,22 +34,19 @@
         </dependency>
         <!-- jackson-databind-nullable's own POM declares an unmanaged transitive
              dependency on jackson-databind 2.14.0-rc2, which isn't in the local
-             offline cache. Pin to the versions smart-ground-backend's Spring Boot
-             BOM already resolves (see plan investigation), which are cached. -->
+             offline cache. Versions come from the parent's <dependencyManagement>
+             (matches what smart-ground-backend's Spring Boot BOM resolves). -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.21.2</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>2.21</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>2.21.2</version>
         </dependency>
         <dependency>
             <groupId>io.swagger.core.v3</groupId>
