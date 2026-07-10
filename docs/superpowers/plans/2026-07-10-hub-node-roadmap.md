@@ -24,7 +24,7 @@ Brainstorming entfällt — das Design ist entschieden und liegt in der Spec.
 
 | # | Teilprojekt | Hängt ab von | Status | Plan |
 |---|---|---|---|---|
-| 1 | Modulgrenze und Artefakt-Split | — | offen | — |
+| 1 | Modulgrenze und Artefakt-Split | — | geplant | [2026-07-10-module-boundary-split.md](2026-07-10-module-boundary-split.md) |
 | 2 | Sync-Fundament (`hub-api`, abwärts) | 1 | offen | — |
 | 3 | Outbox (`hub-api`, aufwärts) | 2 | offen | — |
 | 4 | `node-channel` | 1 | offen | — |
