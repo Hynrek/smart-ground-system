@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Smart Ground is an IoT system for managing shooting-range devices (clay pigeon throwers, LEDs, sensors) over MQTT. This is the backend sub-project; the monorepo also contains `smart-ground-ui` (Vue 3) and `smart-box` (MicroPython firmware for the XIAO ESP32-S3).
+Smart Ground is an IoT system for managing shooting-range devices (clay pigeon throwers, LEDs, sensors). This is the backend sub-project; the monorepo also contains `smart-ground-node` (the box-facing `box-api`, HTTPS), `smart-ground-ui` (Vue 3), and `smart-box` (MicroPython firmware for the XIAO ESP32-S3). MQTT has been removed from this repo entirely (sub-project #7, `erledigt`) — no Mosquitto client, no MQTT handlers, no dynsec, no config-push transport. See Architecture below.
 
 **No production release has been made.** Schema and API contracts can be rewritten freely — do not preserve backward compatibility for existing data.
 
@@ -10,20 +10,24 @@ Smart Ground is an IoT system for managing shooting-range devices (clay pigeon t
 
 ## Architecture
 
-The backend is the single authority. Every command and event flows through it:
+> ⚠️ **MQTT removed (sub-project #7, `erledigt`).** The Hub no longer runs a Mosquitto client, MQTT handlers, dynsec, or config-push transport — all of that has been deleted from this repo. The target architecture is the Hub/Node tier split in [../docs/superpowers/specs/2026-07-10-hub-node-architecture-design.md](../docs/superpowers/specs/2026-07-10-hub-node-architecture-design.md) (Node talks to boxes over ESP-NOW/HTTPS; the Hub is a plain REST/sync authority). Implementation is tracked in [../docs/superpowers/plans/2026-07-10-hub-node-roadmap.md](../docs/superpowers/plans/2026-07-10-hub-node-roadmap.md). **Read both before architectural work.**
+
+The backend remains the single authority for domain state (users, ranges, devices, competitions), but it no longer talks to a SmartBox directly:
 
 ```
-Client App  ──REST──▶  Backend  ──MQTT──▶  SmartBox  ──GPIO/LED──▶  Physical Device
-                           ▲
-SmartBox   ──MQTT──────────┘   (INPUT signals: sensor triggers, status)
+Client App  ──REST──▶  Backend                              (competitions, users, ranges, devices — domain authority)
+                           │
+                     (no transport yet — 501, pending node-channel #4)
+                           ▼
+                       SmartBox  ──GPIO/LED──▶  Physical Device
 ```
 
 - **Client → Backend**: REST (OpenAPI-generated interfaces)
-- **Backend → SmartBox**: MQTT publish (config push, commands)
-- **SmartBox → Backend**: MQTT publish (discovery, status, config ACK, sensor events)
+- **Backend → SmartBox**: no transport today. `DeviceController.sendDeviceCommand`, `RangePositionService.sendPositionCommand`, and `SmartBoxController.pushSmartBoxConfig` all return `501 Not Implemented` ("Command-Dispatch nicht verfügbar — wartet auf node-channel (#4)" / equivalent) — command dispatch and config push are deferred to the future `node-channel` sub-project (#4).
+- **SmartBox → Backend**: no direct channel either. Discovery, provisioning, heartbeat/status, and OTA-artifact serving now happen against `smart-ground-node`'s `box-api` (HTTPS), not against this Hub — see [../smart-ground-node/CLAUDE.md](../smart-ground-node/CLAUDE.md). The Node fetches OTA artifacts from the Hub's `OtaDownloadController` on the box's behalf (see the OTA section below).
 - **Client ↔ Backend (real-time)**: STOMP/WebSocket at `/ws/shooting`
 
-SmartBoxes are identified by their **MAC address** in MQTT topics. The backend assigns a UUID as the stable DB primary key.
+SmartBoxes are identified by their **MAC address**. The backend assigns a UUID as the stable DB primary key.
 
 ---
 
@@ -34,7 +38,7 @@ This project uses the Superpowers skill system. When working in this repo:
 - **Use the skill system.** Before implementing anything non-trivial, invoke the relevant skill (brainstorming, debugging, architecture, etc.) via the `Skill` tool.
 - **Follow the workflow** for non-trivial changes: Brainstorm (clarify + design review) → Plan (small tasks, approval) → Build (TDD: RED → GREEN → refactor, commit per green test) → Review (against the plan) → Finish (merge/PR/discard options).
 - **Document decisions here.** Any architectural or design decision made during a session must be written back into this file before the session ends. CLAUDE.md is the single source of truth — not memory, not commit messages. This includes: a technology/approach chosen over alternatives (record the reason), how a new domain concept maps to the data model, an agreed API shape, and constraints discovered during implementation.
-- **Keep it precise.** Update the specific section that owns the decision (e.g. add a new permission value to the Permission enum list; update the MQTT topic table if topics change; note a rejected alternative under the relevant heading). Do not create a separate ADR file.
+- **Keep it precise.** Update the specific section that owns the decision (e.g. add a new permission value to the Permission enum list; note a rejected alternative under the relevant heading). Do not create a separate ADR file.
 - **Expire executed one-offs.** Keep the decision and the *why*; delete step-by-step migration commands/SQL from this file once they have been run (git preserves them). Historical narration is noise for the next session.
 
 ---
@@ -44,11 +48,10 @@ This project uses the Superpowers skill system. When working in this repo:
 - **Java**: 25
 - **Spring Boot**: 4.x
 - **Database**: PostgreSQL (prod), H2 (tests)
-- **MQTT**: Eclipse Paho MQTTv5 + Spring Integration
 - **Schema**: JPA/Hibernate (pre-v1.0), Liquibase (v1.0+)
 - **Real-time**: STOMP over WebSocket + SockJS (`/ws/shooting`)
 - **Build**: Maven 3.8+
-- **Container**: Docker Compose (PostgreSQL + Mosquitto)
+- **Container**: Docker Compose (PostgreSQL only — Mosquitto removed with MQTT, #7)
 
 ---
 
@@ -64,7 +67,7 @@ This project uses the Superpowers skill system. When working in this repo:
 ```
 src/main/java/ch/jp/shooting/
 ├── api/          # OpenAPI-generated interfaces + their implementations
-├── config/       # Spring config, MQTT router, MQTT handlers, Security, WebSocket
+├── config/       # Spring config, Security, WebSocket
 ├── dto/          # Request/response DTOs and records
 │   └── play/     # Play-session specific DTOs
 ├── exception/    # Domain exceptions (extend RuntimeException)
@@ -91,14 +94,13 @@ Controllers in `ch.jp.shooting.api` **implement** the generated interfaces from 
 ## Running Locally
 
 ```bash
-# Terminal 1: Start PostgreSQL & Mosquitto
+# Terminal 1: Start PostgreSQL
 docker compose up
 
 # Terminal 2: Run backend
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=postgres
-# Server: http://localhost:8080 | PostgreSQL: 5432 | Mosquitto: ssl://localhost:8883 (TLS)
+# Server: http://localhost:8080 | PostgreSQL: 5432
 # Swagger UI: http://localhost:8080/swagger-ui.html
-# postgres profile needs a manually-extracted ca.crt for MQTT_TLS_CA_CERT_PATH — see application-postgres.properties
 
 # Tests (H2 in-memory, no Docker needed)
 ./mvnw test
@@ -126,11 +128,6 @@ docker compose up
 |---|---|---|
 | `DB_HOST` / `DB_PORT` / `DB_NAME` | `db` / `5432` / `smartground` | PostgreSQL connection |
 | `DB_USERNAME` / `DB_PASSWORD` | `postgres` / `postgres` | PostgreSQL credentials |
-| `MQTT_BROKER_URL` | `ssl://mosquitto:8883` | Mosquitto broker (TLS) |
-| `MQTT_CLIENT_ID` | `smartrange-backend` | MQTT client ID |
-| `MQTT_USERNAME` | `backend` | Dynsec login username |
-| `MQTT_PASSWORD` | *(empty)* | Dynsec login password — never hardcode |
-| `MQTT_TLS_CA_CERT_PATH` | *(empty)* | Path to Dev-CA `ca.crt` trusted for the `ssl://` broker |
 | `cors.allowed-origins` | `http://localhost:5173` | Vue dev server |
 
 ---
@@ -168,7 +165,7 @@ Decided during the SmartBox capability-system redesign session (2026-06-30), now
 | Send `BLOCK`/`UNBLOCK` | Any authenticated user |
 | Lift an **admin-set** block (`UNBLOCK` when `adminBlocked = true`) | `ADMIN` only |
 
-**Why split `blocked` from `adminBlocked`:** a regular user can block/unblock a device freely (e.g. "machine jammed, taking it offline for now"), but an admin block must be sticky — it must not be silently undone by an operator forgetting it was an admin action. `Device.adminBlocked` is set/cleared only by `ADMIN`; the effective block sent to the SmartBox in the config push is `blocked || adminBlocked`. The firmware's own block mechanism (`ADMIN_BLOCK_TOKEN` in `mqttutils.py`) already treats every block as sticky — this backend change makes that distinction visible and enforceable at the API layer too, rather than being implicit in firmware-only state.
+**Why split `blocked` from `adminBlocked`:** a regular user can block/unblock a device freely (e.g. "machine jammed, taking it offline for now"), but an admin block must be sticky — it must not be silently undone by an operator forgetting it was an admin action. `Device.adminBlocked` is set/cleared only by `ADMIN`; the effective block sent to the SmartBox in the config push is `blocked || adminBlocked`. The firmware's own block mechanism (`ADMIN_BLOCK_TOKEN` in `smart-box`'s `device_state.py`) already treats every block as sticky — this backend change makes that distinction visible and enforceable at the API layer too, rather than being implicit in firmware-only state.
 
 **BLOCK/UNBLOCK are not capability-gated.** They are security meta-commands, not hardware commands — they must always be available regardless of what a device's capability manifest declares, so that forgetting to declare them in a new AppCode capability never accidentally makes a device unblockable.
 
@@ -398,51 +395,17 @@ When v1.0 is released:
 
 ---
 
-## MQTT Integration
+## SmartBox Integration (post-MQTT-removal)
 
-### Topic convention
+> **MQTT fully removed from this repo (sub-project #7, `erledigt`).** Everything that used to live here — `SmartBoxMqttRouter`, `MqttConfig`, `SmartBoxDiscoveryHandler`, `SmartBoxStatusHandler`, `SmartBoxConfigAckHandler`, `SmartBoxOtaStatusHandler`, `SmartBoxConfigPushService`, `SmartBoxCredentialService`, the `smartboxes/#` topic convention, and dynsec — has been deleted. There is no broker, no MQTT client dependency, and no topic table to maintain. The Hub keeps the domain model (`SmartBox`, `FirmwareConfig`, `Device`, etc.) but no longer talks to a box directly.
 
-```
-smartboxes/discovery                        # SmartBox → Backend: registration payload
-smartboxes/{mac}/status                     # SmartBox → Backend: heartbeat / state
-smartboxes/{mac}/config                     # Backend → SmartBox: full device/GPIO config
-smartboxes/{mac}/config/ack                 # SmartBox → Backend: confirm config received
-smartboxes/{mac}/command                    # Backend → SmartBox: fire a device
-smartboxes/{mac}/device/{deviceId}/executed # SmartBox → Backend: command executed ACK
-smartboxes/{mac}/ota                        # Backend → SmartBox: OTA update trigger
-smartboxes/{mac}/ota/status                 # SmartBox → Backend: OTA progress
-```
+**Where things live now:**
 
-Do not hardcode topic strings outside of `SmartBoxMqttRouter` and its handlers.
-
-> **Routing note:** `smartboxes/{mac}/ota/status` also ends with `/status`, so `SmartBoxMqttRouter` checks `endsWith("/ota/status")` **before** `endsWith("/status")`. The inbound adapter subscribes `smartboxes/+/ota/status` (`MqttConfig.TOPIC_OTA_STATUS`), handled by `SmartBoxOtaStatusHandler`.
-
-### Architecture
-```
-SmartBox publishes
-    ↓
-SmartBoxMqttRouter (dispatches by topic suffix)
-    ↓
-Handler (SmartBoxDiscoveryHandler, SmartBoxStatusHandler, SmartBoxConfigAckHandler)
-    ↓
-Service layer → Database
-```
-
-### SmartBox payloads
-
-> **Canonical payload schemas live in [`smart-box/CLAUDE.md`](../smart-box/CLAUDE.md)** (sections "MQTT Topics & Payload Schemas" and "OTA Updates"). The firmware defines what it accepts and publishes — do not duplicate JSON examples here; the two files have drifted apart before. This section documents backend-side handling only.
-
-**Discovery** (`smartboxes/discovery`, once per boot): `appVersion` is the App-Code version (the OTA target the backend compares against); `firmwareVersion` is the MicroPython kernel. `SmartBoxDiscoveryHandler` stores both on `SmartBox` and upserts the capability registry from the payload's `capabilities` + `configSchemaVersion`.
-
-> **FirmwareConfig resolution is keyed on `appVersion`, not `firmwareVersion`.** `firmware_configs` rows (the capability registry, e.g. `seedFirmware("0.6", "xiao-esp32s3")`) are versioned by the **App-Code** version. `SmartBoxDiscoveryHandler` resolves `box.firmwareConfig` via `findByVersionAndBoxType(appVersion, boxType)` (falling back to `firmwareVersion` only for legacy firmware that sends no `appVersion`). Keying on the kernel string (`micropython-1.23.0`) would never match, leaving `firmwareConfig` null → `SmartBoxConfigPushService` throws `FirmwareNotResolvedException` → no config push → the box rejects every command (`Unbekanntes Gerät blockiert`). `SmartBoxResponse` exposes `appVersion` for the UI.
-
-> **Discovery-driven capability registry (implemented).** The box is the authority on its own capabilities — it announces a full capability manifest (`capabilities` JSON: per-kind `directions`, `commands`, `config_fields`) and `configSchemaVersion` in the discovery payload. `SmartBoxDiscoveryHandler` **upserts** `FirmwareConfig` (creates the row if `(appVersion, boxType)` is unknown, updates `capabilitiesJson`/`configSchemaVersion` on every discovery). A box can boot for the first time — factory-flashed, externally provisioned, or freshly OTA-updated — and the backend learns what it can do without an admin pre-seeding a row. `FirmwareConfig` carries `capabilitiesJson TEXT` and `configSchemaVersion`. The `seedFirmware(...)` calls in `DataInitializer` remain only as dev-convenience seeds; the discovery upsert is authoritative. `signal_types`/`device_types` (the admin-managed mapping from a configured device to GPIO pin/duration) are **not** replaced by this — they remain the backend's authority over what a device is *assigned* to do; the capability manifest only describes what the AppCode *can* do.
-
-**Config push** (`smartboxes/{mac}/config`): built by `SmartBoxConfigPushService` from the device assignments (`device_types`/`signal_types`); the effective `blocked` sent to the box is `blocked || adminBlocked`. The box confirms with `OK` on `smartboxes/{mac}/config/ack` (`SmartBoxConfigAckHandler`).
-
-> **Known gap: credential re-provisioning has no recovery path.** `SmartBoxDiscoveryHandler.handleMessage` gates one-time credential provisioning on `box.getMqttUsername() == null`, and `SmartBoxCredentialService.provisionCredentials` sets/saves `mqttUsername` in the DB *before* the config push carrying the password is confirmed delivered. If that config push fails to reach the box, or the firmware fails to persist the credentials locally (`smart-box`'s `_persist_mqtt_credentials()` can return `False`), the backend believes the box is provisioned but the box never got or kept the password — and having no working credentials, it can't reconnect to re-announce discovery and trigger a retry. Recovery today requires manual `mosquitto_ctrl dynsec deleteClient` + clearing `SmartBox.mqttUsername`, or a re-flash. This is deliberately deferred, alongside the missing `bootstrap` dynsec role (see `smart-box/CLAUDE.md`, "Bootstrap credential — not yet implemented") — a real fix likely lands together with that follow-up.
-
-**OTA**: trigger published by `OtaPublishService` to `smartboxes/{mac}/ota` (URL points at `OtaDownloadController` via `ota.base-url`); progress reported by the box on `smartboxes/{mac}/ota/status`, handled by `SmartBoxOtaStatusHandler` → `SmartBox.ota*` fields.
+- **Discovery, provisioning, heartbeat/status**: moved entirely to `smart-ground-node`'s `box-api` (HTTPS). The box talks to the Node, not the Hub. The Node holds its own lightweight box registry (embedded H2) with a per-MAC `K_Box` key — this is a *separate* concept from the Hub's `SmartBox`/`FirmwareConfig` domain model, not a replacement for it. See [../smart-ground-node/CLAUDE.md](../smart-ground-node/CLAUDE.md).
+- **Config push** (`SmartBoxController.pushSmartBoxConfig`, `POST /api/smart-boxes/{id}/push-config`): stubs to `501 Not Implemented` ("MQTT entfernt (#7) — Ersatz folgt über Sync-Fundament (#2) / node-channel (#4)"). Building the effective device/GPIO config (from `device_types`/`signal_types`, `blocked || adminBlocked`) is still meaningful backend logic — it just has nowhere to be delivered yet.
+- **Credential provisioning**: also removed. There is no `mqttUsername`/dynsec credential lifecycle to manage on the Hub side any more — the box-api's own `K_Box` provisioning (Node-side, HTTPS) replaces it, and it has no bootstrap-credential problem (discovery/provisioning is the box-api's very first call, not gated on pre-existing credentials).
+- **Command dispatch** (`DeviceController.sendDeviceCommand`, `POST /api/devices/{id}/command`; `RangePositionService.sendPositionCommand`, used by `RangeController`'s position-command endpoint): both stub to `501 Not Implemented` ("Command-Dispatch nicht verfügbar — wartet auf node-channel (#4)"), *after* running their existing validation (blocked check, reservation check, activity marking) — only the final publish step is missing. Replacement transport is the future `node-channel` sub-project (#4).
+- **OTA artifact download**: the box no longer downloads directly from the Hub. `smart-ground-node`'s `BoxOtaController` proxies `GET /box-api/v1/ota/app/{version}/manifest.json`, `.../files/{*path}`, and `GET /box-api/v1/ota/firmware/{version}` byte-for-byte from this Hub's `OtaDownloadController` (via `HubClient`, plain HTTP, Node↔Hub are on the same trusted machine). `OtaDownloadController` itself, and all of `OtaController`'s admin-facing upload/list/trigger endpoints, are unchanged by this plan — see the OTA Updates note in Implementation Status below. Only the "how a box fetches bytes" half of the picture changed: **artifacts are now fetched by the Node on the box's behalf, not by the box directly.**
 
 ---
 
@@ -516,7 +479,7 @@ Service layer → Database
 | `SmartBoxController` | GET /api/smart-boxes, PATCH alias, POST push-config, DELETE /api/smart-boxes/{id} | SmartBox registration and management |
 | `OtaController` | GET/POST /api/ota/releases, POST/GET /api/smart-boxes/{id}/ota | OTA release upload + listing, update trigger, status (implements `OtaApi`) |
 | `OtaDownloadController` | GET /api/ota/app/{version}/manifest.json, /files/**, /api/ota/firmware/{version} | Box-facing artifact download (**not** OpenAPI — see exception note) |
-| `DeviceController` | GET/POST/PATCH/DELETE /api/devices, POST …/{id}/command, POST …/{id}/block, POST …/{id}/unblock, PATCH …/{id}/range | Device CRUD, MQTT command routing, block/unblock |
+| `DeviceController` | GET/POST/PATCH/DELETE /api/devices, POST …/{id}/command, POST …/{id}/block, POST …/{id}/unblock, PATCH …/{id}/range | Device CRUD, command dispatch (`501` — pending node-channel #4), block/unblock |
 | `DeviceTypeController` | /api/device-types, /api/device-types/groups, /api/device-types/firmware-configs | Device types, type groups, firmware capability registry (one controller) |
 | `RangeController` | GET/POST/PATCH/DELETE /api/ranges, /{id}/locked, /{id}/assigned-user, positions CRUD, POST positions/{positionId}/command | Shooting lane + position management |
 | `ReservationController` | /api/ranges/{id}/reservation | Range reservation |
@@ -540,8 +503,6 @@ Service layer → Database
 | `config/JwtAuthenticationFilter.java` | Per-request JWT validation |
 | `service/JwtService.java` | Token generation/validation |
 | `service/auth/AuthorizationService.java` | Resolves effective permissions for current user |
-| `config/MqttConfig.java` | MQTT broker integration |
-| `config/SmartBoxMqttRouter.java` | MQTT topic dispatcher |
 | `config/WebSocketConfig.java` | STOMP/SockJS config (endpoint: `/ws/shooting`) |
 | `service/SessionWebSocketService.java` | WebSocket push for live play/session updates |
 | `model/auth/User.java` | Full user profile entity |
@@ -552,7 +513,7 @@ Service layer → Database
 | `model/LiveSession.java` | Active competition entity |
 | `config/DataInitializer.java` / `RoleDataInitializer.java` | Seeds default roles/permissions on startup |
 | `pom.xml` | Maven dependencies & plugins |
-| `docker-compose.yml` | Local PostgreSQL + Mosquitto |
+| `docker-compose.yml` | Local PostgreSQL (Mosquitto removed with MQTT, #7) |
 
 ---
 
@@ -588,7 +549,7 @@ All exceptions are mapped in `GlobalExceptionHandler` and return `ProblemDetail`
 | `TiebreakerNotFoundException` | 404 | `/errors/tiebreaker-not-found` |
 | `InvalidTiebreakerStateException` | 409 | `/errors/invalid-tiebreaker-state` |
 
-When adding a new exception: create it in `ch.jp.shooting.exception`, register it in `GlobalExceptionHandler` with a `/errors/{slug}` type URI (or extend `NotFoundException` for plain 404s). `FirmwareNotResolvedException` is a nested class in `SmartBoxConfigPushService` (MQTT path, not REST).
+When adding a new exception: create it in `ch.jp.shooting.exception`, register it in `GlobalExceptionHandler` with a `/errors/{slug}` type URI (or extend `NotFoundException` for plain 404s). `FirmwareNotResolvedException` no longer exists — it was a nested class in `SmartBoxConfigPushService`, deleted along with the rest of the config-push machinery (#7).
 
 > **Exception:** `UnresolvedTiesException` (PRE_COMPLETE finish guard) does **not** return a `ProblemDetail` — it returns the generated `UnresolvedTiesError` body (`message` + `unresolvedTies[]`) with HTTP 409, because the OpenAPI 409 schema for the finish endpoint is `UnresolvedTiesError`.
 
@@ -630,8 +591,8 @@ If deleting something would break a test, either fix the test or delete it too (
 ```
 
 ### Structure
-- **Unit tests** (`service/`): `@ExtendWith(MockitoExtension.class)`, mock MQTT and DB
-- **Integration tests** (`config/mqtt/`): `@SpringBootTest` + `@TestPropertySource`, H2 + embedded Mosquitto
+- **Unit tests** (`service/`): `@ExtendWith(MockitoExtension.class)`, mock DB
+- **Integration tests** (`api/`, `config/`): `@SpringBootTest` + `@TestPropertySource`, H2 only — no broker to stand up any more
 
 ### Coverage target: ≥80% for new code
 
@@ -644,7 +605,6 @@ If deleting something would break a test, either fix the test or delete it too (
 - [ ] Controller class implements the generated interface (`implements FooApi`); no `@RequestMapping`, `@GetMapping`, etc. on the class or methods
 - [ ] Auth: new endpoints require appropriate `@PreAuthorize` or permission check
 - [ ] Session/PlayInstance state transitions validated
-- [ ] MQTT topics follow `smartboxes/{mac}/...` convention
 - [ ] `@NullMarked` on all new classes; `@Nullable` where appropriate
 - [ ] New entities use UUID PK with `GenerationType.UUID`
 - [ ] JSON columns use `TEXT` (not JSONB)
@@ -673,10 +633,8 @@ If deleting something would break a test, either fix the test or delete it too (
 - Full user profile management (personal info, shooting licence, soft delete)
 - Guest management
 - SmartBox/Device/Range/RangePosition/FirmwareConfig CRUD
-- MQTT integration (discovery, status, config push/ACK, commands)
 - Range reservations with auto-expiry cleanup
 - Serie / Passe template CRUD (Training was removed)
-- Discovery-driven capability registry (box announces `capabilities` + `configSchemaVersion`; `SmartBoxDiscoveryHandler` upserts `FirmwareConfig`)
 - Device/GPIO permission model (`ADMIN`-gated wiring changes, `adminBlocked` sticky admin block)
 - **Admin Testing panel** (dev tooling, implemented 2026-07-02) — `/api/testing/*` endpoints (`ROLE_ADMIN`-gated, `TestingController` → `TestDataService`) create a test user (single credential = username+password, email `{cred}@test.local`, SHOOTER role), seed the 4 standard ranges (Vorderlader, Trapstand, Rollhase, Kippreh; idempotent by name), and create a mock SmartBox with N `Werfer` devices (unassigned, status OFFLINE, generated locally-administered MAC). Frontend: `/testing` admin view, nav + route gated on `MANAGE_USERS` (admin-only in the seed). `DataInitializer` is unchanged — actions are on-demand only. Extended 2026-07-07: seeding a fresh range now also creates 8 `RangePosition`s (A–H), 2 mock SmartBoxes (aliased `"<Range> Box 1/2"`), and 4 `Werfer` devices per box, assigning all 8 devices 1:1 to that range's 8 positions — a "ready to go" setup in one click. A range is left untouched if it already has any positions (idempotent per range, not just per name).
 - Live play execution via `PlayInstance` (start/step/complete/stop)
@@ -685,17 +643,17 @@ If deleting something would break a test, either fix the test or delete it too (
 - Career stats
 - WebSocket (STOMP/SockJS) at `/ws/shooting`
 - OpenAPI v3.0 contract (contract-first, generated interfaces)
-- **OTA update delivery** (implemented 2026-06-28) — admin uploads an App-Code zip / firmware `.bin` (`POST /api/ota/releases`), stored + hashed + manifest-generated by `OtaArtifactStore` and registered as an `OtaRelease`. Admin triggers an update (`POST /api/smart-boxes/{id}/ota`), which `OtaPublishService` publishes to `smartboxes/{mac}/ota`. The box pulls artifacts from `OtaDownloadController` (unauthenticated) and reports progress on `smartboxes/{mac}/ota/status` (→ `SmartBoxOtaStatusHandler` → `SmartBox.ota*` fields, read via `GET /api/smart-boxes/{id}/ota`). Config: `ota.base-url` (URL the box fetches from), `ota.artifact-dir` (filesystem store).
+- **OTA artifact upload/listing** (implemented 2026-06-28; upload/list/trigger surface unchanged by #7) — admin uploads an App-Code zip / firmware `.bin` (`POST /api/ota/releases`), stored + hashed + manifest-generated by `OtaArtifactStore` and registered as an `OtaRelease`. **Trigger and progress-reporting are stubbed to `501`** as of #7 (there is no transport to notify the box an update is available, and no `smartboxes/{mac}/ota/status` channel to report progress on any more — `OtaPublishService` and `SmartBoxOtaStatusHandler` are deleted). **Download is unaffected**: `OtaDownloadController` (unauthenticated GETs for manifest/files/firmware) is unchanged — it now serves `smart-ground-node`'s `BoxOtaController` proxy rather than the box directly, but the Hub-side code and config (`ota.base-url`, `ota.artifact-dir`) are the same.
   - **Release content rules (decision, 2026-07-02):** an App-Code release **must include `systemconfig/firmware_config.json`** (release metadata: `app_version`, `config_schema_version`, `capabilities` — otherwise the box keeps announcing the old `appVersion` after the update and `(appVersion, boxType)` FirmwareConfig resolution goes stale) and **must never contain `userconfig/` paths** (device-owned state: WiFi/broker credentials, per-box device config, OTA state). `OtaArtifactStore.storeAppBundle` rejects ZIPs with `userconfig/` entries (`InvalidOtaArtifactException`); the firmware enforces the same rule on download (`ota.py`). This replaces the former "never overwrite `firmware_config.json` from the backend" rule, which protected the wrong file.
 - **QR-Checkin (Training)** (implemented 2026-07-02) — jeder `User` trägt einen statischen, rotierbaren `qrToken` (lazy-Backfill beim ersten Abruf; Payload-Format `smartground://checkin/<token>`). Endpoints: `GET /api/users/me/qr`, `POST /api/users/me/qr/rotate`, `GET /api/users/by-qr/{token}` (Resolve für das Stand-Tablet, jeder eingeloggte User), `GET /api/users/me/play-results` (eigene Scores aus abgeschlossenen `play_instances`; LIKE-Vorfilter auf die UUID im JSON + echte Teilnahme-Prüfung beim Parsen). `PlayerRefRecord`/`PlayerResultRecord` tragen eine optionale `userId`; Wettkampf-Pfade übergeben `null`. Entscheidung: eigener Token statt User-UUID im QR, damit ein abfotografierter Code per Rotation entwertet werden kann.
-- **SmartBox soft-delete** (implemented 2026-07-06) — `DELETE /api/smart-boxes/{id}` (ADMIN-only) sets `SmartBox.deletedAt` and hard-deletes the box's devices (range positions unassigned first to satisfy the `range_positions.device_id` FK). List/get filter on `deletedAt IS NULL` (`SmartBoxRepository.findByDeletedAtIsNull` / `findByIdAndDeletedAtIsNull`). Competition/session history is untouched (it never references `SmartBox`/`Device` directly). A re-discovered MAC is auto-reactivated: `SmartBoxDiscoveryHandler` clears `deletedAt`, and the box returns with zero devices. Decision: soft-delete (not hard-delete) the box so a broken unit stays out of listings without destroying its identity, while devices are hard-deleted because they are meaningless without their physical GPIO wiring.
+- **SmartBox soft-delete** (implemented 2026-07-06) — `DELETE /api/smart-boxes/{id}` (ADMIN-only) sets `SmartBox.deletedAt` and hard-deletes the box's devices (range positions unassigned first to satisfy the `range_positions.device_id` FK). List/get filter on `deletedAt IS NULL` (`SmartBoxRepository.findByDeletedAtIsNull` / `findByIdAndDeletedAtIsNull`). Competition/session history is untouched (it never references `SmartBox`/`Device` directly). Decision: soft-delete (not hard-delete) the box so a broken unit stays out of listings without destroying its identity, while devices are hard-deleted because they are meaningless without their physical GPIO wiring. **Note (post-#7):** re-discovery auto-reactivation previously ran through `SmartBoxDiscoveryHandler` (deleted with MQTT removal); a re-discovered MAC no longer clears `deletedAt` automatically on this Hub — discovery now lands on `smart-ground-node`'s box registry instead, which has no notion of the Hub's `deletedAt`. Reconciling the two is unaddressed scope, likely for the Sync-Fundament sub-project (#2).
 
 ### Device Stats (implemented 2026-06-04)
 
-Per-device lifetime counters tracked on the `Device` entity:
-- `commandsSent` — incremented in `DeviceController.sendDeviceCommand` after MQTT publish
-- `commandsProcessed` — incremented in `SmartBoxDeviceExecutedHandler` when the device ACKs via `smartboxes/{mac}/device/{deviceId}/executed`
-- `lastCommandSentAt` / `lastCommandProcessedAt` — nullable `Instant` timestamps set alongside the counters
+Per-device lifetime counters tracked on the `Device` entity (still present in the schema/DTOs — see the `EntityMappers` mapping — but **dormant since #7**: nothing increments them any more, since `DeviceController.sendDeviceCommand` now 501s before any publish, and `SmartBoxDeviceExecutedHandler`, the ACK handler that used to increment `commandsProcessed`, is deleted along with the rest of the MQTT machinery. Wiring these up again is part of whatever replaces command dispatch, i.e. node-channel #4):
+- `commandsSent` — previously incremented in `DeviceController.sendDeviceCommand` after MQTT publish (now unreachable — the method returns `501` first)
+- `commandsProcessed` — previously incremented in `SmartBoxDeviceExecutedHandler` on ACK (handler deleted)
+- `lastCommandSentAt` / `lastCommandProcessedAt` — nullable `Instant` timestamps set alongside the counters (also dormant)
 
 Design decisions:
 - Stats live on `Device` (not `SmartBox`) because commands target individual device UUIDs
@@ -703,11 +661,12 @@ Design decisions:
 - No "commands rejected" counter — the firmware's busy-reject is intentional; undelivered commands are expected and not tracked
 
 ### ❌ Not Yet Implemented
+- **Command dispatch and config push** (`501`, since #7) — no transport from Backend to SmartBox exists; pending `node-channel` (#4)
 - INPUT signal handling end-to-end (sensor → backend → trigger)
 - Multi-SmartBox device assignment (API not exposed)
 - Email / phone verification flows
 - Play result scoring logic (`PlayResultController` stub exists)
-- **Backend-side actuation delay.** The firmware no longer applies a delay — `delay_ms` / `delaySignalDurationMs` were removed from the config-push and command MQTT payloads. `DeviceType.delaySignalDurationMs` (and the `Device` override) are kept in the domain/REST surface as modeled intent. When a delayed-release / staggered-double requirement is confirmed, implement it here by scheduling the command publish at send-time (in `MqttCommandPublisher`/`RangePositionService`) using the retained delay value. Until then no delay is applied.
+- **Backend-side actuation delay.** The firmware no longer applies a delay — `delay_ms` / `delaySignalDurationMs` were removed from the config-push and command payloads (back when those were MQTT payloads; the fields never made it into any box-api equivalent either). `DeviceType.delaySignalDurationMs` (and the `Device` override) are kept in the domain/REST surface as modeled intent. When a delayed-release / staggered-double requirement is confirmed, implement it here by scheduling the command publish at send-time using the retained delay value — the send-time mechanism itself (`MqttCommandPublisher`) no longer exists and will need to be rebuilt as part of whatever transport `node-channel` (#4) introduces. Until then no delay is applied.
 
 ---
 
@@ -720,22 +679,13 @@ Design decisions:
 4. Add exception(s) in `ch.jp.shooting.exception/` + register in `GlobalExceptionHandler`
 5. Add mapper logic in `EntityMappers` or a dedicated mapper class
 
-**New MQTT handler:**
-1. Create handler class in `ch.jp.shooting.config/`
-2. Register in `SmartBoxMqttRouter` — match on `topic.endsWith("/your-suffix")`
-3. Document the topic in the MQTT section above
-
 **New JPA entity (schema change):**
 1. Edit or create entity in `ch.jp.shooting.model/`
 2. Hibernate applies the diff on next startup (pre-v1.0 — `ddl-auto=update`)
 3. Use `@Column(name = "…")` explicitly — do not rely on Hibernate naming defaults
 4. Add repository in `ch.jp.shooting.repository/`
 
-**Send device command via MQTT:**
-```java
-String topic = "smartboxes/%s/command".formatted(device.getSmartBox().getMacAddress());
-mqttCommandPublisher.publishToTopic(topic, payload);
-```
+**Send a command to a SmartBox:** not currently possible — `DeviceController.sendDeviceCommand` and `RangePositionService.sendPositionCommand` both return `501`. There is no transport to build a snippet around until `node-channel` (#4) lands; see the SmartBox Integration section above.
 
 **Add a new `Permission` value:**
 1. Add to the `Permission` enum in `ch.jp.shooting.model.auth`
@@ -746,20 +696,12 @@ mqttCommandPublisher.publishToTopic(topic, payload);
 
 ## Troubleshooting
 
-**Tests fail with "MqttException"**
-- Ensure Mosquitto is running: `docker compose up`
-- Or use H2 profile only: tests don't require Mosquitto if using `test-application.properties`
-
 **Hibernate DDL errors**
 - Pre-v1.0: edit JPA entities, restart server — Hibernate applies the diff automatically
 - Check `spring.jpa.hibernate.ddl-auto` in the active profile's `application-*.properties`
 
 **"Connection refused" on PostgreSQL**
 - `docker compose up`, or switch to H2: `./mvnw spring-boot:run -Dspring-boot.run.profiles=h2`
-
-**MQTT messages not processed**
-- Check `SmartBoxMqttRouter` logs; verify handler is registered
-- Test: `mosquitto_pub -t smartboxes/aabbccddeeff/status -m '{...}'`
 
 **401 Unauthorized**
 - Set `Authorization: Bearer <token>` header
