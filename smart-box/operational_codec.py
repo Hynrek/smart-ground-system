@@ -10,6 +10,7 @@ from frame_envelope import (
     TYPE_CONFIG,
     TYPE_CONFIG_ACK,
     TYPE_COMMAND,
+    TYPE_DISCOVERY,
     TYPE_EXECUTED,
     TYPE_HEARTBEAT,
     pack_header,
@@ -137,3 +138,66 @@ def verify_heartbeat(frame, k_s):
         return True
     except ValueError:
         return False
+
+
+def build_discovery(dest_mac, src_mac, frame_id, ttl, counter_nonce, k_s, app_version_major, app_version_minor,
+                     config_schema_version, box_type, device_types):
+    header = pack_header(dest_mac, src_mac, frame_id, ttl, TYPE_DISCOVERY)
+    box_type_bytes = box_type.encode("utf-8")
+    plaintext = bytes([app_version_major, app_version_minor, config_schema_version, len(box_type_bytes)])
+    plaintext += box_type_bytes
+    plaintext += bytes([len(device_types)])
+    for dt in device_types:
+        fields = dt["config_fields"]
+        plaintext += bytes([dt["device_type_id"], dt["directions_bitmask"], dt["commands_bitmask"], len(fields)])
+        for field in fields:
+            default_bytes = field["default_bytes"]
+            plaintext += bytes([field["field_id"], field["type_id"], len(default_bytes)])
+            plaintext += default_bytes
+    return _wrap(header, counter_nonce, plaintext, k_s)
+
+
+def parse_discovery(frame, k_s):
+    p = _unwrap(frame, k_s)
+    pos = 0
+    app_version_major = p[pos]
+    pos += 1
+    app_version_minor = p[pos]
+    pos += 1
+    config_schema_version = p[pos]
+    pos += 1
+    box_type_len = p[pos]
+    pos += 1
+    box_type = p[pos:pos + box_type_len].decode("utf-8")
+    pos += box_type_len
+    device_type_count = p[pos]
+    pos += 1
+    device_types = []
+    for _ in range(device_type_count):
+        device_type_id = p[pos]
+        pos += 1
+        directions_bitmask = p[pos]
+        pos += 1
+        commands_bitmask = p[pos]
+        pos += 1
+        field_count = p[pos]
+        pos += 1
+        fields = []
+        for _ in range(field_count):
+            field_id = p[pos]
+            pos += 1
+            type_id = p[pos]
+            pos += 1
+            default_len = p[pos]
+            pos += 1
+            default_bytes = p[pos:pos + default_len]
+            pos += default_len
+            fields.append({"field_id": field_id, "type_id": type_id, "default_bytes": default_bytes})
+        device_types.append({
+            "device_type_id": device_type_id, "directions_bitmask": directions_bitmask,
+            "commands_bitmask": commands_bitmask, "config_fields": fields,
+        })
+    return {
+        "app_version_major": app_version_major, "app_version_minor": app_version_minor,
+        "config_schema_version": config_schema_version, "box_type": box_type, "device_types": device_types,
+    }
