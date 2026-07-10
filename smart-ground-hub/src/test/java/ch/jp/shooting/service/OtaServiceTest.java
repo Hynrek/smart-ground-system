@@ -1,6 +1,5 @@
 package ch.jp.shooting.service;
 
-import ch.jp.shooting.config.OtaPublishService;
 import ch.jp.shooting.model.OtaRelease;
 import ch.jp.shooting.model.OtaType;
 import ch.jp.shooting.repository.OtaReleaseRepository;
@@ -21,7 +20,6 @@ class OtaServiceTest {
     @Mock OtaArtifactStore store;
     @Mock OtaReleaseRepository repository;
     @Mock SmartBoxRepository smartBoxRepository;
-    @Mock OtaPublishService publishService;
     @InjectMocks OtaService service;
 
     @Test

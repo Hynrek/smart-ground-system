@@ -1,6 +1,5 @@
 package ch.jp.shooting.service;
 
-import ch.jp.shooting.config.OtaPublishService;
 import ch.jp.shooting.exception.OtaReleaseNotFoundException;
 import ch.jp.shooting.exception.SmartBoxNotFoundException;
 import ch.jp.shooting.model.OtaRelease;
@@ -12,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -25,14 +26,13 @@ class OtaServiceTriggerTest {
     @Mock OtaArtifactStore store;
     @Mock OtaReleaseRepository releaseRepository;
     @Mock SmartBoxRepository smartBoxRepository;
-    @Mock OtaPublishService publishService;
 
     OtaService service() {
-        return new OtaService(store, releaseRepository, smartBoxRepository, publishService);
+        return new OtaService(store, releaseRepository, smartBoxRepository);
     }
 
     @Test
-    void triggerPublishesForResolvedBoxAndRelease() {
+    void triggerReturns501ForResolvedBoxAndRelease_untilSyncFundamentExists() {
         UUID boxId = UUID.randomUUID();
         SmartBox box = new SmartBox();
         box.setMacAddress("aabbccddeeff");
@@ -42,9 +42,9 @@ class OtaServiceTriggerTest {
         when(smartBoxRepository.findById(boxId)).thenReturn(Optional.of(box));
         when(releaseRepository.findByTypeAndVersion(OtaType.APP, "0.7")).thenReturn(Optional.of(release));
 
-        service().triggerOta(boxId, OtaType.APP, "0.7");
-
-        verify(publishService).publish(box, release);
+        assertThatThrownBy(() -> service().triggerOta(boxId, OtaType.APP, "0.7"))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasFieldOrPropertyWithValue("statusCode", HttpStatus.NOT_IMPLEMENTED);
     }
 
     @Test

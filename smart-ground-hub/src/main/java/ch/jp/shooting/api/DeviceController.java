@@ -1,7 +1,6 @@
 package ch.jp.shooting.api;
 
 import ch.jp.shooting.config.SecurityHelper;
-import ch.jp.shooting.config.SmartBoxConfigPushService;
 import ch.jp.shooting.exception.ConflictException;
 import ch.jp.shooting.exception.DeviceAlreadyAssignedException;
 import ch.jp.shooting.exception.DeviceNotFoundException;
@@ -57,7 +56,6 @@ public class DeviceController implements DeviceApi {
     private final DeviceTypeRepository deviceTypeRepository;
     private final RangeRepository rangeRepository;
     private final RangePositionRepository rangePositionRepository;
-    private final SmartBoxConfigPushService configPushService;
     private final ReservationService reservationService;
     private final SecurityHelper securityHelper;
     private final PermissionService permissionService;
@@ -69,7 +67,6 @@ public class DeviceController implements DeviceApi {
             DeviceTypeRepository deviceTypeRepository,
             RangeRepository rangeRepository,
             RangePositionRepository rangePositionRepository,
-            SmartBoxConfigPushService configPushService,
             ReservationService reservationService,
             SecurityHelper securityHelper,
             PermissionService permissionService) {
@@ -79,7 +76,6 @@ public class DeviceController implements DeviceApi {
         this.deviceTypeRepository = deviceTypeRepository;
         this.rangeRepository = rangeRepository;
         this.rangePositionRepository = rangePositionRepository;
-        this.configPushService = configPushService;
         this.reservationService = reservationService;
         this.securityHelper = securityHelper;
         this.permissionService = permissionService;
@@ -153,9 +149,10 @@ public class DeviceController implements DeviceApi {
 
         Device saved = deviceRepository.save(device);
 
+        // Config-Push an die Box entfällt mit MQTT (#7) — die Box bleibt "configSynced=false"
+        // bis der Sync-Fundament/node-channel-Ersatz (#2/#4) den Push übernimmt.
         box.setConfigSynced(false);
-        SmartBox savedBox = smartBoxRepository.save(box);
-        configPushService.push(savedBox);
+        smartBoxRepository.save(box);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(EntityMappers.toDeviceResponse(saved));
     }

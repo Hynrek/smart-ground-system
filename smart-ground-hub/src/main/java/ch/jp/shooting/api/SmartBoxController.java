@@ -6,8 +6,6 @@ import ch.jp.smartground.model.SetAliasRequest;
 import ch.jp.smartground.model.SmartBoxPageResponse;
 import ch.jp.smartground.model.SmartBoxResponse;
 import ch.jp.smartground.model.SmartBoxStatus;
-import ch.jp.shooting.config.SmartBoxConfigPushService;
-import ch.jp.shooting.config.SmartBoxCredentialService;
 import ch.jp.shooting.exception.SmartBoxNotFoundException;
 import ch.jp.shooting.model.Device;
 import ch.jp.shooting.model.RangePosition;
@@ -19,10 +17,12 @@ import jakarta.validation.Valid;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
@@ -33,21 +33,15 @@ import java.util.UUID;
 public class SmartBoxController implements SmartBoxApi {
 
     private final SmartBoxRepository smartBoxRepository;
-    private final SmartBoxConfigPushService configPushService;
     private final DeviceRepository deviceRepository;
     private final RangePositionRepository rangePositionRepository;
-    private final SmartBoxCredentialService credentialService;
 
     public SmartBoxController(SmartBoxRepository smartBoxRepository,
-                               SmartBoxConfigPushService configPushService,
                                DeviceRepository deviceRepository,
-                               RangePositionRepository rangePositionRepository,
-                               SmartBoxCredentialService credentialService) {
+                               RangePositionRepository rangePositionRepository) {
         this.smartBoxRepository = smartBoxRepository;
-        this.configPushService = configPushService;
         this.deviceRepository = deviceRepository;
         this.rangePositionRepository = rangePositionRepository;
-        this.credentialService = credentialService;
     }
 
     @Override
@@ -85,10 +79,8 @@ public class SmartBoxController implements SmartBoxApi {
 
     @Override
     public ResponseEntity<Void> pushSmartBoxConfig(@PathVariable("id") UUID id) {
-        SmartBox box = findBox(id);
-        box.setConfigSynced(false);
-        configPushService.push(smartBoxRepository.save(box));
-        return ResponseEntity.accepted().build();
+        throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
+            "MQTT entfernt (#7) — Ersatz folgt über Sync-Fundament (#2) / node-channel (#4)");
     }
 
     @Override
@@ -97,12 +89,8 @@ public class SmartBoxController implements SmartBoxApi {
     public ResponseEntity<Void> deleteSmartBox(@PathVariable("id") UUID id) {
         SmartBox box = findBox(id);
 
-        // Broker-Login zuerst widerrufen (löscht den dynsec-Client, trennt aktive Sessions).
-        // Kein stiller Fallback: schlägt der Broker-Aufruf fehl, wirft revokeCredentials eine
-        // MqttDynsecException, die diese @Transactional-Methode zurückrollt – die Box bleibt
-        // dann bewusst NICHT (soft-)gelöscht, statt eine revozierte Box mit noch gültigem
-        // Broker-Login zu hinterlassen. Der Admin sieht den Fehler und kann es erneut versuchen.
-        credentialService.revokeCredentials(box);
+        // Broker-Credential-Widerruf entfällt mit MQTT (#7) — es gibt keinen Broker mehr,
+        // dessen dynsec-Client revoziert werden müsste.
 
         // Geräte hängen physisch an den GPIO-Pins dieser Box – sie werden mitgelöscht.
         // Zuvor jede Range-Position freigeben, sonst verletzt der FK range_positions.device_id.
