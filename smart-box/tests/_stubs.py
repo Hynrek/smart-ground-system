@@ -324,3 +324,16 @@ class _Aes:
 ucryptolib.MODE_ECB = 1
 ucryptolib.aes = _Aes
 sys.modules["ucryptolib"] = ucryptolib
+
+# --- urequests (Platzhalter; box_api_client- und ota.py-Tests patchen post/get direkt) ---
+urequests = types.ModuleType("urequests")
+
+def _post(*a, **kw):
+    raise NotImplementedError("urequests.post ist im Host-Test zu patchen")
+
+def _get(*a, **kw):
+    raise NotImplementedError("urequests.get ist im Host-Test zu patchen")
+
+urequests.post = _post
+urequests.get = _get
+sys.modules["urequests"] = urequests
