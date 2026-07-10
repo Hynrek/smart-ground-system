@@ -2,6 +2,7 @@ import gc
 import json
 import os
 import hashlib
+import box_api_client
 
 # --- KONFIGURATION ---
 OTA_STAGING_DIR    = "ota_staging"            # temporäres Verzeichnis für heruntergeladene Dateien
@@ -89,24 +90,20 @@ class OtaError(Exception):
     pass
 
 
-# --- HTTP-Seam: auf dem Gerät über urequests, in Tests ersetzbar ---
+# --- HTTP-Seam: auf dem Gerät über box_api_client (HTTPS, gepinnte Node-CA), in Tests ersetzbar ---
+# Ersetzt die frühere direkte urequests-Verbindung gegen den Hub: der Download läuft jetzt
+# über box_api_client.get_bytes() gegen das Node-box-api (/box-api/v1/ota/...), siehe
+# BoxOtaController. get_bytes() liefert den kompletten Inhalt auf einmal (kein Streaming-
+# Socket wie zuvor bei urequests) – hier in CHUNK_SIZE-Stücke zerlegt, damit die
+# nachgelagerte Pipeline (Datei schreiben, Hash/Flash-Block-Verarbeitung, Watchdog-Feeding)
+# unverändert bleibt.
 
 def _default_http_stream(url, on_chunk, wdt=None):
-    import urequests
-    r = urequests.get(url)
-    try:
-        if r.status_code != 200:
-            raise OSError("HTTP {} für {}".format(r.status_code, url))
-        sock = r.raw
-        while True:
-            chunk = sock.read(CHUNK_SIZE)
-            if not chunk:
-                break
-            on_chunk(chunk)
-            if wdt is not None:
-                wdt.feed()
-    finally:
-        r.close()
+    data = box_api_client.get_bytes(url)
+    for i in range(0, len(data), CHUNK_SIZE):
+        on_chunk(data[i:i + CHUNK_SIZE])
+        if wdt is not None:
+            wdt.feed()
 
 
 http_stream = _default_http_stream    # in Tests überschreibbar
@@ -168,11 +165,12 @@ def download_app(base_url, manifest_sha256="", wdt=None):
     Lädt Manifest + alle App-Code-Dateien nach OTA_STAGING_DIR herunter und
     verifiziert sie. Wirft OtaError bei Fehler.
 
-    base_url: z.B. "http://host/api/ota/app/0.7"
+    base_url: z.B. "https://node.local:8443/box-api/v1/ota/app/1.0.0" (Node-box-api,
+              siehe BoxOtaController)
               Manifest:  {base_url}/manifest.json
               Dateien:   {base_url}/files/{path}
-    manifest_sha256: erwarteter SHA-256 des Manifests (über MQTT geliefert,
-              Vertrauensanker). Leer = Manifest-Prüfung überspringen.
+    manifest_sha256: erwarteter SHA-256 des Manifests (Vertrauensanker, geliefert vom
+              OTA-Trigger). Leer = Manifest-Prüfung überspringen.
 
     Gibt das Manifest-Dict zurück.
     """
@@ -185,7 +183,7 @@ def download_app(base_url, manifest_sha256="", wdt=None):
     except Exception as e:
         raise OtaError("Manifest-Download fehlgeschlagen: {}".format(e))
 
-    # Manifest-Integrität gegen den über MQTT gelieferten Hash prüfen
+    # Manifest-Integrität gegen den vom OTA-Trigger gelieferten Hash prüfen
     if manifest_sha256 and not verify_file(manifest_path, manifest_sha256):
         raise OtaError("Manifest-SHA-256 stimmt nicht")
 
@@ -458,12 +456,14 @@ def _default_reset():
 def handle_command(payload_bytes, publish_status, wdt=None,
                    reset=_default_reset, live_root=""):
     """
-    Einstiegspunkt aus dem MQTT-Router. Verarbeitet einen /ota-Befehl:
+    Einstiegspunkt für einen OTA-Befehl (Auslöser/Transport ist nicht Teil dieses Moduls,
+    siehe Aufrufer). Verarbeitet einen /ota-Befehl:
       APP:      download → verify → apply → begin_probation → reset
       FIRMWARE: siehe _do_firmware_update (Task 9)
 
     publish_status(phase, version, progress=0, detail="") meldet den Fortschritt
-    zurück (injiziert, damit ota.py nicht von mqttutils abhängt → kein Importzyklus).
+    zurück (injiziert, damit ota.py von keinem konkreten Transport-Modul abhängt →
+    kein Importzyklus).
     Bei Fehler wird FAILED gemeldet und der Live-Code bleibt unangetastet.
     """
     global _busy
@@ -481,7 +481,7 @@ def handle_command(payload_bytes, publish_status, wdt=None,
     try:
         if cmd["type"] == "APP":
             publish_status("DOWNLOADING", version, 0, "")
-            # cmd["sha256"] ist der über MQTT gelieferte Manifest-Hash (Vertrauensanker)
+            # cmd["sha256"] ist der über den OTA-Trigger gelieferte Manifest-Hash (Vertrauensanker)
             manifest = download_app(cmd["url"], cmd["sha256"], wdt)
             publish_status("VERIFYING", version, 50, "")
             # download_app hat bereits jede Datei verifiziert; hier nur Phasenmeldung

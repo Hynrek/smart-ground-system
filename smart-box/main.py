@@ -24,8 +24,8 @@ from accesspoint import start_ap
 from hardware import status_blink
 from box_provisioning import discover_and_provision, send_heartbeat
 import box_api_client
-from mqttutils import load_device_config, load_firmware_config, update_device_pulses
-from mqttutils import _update_known_devices, set_watchdog
+from device_state import (load_device_config, load_firmware_config, update_device_pulses,
+                           _update_known_devices, set_watchdog)
 import ota
 
 # --- KONFIGURATION ---

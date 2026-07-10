@@ -30,14 +30,17 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Files that make up the App Code (device-agnostic). systemconfig/firmware_config.json
 # ships with every release: it carries the release metadata (app_version,
 # config_schema_version, capabilities) the box reports in its discovery payload.
-# systemconfig/ca.crt ships with every release too: the gepinnte Dev-CA-Root used by
-# mqttutils.connect_mqtt()'s TLS ssl_params (cadata) — rotated only via App-Code-OTA,
-# never at runtime. userconfig/ is device-owned state (WiFi credentials, device config,
-# ota_state, and — as of Task C — the MQTT dynsec username/password) and is NEVER shipped
-# via OTA — ota.py rejects manifests containing userconfig/ paths.
+# systemconfig/ca.crt ships with every release too: previously the gepinnte Dev-CA-Root
+# used by mqttutils.connect_mqtt()'s TLS ssl_params; mqttutils.py is gone (MQTT removed,
+# Task 12) and the file now backs box_api_client's pinned Node-CA (systemconfig/node_ca.crt
+# is provisioned separately, not part of this OTA file list). userconfig/ is device-owned
+# state (WiFi credentials, device config, ota_state) and is NEVER shipped via OTA —
+# ota.py rejects manifests containing userconfig/ paths.
 DEFAULT_FILES = [
     "main.py",
-    "mqttutils.py",
+    "device_state.py",
+    "box_api_client.py",
+    "box_provisioning.py",
     "ota.py",
     "hardware.py",
     "networkutils.py",
