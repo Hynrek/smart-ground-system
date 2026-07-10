@@ -1,6 +1,6 @@
 # UART Framing Node ↔ Funkmodul (Baustein D) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Implement the Node-side (Java, `smart-ground-node`) codec for the UART protocol between `smart-ground-node` and the ESP32 radio module — CRC-16 utility, command/response frame encode/decode, and a stateful streaming decoder that buffers partial serial reads and resynchronizes past corruption — per [2026-07-10-espnow-uart-framing-design.md](../specs/2026-07-10-espnow-uart-framing-design.md) (Baustein D of [plan-espnow-migration.md](../../plan-espnow-migration.md)).
 
@@ -43,7 +43,7 @@
 **Interfaces:**
 - Produces: `Crc16.ccittFalse(byte[] data) -> int` (returns a value in `0..0xFFFF`). Used by Task 2 (`UartCodec`) and Task 3 (`UartFrameDecoder`).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```java
 package ch.jp.shooting.node.uart;
@@ -77,12 +77,12 @@ class Crc16Test {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd smart-ground-node && mvn test -Dtest=Crc16Test`
 Expected: FAIL (compile error) — `Crc16` does not exist yet
 
-- [ ] **Step 3: Write `Crc16.java`**
+- [x] **Step 3: Write `Crc16.java`**
 
 ```java
 package ch.jp.shooting.node.uart;
@@ -117,17 +117,17 @@ public final class Crc16 {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd smart-ground-node && mvn test -Dtest=Crc16Test`
 Expected: `BUILD SUCCESS`, `Tests run: 3, Failures: 0, Errors: 0`
 
-- [ ] **Step 5: Run the full Java test suite**
+- [x] **Step 5: Run the full Java test suite**
 
 Run: `cd smart-ground-node && mvn test`
 Expected: `BUILD SUCCESS`, all tests pass (no regressions in Baustein A/B/C tests)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add smart-ground-node/src/main/java/ch/jp/shooting/node/uart/Crc16.java \
@@ -147,7 +147,7 @@ git commit -m "feat(node): add CRC-16/CCITT-FALSE utility for UART framing (Baus
 - Consumes: `Crc16.ccittFalse(byte[]) -> int` (Task 1). `ch.jp.shooting.node.frame.PairingTestVectors.hex(String)` (Baustein B, test-only).
 - Produces: `UartCodec.DecodedFrame(int cmdId, int cmd, byte[] body)` record (also used by Task 3 as the `UartFrameDecoder` output type); `UartCodec.AckBody(int cmdId, boolean ok)`, `UartCodec.StatusAckBody(int cmdId, boolean ok, long uptimeS, long freeHeap)`, `UartCodec.RecvBody(byte[] srcMac, int rssi, byte[] espNowFrame)`, `UartCodec.MacAckBody(byte[] destMac, int frameId, boolean ok)` records. `public static final int CMD_SET_CHANNEL/CMD_ADD_PEER/CMD_DEL_PEER/CMD_SEND/CMD_STATUS/CMD_ACK/CMD_RECV/CMD_MAC_ACK` constants (used by Task 3's tests to construct example frames). `encodeSetChannel(int cmdId, int channel) -> byte[]`, `encodeAddPeer(int cmdId, byte[] mac) -> byte[]`, `encodeDelPeer(int cmdId, byte[] mac) -> byte[]`, `encodeSend(int cmdId, byte[] destMac, byte[] espNowFrame) -> byte[]`, `encodeStatus(int cmdId) -> byte[]`; `parseAck(DecodedFrame) -> AckBody`, `parseStatusAck(DecodedFrame) -> StatusAckBody`, `parseRecv(DecodedFrame) -> RecvBody`, `parseMacAck(DecodedFrame) -> MacAckBody` (each throws `IllegalArgumentException` if `frame.cmd()` doesn't match the expected `cmd`, or if `frame.body()` is too short/wrong length for the target shape).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```java
 package ch.jp.shooting.node.uart;
@@ -284,12 +284,12 @@ class UartCodecTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd smart-ground-node && mvn test -Dtest=UartCodecTest`
 Expected: FAIL (compile error) — `UartCodec` does not exist yet
 
-- [ ] **Step 3: Write `UartCodec.java`**
+- [x] **Step 3: Write `UartCodec.java`**
 
 ```java
 package ch.jp.shooting.node.uart;
@@ -454,17 +454,17 @@ public final class UartCodec {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd smart-ground-node && mvn test -Dtest=UartCodecTest`
 Expected: `BUILD SUCCESS`, `Tests run: 12, Failures: 0, Errors: 0`
 
-- [ ] **Step 5: Run the full Java test suite**
+- [x] **Step 5: Run the full Java test suite**
 
 Run: `cd smart-ground-node && mvn test`
 Expected: `BUILD SUCCESS`, all tests pass, no regressions
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add smart-ground-node/src/main/java/ch/jp/shooting/node/uart/UartCodec.java \
@@ -484,7 +484,7 @@ git commit -m "feat(node): add UartCodec for UART command/response frame encode-
 - Consumes: `Crc16.ccittFalse(byte[]) -> int` (Task 1); `UartCodec.DecodedFrame` record and `UartCodec.CMD_*` constants (Task 2); `ch.jp.shooting.node.frame.PairingTestVectors.hex(String)` (test-only).
 - Produces: `new UartFrameDecoder()` (stateful instance, one per serial connection); `feed(byte[] chunk) -> List<UartCodec.DecodedFrame>`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```java
 package ch.jp.shooting.node.uart;
@@ -604,12 +604,12 @@ class UartFrameDecoderTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd smart-ground-node && mvn test -Dtest=UartFrameDecoderTest`
 Expected: FAIL (compile error) — `UartFrameDecoder` does not exist yet
 
-- [ ] **Step 3: Write `UartFrameDecoder.java`**
+- [x] **Step 3: Write `UartFrameDecoder.java`**
 
 ```java
 package ch.jp.shooting.node.uart;
@@ -698,17 +698,17 @@ public final class UartFrameDecoder {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd smart-ground-node && mvn test -Dtest=UartFrameDecoderTest`
 Expected: `BUILD SUCCESS`, `Tests run: 7, Failures: 0, Errors: 0`
 
-- [ ] **Step 5: Run the full Java test suite**
+- [x] **Step 5: Run the full Java test suite**
 
 Run: `cd smart-ground-node && mvn test`
 Expected: `BUILD SUCCESS`, all tests pass, no regressions
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add smart-ground-node/src/main/java/ch/jp/shooting/node/uart/UartFrameDecoder.java \
@@ -720,7 +720,7 @@ git commit -m "feat(node): add UartFrameDecoder with resync-on-corruption (Baust
 
 ## Plan-Level Verification
 
-- [ ] **Final check: run the full Java test suite once more from a clean state**
+- [x] **Final check: run the full Java test suite once more from a clean state**
 
 ```bash
 cd smart-ground-node && mvn test
