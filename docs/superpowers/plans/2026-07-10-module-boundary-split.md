@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Extract `contracts` and `domain` into a new, independent `smart-ground-contracts` repo consumed via versioned Maven coordinates; rename `smart-ground-backend` to `smart-ground-hub`; give `smart-ground-node` a `HubClient` that depends only on `contracts`; add an ArchUnit test that fails the build if Node ever gains a dependency edge to Hub internals.
+**Goal:** Extract `contracts` and `domain` into a new, independent `smart-ground-contracts` repo consumed via versioned Maven coordinates; rename `smart-ground-backend` to `smart-ground-hub`; give `smart-ground-node` a `HubClient` that depends only on `contracts`; add a dependency-guard test that fails the build if Node ever gains a dependency edge to Hub internals (originally planned as ArchUnit; substituted with a JDK-only pom-parsing test during execution — see Task 8's note — because this sandbox has no network access to fetch archunit-junit5).
 
 **Architecture:** Three independent git repos build three independent Maven artifacts. `smart-ground-contracts` (new repo) is a two-module reactor (`contracts`, `domain`) with no Spring Boot dependency of its own — pure library jars. `smart-ground-hub` (renamed from `smart-ground-backend`, keeps its own repo/remote) depends on both via versioned coordinates resolved from the local `~/.m2` cache (`mvn install` in `smart-ground-contracts` first — there is no reactor spanning repos). `smart-ground-node` (stays plain-tracked in the root repo) depends only on `contracts`. Because `ch.jp.shooting.model.*` and `ch.jp.smartground.*` package names are preserved exactly as they are today, moving them into `domain`/`contracts` requires zero source-file edits in Hub's controllers/services/repositories — only `pom.xml` changes and a directory move.
 
-**Tech Stack:** Java 25, Maven 3.9, Spring Boot 4.0.5, ArchUnit (bytecode dependency rules), openapi-generator-maven-plugin 7.9.0.
+**Tech Stack:** Java 25, Maven 3.9, Spring Boot 4.0.5, JDK `javax.xml.parsers` (pom-guard test — see Task 8), openapi-generator-maven-plugin 7.9.0.
 
 ## Global Constraints
 
@@ -39,7 +39,7 @@ Smart Ground/                                    (root repo)
 │   ├── pom.xml                                    [MODIFY — drop generator plugin + model/, add contracts+domain deps, rename artifact]
 │   └── CLAUDE.md                                  [RENAMED from smart-ground-backend/CLAUDE.md — path/name refs updated]
 └── smart-ground-node/                            [MODIFY — plain-tracked in root repo]
-    ├── pom.xml                                    [MODIFY — add contracts + archunit deps]
+    ├── pom.xml                                    [MODIFY — add contracts dep]
     ├── src/main/resources/application.properties  [NEW — hub.base-url]
     └── src/main/java/ch/jp/shooting/node/
         └── hub/
@@ -107,7 +107,74 @@ Expected: `smart-ground-contracts/.git` exists; this repo has no remote yet (add
         <jakarta.validation.version>3.1.1</jakarta.validation.version>
         <jspecify.version>1.0.0</jspecify.version>
         <openapi.generator.version>7.9.0</openapi.generator.version>
+        <jackson.version>2.21.2</jackson.version>
+        <jackson.annotations.version>2.21</jackson.annotations.version>
     </properties>
+
+    <!-- Centralizes versions for dependencies used by more than one module (or
+         needed to override a transitive dependency's own unmanaged version, as
+         with jackson-databind-nullable in contracts/pom.xml) so consumers see
+         one coherent set of coordinates rather than each module pinning its own.
+         Matches what smart-ground-backend's Spring Boot BOM already resolves. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${jackson.annotations.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- Pin default-lifecycle plugin versions to what's already in the local
+         repository cache. Without a spring-boot-starter-parent (this reactor
+         has none — pure library jars), Maven's super-POM resolves "latest"
+         via metadata lookup, which this sandbox's network can't always reach
+         over TLS. Pinning avoids that lookup entirely. (Discovered during
+         Task 1 execution — the reactor failed to resolve maven-resources-plugin
+         3.4.0 over TLS; 3.3.1 was already cached from smart-ground-backend's
+         build.) -->
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>3.3.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.14.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.5</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.4.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <version>3.1.4</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>
 ```
 
@@ -155,6 +222,31 @@ Expected: `smart-ground-contracts/.git` exists; this repo has no remote yet (add
             <version>2.2.21</version>
         </dependency>
         <dependency>
+            <groupId>org.openapitools</groupId>
+            <artifactId>jackson-databind-nullable</artifactId>
+            <version>0.2.6</version>
+        </dependency>
+        <!-- jackson-databind-nullable's own POM declares an unmanaged transitive
+             dependency on jackson-databind 2.14.0-rc2, which is not in the local
+             offline cache. Versions come from the parent's <dependencyManagement>
+             (2.21.2 / 2.21 / 2.21.2 — matches smart-ground-backend's Spring Boot
+             BOM, see plan investigation). Centralizing in the parent (not pinning
+             directly here) avoids putting two Jackson generations on a consumer's
+             classpath if Hub/Node ever resolve a different line. Discovered during
+             Task 1 execution. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+        <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
             <version>${jakarta.validation.version}</version>
@@ -162,6 +254,8 @@ Expected: `smart-ground-contracts/.git` exists; this repo has no remote yet (add
     </dependencies>
 </project>
 ```
+
+**Note (discovered during Task 1 execution):** this sandbox's network cannot always reach `repo.maven.apache.org` over TLS (`certificate_unknown` / PKIX path errors) for artifacts not already in `~/.m2`. Prefer `mvn -o` (offline) wherever a step doesn't explicitly need to resolve something new, and if a step fails with a PKIX/certificate error, check `~/.m2/repository` for an already-cached version of the same artifact before treating it as a real dependency problem — do not blindly retry online.
 
 Create a placeholder `openapi.yaml` so the module compiles before Task 2 moves the real one:
 ```bash
@@ -298,6 +392,29 @@ Replace the file's closing `</project>` with (i.e. add a `<build>` block before 
 ```
 
 Also add the `<repositories>` block for Eclipse Paho if any generated model needs it — check first: the generator itself needs no Paho dependency, only Hub's MQTT integration does, so **skip** that block here (YAGNI — it belongs to Hub's pom, unchanged).
+
+**Note (discovered during Task 2 execution):** the `<build>` block above alone is not sufficient to compile — with `interfaceOnly=true`, the generated `Api` interfaces reference `ResponseEntity`/`@RequestMapping`/`NativeWebRequest`/`MultipartFile` (spring-web), `@Validated` (spring-context), and the generated `ApiUtil` references `HttpServletResponse` (jakarta.servlet-api) as compile-time symbols, not just runtime behavior. Add these three dependencies to `contracts/pom.xml`'s `<dependencies>`, scope `provided` (compile-time only for this jar; must not propagate transitively onto `smart-ground-node`'s classpath in Task 6, since Node only ever touches `ch.jp.smartground.model.*` DTOs and never implements an `Api` interface — Hub already supplies all three via `spring-boot-starter-web` when it implements `FooApi`):
+```xml
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+            <version>7.0.6</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>7.0.6</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>6.1.0</version>
+            <scope>provided</scope>
+        </dependency>
+```
+These versions were confirmed (not guessed) via `mvn -o dependency:tree -Dincludes=org.springframework:spring-web,org.springframework:spring-context,jakarta.servlet:jakarta.servlet-api` run inside `smart-ground-backend` — they match exactly what its Spring Boot 4.0.5 BOM resolves, and all three were already cached in `~/.m2`.
 
 - [ ] **Step 3: Generate and inspect**
 
@@ -718,75 +835,78 @@ git commit -m "[node] add HubClient backed by contracts DTOs"
 
 ---
 
-### Task 8: Node — ArchUnit test that fails the build if Node depends on Hub internals
+### Task 8: Node — dependency-guard test that fails the build if Node depends on Hub internals
+
+**Substituted during execution (2026-07-10):** the original plan used ArchUnit (`archunit-junit5:1.3.0`), which was not cached in `~/.m2` and could not be downloaded — this sandbox cannot reach `repo.maven.apache.org` over TLS at all (`curl` itself fails with a certificate/revocation-check error, not just a missing-artifact 404). The roadmap's own wording ("Ein Abhängigkeitstest (ArchUnit o. ä.)") explicitly allows a substitute. Per the user's choice, this task now writes the guard as a plain JUnit test that parses `smart-ground-node/pom.xml` as XML using only the JDK's built-in `javax.xml.parsers` (zero new dependencies, works fully offline) and fails if it ever finds a `<dependency>` on `smart-ground-hub`'s Maven coordinates (`ch.jp.shooting:smart-ground-hub`). This is a coarser check than ArchUnit's full-classpath bytecode scan (it only catches a *declared Maven dependency*, not a hypothetical reach-through via some other already-permitted jar) but it directly enforces the one channel by which Hub internals could ever reach Node's classpath in this project, since nothing else in Node's dependency tree could plausibly contain `ch.jp.shooting.service/repository/mapper/exception/api/config/model` classes. If network access is restored in a later session, revisit replacing this with the original ArchUnit classpath-scan approach for defense in depth — note that as a follow-up, do not silently swap it back without recording the change here.
 
 **Files:**
-- Modify: `smart-ground-node/pom.xml` (add `archunit-junit5`)
 - Create: `smart-ground-node/src/test/java/ch/jp/shooting/node/architecture/ModuleBoundaryTest.java`
 
-**Interfaces:** none new — this task only adds a test.
+**Interfaces:** none new — this task only adds a test. No `pom.xml` changes (no new dependency needed — `javax.xml.parsers` is part of the `java.xml` JDK module, always on the classpath).
 
-- [ ] **Step 1: Add the ArchUnit test dependency**
-
-In `smart-ground-node/pom.xml`, inside `<dependencies>`:
-```xml
-        <dependency>
-            <groupId>com.tngtech.archunit</groupId>
-            <artifactId>archunit-junit5</artifactId>
-            <version>1.3.0</version>
-            <scope>test</scope>
-        </dependency>
-```
-
-- [ ] **Step 2: Write the test**
+- [ ] **Step 1: Write the test**
 
 `smart-ground-node/src/test/java/ch/jp/shooting/node/architecture/ModuleBoundaryTest.java`:
 ```java
 package ch.jp.shooting.node.architecture;
 
-import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import com.tngtech.archunit.core.domain.JavaClasses;
-import com.tngtech.archunit.core.importer.ClassFileImporter;
-import com.tngtech.archunit.core.importer.ImportOption;
-import com.tngtech.archunit.lang.ArchRule;
+import java.io.File;
+import java.nio.file.Path;
+import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 /**
  * Node kommuniziert mit dem Hub ausschliesslich über contracts + HubClient — nie über
- * Hub-Interna (Persistenz, Services, Controller). Dieser Test scannt den gesamten
- * Runtime-Classpath: sobald jemand smart-ground-hub als Dependency hinzufügt, tauchen
- * diese Pakete hier auf und der Build bricht.
+ * Hub-Interna (Persistenz, Services, Controller). Dieser Test parst pom.xml direkt (kein
+ * ArchUnit — siehe Plan-Notiz zu Task 8): sobald jemand smart-ground-hub als Maven-Dependency
+ * hinzufügt, bricht dieser Test den Build.
  */
 class ModuleBoundaryTest {
 
-    private static final String[] FORBIDDEN_HUB_PACKAGES = {
-            "ch.jp.shooting.service..",
-            "ch.jp.shooting.repository..",
-            "ch.jp.shooting.mapper..",
-            "ch.jp.shooting.exception..",
-            "ch.jp.shooting.api..",
-            "ch.jp.shooting.config..",
-            "ch.jp.shooting.model.."
-    };
+    private static final String FORBIDDEN_GROUP_ID = "ch.jp.shooting";
+    private static final String FORBIDDEN_ARTIFACT_ID = "smart-ground-hub";
 
     @Test
-    void nodeClasspathMustNotContainHubInternals() {
-        JavaClasses classes = new ClassFileImporter()
-                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importClasspath();
+    void nodePomMustNotDependOnHub() throws Exception {
+        Path pomPath = Path.of("pom.xml").toAbsolutePath();
+        File pomFile = pomPath.toFile();
+        assertThat(pomFile).exists();
 
-        ArchRule rule = noClasses()
-                .should().resideInAnyPackage(FORBIDDEN_HUB_PACKAGES)
-                .because("Node darf ausschliesslich über contracts + HubClient mit dem Hub sprechen — "
-                        + "kein Repository-Durchgriff, keine geteilte Persistenz (Hub/Node-Architektur-Spec).");
+        Document pom = DocumentBuilderFactory.newInstance()
+                .newDocumentBuilder()
+                .parse(pomFile);
 
-        rule.check(classes);
+        NodeList dependencyNodes = pom.getElementsByTagName("dependency");
+        for (int i = 0; i < dependencyNodes.getLength(); i++) {
+            Element dependency = (Element) dependencyNodes.item(i);
+            String groupId = textOf(dependency, "groupId");
+            String artifactId = textOf(dependency, "artifactId");
+
+            boolean isForbiddenHubDependency = FORBIDDEN_GROUP_ID.equals(groupId)
+                    && FORBIDDEN_ARTIFACT_ID.equals(artifactId);
+
+            assertThat(isForbiddenHubDependency)
+                    .as("Node darf ausschliesslich über contracts + HubClient mit dem Hub sprechen — "
+                            + "kein Repository-Durchgriff, keine geteilte Persistenz "
+                            + "(Hub/Node-Architektur-Spec). Gefundene verbotene Dependency: %s:%s",
+                            groupId, artifactId)
+                    .isFalse();
+        }
+    }
+
+    private static String textOf(Element parent, String tagName) {
+        NodeList matches = parent.getElementsByTagName(tagName);
+        return matches.getLength() == 0 ? null : matches.item(0).getTextContent();
     }
 }
 ```
 
-- [ ] **Step 3: Run it — should already pass (Node has no Hub dependency)**
+- [ ] **Step 2: Run it — should already pass (Node has no Hub dependency)**
 
 ```bash
 cd smart-ground-node
@@ -795,16 +915,9 @@ cd ..
 ```
 Expected: `PASS`. This confirms today's state is clean, but doesn't yet prove the rule *catches* a violation — that's the next step.
 
-- [ ] **Step 4: Prove the rule is not a tautology — temporarily add a forbidden dependency**
+- [ ] **Step 3: Prove the rule is not a tautology — temporarily add a forbidden dependency**
 
-First, make Hub's jar available locally (it was already built with `mvn install` in Task 5 Step 3's `mvn test` — but that ran `mvn test`, not `install`; install it now):
-```bash
-cd smart-ground-hub
-mvn -q install -DskipTests
-cd ..
-```
-
-Temporarily add this block to `smart-ground-node/pom.xml`'s `<dependencies>` (do not commit this):
+Temporarily add this block to `smart-ground-node/pom.xml`'s `<dependencies>` (do not commit this — no need to `mvn install` Hub's jar first, since this test only parses XML text, it never needs the dependency to actually resolve):
 ```xml
         <dependency>
             <groupId>ch.jp.shooting</groupId>
@@ -819,11 +932,11 @@ cd smart-ground-node
 mvn test -Dtest=ModuleBoundaryTest
 cd ..
 ```
-Expected: `FAIL` — ArchUnit reports violations, e.g. `noClasses should resideInAnyPackage ['ch.jp.shooting.service..', ...] because ... but classes ... were violated`, listing Hub's `SmartBoxService`, `UserRepository`, etc. This is the proof: the rule is load-bearing.
+Expected: `FAIL` — the assertion fails with a message naming the forbidden `ch.jp.shooting:smart-ground-hub` dependency. This is the proof: the rule is load-bearing. (If Maven itself fails first trying to *resolve* the temporary dependency because Hub's jar isn't installed locally, that's fine too — either failure mode proves the same thing: an unresolved-dependency build failure is *also* the correct outcome for "Node must never depend on Hub," and it doesn't invalidate this test's own additional, more specific failure message once/if Hub's jar happens to be available. If Maven fails to resolve before your test even runs, run `cd smart-ground-hub && mvn -q install -DskipTests && cd ..` first so the test itself gets to execute and produce its own failure message.)
 
-- [ ] **Step 5: Remove the temporary dependency, confirm green again**
+- [ ] **Step 4: Remove the temporary dependency, confirm green again**
 
-Remove the block added in Step 4 from `smart-ground-node/pom.xml`.
+Remove the block added in Step 3 from `smart-ground-node/pom.xml`.
 
 ```bash
 cd smart-ground-node
@@ -832,7 +945,7 @@ cd ..
 ```
 Expected: `PASS`.
 
-- [ ] **Step 6: Run the full Node suite one more time**
+- [ ] **Step 5: Run the full Node suite one more time**
 
 ```bash
 cd smart-ground-node
@@ -841,11 +954,11 @@ cd ..
 ```
 Expected: `BUILD SUCCESS`, all tests pass (crypto, frame, operational, pairing, uart, hub, architecture — everything from before this sub-project plus the two new test classes).
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add smart-ground-node/pom.xml smart-ground-node/src/test/java/ch/jp/shooting/node/architecture
-git commit -m "[node] add ArchUnit test forbidding Hub-internal dependencies"
+git add smart-ground-node/src/test/java/ch/jp/shooting/node/architecture
+git commit -m "[node] add pom-guard test forbidding a Hub dependency"
 ```
 
 ---
@@ -890,9 +1003,10 @@ Add a new section after "Project Structure":
 Node depends on the Hub **only** through the `contracts` Maven artifact (`ch.jp.smartground:contracts`,
 built from the sibling `smart-ground-contracts` repo — run `mvn install` there after any contract
 change) and `ch.jp.shooting.node.hub.HubClient`. Never add a dependency on `smart-ground-hub` itself —
-`ModuleBoundaryTest` (ArchUnit, `src/test/java/ch/jp/shooting/node/architecture/`) fails the build if
-Node's classpath ever contains `ch.jp.shooting.service/repository/mapper/exception/api/config/model`
-(Hub-internal packages, including its JPA entities — no shared persistence, no repository reach-through).
+`ModuleBoundaryTest` (`src/test/java/ch/jp/shooting/node/architecture/`, a plain JUnit test that
+parses `pom.xml` directly — no ArchUnit, see that task's plan note for why) fails the build if
+`pom.xml` ever declares a dependency on `ch.jp.shooting:smart-ground-hub`
+(no shared persistence, no repository reach-through).
 ```
 
 Update the Project Structure tree to include the new `hub/` package.
