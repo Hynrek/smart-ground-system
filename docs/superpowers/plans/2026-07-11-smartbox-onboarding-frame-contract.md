@@ -221,12 +221,12 @@ if __name__ == "__main__":
 - [ ] **Step 2: Generate the fixture and sanity-check the size**
 
 Run: `cd docs/espnow && python gen_onboarding_vectors.py`
-Expected: prints `wrote .../onboarding-test-vectors.json`, a `hello.frame` hex of 24 bytes (48 hex chars: `ffffffffffff24a1600b1c2d010020` + `1122334455667788`), and `onboard_offer.frame len(bytes)` well under 250 (should be **123**).
+Expected: prints `wrote .../onboarding-test-vectors.json`, a `hello.frame` hex of 24 bytes (48 hex chars: header `ffffffffffff24a1600b1c2d01000120` + box_nonce `1122334455667788`), and `onboard_offer.frame len(bytes)` well under 250 (should be **133**: 16+8+16+32 + (1+18) + (1+16) + (1+24)).
 
 - [ ] **Step 3: Confirm the JSON is valid and committed-ready**
 
 Run: `cd docs/espnow && python -c "import json; d=json.load(open('onboarding-test-vectors.json')); print(sorted(d), len(d['onboard_offer']['frame'])//2, 'bytes')"`
-Expected: `['constants', 'hello', 'onboard_offer'] 123 bytes`
+Expected: `['constants', 'hello', 'onboard_offer'] 133 bytes`
 
 - [ ] **Step 4: Commit**
 
