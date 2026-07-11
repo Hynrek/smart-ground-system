@@ -16,6 +16,8 @@ TYPE_CONFIG_ACK = 0x12
 TYPE_COMMAND = 0x13
 TYPE_EXECUTED = 0x14
 TYPE_HEARTBEAT = 0x15
+TYPE_HELLO = 0x20
+TYPE_ONBOARD_OFFER = 0x21
 
 
 def pack_header(dest_mac, src_mac, frame_id, ttl, type_):
