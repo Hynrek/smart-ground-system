@@ -15,7 +15,9 @@ public enum FrameType {
     CONFIG_ACK((byte) 0x12),
     COMMAND((byte) 0x13),
     EXECUTED((byte) 0x14),
-    HEARTBEAT((byte) 0x15);
+    HEARTBEAT((byte) 0x15),
+    HELLO((byte) 0x20),
+    ONBOARD_OFFER((byte) 0x21);
 
     private final byte code;
 
