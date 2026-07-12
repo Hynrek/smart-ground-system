@@ -27,7 +27,7 @@ Brainstorming entfällt — das Design ist entschieden und liegt in der Spec.
 | 1 | Modulgrenze und Artefakt-Split | — | erledigt | [2026-07-10-module-boundary-split.md](2026-07-10-module-boundary-split.md) |
 | 2 | Sync-Fundament (`hub-api`, abwärts) | 1 | offen | — |
 | 3 | Outbox (`hub-api`, aufwärts) | 2 | offen | — |
-| 4 | `node-channel` | 1 | offen | — |
+| 4 | `node-channel` | 1 | erledigt | [2026-07-12-node-channel.md](2026-07-12-node-channel.md) |
 | 5 | `node-api`-Fassade | 4 | offen | — |
 | 6 | Offline-Login | 2 | offen | — |
 | 7 | MQTT-Ausbau und `box-api` | 1 | erledigt | [2026-07-10-mqtt-ausbau-box-api.md](2026-07-10-mqtt-ausbau-box-api.md) |
@@ -63,6 +63,8 @@ FIFO, single-flight. Vom Node vergebene UUIDs (der Hub akzeptiert sie; heute min
 Node-initiierte Dauerverbindung mit Reconnect/Backoff. Liveness mit `STALE`-Markierung nach N ausgefallenen Beats. Command-Dispatch abwärts. `COMMAND_OUTCOME_UNKNOWN` bei Timeout, Commands idempotent auf ihrer UUID.
 
 **Deliverable:** Der Hub dispatcht ein Command an einen Node, ohne dessen IP zu kennen. Backhaul mitten im Command gekappt → `COMMAND_OUTCOME_UNKNOWN`, nicht „fehlgeschlagen".
+
+> **Umfang:** Der Kanal (Registry, WS-Endpoint, HELLO-Auth, Liveness, `dispatchCommand` mit Ack-Korrelation) ist fertig und per End-to-End-Integrationstest bewiesen. Die *Verdrahtung* von `DeviceController.sendDeviceCommand` / `RangePositionService.sendPositionCommand` auf `dispatchCommand` bleibt offen — bewusst, sie braucht die Device→Node-Routing-Tabelle (Multi-SmartBox-Zuordnung, Sync-Fundament #2) und das Node→Box-ESP-NOW-Bein (Phase 2b). Diese Endpoints bleiben bis dahin `501`.
 
 ### 5. `node-api`-Fassade
 
