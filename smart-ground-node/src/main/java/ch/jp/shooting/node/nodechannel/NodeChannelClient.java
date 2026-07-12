@@ -67,10 +67,14 @@ public class NodeChannelClient {
     private void connect() {
         if (!running) return;
         try {
-            var handler = new NodeChannelClientHandler(props, codec, commandHandler, deduplicator, this::onClosed);
-            WebSocketSession s = wsClient.execute(handler, new WebSocketHttpHeaders(), URI.create(props.getHubUrl()))
+            // onConnected liefert die von NodeChannelClientHandler dekorierte (thread-sichere) Session
+            // zurück — dieselbe Instanz, die der Handler selbst für HELLO/COMMAND_ACK benutzt. So senden
+            // Heartbeat (dieser Scheduler-Thread) und Handler (WS-Callback-Thread) nie an zwei
+            // verschiedenen ConcurrentWebSocketSessionDecorator-Instanzen um dieselbe rohe Session vorbei.
+            var handler = new NodeChannelClientHandler(props, codec, commandHandler, deduplicator,
+                    this::onClosed, session::set);
+            wsClient.execute(handler, new WebSocketHttpHeaders(), URI.create(props.getHubUrl()))
                     .get(10, TimeUnit.SECONDS);
-            session.set(s);
             attempt.set(0);
             startHeartbeat();
         } catch (Exception e) {
