@@ -39,3 +39,6 @@ target/
 
 # Visual Studio workspace caches
 .vs/
+
+# MicroPico IDE workspace file
+.micropico
