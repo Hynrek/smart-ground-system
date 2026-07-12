@@ -1,0 +1,5151 @@
+openapi: 3.0.3
+info:
+  title: SmartGround API
+  version: 2.0.0
+  description: >
+    REST API for IoT device management with MQTT-based device discovery and
+    command signaling. Includes endpoints to manage device types, register
+    devices, and trigger config pushes to SmartBox firmware via MQTT.
+
+    ## Device Management
+
+    All device operations use the flat `/api/devices` endpoint. Devices are
+    always registered on a SmartBox (network access point) but are managed
+    as a flat list with optional filtering by SmartBox or Range.
+    Use **POST /api/devices** to register and immediately trigger a config push
+    to the SmartBox firmware via MQTT.
+
+    ## Breaking changes from v2.x
+
+    - `POST /api/smart-boxes/{id}/devices` removed — use `POST /api/devices`
+    - `GET /api/smart-boxes/{id}/devices` removed — use `GET /api/devices?smartBoxId=X`
+    - `POST/DELETE /api/ranges/{rangeId}/devices/{deviceId}` removed — use `POST/DELETE /api/devices/{id}/range`
+    - `SmartBoxResponse.deviceCount` removed
+
+servers:
+  - url: http://localhost:8080
+    description: JVM App
+  - url: http://localhost:8081
+    description: Native App
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Auth
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/auth/login:
+    post:
+      summary: Authenticate and receive a JWT token
+      operationId: login
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+
+  /api/auth/me:
+    get:
+      summary: Get current user profile and permissions
+      operationId: getMe
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user profile with flat permission list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          description: Not authenticated
+
+  /api/users:
+    get:
+      summary: List all users (admin only)
+      operationId: listUsers
+      tags: [User]
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 20
+      responses:
+        '200':
+          description: Paginated list of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPageResponse'
+        '403':
+          description: Not an admin
+    post:
+      summary: Create a new user
+      operationId: createUser
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '409':
+          description: Email or membership number already registered
+
+  /api/users/me/password:
+    post:
+      summary: Change the calling user's password
+      operationId: changePassword
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Password changed
+        '400':
+          description: Old password incorrect
+
+  /api/users/me/qr:
+    get:
+      summary: Get the calling user's QR check-in token
+      operationId: getMyQrCode
+      tags: [User]
+      responses:
+        '200':
+          description: Current QR token (created on first access)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrCodeResponse'
+
+  /api/users/me/qr/rotate:
+    post:
+      summary: Replace the calling user's QR token with a new one
+      operationId: rotateMyQrCode
+      tags: [User]
+      responses:
+        '200':
+          description: New QR token; the previous token is invalid from now on
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrCodeResponse'
+
+  /api/users/by-qr/{token}:
+    get:
+      summary: Resolve a scanned QR check-in token to its user
+      operationId: resolveUserByQr
+      tags: [User]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Display info for the group setup
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrUserResponse'
+        '404':
+          description: Unknown or rotated token
+
+  /api/users/me/scores:
+    get:
+      summary: List the calling user's Serie scores, newest first
+      operationId: listMyScores
+      tags: [Score]
+      parameters:
+        - name: context
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ScoreContext'
+        - name: kind
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ScoreKind'
+        - name: serieId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, default: 0 }
+        - name: size
+          in: query
+          required: false
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Page of the user's Serie score rows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserScorePage'
+
+  /api/users/me/scores/summary:
+    get:
+      summary: Aggregate score statistics for the calling user
+      operationId: getMyScoreSummary
+      tags: [Score]
+      responses:
+        '200':
+          description: Per-context stats plus grouped Passe/Wettkampf totals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserScoreSummary'
+
+  /api/users/me/passen:
+    get:
+      summary: The caller's training Passen with their child Serien
+      operationId: listMyPassen
+      tags: [Score]
+      responses:
+        '200':
+          description: Passe groups, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PasseScoreGroup'
+
+  /api/users/me/wettkaempfe:
+    get:
+      summary: The caller's Wettkämpfe, nested Passe → Serie
+      operationId: listMyWettkaempfe
+      tags: [Score]
+      responses:
+        '200':
+          description: Wettkampf groups, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WettkampfScoreGroup'
+
+  /api/scores/leaderboard:
+    get:
+      summary: Serie score leaderboard across users
+      operationId: getScoreLeaderboard
+      tags: [Score]
+      parameters:
+        - name: serieId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: rangeId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: context
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ScoreContext'
+        - name: kind
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ScoreKind'
+        - name: metric
+          in: query
+          required: false
+          description: Ranking metric
+          schema: { type: string, enum: [best, average], default: best }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 10, maximum: 100 }
+        - name: from
+          in: query
+          required: false
+          description: Only count Serien completed at or after this instant
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Ranked entries, best first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderboardResponse'
+
+  /api/users/{id}:
+    get:
+      summary: Get user by ID
+      operationId: getUser
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: User not found
+    patch:
+      summary: Partially update a user profile
+      operationId: updateUser
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '403':
+          description: Cannot modify another user's profile
+        '404':
+          description: User not found
+    delete:
+      summary: Soft-delete a user (admin only)
+      operationId: deleteUser
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: User deleted
+        '403':
+          description: Not an admin
+        '404':
+          description: User not found
+
+  /api/users/{id}/roles:
+    get:
+      summary: List all roles assigned to a user
+      operationId: getUserRoles
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of role assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserRoleResponse'
+        '404':
+          description: User not found
+    post:
+      summary: Assign a global role to a user (admin only)
+      operationId: assignRole
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRoleRequest'
+      responses:
+        '201':
+          description: Role assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRoleResponse'
+        '404':
+          description: User or role not found
+
+  /api/users/{id}/roles/scoped:
+    post:
+      summary: Assign a scoped role to a user (admin only)
+      operationId: assignScopedRole
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignScopedRoleRequest'
+      responses:
+        '201':
+          description: Scoped role assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRoleResponse'
+        '400':
+          description: scopeType and scopeId are required
+        '404':
+          description: User or role not found
+
+  /api/users/{id}/roles/{roleName}:
+    delete:
+      summary: Revoke a global role from a user (admin only)
+      operationId: revokeRole
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Role revoked
+        '404':
+          description: User or role assignment not found
+
+  /api/users/{id}/roles/{roleName}/scoped:
+    delete:
+      summary: Revoke a scoped role from a user (admin only)
+      operationId: revokeScopedRole
+      tags: [User]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: scopeType
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: scopeId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Scoped role revoked
+        '404':
+          description: User or scoped access not found
+
+  /api/testing/users:
+    post:
+      summary: Create a test user from a single credential (dev tooling, admin only)
+      operationId: createTestUser
+      tags: [Testing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTestUserRequest'
+      responses:
+        '201':
+          description: Test user created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestUserResponse'
+        '400':
+          description: Blank credential or credential contains '@'
+        '403':
+          description: Not an admin
+        '409':
+          description: Username or email already in use
+
+  /api/testing/ranges/seed:
+    post:
+      summary: Create the four standard test ranges with 8 positions, 2 mock SmartBoxes (4 devices each) and full device-to-position assignment if missing (idempotent per range, admin only)
+      operationId: seedTestRanges
+      tags: [Testing]
+      responses:
+        '200':
+          description: Ranges present (created or already existing)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedRangesResponse'
+        '403':
+          description: Not an admin
+
+  /api/testing/mock-smartbox:
+    post:
+      summary: Create a mock SmartBox with N devices (dev tooling, admin only)
+      operationId: createMockSmartBox
+      tags: [Testing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMockSmartBoxRequest'
+      responses:
+        '201':
+          description: Mock SmartBox created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MockSmartBoxResponse'
+        '400':
+          description: deviceCount out of range (1-50)
+        '403':
+          description: Not an admin
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Roles
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/roles:
+    get:
+      summary: List all roles (admin only)
+      operationId: listRoles
+      tags: [Role]
+      responses:
+        '200':
+          description: List of roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '403':
+          description: Not an admin
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DeviceType
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/device-types:
+    get:
+      summary: List all device types
+      operationId: listDeviceTypes
+      tags: [DeviceType]
+      parameters:
+        - name: firmwareConfigId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter device types by firmware configuration
+      responses:
+        '200':
+          description: A list of device types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceTypeResponse'
+
+  /api/device-types/{id}:
+    get:
+      summary: Get a device type by ID
+      operationId: getDeviceType
+      tags: [DeviceType]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device type found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceTypeResponse'
+        '404':
+          description: Device type not found
+
+    patch:
+      summary: Update a device type
+      operationId: updateDeviceType
+      tags: [DeviceType]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceTypeRequest'
+      responses:
+        '200':
+          description: Device type updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceTypeResponse'
+        '404':
+          description: Device type not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DeviceTypeGroup (consolidated under /device-types)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/device-types/groups:
+    get:
+      summary: List all device type groups
+      operationId: listDeviceTypeGroups
+      tags: [DeviceType]
+      responses:
+        '200':
+          description: A list of device type groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceTypeGroupResponse'
+
+  /api/device-types/groups/{id}:
+    get:
+      summary: Get a device type group by ID
+      operationId: getDeviceTypeGroup
+      tags: [DeviceType]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device type group found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceTypeGroupResponse'
+        '404':
+          description: Device type group not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # FirmwareConfig (consolidated under /device-types)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/device-types/firmware-configs:
+    get:
+      summary: List all firmware configurations
+      operationId: listFirmwareConfigs
+      tags: [DeviceType]
+      responses:
+        '200':
+          description: A list of firmware configurations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FirmwareConfigResponse'
+
+    post:
+      summary: Register a new firmware configuration
+      description: >
+        Creates a new firmware configuration with associated signal types and device
+        type groups. Requires ADMIN role. Each entry in signal_types both defines a
+        signal type and creates (or reuses) a named device type group.
+      operationId: registerFirmwareConfig
+      tags: [DeviceType]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterFirmwareConfigRequest'
+      responses:
+        '201':
+          description: Firmware configuration created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirmwareConfigResponse'
+        '400':
+          description: Invalid manifest or duplicate firmware version
+        '403':
+          description: User does not have ADMIN role
+
+  /api/device-types/firmware-configs/{id}:
+    get:
+      summary: Get a firmware configuration by ID
+      operationId: getFirmwareConfig
+      tags: [DeviceType]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Firmware configuration found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirmwareConfigResponse'
+        '404':
+          description: Firmware configuration not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Device
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/devices:
+    get:
+      summary: List all devices
+      operationId: listDevices
+      tags: [Device]
+      parameters:
+        - name: rangeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter devices by range
+        - name: smartBoxId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter devices by smart box
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Zero-based page number
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Number of items per page
+      responses:
+        '200':
+          description: A list of devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevicePageResponse'
+
+    post:
+      summary: Register a device on a smart box
+      operationId: createDevice
+      tags: [Device]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeviceRequest'
+      responses:
+        '201':
+          description: Device registered and config push triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '404':
+          description: Smart box or device type not found
+
+  /api/devices/{id}:
+    get:
+      summary: Get device by ID
+      operationId: getDevice
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '404':
+          description: Device not found
+
+    patch:
+      summary: Update device properties
+      operationId: updateDevice
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceRequest'
+      responses:
+        '200':
+          description: Device updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '404':
+          description: Device not found
+
+    delete:
+      summary: Delete a device
+      operationId: deleteDevice
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Device deleted
+        '404':
+          description: Device not found
+
+  /api/devices/{id}/command:
+    post:
+      summary: Send a command to a device (routed via MQTT to the SmartBox)
+      operationId: sendDeviceCommand
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Command accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          description: Device is blocked
+        '404':
+          description: Device not found
+
+  /api/devices/{id}/block:
+    post:
+      summary: Block a device (prevent it from receiving commands)
+      operationId: blockDevice
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device blocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '404':
+          description: Device not found
+
+  /api/devices/{id}/unblock:
+    post:
+      summary: Unblock a device (ADMIN required if adminBlocked is true)
+      operationId: unblockDevice
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device unblocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '403':
+          description: ADMIN required to unblock an admin-blocked device
+        '404':
+          description: Device not found
+
+  /api/devices/{id}/range:
+    post:
+      summary: Assign device to a range
+      operationId: assignDeviceToRange
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRangeRequest'
+      responses:
+        '200':
+          description: Device assigned to range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '404':
+          description: Device or range not found
+
+    delete:
+      summary: Unassign device from its range
+      operationId: removeDeviceFromRange
+      tags: [Device]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Device unassigned
+        '404':
+          description: Device not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Range
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/ranges:
+    get:
+      summary: List all ranges
+      operationId: listRanges
+      tags: [Range]
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Zero-based page number
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Number of items per page
+      responses:
+        '200':
+          description: A list of ranges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangePageResponse'
+
+    post:
+      summary: Create a new range
+      operationId: createRange
+      tags: [Range]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRangeRequest'
+      responses:
+        '201':
+          description: Range created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangeSummaryResponse'
+        '400':
+          description: Bad request
+
+  /api/ranges/{id}:
+    get:
+      summary: Get range by ID
+      operationId: getRange
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Range found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangeDetailResponse'
+        '404':
+          description: Range not found
+
+    put:
+      summary: Update a range
+      operationId: updateRange
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRangeRequest'
+      responses:
+        '200':
+          description: Range updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangeSummaryResponse'
+        '404':
+          description: Range not found
+
+    delete:
+      summary: Delete a range
+      operationId: deleteRange
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Range deleted
+        '404':
+          description: Range not found
+
+  /api/ranges/{id}/locked:
+    patch:
+      summary: Lock or unlock a range
+      description: >
+        When a range is locked, device assignment (POST/DELETE /api/ranges/{id}/devices/{deviceId})
+        is rejected with 409. Commands to devices within the range are still forwarded.
+        Locking is a safety mechanism to prevent accidental reconfiguration during an active session.
+      operationId: setRangeLocked
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetLockedRequest'
+      responses:
+        '200':
+          description: Range lock state updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangeSummaryResponse'
+        '404':
+          description: Range not found
+
+  /api/ranges/{id}/assigned-user:
+    patch:
+      summary: Assign or unassign a user to a range
+      description: >
+        Sets the user assigned to this range. Pass null as userId to unassign.
+      operationId: setRangeAssignedUser
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRangeAssignedUserRequest'
+      responses:
+        '200':
+          description: Assigned user updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangeSummaryResponse'
+        '404':
+          description: Range or user not found
+
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Range Positions
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/ranges/{id}/positions:
+    get:
+      summary: List all positions for a range
+      operationId: listRangePositions
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ordered list of positions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RangePositionResponse'
+        '404':
+          description: Range not found
+    post:
+      summary: Create a new position on a range
+      description: >
+        Creates a new RangePosition. If label is omitted the backend assigns the
+        next available uppercase letter (A, B, C…).
+      operationId: createRangePosition
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRangePositionRequest'
+      responses:
+        '201':
+          description: Position created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangePositionResponse'
+        '404':
+          description: Range not found
+        '409':
+          description: Label already exists on this range
+        '423':
+          description: Range is locked
+
+  /api/ranges/{id}/positions/{positionId}:
+    put:
+      summary: Rename a position
+      operationId: updateRangePosition
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: positionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRangePositionLabelRequest'
+      responses:
+        '200':
+          description: Position renamed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangePositionResponse'
+        '404':
+          description: Range or position not found
+        '409':
+          description: Label already exists on this range
+        '423':
+          description: Range is locked
+    delete:
+      summary: Delete an empty position
+      operationId: deleteRangePosition
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: positionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Position deleted
+        '400':
+          description: Position still has a device assigned
+        '404':
+          description: Range or position not found
+        '423':
+          description: Range is locked
+
+  /api/ranges/{id}/positions/{positionId}/device:
+    put:
+      summary: Assign a device to a position
+      operationId: assignDeviceToPosition
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: positionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignDeviceToPositionRequest'
+      responses:
+        '200':
+          description: Device assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangePositionResponse'
+        '404':
+          description: Range, position or device not found
+        '409':
+          description: Device already assigned to another position
+        '423':
+          description: Range is locked
+    delete:
+      summary: Remove device from a position
+      operationId: removeDeviceFromPosition
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: positionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Device removed, position now empty
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangePositionResponse'
+        '404':
+          description: Range or position not found
+        '423':
+          description: Range is locked
+
+  /api/ranges/{id}/positions/{positionId}/command:
+    post:
+      summary: Fire the device assigned to a position
+      operationId: sendPositionCommand
+      tags: [Range]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: positionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Command accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          description: Device is blocked or position has no device assigned
+        '404':
+          description: Range or position not found
+        '409':
+          description: Range is reserved by another user
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Reservations
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/ranges/{id}/reservation:
+    get:
+      summary: Get the active reservation for a range
+      operationId: getActiveRangeReservation
+      tags: [Reservation]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Active reservation found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '204':
+          description: No active reservation for this range
+        '404':
+          description: Range not found
+
+    post:
+      summary: Reserve a range for the current user
+      operationId: reserveRange
+      tags: [Reservation]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Reservation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationResponse'
+        '404':
+          description: Range not found
+        '409':
+          description: Range already reserved, or current user already holds a reservation
+
+    delete:
+      summary: Release the active reservation for a range
+      operationId: releaseRangeReservation
+      tags: [Reservation]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Reservation released
+        '403':
+          description: Caller is not the reservation owner and does not have admin rights
+        '404':
+          description: No active reservation found for this range
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Sessions (Wettkampf / Training)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/sessions:
+    get:
+      summary: List sessions
+      operationId: listSessions
+      tags: [Session]
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [COMPETITION, TRAINING]
+          description: Filter by session type
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [SETUP, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED]
+          description: Filter by status
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Zero-based page number
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Number of items per page
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPageResponse'
+
+    post:
+      summary: Create a new session
+      operationId: createSession
+      tags: [Session]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: Invalid request
+
+  /api/sessions/{sessionId}:
+    get:
+      summary: Get session details
+      operationId: getSession
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Session found (includes embedded groups and passe references)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '404':
+          description: Session not found
+    delete:
+      summary: Delete a session (SETUP or ACTIVE status only)
+      operationId: deleteSession
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Session deleted
+        '404':
+          description: Session not found
+        '409':
+          description: Cannot delete a completed session
+
+  /api/sessions/{sessionId}/passen/order:
+    patch:
+      summary: Reorder the session's Passen (SETUP status only)
+      description: >
+        Changes the playing order of the session's Passen. The request body must
+        contain exactly the same set of Passe ids currently on the session, listed
+        in the desired new order.
+      operationId: reorderPassen
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderPassenRequest'
+      responses:
+        '200':
+          description: Passen reordered; full session returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: passeIds is not a permutation of the session's current Passen
+        '404':
+          description: Session not found
+        '409':
+          description: Session is not in SETUP status
+
+  /api/sessions/{sessionId}/passen:
+    post:
+      summary: Add a Passe to a session (SETUP status only)
+      operationId: addPasseToSession
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddPasseToSessionRequest'
+      responses:
+        '201':
+          description: Passe added; the new Passe reference (with resolved Serien) is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasseReference'
+        '400':
+          description: Passe already added to this session
+        '404':
+          description: Session or Passe not found
+        '409':
+          description: Session is not in SETUP status
+
+  /api/sessions/{sessionId}/passen/{passeId}:
+    delete:
+      summary: Remove a Passe from a session (SETUP status only)
+      operationId: removePasseFromSession
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: passeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Passe removed
+        '404':
+          description: Session not found, or Passe not on this session
+        '409':
+          description: Session is not in SETUP status
+
+  /api/sessions/{sessionId}/status:
+    patch:
+      summary: Advance or revert session status
+      description: >
+        Allowed transitions: SETUP → ACTIVE, ACTIVE → ABANDONED,
+        ACTIVE → PRE_COMPLETE, PRE_COMPLETE → COMPLETED.
+        Pass the target status as a case-insensitive string (e.g. "active", "completed").
+      operationId: patchSessionStatus
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSessionStatusRequest'
+      responses:
+        '200':
+          description: Status updated; full session returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: Illegal status transition
+        '404':
+          description: Session not found
+        '409':
+          description: Unresolved decisive ties (finish requires force=true)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnresolvedTiesError'
+
+  /api/sessions/{sessionId}/ties:
+    get:
+      summary: List tied blocks in the current standings
+      description: >
+        Returns every group of players sharing an identical total score, with any
+        Stechen rounds already run and whether the tie is resolved. Drives the admin
+        Stechen UI. Available while the session is PRE_COMPLETE.
+      operationId: getSessionTies
+      tags: [Session]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Tied blocks
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionTiesResponse' }
+        '404': { description: Session not found }
+
+  /api/sessions/{sessionId}/tiebreakers:
+    get:
+      summary: List all Stechen rounds for a session
+      operationId: listTiebreakers
+      tags: [Session]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Tiebreaker rounds
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TiebreakerResponse' }
+        '404': { description: Session not found }
+    post:
+      summary: Start a Stechen round for a tied block
+      description: Allowed only while the session is PRE_COMPLETE. Creates a restricted PlayInstance.
+      operationId: startTiebreaker
+      tags: [Session]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StartTiebreakerRequest' }
+      responses:
+        '201':
+          description: Stechen round created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TiebreakerResponse' }
+        '404': { description: Session not found }
+        '409': { description: Session not in PRE_COMPLETE, or invalid participants }
+
+  /api/sessions/{sessionId}/groups:
+    get:
+      summary: List Rotten (groups) in a session
+      operationId: listGroups
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of groups with members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupResponse'
+
+    post:
+      summary: Create a Rotte in a session
+      operationId: createGroup
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupCreateRequest'
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+
+  /api/sessions/{sessionId}/groups/{groupId}:
+    put:
+      summary: Rename a Rotte
+      operationId: updateGroup
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupRequest'
+      responses:
+        '200':
+          description: Group renamed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+        '404':
+          description: Session or group not found
+    delete:
+      summary: Delete a Rotte and all its members
+      operationId: deleteGroup
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Group deleted
+        '404':
+          description: Session or group not found
+
+  /api/sessions/{sessionId}/groups/{groupId}/members:
+    post:
+      summary: Add a player to a Rotte
+      operationId: addMember
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionPlayerCreateRequest'
+      responses:
+        '201':
+          description: Member added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPlayerResponse'
+        '404':
+          description: Session or group not found
+
+  /api/sessions/{sessionId}/groups/{groupId}/members/{memberId}:
+    delete:
+      summary: Remove a player from a Rotte
+      operationId: removeMember
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Member removed
+        '404':
+          description: Session, group, or member not found
+    patch:
+      summary: Update a player's paid status
+      operationId: patchMember
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchMemberRequest'
+      responses:
+        '200':
+          description: Member updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPlayerResponse'
+        '404':
+          description: Session, group, or member not found
+
+  /api/sessions/{sessionId}/groups/{groupId}/serien/{serieId}/complete:
+    post:
+      summary: Record completion of a Serie for a Rotte
+      description: >
+        Stores per-player results for one Serie execution within a competition group.
+        serieId references the source Serie in the session's Passe snapshot.
+      operationId: completeSerie
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: serieId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteSerieRequest'
+      responses:
+        '200':
+          description: Serie result recorded; updated session progress returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionProgressResponse'
+        '404':
+          description: Session, group, or serie not found
+
+  /api/sessions/{sessionId}/groups/{groupId}/serien/{serieId}/results:
+    put:
+      summary: Correct a completed Serie's results (admin, PRE_COMPLETE)
+      description: >
+        Overwrites the stored stepStates of an already-completed Serie and replaces
+        the matching per-Passe/Serie entry in each player's aggregated results.
+        Only allowed while the session is in PRE_COMPLETE.
+      operationId: correctSerieResult
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: serieId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteSerieRequest'
+      responses:
+        '200':
+          description: Correction applied; updated session progress returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionProgressResponse'
+        '404':
+          description: Session or group not found
+        '409':
+          description: Serie not completed, or session not in PRE_COMPLETE
+
+  /api/sessions/{sessionId}/progress:
+    get:
+      summary: Get per-group progress for a session
+      description: >
+        Returns how many Passen each Rotte has completed vs. total,
+        and per-Passe completion status. Used by the active competition live view.
+      operationId: getSessionProgress
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Progress data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionProgressResponse'
+        '404':
+          description: Session not found
+
+  /api/sessions/{sessionId}/passen/release:
+    post:
+      summary: Release the next Passe for play (admin gate)
+      description: >
+        Advances the session's releasedPasseIndex by one. Allowed only when every
+        Rotte has completed every Serie of the current released Passe and a next
+        Passe exists. Returns the updated progress.
+      operationId: releaseNextPasse
+      tags: [Session]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Progress after advancing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionProgressResponse'
+        '404':
+          description: Session not found
+        '409':
+          description: Current Passe not complete, or already at the last Passe
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SmartBox
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/smart-boxes:
+    get:
+      summary: List all smart boxes
+      operationId: listSmartBoxes
+      tags: [SmartBox]
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Zero-based page number
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Number of items per page
+      responses:
+        '200':
+          description: A list of smart boxes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartBoxPageResponse'
+
+  /api/smart-boxes/{id}:
+    get:
+      summary: Get smart box by ID
+      operationId: getSmartBox
+      tags: [SmartBox]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Smart box found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartBoxResponse'
+        '404':
+          description: Smart box not found
+
+    delete:
+      summary: Delete a smart box
+      description: >
+        Soft-deletes the SmartBox (marks it removed and hides it from all
+        listings) and hard-deletes every device wired to it. Intended for
+        permanently retiring broken hardware. If the same MAC address later
+        sends an MQTT discovery message the box is automatically reactivated,
+        starting again with zero devices. Requires ADMIN role.
+      operationId: deleteSmartBox
+      tags: [SmartBox]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Smart box deleted
+        '403':
+          description: User does not have ADMIN role
+        '404':
+          description: Smart box not found
+
+  /api/smart-boxes/{id}/alias:
+    patch:
+      summary: Set alias for a smart box
+      operationId: setSmartBoxAlias
+      tags: [SmartBox]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetAliasRequest'
+      responses:
+        '200':
+          description: Alias set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartBoxResponse'
+        '404':
+          description: Smart box not found
+
+  /api/smart-boxes/{id}/push-config:
+    post:
+      summary: Manually trigger a config push to a smart box
+      description: >
+        Forces the backend to re-publish the full device configuration to the
+        SmartBox via MQTT (topic: smartboxes/{mac}/config). Useful after
+        changes to device types or when a box reconnects without triggering
+        auto-push via discovery.
+      operationId: pushSmartBoxConfig
+      tags: [SmartBox]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: Config push accepted (MQTT publish dispatched)
+        '404':
+          description: Smart box not found
+
+  /api/ota/releases:
+    get:
+      summary: List uploaded OTA releases
+      operationId: listOtaReleases
+      tags: [Ota]
+      responses:
+        '200':
+          description: Releases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OtaReleaseResponse'
+    post:
+      summary: Upload an OTA release (App Code zip or firmware .bin)
+      operationId: uploadOtaRelease
+      tags: [Ota]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [type, version, file]
+              properties:
+                type:
+                  $ref: '#/components/schemas/OtaTypeValue'
+                version:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Release stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtaReleaseResponse'
+        '400':
+          description: Invalid artifact
+
+  /api/smart-boxes/{id}/ota:
+    post:
+      summary: Trigger an OTA update on a smart box
+      operationId: triggerSmartBoxOta
+      tags: [Ota]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerOtaRequest'
+      responses:
+        '202':
+          description: OTA command published
+        '404':
+          description: Smart box or release not found
+    get:
+      summary: Get the latest OTA status reported by a smart box
+      operationId: getSmartBoxOtaStatus
+      tags: [Ota]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OTA status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtaStatusResponse'
+        '404':
+          description: Smart box not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Guests
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/guests:
+    get:
+      summary: List all guests
+      operationId: listGuests
+      tags: [Guest]
+      responses:
+        '200':
+          description: List of guests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GuestResponse'
+    post:
+      summary: Create a new guest
+      operationId: createGuest
+      tags: [Guest]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGuestRequest'
+      responses:
+        '201':
+          description: Guest created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestResponse'
+
+  /api/guests/{id}:
+    put:
+      summary: Update a guest's display name
+      operationId: updateGuest
+      tags: [Guest]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGuestRequest'
+      responses:
+        '200':
+          description: Guest updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestResponse'
+        '404':
+          description: Guest not found
+    delete:
+      summary: Delete a guest
+      operationId: deleteGuest
+      tags: [Guest]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Guest deleted
+        '404':
+          description: Guest not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Serien (formerly Abläufe)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/serien:
+    get:
+      summary: List Serien visible to the current user
+      description: >
+        Returns the calling user's own Serien (ownership=user) plus all
+        range-published Serien (ownership=range). Admins and Ground Owners see
+        all Serien. Results can be narrowed with query parameters.
+      operationId: listSerien
+      tags: [Serie]
+      parameters:
+        - name: ownership
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [user, range]
+          description: Filter by ownership type
+        - name: rangeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by range assignment
+      responses:
+        '200':
+          description: List of Serien
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SerieResponse'
+    post:
+      summary: Create a new Serie
+      operationId: createSerie
+      tags: [Serie]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSerieRequest'
+      responses:
+        '201':
+          description: Serie created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerieResponse'
+        '400':
+          description: Validation error (e.g. empty steps array)
+
+  /api/serien/{id}:
+    get:
+      summary: Get a Serie by ID
+      operationId: getSerie
+      tags: [Serie]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Serie detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerieResponse'
+        '403':
+          description: Serie belongs to another user
+        '404':
+          description: Serie not found
+    put:
+      summary: Rename or reassign a Serie
+      operationId: updateSerie
+      tags: [Serie]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSerieRequest'
+      responses:
+        '200':
+          description: Serie updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerieResponse'
+        '403':
+          description: Not the owner of this Serie
+        '404':
+          description: Serie not found
+    delete:
+      summary: Delete a Serie
+      operationId: deleteSerie
+      tags: [Serie]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Serie deleted
+        '403':
+          description: Not the owner of this Serie
+        '404':
+          description: Serie not found
+
+  /api/serien/{id}/ownership:
+    patch:
+      summary: Publish Serie to the range or make it private again
+      description: >
+        Changing ownership to 'range' makes the Serie visible to all users.
+        Only ADMIN and GROUND_OWNER roles may publish to the range.
+        Reverting to 'user' removes it from the global list.
+      operationId: updateSerieOwnership
+      tags: [Serie]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSerieOwnershipRequest'
+      responses:
+        '200':
+          description: Ownership updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerieResponse'
+        '403':
+          description: Insufficient role to publish to range
+        '404':
+          description: Serie not found
+
+  /api/serien/{id}/published:
+    patch:
+      summary: Publish or unpublish a range-owned Serie
+      description: >
+        Sets the published flag on a Serie. Only ADMIN and GROUND_OWNER roles
+        may call this endpoint. When published=false, regular users cannot see
+        or access this Serie even if its ownership is 'range'.
+        If the Serie is not range-owned (ownership='user'), the request is rejected with 400.
+      operationId: updateSeriePublished
+      tags: [Serie]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSeriePublishedRequest'
+      responses:
+        '200':
+          description: Serie with updated published flag
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerieResponse'
+        '400':
+          description: Serie is not range-owned; published flag only applies to range-owned Serien
+        '403':
+          description: Caller is not an admin or range owner
+        '404':
+          description: Serie not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Passen (formerly Programme)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/passen:
+    get:
+      summary: List Passen owned by the current user
+      operationId: listPassen
+      tags: [Passe]
+      responses:
+        '200':
+          description: List of Passen
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PasseResponse'
+    post:
+      summary: Create a new Passe from a list of Serien
+      description: >
+        The selected Serien are snapshotted into the Passe at creation time.
+        Later edits to the source Serien do not affect this Passe.
+        Provide serieIds in the desired playback order.
+      operationId: createPasse
+      tags: [Passe]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePasseRequest'
+      responses:
+        '201':
+          description: Passe created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasseResponse'
+        '400':
+          description: Validation error
+        '404':
+          description: One or more Serie IDs not found
+
+  /api/passen/{id}:
+    get:
+      summary: Get a Passe by ID
+      operationId: getPasse
+      tags: [Passe]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Passe detail (includes full embedded Serien with steps)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasseResponse'
+        '403':
+          description: Passe belongs to another user
+        '404':
+          description: Passe not found
+    put:
+      summary: Update a Passe's name and/or Serie membership
+      operationId: updatePasse
+      tags: [Passe]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePasseRequest'
+      responses:
+        '200':
+          description: Passe updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasseResponse'
+        '403':
+          description: Not the owner
+        '404':
+          description: Passe not found
+    delete:
+      summary: Delete a Passe
+      operationId: deletePasse
+      tags: [Passe]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Passe deleted
+        '403':
+          description: Not the owner
+        '404':
+          description: Passe not found
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Play Instances (live execution of a Passe)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/play-instances/passe:
+    post:
+      summary: Start a Passe play instance
+      description: >
+        Launches a new active run of a Passe for one or more players.
+        The backend creates a block for every Serie in the Passe and
+        sets all blocks to 'pending'. Players can be registered users or guests.
+      operationId: startPasseInstance
+      tags: [PlayInstance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartPasseInstanceRequest'
+      responses:
+        '201':
+          description: Play instance created and active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayInstanceResponse'
+        '404':
+          description: Passe not found
+
+  /api/play-instances/serie:
+    post:
+      summary: Start a standalone Serie as a live play instance
+      operationId: startSerieInstance
+      tags: [PlayInstance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSerieInstanceRequest'
+      responses:
+        '201':
+          description: Created serie instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayInstanceResponse'
+
+  /api/play-instances:
+    get:
+      summary: List play instances
+      description: >
+        Returns active instances by default. Use the 'status' filter for
+        completed or cancelled instances. The 'rangeId' filter returns only
+        instances that have at least one pending or in-progress block on that
+        range — useful for the range-specific live view.
+      operationId: listPlayInstances
+      tags: [PlayInstance]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, completed, cancelled]
+          description: "Filter by instance status (default: active)"
+        - name: rangeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter instances that have blocks on this range
+      responses:
+        '200':
+          description: List of play instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlayInstanceResponse'
+
+  /api/play-instances/{instanceId}:
+    get:
+      summary: Get a single play instance
+      operationId: getPlayInstance
+      tags: [PlayInstance]
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Play instance detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayInstanceResponse'
+        '404':
+          description: Instance not found
+    delete:
+      summary: Stop/cancel a play instance
+      operationId: stopPlayInstance
+      tags: [PlayInstance]
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Instance cancelled
+        '404':
+          description: Instance not found
+
+  /api/play-instances/{instanceId}/blocks/{blockId}/start:
+    post:
+      summary: Mark a block as in-progress
+      description: >
+        Called when the range starts executing this Serie block. Transitions
+        the block from 'pending' to 'in_progress'. Idempotent if already
+        in_progress.
+      operationId: startBlock
+      tags: [PlayInstance]
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Block marked as in_progress; updated instance returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayInstanceResponse'
+        '404':
+          description: Instance or block not found
+        '409':
+          description: Block is already done
+
+  /api/play-instances/{instanceId}/blocks/{blockId}/complete:
+    post:
+      summary: Mark a block as done and persist player results
+      description: >
+        Stores the per-player score and step-state data for this block.
+        If all blocks in the current phase are done, the backend advances the
+        Training to the next phase (or marks the whole instance as completed).
+        For a Passe instance, completing all blocks closes the instance.
+      operationId: completeBlock
+      tags: [PlayInstance]
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteBlockRequest'
+      responses:
+        '200':
+          description: Block completed; updated instance returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayInstanceResponse'
+        '404':
+          description: Instance or block not found
+        '409':
+          description: Block is not in in_progress state
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Play Results (history of completed play instances)
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/play-results:
+    get:
+      summary: List completed play results (paginated)
+      description: >
+        Historical record of all completed Passe and Training runs.
+        Ordered by completedAt descending.
+      operationId: listPlayResults
+      tags: [PlayResult]
+      parameters:
+        - name: rangeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter results that involved blocks on this range
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Earliest completedAt (ISO 8601)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Latest completedAt (ISO 8601)
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated list of play results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayResultPage'
+
+  /api/play-results/{resultId}:
+    get:
+      summary: Get a single play result with full detail
+      operationId: getPlayResult
+      tags: [PlayResult]
+      parameters:
+        - name: resultId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Play result with all block results and step states
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayResultResponse'
+        '404':
+          description: Result not found
+
+components:
+  schemas:
+
+    # ───── Guest ──────────────────────────────────────────────────────────────
+
+    GuestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateGuestRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    UpdateGuestRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    # ───── Step primitives ────────────────────────────────────────────────────
+
+    StepType:
+      type: string
+      enum: [solo, pair, a_schuss, raffale]
+      description: >
+        solo     — one device fires once.
+        pair     — two devices fire simultaneously.
+        a_schuss — two devices fire in sequence (tap A then tap B).
+        raffale  — same device fires twice (start tap then end tap).
+
+    StepState:
+      type: string
+      enum: [pending, done, failed-a, failed-b, failed-both]
+      description: >
+        Result of a single step for one player.
+        failed-a / failed-b apply to pair/a_schuss where only one bird was missed.
+        failed-both means both missed (or solo failed).
+
+    Step:
+      type: object
+      required: [id, type]
+      description: >
+        A single throw event within a Serie.
+        Fields populated depend on step type.
+      properties:
+        id:
+          type: string
+          description: >
+            Client-generated identifier (UUID or timestamp string).
+            Used for ordering and stable referencing in results.
+        type:
+          $ref: '#/components/schemas/StepType'
+        posId:
+          type: string
+          nullable: true
+          description: Label of the RangePosition to fire (e.g. "A"). Resolved to a Device at execution time.
+        alias:
+          type: string
+          nullable: true
+          description: Human-readable label for the position at capture time
+        posId1:
+          type: string
+          nullable: true
+          description: Primary position label for pair/double-throw steps
+        posId2:
+          type: string
+          nullable: true
+          description: Secondary position label for pair/double-throw steps
+        alias1:
+          type: string
+          nullable: true
+        alias2:
+          type: string
+          nullable: true
+        letter:
+          type: string
+          description: Position letter label (A, B, C …) for solo/raffale steps
+        letter1:
+          type: string
+          description: Primary position letter label for pair/a_schuss steps
+        letter2:
+          type: string
+          description: Secondary position letter label for pair/a_schuss steps
+
+    # ───── Serie ──────────────────────────────────────────────────────────────
+
+    SerieOwnership:
+      type: string
+      enum: [user, range]
+      description: >
+        user  — private to the owner.
+        range — published for all users at this shooting range.
+
+    SerieResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        ownership:
+          $ref: '#/components/schemas/SerieOwnership'
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Range this Serie is designed for (used for block routing)
+        rangeName:
+          type: string
+          nullable: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Step'
+        createdAt:
+          type: string
+          format: date-time
+        ownerUsername:
+          type: string
+          description: Username of the user who created this Serie
+        published:
+          type: boolean
+          description: Whether this range-owned Serie is visible to regular users
+
+    CreateSerieRequest:
+      type: object
+      required: [name, steps]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional range assignment
+        steps:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Step'
+        ownership:
+          $ref: '#/components/schemas/SerieOwnership'
+
+    UpdateSerieRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Step'
+          description: >
+            When present and non-empty, replaces the Serie's steps in place,
+            keeping the same Serie ID. When omitted, the existing steps are kept
+            (rename / range-only edit).
+
+    UpdateSerieOwnershipRequest:
+      type: object
+      required: [ownership]
+      properties:
+        ownership:
+          $ref: '#/components/schemas/SerieOwnership'
+
+    UpdateSeriePublishedRequest:
+      type: object
+      required: [published]
+      properties:
+        published:
+          type: boolean
+
+    # ───── Passe ──────────────────────────────────────────────────────────────
+
+    EmbeddedSerie:
+      type: object
+      description: >
+        Snapshot of a Serie stored inside a Passe or Training.
+        The source Serie may change independently; this snapshot is immutable.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: References the source Serie (for UI cross-linking only)
+        alias:
+          type: string
+          description: Name at snapshot time
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+        rangeName:
+          type: string
+          nullable: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Step'
+        missing:
+          type: boolean
+          description: >
+            True when the referenced Serie no longer exists (deleted). In that
+            case steps is empty and the client should render a placeholder.
+
+    PasseResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        serien:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmbeddedSerie'
+        createdAt:
+          type: string
+          format: date-time
+        ownerUsername:
+          type: string
+
+    CreatePasseRequest:
+      type: object
+      required: [name, serieIds]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        serieIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+          description: >
+            Ordered list of Serie IDs. Steps are snapshotted at creation
+            time so later edits to source Serien do not affect this Passe.
+
+    UpdatePasseRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        serieIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+          description: >
+            Ordered list of Serie IDs. When omitted, the Passe's existing
+            Serie membership is left unchanged.
+
+    # ───── QR Check-in ────────────────────────────────────────────────────────
+
+    QrCodeResponse:
+      type: object
+      required: [qrToken]
+      properties:
+        qrToken:
+          type: string
+          description: The current check-in token; encoded as smartground://checkin/<token>
+
+    QrUserResponse:
+      type: object
+      required: [userId, displayName]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        profilbildUrl:
+          type: string
+          description: Absent if the user has no profile picture.
+
+    # ───── User Scores ────────────────────────────────────────────────────────
+
+    ScoreContext:
+      type: string
+      enum: [TRAINING, COMPETITION]
+
+    ScoreKind:
+      type: string
+      enum: [SERIE, PASSE, COMPETITION]
+
+    UserSerieScoreEntry:
+      type: object
+      description: One user's result for one completed Serie.
+      properties:
+        id: { type: string, format: uuid }
+        context:
+          $ref: '#/components/schemas/ScoreContext'
+        kind:
+          $ref: '#/components/schemas/ScoreKind'
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+        serieId: { type: string, format: uuid }
+        serieAlias: { type: string }
+        playInstanceId: { type: string, format: uuid, nullable: true }
+        sessionId: { type: string, format: uuid, nullable: true }
+        passeIndex: { type: integer, nullable: true }
+        parentName:
+          type: string
+          nullable: true
+          description: Display label of the parent (training template or session name)
+        rangeId: { type: string, format: uuid, nullable: true }
+        rangeName: { type: string, nullable: true }
+        completedAt: { type: string, format: date-time }
+        stepStates:
+          type: array
+          description: Self-contained step breakdown copy
+          items:
+            $ref: '#/components/schemas/StepStateRecord'
+
+    UserScorePage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSerieScoreEntry'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    ScoreContextSummary:
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/ScoreContext'
+        serieCount: { type: integer }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+        averagePercent:
+          type: number
+          format: double
+          description: Mean of per-Serie hit percentages
+        bestPercent:
+          type: number
+          format: double
+          nullable: true
+
+    UserScoreSummary:
+      type: object
+      properties:
+        contexts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScoreContextSummary'
+
+    PasseScoreGroup:
+      type: object
+      properties:
+        key: { type: string, format: uuid, description: playInstanceId }
+        label: { type: string, nullable: true }
+        serieCount: { type: integer }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+        lastCompletedAt: { type: string, format: date-time }
+        serien:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSerieScoreEntry'
+
+    WettkampfPasseGroup:
+      type: object
+      properties:
+        passeIndex: { type: integer }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+        serien:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSerieScoreEntry'
+
+    WettkampfScoreGroup:
+      type: object
+      properties:
+        key: { type: string, format: uuid, description: sessionId }
+        label: { type: string, nullable: true }
+        serieCount: { type: integer }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+        lastCompletedAt: { type: string, format: date-time }
+        passen:
+          type: array
+          items:
+            $ref: '#/components/schemas/WettkampfPasseGroup'
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        serieCount: { type: integer }
+        bestPercent: { type: number, format: double }
+        averagePercent: { type: number, format: double }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+
+    LeaderboardResponse:
+      type: object
+      properties:
+        metric: { type: string, enum: [best, average] }
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardEntry'
+
+    # ───── Play Instances ─────────────────────────────────────────────────────
+
+    PlayerRef:
+      type: object
+      required: [id, type, displayName]
+      description: Reference to a participant in a play instance.
+      properties:
+        id:
+          type: string
+          description: >
+            UUID of the user (type=user) or guest record (type=guest).
+            For an anonymous one-off player a client-generated UUID is accepted.
+        type:
+          type: string
+          enum: [user, guest]
+        userId:
+          type: string
+          format: uuid
+          description: >
+            Account of the participant when checked in via QR code.
+            Absent for anonymous placeholder players and guests.
+        displayName:
+          type: string
+
+    BlockStatus:
+      type: string
+      enum: [pending, in_progress, done]
+
+    StepStateRecord:
+      type: object
+      description: Result of one step for one player within a completed block.
+      properties:
+        playerId:
+          type: string
+        serieIndex:
+          type: integer
+          description: Index of the Serie (segment) within the Passe
+        stepIndex:
+          type: integer
+          description: Index of the step within the Serie
+        state:
+          $ref: '#/components/schemas/StepState'
+        pointValue:
+          type: integer
+          description: Maximum points for this step (1 for solo/raffale, 2 for pair/a_schuss)
+        noBirds:
+          type: integer
+          description: How many times this step was retried due to a no-bird
+          default: 0
+        pointsEarned:
+          type: integer
+          description: Actual points earned after any deductions
+        type:
+          $ref: '#/components/schemas/StepType'
+          description: >
+            Step type resolved from the Serie definition at record time (best-effort
+            enrichment, not present on rows recorded before this field existed).
+        letter:
+          type: string
+          nullable: true
+          description: >
+            Position letter (A, B, C …) for solo/raffale steps, resolved via
+            PositionLabelResolver at record time. Null if unresolved or the row
+            predates this field.
+        letter1:
+          type: string
+          nullable: true
+          description: First position letter for pair/a_schuss steps.
+        letter2:
+          type: string
+          nullable: true
+          description: Second position letter for pair/a_schuss steps.
+
+    PlayerResult:
+      type: object
+      description: Aggregated score and step detail for one player in one block.
+      properties:
+        playerId:
+          type: string
+        userId:
+          type: string
+          format: uuid
+          description: Account of the player when checked in via QR code; absent otherwise.
+        displayName:
+          type: string
+        totalPoints:
+          type: integer
+        maxPoints:
+          type: integer
+        stepStates:
+          type: array
+          items:
+            $ref: '#/components/schemas/StepStateRecord'
+
+    BlockResult:
+      type: object
+      properties:
+        playerResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerResult'
+
+    PlayBlock:
+      type: object
+      description: One Serie execution slot within a play instance.
+      properties:
+        blockId:
+          type: string
+          format: uuid
+        serieId:
+          type: string
+          format: uuid
+          description: Source Serie ID (for cross-linking to the template)
+        serieAlias:
+          type: string
+          description: Name of the Serie at the time the instance was created
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Range this block is assigned to (used for live range view routing)
+        rangeName:
+          type: string
+          nullable: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Step'
+        status:
+          $ref: '#/components/schemas/BlockStatus'
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        result:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/BlockResult'
+
+    PlayInstanceStatus:
+      type: string
+      enum: [active, completed, cancelled]
+
+    PlayInstanceResponse:
+      type: object
+      properties:
+        instanceId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [passe, serie, stechen]
+        templateId:
+          type: string
+          format: uuid
+          description: ID of the Passe template used
+        templateName:
+          type: string
+        status:
+          $ref: '#/components/schemas/PlayInstanceStatus'
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerRef'
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        blocks:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/PlayBlock'
+
+    StartPasseInstanceRequest:
+      type: object
+      required: [passeId, players]
+      properties:
+        passeId:
+          type: string
+          format: uuid
+        players:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PlayerRef'
+
+    StartSerieInstanceRequest:
+      type: object
+      required: [serieId, players]
+      properties:
+        serieId: { type: string, format: uuid }
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerRef'
+
+    CompleteBlockRequest:
+      type: object
+      required: [playerResults]
+      properties:
+        playerResults:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PlayerResult'
+
+    # ───── Play Results (history) ─────────────────────────────────────────────
+
+    PlayResultSummary:
+      type: object
+      description: Lightweight summary card shown in the results list.
+      properties:
+        resultId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [passe, serie, stechen]
+        templateId:
+          type: string
+          format: uuid
+        templateName:
+          type: string
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerRef'
+        completedAt:
+          type: string
+          format: date-time
+        topScore:
+          type: integer
+          description: Highest total points earned by any single player in this run
+
+    PlayResultPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayResultSummary'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    PlayResultResponse:
+      type: object
+      description: Full detail for one completed play run, including all block results.
+      properties:
+        resultId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [passe, serie, stechen]
+        templateId:
+          type: string
+          format: uuid
+        templateName:
+          type: string
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerRef'
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        blocks:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/PlayBlock'
+
+    # ───── SmartBox Status Enum ────────────────────────────────────────────────
+
+    SmartBoxStatus:
+      type: string
+      enum: [ONLINE, OFFLINE, BLOCKED]
+      description: SmartBox operational status
+
+    # ───── Pin Configuration ───────────────────────────────────────────────────
+
+    PinConfig:
+      type: object
+      required: [pin, mode]
+      properties:
+        pin:
+          type: integer
+          minimum: 0
+          maximum: 40
+          description: GPIO pin number on the Raspberry Pi Pico 2W (valid range 0-29 for user GPIOs)
+        mode:
+          type: string
+          enum: [OUTPUT, INPUT, INPUT_PULLUP, INPUT_PULLDOWN, PWM]
+          description: GPIO mode as understood by the firmware
+        pwmFrequencyHz:
+          type: integer
+          minimum: 1
+          description: Required when mode is PWM. Sets the PWM carrier frequency.
+        invertLogic:
+          type: boolean
+          default: false
+          description: When true, the firmware inverts the signal (active-low wiring)
+
+    # ───── Pagination ──────────────────────────────────────────────────────────
+
+    PageMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    # ───── DeviceType ─────────────────────────────────────────────────────────
+
+    DeviceTypeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        signalTypeId:
+          type: string
+          format: uuid
+        groupId:
+          type: string
+          format: uuid
+        groupName:
+          type: string
+        signalDurationMs:
+          type: integer
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+        command:
+          type: string
+        device:
+          type: string
+        direction:
+          type: string
+
+    DeviceTypeGroupResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    FirmwareConfigResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: string
+        boxType:
+          type: string
+        signalTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/FirmwareConfigSignalTypeResponse'
+
+    FirmwareConfigSignalTypeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        communicationDirection:
+          type: string
+        device:
+          type: string
+        command:
+          type: string
+
+    RegisterFirmwareConfigRequest:
+      type: object
+      required: [version, box_type, signal_types]
+      properties:
+        version:
+          type: string
+        box_type:
+          type: string
+        signal_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegisterFirmwareConfigSignalTypeEntry'
+
+    RegisterFirmwareConfigSignalTypeEntry:
+      type: object
+      required: [direction, device, command, group_name, name, signal_duration_ms]
+      properties:
+        direction:
+          type: string
+        device:
+          type: string
+        command:
+          type: string
+        group_name:
+          type: string
+        name:
+          type: string
+        signal_duration_ms:
+          type: integer
+          minimum: 0
+        delay_signal_duration_ms:
+          type: integer
+          nullable: true
+
+    UpdateDeviceTypeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        signalDurationMs:
+          type: integer
+          nullable: true
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+
+    # ───── Device ─────────────────────────────────────────────────────────────
+
+    DeviceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        alias:
+          type: string
+        smartBoxId:
+          type: string
+          format: uuid
+        groupId:
+          type: string
+          format: uuid
+        groupName:
+          type: string
+        deviceTypeId:
+          type: string
+          format: uuid
+        deviceType:
+          type: string
+        command:
+          type: string
+        boxType:
+          type: string
+        blocked:
+          type: boolean
+        adminBlocked:
+          type: boolean
+          description: Set by ADMIN only. Cannot be cleared by regular users.
+          readOnly: true
+        healthy:
+          type: boolean
+        signalDurationMs:
+          type: integer
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+        pinConfig:
+          $ref: '#/components/schemas/PinConfig'
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+        commandsSent:
+          type: integer
+          description: Total number of commands sent to this device from the backend
+        commandsProcessed:
+          type: integer
+          description: Total number of commands confirmed as executed by the device
+        lastCommandSentAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the last command sent to this device
+        lastCommandProcessedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of the last command execution confirmed by the device
+
+    CommandResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+        detail:
+          type: string
+
+    # ───── Range ──────────────────────────────────────────────────────────────
+
+    RangeSummaryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        locked:
+          type: boolean
+        deviceCount:
+          type: integer
+        assignedUserId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    RangeDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        locked:
+          type: boolean
+        assignedUserId:
+          type: string
+          format: uuid
+          nullable: true
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceResponse'
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RangePositionResponse'
+        createdAt:
+          type: string
+          format: date-time
+
+    RangePositionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          description: Position label (e.g. "A", "B", "Mitte")
+        sortOrder:
+          type: integer
+        device:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/DeviceResponse'
+
+    CreateRangePositionRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Optional label; auto-generated (A, B, C…) if omitted
+
+    UpdateRangePositionLabelRequest:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+
+    AssignDeviceToPositionRequest:
+      type: object
+      required: [deviceId]
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+
+    CreateRangeRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    UpdateRangeRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    SetLockedRequest:
+      type: object
+      required: [locked]
+      properties:
+        locked:
+          type: boolean
+
+    SetRangeAssignedUserRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+
+    # ─────────────────────────────────────────────────────────────────────────
+
+    DevicePageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    RangePageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/RangeSummaryResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    SmartBoxPageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/SmartBoxResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    # ───── SmartBox ───────────────────────────────────────────────────────────
+
+    SmartBoxResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        macAddress:
+          type: string
+        alias:
+          type: string
+        status:
+          $ref: '#/components/schemas/SmartBoxStatus'
+        appVersion:
+          type: string
+          description: >
+            App-Code version reported at discovery (the OTA target / capability
+            version the FirmwareConfig is keyed on). Null if never reported.
+        firmwareVersion:
+          type: string
+          description: MicroPython kernel version reported at discovery (e.g. micropython-1.23.0).
+        configSynced:
+          type: boolean
+          description: >
+            true once the SmartBox has ACK'd the latest config push via
+            smartboxes/{mac}/config/ack
+        firmwareConfigId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Id of the FirmwareConfig resolved for this box at discovery
+            (via appVersion + boxType). Null until the box has reported in.
+
+    # ───── OTA ────────────────────────────────────────────────────────────────
+
+    OtaTypeValue:
+      type: string
+      enum: [APP, FIRMWARE]
+
+    OtaReleaseResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/OtaTypeValue' }
+        version: { type: string }
+        sha256: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+
+    TriggerOtaRequest:
+      type: object
+      required: [type, version]
+      properties:
+        type: { $ref: '#/components/schemas/OtaTypeValue' }
+        version: { type: string }
+
+    OtaStatusResponse:
+      type: object
+      properties:
+        version: { type: string }
+        phase: { type: string }
+        progress: { type: integer }
+        detail: { type: string }
+        updatedAt: { type: string, format: date-time }
+
+    CreateDeviceRequest:
+      type: object
+      required: [smartBoxId, groupId, deviceTypeId, alias]
+      properties:
+        smartBoxId:
+          type: string
+          format: uuid
+          description: The SmartBox this device will be registered on
+        groupId:
+          type: string
+          format: uuid
+          description: The DeviceTypeGroup for this device
+        deviceTypeId:
+          type: string
+          format: uuid
+          description: The specific DeviceType within the group
+        alias:
+          type: string
+          description: User-friendly name for this device
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional range to assign the device to on registration
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+          description: Override delay before the signal fires (ms)
+
+    UpdateDeviceRequest:
+      type: object
+      properties:
+        alias:
+          type: string
+        signalDurationMs:
+          type: integer
+          nullable: true
+          description: How long the signal is held active (null = use device type default)
+        delaySignalDurationMs:
+          type: integer
+          nullable: true
+          description: Delay before signal fires (null = use device type default)
+        groupId:
+          type: string
+          format: uuid
+          description: Reassign device to a different device type group
+
+    AssignRangeRequest:
+      type: object
+      required: [rangeId]
+      properties:
+        rangeId:
+          type: string
+          format: uuid
+          description: ID of the range to assign this device to
+
+    SetAliasRequest:
+      type: object
+      required: [alias]
+      properties:
+        alias:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          description: Email address or username — either may be used to log in.
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: JWT token whose subject is the user's canonical email, plus the role as a claim.
+
+    MeResponse:
+      type: object
+      required: [id, email, username, vorname, nachname, status, erstelltAm, permissions]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        username:
+          type: string
+        vorname:
+          type: string
+        nachname:
+          type: string
+        geburtsdatum:
+          type: string
+          format: date
+          nullable: true
+        geschlecht:
+          type: string
+          nullable: true
+          enum: [MAENNLICH, WEIBLICH, DIVERS, UNBEKANNT]
+        telefonnummer:
+          type: string
+          nullable: true
+        telefonBestaetigt:
+          type: boolean
+          nullable: true
+        strasse:
+          type: string
+          nullable: true
+        hausnummer:
+          type: string
+          nullable: true
+        plz:
+          type: string
+          nullable: true
+        stadt:
+          type: string
+          nullable: true
+        land:
+          type: string
+          nullable: true
+        profilbildUrl:
+          type: string
+          nullable: true
+        biographie:
+          type: string
+          nullable: true
+        sprache:
+          type: string
+          nullable: true
+          enum: [DE, EN, FR, IT]
+        mitgliedsnummer:
+          type: string
+          nullable: true
+        schiessLizenz:
+          type: string
+          nullable: true
+        schiessLizenzVerfallsdatum:
+          type: string
+          format: date
+          nullable: true
+        schiessLizenzGueltig:
+          type: boolean
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, SUSPENDED, PENDING_APPROVAL]
+        emailBestaetigt:
+          type: boolean
+          nullable: true
+        letzterLogin:
+          type: string
+          format: date-time
+          nullable: true
+        erstelltAm:
+          type: string
+          format: date-time
+        permissions:
+          type: array
+          items:
+            type: string
+          description: Flat union of all permissions from all assigned roles
+        assignedRangeId:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of the range this user is currently assigned to as operator
+
+    CreateUserRequest:
+      type: object
+      required: [email, username, password, vorname, nachname]
+      properties:
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{2,29}$'
+        password:
+          type: string
+        vorname:
+          type: string
+        nachname:
+          type: string
+        geburtsdatum:
+          type: string
+          format: date
+          nullable: true
+        geschlecht:
+          type: string
+          nullable: true
+          enum: [MAENNLICH, WEIBLICH, DIVERS, UNBEKANNT]
+        telefonnummer:
+          type: string
+          nullable: true
+        strasse:
+          type: string
+          nullable: true
+        hausnummer:
+          type: string
+          nullable: true
+        plz:
+          type: string
+          nullable: true
+        stadt:
+          type: string
+          nullable: true
+        land:
+          type: string
+          nullable: true
+        mitgliedsnummer:
+          type: string
+          nullable: true
+        sprache:
+          type: string
+          nullable: true
+          enum: [DE, EN, FR, IT]
+
+    # ───── Session/Competition ──────────────────────────────────────────────────
+
+    SessionType:
+      type: string
+      enum: [COMPETITION, TRAINING]
+
+    SessionStatus:
+      type: string
+      enum: [SETUP, ACTIVE, PRE_COMPLETE, COMPLETED, ABANDONED]
+
+    PasseReference:
+      type: object
+      description: Passe embedded in a session, including the serien snapshot needed to run the competition.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        serien:
+          type: array
+          description: Serien snapshot at the time the Passe was created (immutable).
+          items:
+            $ref: '#/components/schemas/EmbeddedSerie'
+
+    SessionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/SessionType'
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        passen:
+          type: array
+          description: Ordered Passe references for this session (id + name only)
+          items:
+            $ref: '#/components/schemas/PasseReference'
+        groups:
+          type: array
+          description: Rotten with their members
+          items:
+            $ref: '#/components/schemas/GroupResponse'
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ReorderPassenRequest:
+      type: object
+      required: [passeIds]
+      properties:
+        passeIds:
+          type: array
+          description: New order for the session's Passen. Must be a permutation of the existing Passe ids.
+          items:
+            type: string
+            format: uuid
+
+    AddPasseToSessionRequest:
+      type: object
+      required: [passeId]
+      properties:
+        passeId:
+          type: string
+          format: uuid
+
+    CreateSessionRequest:
+      type: object
+      required: [name, type, passen]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        type:
+          $ref: '#/components/schemas/SessionType'
+        passen:
+          type: array
+          minItems: 1
+          description: >
+            Ordered Passen to associate with this session.
+            Each entry references a Passe by ID; the backend resolves the name at creation time.
+            serieIds optionally overrides the Passe's own ordering.
+          items:
+            type: object
+            required: [id]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+                description: Optional name hint; resolved from the Passe record if omitted
+              serieIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+                description: Explicit Serie ordering; Passe's own ordering is used if omitted
+        groups:
+          type: array
+          description: Optional initial Rotten to create
+          items:
+            $ref: '#/components/schemas/GroupCreateRequest'
+
+    UpdateSessionStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          description: >
+            Target status (case-insensitive).
+            Allowed transitions: SETUP → ACTIVE,
+            ACTIVE → PRE_COMPLETE, ACTIVE → ABANDONED, PRE_COMPLETE → COMPLETED.
+        force: { type: boolean, description: When true, finishing proceeds despite unresolved decisive ties. }
+
+    StartTiebreakerRequest:
+      type: object
+      required: [playerIds, templateId]
+      properties:
+        playerIds:
+          type: array
+          items: { type: string, format: uuid }
+        templateId: { type: string, format: uuid, description: Serie template id (a Stechen is always a single Serie) }
+        tiePosition: { type: integer, description: Standings position the tie is for (1 = first) }
+
+    TiebreakerPlayerScore:
+      type: object
+      required: [playerId, totalPoints, maxPoints]
+      properties:
+        playerId: { type: string, format: uuid }
+        totalPoints: { type: integer }
+        maxPoints: { type: integer }
+
+    TiebreakerResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        tieGroupId: { type: string, format: uuid }
+        roundNumber: { type: integer }
+        tiePosition: { type: integer }
+        status: { type: string, enum: [PENDING, ACTIVE, COMPLETED] }
+        templateId: { type: string, format: uuid }
+        templateName: { type: string }
+        playInstanceId: { type: string, format: uuid, nullable: true }
+        blockId: { type: string, format: uuid, nullable: true, description: Live-run block id for an ACTIVE round (kiosk play target) }
+        run:
+          allOf: [ { $ref: '#/components/schemas/EmbeddedSerie' } ]
+          description: The Serie being shot, for an ACTIVE round (surfaces the run on the range kiosk). Absent once resolved.
+        participants:
+          type: array
+          items: { $ref: '#/components/schemas/TiebreakerParticipant' }
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/TiebreakerPlayerScore' }
+
+    TiebreakerParticipant:
+      type: object
+      properties:
+        playerId: { type: string, format: uuid }
+        displayName: { type: string }
+
+    SessionTiesResponse:
+      type: object
+      properties:
+        sessionId: { type: string, format: uuid }
+        tiedBlocks:
+          type: array
+          items: { $ref: '#/components/schemas/TiedBlock' }
+
+    TiedBlock:
+      type: object
+      properties:
+        tiePosition: { type: integer }
+        sharedScore: { type: integer }
+        resolved: { type: boolean, description: true when Stechen has fully ordered the block }
+        players:
+          type: array
+          items: { $ref: '#/components/schemas/TiebreakerParticipant' }
+        rounds:
+          type: array
+          items: { $ref: '#/components/schemas/TiebreakerResponse' }
+
+    UnresolvedTiesError:
+      type: object
+      properties:
+        message: { type: string }
+        unresolvedTies:
+          type: array
+          items: { $ref: '#/components/schemas/TiedBlock' }
+
+    SessionPageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    GroupResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sessionId:
+          type: string
+          format: uuid
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionPlayerResponse'
+        createdAt:
+          type: string
+          format: date-time
+
+    GroupCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Group name (e.g. Rotte A)
+        members:
+          type: array
+          description: Optional list of players to add to the group
+          items:
+            $ref: '#/components/schemas/SessionPlayerCreateRequest'
+
+    UpdateGroupRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+
+    SessionPlayerResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [USER, GUEST]
+        displayName:
+          type: string
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+        paid:
+          type: boolean
+          description: Whether this player has paid their entry fee
+          default: false
+
+    SessionPlayerCreateRequest:
+      type: object
+      required: [type, displayName]
+      properties:
+        type:
+          type: string
+          enum: [USER, GUEST]
+        displayName:
+          type: string
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+        paid:
+          type: boolean
+          default: false
+
+    PatchMemberRequest:
+      type: object
+      required: [paid]
+      properties:
+        paid:
+          type: boolean
+
+    CompleteSerieRequest:
+      type: object
+      required: [results]
+      properties:
+        passeIndex:
+          type: integer
+          nullable: true
+          description: Zero-based index of the Passe within the session
+        playInstanceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional reference to the PlayInstance that was executed for this Serie
+        results:
+          type: array
+          minItems: 1
+          description: Per-player results for this Serie run
+          items:
+            $ref: '#/components/schemas/PlayerResult'
+
+    SessionProgressResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        releasedPasseIndex:
+          type: integer
+          description: Highest 0-based Passe index released for play (admin-gated).
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupProgressResponse'
+
+    GroupProgressResponse:
+      type: object
+      properties:
+        groupId:
+          type: string
+          format: uuid
+        groupName:
+          type: string
+        passenCompleted:
+          type: integer
+          description: Number of Passen for which all Serien have been completed by this group
+        passenTotal:
+          type: integer
+          description: Total number of Passen in this session
+        completions:
+          type: array
+          description: Per-Passe completion details
+          items:
+            type: object
+            properties:
+              passeIndex:
+                type: integer
+              passeName:
+                type: string
+              completed:
+                type: boolean
+              completedAt:
+                type: string
+                format: date-time
+                nullable: true
+        completedSerien:
+          type: array
+          description: >
+            Individual completed Serien for this group, finer-grained than the
+            per-Passe completions. Lets clients resume mid-Passe after a reload.
+          items:
+            type: object
+            properties:
+              passeIndex:
+                type: integer
+              serieId:
+                type: string
+                format: uuid
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          nullable: true
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{2,29}$'
+          nullable: true
+        vorname:
+          type: string
+          nullable: true
+        nachname:
+          type: string
+          nullable: true
+        geburtsdatum:
+          type: string
+          format: date
+          nullable: true
+        geschlecht:
+          type: string
+          nullable: true
+          enum: [MAENNLICH, WEIBLICH, DIVERS, UNBEKANNT]
+        telefonnummer:
+          type: string
+          nullable: true
+        telefonBestaetigt:
+          type: boolean
+          nullable: true
+        strasse:
+          type: string
+          nullable: true
+        hausnummer:
+          type: string
+          nullable: true
+        plz:
+          type: string
+          nullable: true
+        stadt:
+          type: string
+          nullable: true
+        land:
+          type: string
+          nullable: true
+        profilbildUrl:
+          type: string
+          nullable: true
+        biographie:
+          type: string
+          nullable: true
+        sprache:
+          type: string
+          nullable: true
+          enum: [DE, EN, FR, IT]
+        mitgliedsnummer:
+          type: string
+          nullable: true
+        schiessLizenz:
+          type: string
+          nullable: true
+        schiessLizenzVerfallsdatum:
+          type: string
+          format: date
+          nullable: true
+        status:
+          type: string
+          nullable: true
+          enum: [ACTIVE, INACTIVE, SUSPENDED, PENDING_APPROVAL]
+
+    ChangePasswordRequest:
+      type: object
+      required: [oldPassword, newPassword]
+      properties:
+        oldPassword:
+          type: string
+        newPassword:
+          type: string
+
+    UserResponse:
+      type: object
+      required: [id, email, username, vorname, nachname]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        username:
+          type: string
+        vorname:
+          type: string
+        nachname:
+          type: string
+        fullName:
+          type: string
+          nullable: true
+        geburtsdatum:
+          type: string
+          format: date
+          nullable: true
+        geschlecht:
+          type: string
+          nullable: true
+          enum: [MAENNLICH, WEIBLICH, DIVERS, UNBEKANNT]
+        telefonnummer:
+          type: string
+          nullable: true
+        strasse:
+          type: string
+          nullable: true
+        hausnummer:
+          type: string
+          nullable: true
+        plz:
+          type: string
+          nullable: true
+        stadt:
+          type: string
+          nullable: true
+        land:
+          type: string
+          nullable: true
+        profilbildUrl:
+          type: string
+          nullable: true
+        biographie:
+          type: string
+          nullable: true
+        sprache:
+          type: string
+          nullable: true
+        mitgliedsnummer:
+          type: string
+          nullable: true
+        schiessLizenz:
+          type: string
+          nullable: true
+        schiessLizenzVerfallsdatum:
+          type: string
+          format: date
+          nullable: true
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, SUSPENDED, PENDING_APPROVAL]
+        erstelltAm:
+          type: string
+          format: date-time
+        aktualisiertAm:
+          type: string
+          format: date-time
+          nullable: true
+        assignedRangeId:
+          type: string
+          format: uuid
+          nullable: true
+
+    UserPageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    RoleResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+
+    UserRoleResponse:
+      type: object
+      properties:
+        roleId:
+          type: string
+          format: uuid
+        roleName:
+          type: string
+        description:
+          type: string
+          nullable: true
+        scopeType:
+          type: string
+          nullable: true
+          enum: [RANGE, COMPETITION, FACILITY]
+        scopeId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        isExpired:
+          type: boolean
+          nullable: true
+
+    AssignRoleRequest:
+      type: object
+      required: [roleName]
+      properties:
+        roleName:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AssignScopedRoleRequest:
+      type: object
+      required: [roleName, scopeType, scopeId]
+      properties:
+        roleName:
+          type: string
+        scopeType:
+          type: string
+          enum: [RANGE, COMPETITION, FACILITY]
+        scopeId:
+          type: string
+          format: uuid
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ReservationResponse:
+      type: object
+      required: [id, rangeId, username, startedAt, lastActivityAt, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        rangeId:
+          type: string
+          format: uuid
+        username:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        lastActivityAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, RELEASED]
+
+    # ───── Testing ────────────────────────────────────────────────────────────
+
+    CreateTestUserRequest:
+      type: object
+      required: [credential]
+      properties:
+        credential:
+          type: string
+          description: Used as username AND password; email becomes {credential}@test.local
+          example: bob
+    TestUserResponse:
+      type: object
+      required: [id, username, email]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+    SeededRange:
+      type: object
+      required: [id, name, created, positionsCreated, boxesCreated, devicesAssigned]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        created:
+          type: boolean
+          description: true if inserted by this call, false if it already existed
+        positionsCreated:
+          type: integer
+          format: int32
+          description: Number of RangePositions created for this range by this call (0 if it already had positions)
+        boxesCreated:
+          type: integer
+          format: int32
+          description: Number of mock SmartBoxes created for this range by this call
+        devicesAssigned:
+          type: integer
+          format: int32
+          description: Number of devices created and assigned to this range's positions by this call
+    SeedRangesResponse:
+      type: object
+      required: [ranges]
+      properties:
+        ranges:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeededRange'
+    CreateMockSmartBoxRequest:
+      type: object
+      required: [deviceCount]
+      properties:
+        deviceCount:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 50
+          example: 4
+        alias:
+          type: string
+          nullable: true
+    MockSmartBoxResponse:
+      type: object
+      required: [id, macAddress, deviceCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        macAddress:
+          type: string
+        alias:
+          type: string
+          nullable: true
+        deviceCount:
+          type: integer
+          format: int32
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

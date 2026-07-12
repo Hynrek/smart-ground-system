@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ch.jp.smartground</groupId>
+        <artifactId>smart-ground-contracts-parent</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>contracts</artifactId>
+    <packaging>jar</packaging>
+    <name>contracts</name>
+    <description>OpenAPI-generated wire types (ch.jp.smartground.api / ch.jp.smartground.model) shared between Hub and Node.</description>
+
+    <dependencies>
+        <!-- Runtime deps the openapi-generator "spring" templates emit into every generated
+             model/interface (@Schema, JsonNullable, @Generated, @JsonProperty). Deliberately NOT
+             springdoc-openapi-starter-webmvc-ui — that pulls in spring-webmvc for serving Swagger
+             UI, a Hub-only web concern this library jar has no business depending on. Versions
+             match what smart-ground-backend's springdoc dependency resolves to today (see plan
+             investigation) so generated code compiles identically. -->
+        <!-- The generator's "spring" templates emit interface method signatures that reference
+             ResponseEntity/@RequestMapping/NativeWebRequest/MultipartFile (spring-web) and
+             @Validated (spring-context), even with interfaceOnly=true — these are compile-time
+             symbols in the interface, not just runtime behavior, so they must be on this jar's
+             own classpath (not just a Hub-only concern). Version 7.0.6 matches exactly what
+             smart-ground-backend's spring-boot-starter-parent:4.0.5 BOM resolves for spring-web/
+             spring-context today (see `mvn -o dependency:tree` in smart-ground-backend), so
+             generated code compiles identically to Hub's copy. -->
+        <!-- provided, not compile: needed to compile the generated Api interfaces in THIS
+             jar, but must not propagate transitively onto every consumer's classpath.
+             smart-ground-hub already supplies all three via spring-boot-starter-web when it
+             implements FooApi; smart-ground-node only ever touches ch.jp.smartground.model.*
+             DTOs (no Api interfaces), so it must not inherit spring-context/servlet-api just
+             for depending on contracts (review finding, Task 2). -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+            <version>7.0.6</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>7.0.6</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- ApiUtil (generated alongside the Api interfaces) references HttpServletResponse
+             directly. Version 6.1.0 matches what smart-ground-backend resolves. -->
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>6.1.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openapitools</groupId>
+            <artifactId>jackson-databind-nullable</artifactId>
+            <version>0.2.6</version>
+        </dependency>
+        <!-- jackson-databind-nullable's own POM declares an unmanaged transitive
+             dependency on jackson-databind 2.14.0-rc2, which isn't in the local
+             offline cache. Versions come from the parent's <dependencyManagement>
+             (matches what smart-ground-backend's Spring Boot BOM resolves). -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations-jakarta</artifactId>
+            <version>2.2.21</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+            <version>${jakarta.validation.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
+                <version>${openapi.generator.version}</version>
+                <executions>
+                    <execution>
+                        <id>generate-api-interfaces</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/resources/openapi.yaml</inputSpec>
+                            <generatorName>spring</generatorName>
+                            <apiPackage>ch.jp.smartground.api</apiPackage>
+                            <modelPackage>ch.jp.smartground.model</modelPackage>
+                            <generateApiDocumentation>false</generateApiDocumentation>
+                            <generateModelDocumentation>false</generateModelDocumentation>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
+                            <ignoreFileOverride>${project.basedir}/openapi-generator-ignore</ignoreFileOverride>
+                            <skipValidateSpec>true</skipValidateSpec>
+                            <configOptions>
+                                <useTags>true</useTags>
+                                <useDtoProject>true</useDtoProject>
+                                <useSpringBoot4>true</useSpringBoot4>
+                                <useJakartaEe>true</useJakartaEe>
+                                <interfaceOnly>true</interfaceOnly>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

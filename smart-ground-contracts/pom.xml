@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>ch.jp.smartground</groupId>
+    <artifactId>smart-ground-contracts-parent</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>smart-ground-contracts-parent</name>
+    <description>Shared contracts (OpenAPI-generated wire types) and domain (JPA entities) modules, consumed by smart-ground-hub and smart-ground-node via versioned Maven coordinates.</description>
+
+    <modules>
+        <module>contracts</module>
+        <module>domain</module>
+    </modules>
+
+    <properties>
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jakarta.persistence.version>3.2.0</jakarta.persistence.version>
+        <jakarta.validation.version>3.1.1</jakarta.validation.version>
+        <jspecify.version>1.0.0</jspecify.version>
+        <openapi.generator.version>7.9.0</openapi.generator.version>
+        <jackson.version>2.21.2</jackson.version>
+        <jackson.annotations.version>2.21</jackson.annotations.version>
+    </properties>
+
+    <!-- Centralizes versions for dependencies used by more than one module (or
+         needed to override a transitive dependency's own unmanaged version, as
+         with jackson-databind-nullable below) so consumers of contracts/domain
+         see one coherent set of coordinates rather than each module pinning its
+         own. Matches what smart-ground-backend's Spring Boot BOM already
+         resolves (see plan investigation) so no consumer sees two Jackson
+         generations on its classpath. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${jackson.annotations.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- Pin default-lifecycle plugin versions to what's already in the local
+         repository cache. Without a spring-boot-starter-parent (this reactor
+         has none — pure library jars), Maven's super-POM resolves "latest"
+         via metadata lookup, which this sandbox's network can't always reach
+         over TLS. Pinning avoids that lookup entirely. -->
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>3.3.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.14.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.5</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.4.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <version>3.1.4</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>
