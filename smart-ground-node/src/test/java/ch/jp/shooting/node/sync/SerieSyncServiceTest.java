@@ -88,4 +88,39 @@ class SerieSyncServiceTest {
         org.mockito.Mockito.verify(hub).fetchSerieSyncPage(captor.capture(), anyInt());
         assertThat(captor.getValue()).isEqualTo(seeded);
     }
+
+    @Test
+    void sync_reDeliveredBoundaryRow_isUpsertedButNotCountedAsApplied() {
+        // Simulates the inclusive-cursor boundary re-delivery: the Hub's updated_at >= cursor query
+        // re-sends the last-seen row on every subsequent tick. A prior sync already stored this row
+        // with the same updatedAt; a second sync() call must still upsert it (idempotency/safety) but
+        // must NOT count it toward `applied`, so SerieSyncScheduler's "N Zeilen angewandt" log line
+        // stops firing forever once nothing has actually changed.
+        var id = UUID.randomUUID();
+        var t = Instant.parse("2026-07-12T10:00:00Z");
+
+        var existing = new SyncedSerie();
+        existing.setId(id);
+        existing.setName("alive");
+        existing.setOwnership("user");
+        existing.setOwnerId(UUID.randomUUID());
+        existing.setStepsJson("[]");
+        existing.setPublished(false);
+        existing.setCreatedAt(t);
+        existing.setUpdatedAt(t);
+        existing.setDeleted(false);
+        syncedSerieRepository.save(existing);
+
+        var hub = mock(HubClient.class);
+        when(hub.fetchSerieSyncPage(any(Instant.class), anyInt()))
+            .thenReturn(page(List.of(item(id, "alive", false, t)), t, false));
+
+        var service = new SerieSyncService(hub, syncedSerieRepository, syncStateRepository);
+        int applied = service.sync();
+
+        assertThat(applied).isZero();
+        // row is still correctly present in the mirror (idempotent upsert, not skipped)
+        assertThat(syncedSerieRepository.findById(id)).get()
+            .matches(s -> !s.isDeleted() && s.getName().equals("alive"));
+    }
 }

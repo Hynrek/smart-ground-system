@@ -45,8 +45,9 @@ public class SerieSyncService {
             List<SerieSyncItem> items = page.getItems();
             if (items != null) {
                 for (SerieSyncItem item : items) {
-                    upsert(item);
-                    applied++;
+                    if (upsert(item)) {
+                        applied++;
+                    }
                 }
             }
             if (page.getNextCursor() != null) {
@@ -74,8 +75,20 @@ public class SerieSyncService {
         syncStateRepository.save(state);
     }
 
-    private void upsert(SerieSyncItem item) {
-        SyncedSerie row = syncedSerieRepository.findById(item.getId()).orElseGet(SyncedSerie::new);
+    /**
+     * Upsertet eine Zeile idempotent und meldet zurueck, ob es eine ECHTE Aenderung war.
+     * Grund: die Hub-Query verwendet eine inklusive untere Cursor-Schranke (updated_at >= cursor),
+     * daher liefert der Hub die Grenzzeile bei JEDEM folgenden Tick erneut aus. Ohne diesen Vergleich
+     * wuerde SerieSyncScheduler das als "1 Zeile angewandt" protokollieren — auf Dauer ein Dauer-
+     * Heartbeat-Log statt eines echten Signals. Der Upsert selbst bleibt unveraendert (idempotent,
+     * harmlos), nur die applied-Zaehlung wird verfeinert. Cursor-Fortschritt ist davon unberuehrt.
+     */
+    private boolean upsert(SerieSyncItem item) {
+        var existing = syncedSerieRepository.findById(item.getId());
+        Instant incomingUpdatedAt = item.getUpdatedAt().toInstant();
+        boolean changed = existing.isEmpty() || !existing.get().getUpdatedAt().equals(incomingUpdatedAt);
+
+        SyncedSerie row = existing.orElseGet(SyncedSerie::new);
         row.setId(item.getId());
         row.setName(item.getName());
         row.setOwnership(item.getOwnership());
@@ -84,8 +97,9 @@ public class SerieSyncService {
         row.setStepsJson(item.getStepsJson());
         row.setPublished(Boolean.TRUE.equals(item.getPublished()));
         row.setCreatedAt(item.getCreatedAt().toInstant());
-        row.setUpdatedAt(item.getUpdatedAt().toInstant());
+        row.setUpdatedAt(incomingUpdatedAt);
         row.setDeleted(Boolean.TRUE.equals(item.getDeleted()));
         syncedSerieRepository.save(row);
+        return changed;
     }
 }
