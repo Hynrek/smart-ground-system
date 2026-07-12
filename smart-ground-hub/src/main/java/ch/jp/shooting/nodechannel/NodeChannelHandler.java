@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.time.Instant;
@@ -25,6 +26,13 @@ import java.util.Objects;
 public class NodeChannelHandler extends TextWebSocketHandler {
 
     private static final Logger log = LoggerFactory.getLogger(NodeChannelHandler.class);
+
+    // WebSocketSession.sendMessage ist nicht thread-safe: HELLO_ACK (dieser Thread) und spätere COMMANDs
+    // (NodeChannelService.dispatchCommand, von einem beliebigen Aufrufer-Thread) landen auf derselben
+    // Session. 5s Sendezeit-Limit / 8KB Puffer sind grosszügige, aber begrenzte Defaults für die kleinen
+    // node-channel-Envelopes — kein eigenes Config-Knob dafür nötig.
+    private static final int SEND_TIME_LIMIT_MS = 5000;
+    private static final int SEND_BUFFER_SIZE_LIMIT_BYTES = 8192;
 
     private final NodeConnectionRegistry registry;
     private final NodeChannelCodec codec;
@@ -63,8 +71,12 @@ public class NodeChannelHandler extends TextWebSocketHandler {
             session.close(CloseStatus.POLICY_VIOLATION);
             return;
         }
-        registry.register(msg.nodeId(), session, Instant.now());
-        session.sendMessage(new TextMessage(codec.toJson(NodeChannelMessage.helloAck())));
+        // Ab hier läuft jeder sendMessage-Aufruf auf dieser Session über den Decorator — die Registry
+        // gibt die dekorierte Session an alles zurück, was sie später ausliest (z.B. dispatchCommand).
+        WebSocketSession safeSession = new ConcurrentWebSocketSessionDecorator(
+                session, SEND_TIME_LIMIT_MS, SEND_BUFFER_SIZE_LIMIT_BYTES);
+        registry.register(msg.nodeId(), safeSession, Instant.now());
+        safeSession.sendMessage(new TextMessage(codec.toJson(NodeChannelMessage.helloAck())));
         log.info("node-channel: Node {} verbunden", msg.nodeId());
     }
 

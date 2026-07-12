@@ -1,6 +1,7 @@
 package ch.jp.shooting.nodechannel;
 
 import ch.jp.smartground.nodechannel.NodeChannelMessage;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Component;
@@ -10,7 +11,12 @@ import org.springframework.stereotype.Component;
 @NullMarked
 public class NodeChannelCodec {
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = new ObjectMapper()
+            // Vorwärtskompatibel mit dem Node: dessen Jackson-3-Mapper (tools.jackson) lehnt unbekannte
+            // Felder standardmässig nicht ab. Ein künftig auf einer Seite ergänztes Envelope-Feld (das
+            // Protokoll ist versioniert/erweiterbar) soll die andere Seite nicht mit einer
+            // Deserialisierungs-Exception brechen.
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
     public String toJson(NodeChannelMessage message) {
         try {
