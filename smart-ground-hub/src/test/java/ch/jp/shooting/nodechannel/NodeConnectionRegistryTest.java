@@ -39,6 +39,21 @@ class NodeConnectionRegistryTest {
     }
 
     @Test
+    void removeBySession_dropsLiveness() {
+        var registry = new NodeConnectionRegistry();
+        var session = mock(WebSocketSession.class);
+        org.mockito.Mockito.when(session.getId()).thenReturn("s1");
+        var t0 = Instant.parse("2026-07-12T10:00:00Z");
+
+        registry.register("node-1", session, t0);
+        assertThat(registry.liveSessionFor("node-1", t0, Duration.ofSeconds(30))).contains(session);
+
+        registry.removeBySession(session);
+
+        assertThat(registry.liveSessionFor("node-1", t0, Duration.ofSeconds(30))).isEmpty();
+    }
+
+    @Test
     void sweepStale_returnsAndDropsStaleNodes() {
         var registry = new NodeConnectionRegistry();
         var t0 = Instant.parse("2026-07-12T10:00:00Z");

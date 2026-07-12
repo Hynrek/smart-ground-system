@@ -7,7 +7,9 @@ import org.springframework.web.socket.WebSocketSession;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -49,12 +51,17 @@ public class NodeConnectionRegistry {
     /** Entfernt alle stale gewordenen Nodes und gibt ihre Ids zurück (für den Sweeper zum Loggen/Schliessen). */
     public List<String> sweepStale(Instant now, Duration staleAfter) {
         List<String> swept = new ArrayList<>();
+        Map<String, Entry> staleEntries = new HashMap<>();
         byNode.forEach((nodeId, e) -> {
             if (Duration.between(e.lastBeat(), now).compareTo(staleAfter) > 0) {
                 swept.add(nodeId);
+                staleEntries.put(nodeId, e);
             }
         });
-        swept.forEach(byNode::remove);
+        // Compare-and-remove gegen die beim Scan gelesene Entry-Instanz: ein zwischenzeitlicher
+        // heartbeat() tauscht eine neue Entry ein, wodurch remove(key, value) für diesen Node zum
+        // No-op wird statt den frisch aufgefrischten, lebendigen Eintrag zu löschen.
+        staleEntries.forEach(byNode::remove);
         return swept;
     }
 }

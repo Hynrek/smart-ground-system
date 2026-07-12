@@ -70,4 +70,15 @@ class NodeChannelHandlerTest {
             new TextMessage(codec.toJson(NodeChannelMessage.commandAck(id, NodeChannelTypes.OUTCOME_OK))));
         verify(service).onCommandAck(id, NodeChannelTypes.OUTCOME_OK);
     }
+
+    @Test
+    void afterConnectionClosed_removesRegisteredNode() throws Exception {
+        var session = openSession("s1");
+        handler.handleTextMessage(session, new TextMessage(codec.toJson(NodeChannelMessage.hello("node-1", "secret"))));
+        assertThat(registry.liveSessionFor("node-1", java.time.Instant.now(), props.getStaleAfter())).isPresent();
+
+        handler.afterConnectionClosed(session, CloseStatus.NORMAL);
+
+        assertThat(registry.liveSessionFor("node-1", java.time.Instant.now(), props.getStaleAfter())).isEmpty();
+    }
 }
