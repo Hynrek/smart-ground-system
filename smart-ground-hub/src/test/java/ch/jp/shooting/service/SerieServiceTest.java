@@ -310,4 +310,46 @@ class SerieServiceTest {
         );
         assertThat(ex.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
     }
+
+    @Test
+    void deleteSerie_softDeletes_setsDeletedFlagAndSaves_neverHardDeletes() {
+        var serie = new Serie();
+        serie.setId(UUID.randomUUID());
+        serie.setName("ToDelete");
+        serie.setOwnership("user");
+        serie.setStepsJson("[]");
+        serie.setCreatedAt(Instant.now());
+        serie.setOwner(user);
+        when(serieRepository.findById(serie.getId())).thenReturn(Optional.of(serie));
+        when(serieRepository.save(org.mockito.ArgumentMatchers.any(Serie.class)))
+            .thenAnswer(i -> i.getArgument(0));
+
+        serieService.deleteSerie(serie.getId());
+
+        // soft-delete: flag set, row saved, hard delete never called
+        assertThat(serie.isDeleted()).isTrue();
+        org.mockito.Mockito.verify(serieRepository).save(serie);
+        org.mockito.Mockito.verify(serieRepository, org.mockito.Mockito.never())
+            .delete(org.mockito.ArgumentMatchers.any(Serie.class));
+    }
+
+    @Test
+    void deleteSerie_notOwner_throws403_andDoesNotTouchDeletedFlag() {
+        var otherUser = new User();
+        otherUser.setId(UUID.randomUUID());
+        var serie = new Serie();
+        serie.setId(UUID.randomUUID());
+        serie.setName("NotMine");
+        serie.setOwnership("user");
+        serie.setStepsJson("[]");
+        serie.setCreatedAt(Instant.now());
+        serie.setOwner(otherUser);
+        when(serieRepository.findById(serie.getId())).thenReturn(Optional.of(serie));
+
+        assertThrows(
+            org.springframework.web.server.ResponseStatusException.class,
+            () -> serieService.deleteSerie(serie.getId())
+        );
+        assertThat(serie.isDeleted()).isFalse();
+    }
 }

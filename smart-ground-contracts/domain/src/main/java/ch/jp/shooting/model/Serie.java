@@ -2,6 +2,7 @@ package ch.jp.shooting.model;
 
 import ch.jp.shooting.model.auth.User;
 import jakarta.persistence.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import java.time.Instant;
@@ -9,7 +10,13 @@ import java.util.UUID;
 
 
 @Entity
-@Table(name = "serien")
+// idx_serien_updated_at: der Sync-Cursor-Endpoint (hub-api) scannt nach updated_at.
+@Table(name = "serien", indexes = @Index(name = "idx_serien_updated_at", columnList = "updated_at"))
+// Global-Filter: soft-gelöschte Serien sind für JEDE Hibernate-Abfrage unsichtbar
+// (findById, findAllById, existsById, alle Finder, Passe-/Play-/Competition-Joins) —
+// exakt das Verhalten des früheren Hard-Delete. Einzige Ausnahme ist die native
+// Sync-Query (SerieRepository.findForSyncFrom), die Grabsteine bewusst mitliest.
+@SQLRestriction("deleted = false")
 @NullMarked
 public class Serie {
 
@@ -52,8 +59,22 @@ public class Serie {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    /** Vom Hub gestempelte Autoritätszeit jeder Änderung; treibt den Sync-Cursor (hub-api). */
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
+
+    /** Soft-Delete-Grabstein: true = gelöscht. Bleibt in der Zeile, damit der Node die Löschung sieht. */
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean deleted = false;
+
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean published = false;
+
+    /** Bei jedem UPDATE die Autoritätszeit neu stempeln (INSERT deckt die Feld-Initialisierung ab). */
+    @PreUpdate
+    void onUpdate() {
+        this.updatedAt = Instant.now();
+    }
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -69,6 +90,10 @@ public class Serie {
     public void setStepsJson(String stepsJson) { this.stepsJson = stepsJson; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public boolean isDeleted() { return deleted; }
+    public void setDeleted(boolean deleted) { this.deleted = deleted; }
     public boolean isPublished() { return published; }
     public void setPublished(boolean published) { this.published = published; }
 }

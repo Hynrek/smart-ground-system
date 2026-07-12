@@ -186,7 +186,8 @@ public class SerieService {
         return PlayMapper.toSerieResponse(serieRepository.save(serie));
     }
 
-    /** Löscht eine Serie (nur Besitzer). */
+    /** Soft-Delete einer Serie (nur Besitzer): setzt das deleted-Flag statt die Zeile zu entfernen,
+     *  damit der Node die Löschung als Grabstein über den Sync-Cursor sieht. @PreUpdate stempelt updated_at. */
     public void deleteSerie(UUID id) {
         var serie = serieRepository.findById(id)
                 .orElseThrow(() -> new SerieNotFoundException(id));
@@ -194,7 +195,8 @@ public class SerieService {
         if (!serie.getOwner().getId().equals(owner.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
-        serieRepository.delete(serie);
+        serie.setDeleted(true);
+        serieRepository.save(serie);
     }
 
     @Nullable
