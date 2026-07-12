@@ -41,6 +41,18 @@ export default defineConfig(({ mode }) => ({
         ws: true,
         headers: { origin: 'https://localhost:5173' },
       },
+      // smart-ground-node's node-api lives on a different origin (HTTPS,
+      // self-signed dev cert, port 8443) — proxy it same-origin too, exactly
+      // like /api, so the browser never needs to trust that cert directly.
+      // `secure: false` disables cert verification on this server-to-server
+      // hop only (Vite's Node.js proxy, not the browser). node-api has no
+      // CORS filter of its own (NodeApiAuthFilter only checks the bearer
+      // JWT), so no `headers.origin` override is needed here.
+      '/node-api': {
+        target: 'https://localhost:8443',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 }));
