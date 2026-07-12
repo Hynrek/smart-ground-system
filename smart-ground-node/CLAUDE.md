@@ -115,3 +115,29 @@ A **separate, lightweight registry from the Hub's `SmartBox`/`FirmwareConfig` do
 `box-api` is served over HTTPS on port **8443** (the Hub already claims 8080; Hub and Node run as two processes on the same machine at N=1 — see `application.properties`). TLS is terminated with a **self-signed dev keystore** checked into `src/main/resources/node-dev-keystore.p12` (`server.ssl.key-store=classpath:node-dev-keystore.p12`, alias `smartground-node`, password via `NODE_KEYSTORE_PASSWORD` env var, default `changeit` for dev). The firmware pins this dev CA/cert via `systemconfig/node_ca.crt` on the box side (see `smart-box/CLAUDE.md`).
 
 **Not yet done (deferred to sub-project #9, Node-Image und Deployment):** there is no `hostapd`/access-point setup on the Node yet. Today the Node is reached over a regular WiFi/LAN the box is already joined to (via `box_api_base_url` configured through the captive portal or manually) — there is no Node-hosted WiFi AP for boxes to join directly. That access-point story, along with a production (non-self-signed) certificate story, is explicitly out of scope here and tracked under #9.
+
+## node-api (onboarding slice)
+
+`smart-ground-node` also serves a **client-facing** `node-api` — distinct from the box-facing `box-api`. Plan 2 stands up only the **onboarding slice**; the full node-api facade (provenance envelope, Hub-degradation, offline login) is sub-project #5 and is **not** built here.
+
+### Endpoints (hand-written `@RestController`, not generated — same exception as box-api)
+
+- `GET /node-api/v1/onboarding/pending` → `List<PendingBoxResponse>` — boxes that announced themselves via `HELLO` (mac, rssi, firstSeen, lastSeen; `boxNonce` is not exposed).
+- `POST /node-api/v1/onboarding/{mac}/couple` → `CoupleResult` — mints a one-time provisioning token and emits an `ONBOARD_OFFER` to the box via the `RadioSender` seam; returns `status="offered"`. `404 /errors/box-not-pending` if the MAC is no longer announcing.
+
+### Auth
+
+`/node-api/*` is guarded by `NodeApiAuthFilter` (`ch.jp.shooting.node.security`): a plain servlet filter doing **JDK-only HMAC-SHA256** verification of the bearer JWT's **signature + expiry** against the shared `jwt.secret` (must equal the Hub's). No `spring-security`, no `io.jsonwebtoken`. **Fine-grained admin permission is deliberately deferred** (the Hub JWT carries no permission claims; the operator gate is the coupling spec's open point). `/box-api/*` stays unauthenticated.
+
+### Onboarding flow pieces (`ch.jp.shooting.node.onboarding`)
+
+- `PendingBoxRegistry` — in-RAM, fed by the `onHello(mac, rssi, boxNonce)` **ingestion seam** (no serial receive wiring in Plan 2).
+- `ProvisioningTokenService` / `ProvisioningTokenRecord` — one-time token (16 random bytes, TTL, MAC-bound, single-use), persisted in the node's H2.
+- `RadioSender` — **send-only seam**; `LoggingRadioSender` is the current impl (real serial impl deferred).
+- `NodeCertFingerprint` — SHA-256 of the node's TLS cert, pinned by the box for the provisioning TLS session; travels in the `ONBOARD_OFFER`.
+- `OnboardingService.couple(mac)` — orchestrates lookup → mint token → build `ONBOARD_OFFER` (Plan 1 `OnboardingCodec`) → `RadioSender.send`.
+- `outbox/RegistrationOutboxService` — on provisioning, persists a device-registration row and makes **one best-effort** push through the `HubRegistrationClient` seam (`LoggingHubRegistrationClient` currently no-ops; the real Hub endpoint + retry/drain worker are Sync-Fundament #2). The outbox row carries identity only — **never `K_Box`**.
+
+### box-api discovery is now token-gated first-contact provisioning
+
+`POST /box-api/v1/discovery` now **requires** a valid `token` (`BoxDiscoveryRequest.token`): `ProvisioningTokenService.validateAndConsume(token, mac)` runs first (typed `400 /errors/invalid-provisioning-token` on unknown/used/expired/MAC-mismatch), then `BoxProvisioningService.provision(...)` mints `K_Box` and `RegistrationOutboxService.enqueueAndAttempt(...)` queues the registration. A provisioned box never re-fetches `K_Box` (it persists it and moves to the ESP-NOW paired path), so the old idempotent every-boot discovery is redefined out (pre-v1.0).

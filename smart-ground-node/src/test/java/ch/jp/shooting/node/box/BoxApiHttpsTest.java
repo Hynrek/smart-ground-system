@@ -1,7 +1,9 @@
 package ch.jp.shooting.node.box;
 
+import ch.jp.shooting.node.onboarding.ProvisioningTokenService;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.MediaType;
@@ -38,6 +40,9 @@ class BoxApiHttpsTest {
     @LocalServerPort
     private int port;
 
+    @Autowired
+    private ProvisioningTokenService tokenService;
+
     @BeforeAll
     static void trustSelfSignedDevCertificateJvmWide() throws Exception {
         TrustManager[] trustAllCerts = new TrustManager[] {
@@ -68,13 +73,18 @@ class BoxApiHttpsTest {
                 .baseUrl("https://localhost:" + port)
                 .build();
 
+        // Discovery is token-gated (box-api, Task 7): mint a one-time provisioning token for this
+        // MAC first, same as BoxDiscoveryControllerTest, so this smoke test still exercises a real
+        // 2xx response instead of the now-expected 400 /errors/invalid-provisioning-token.
+        String token = tokenService.mint("AA:BB:CC:DD:EE:30").hex();
+
         client.post()
                 .uri("/box-api/v1/discovery")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body("""
-                    {"macAddress":"AA:BB:CC:DD:EE:30","appVersion":"1.0.0",
+                    {"macAddress":"AA:BB:CC:DD:EE:30","token":"%s","appVersion":"1.0.0",
                     "firmwareVersion":"micropython-1.23","boxType":"thrower","capabilitiesJson":"{}"}
-                    """)
+                    """.formatted(token))
                 .exchange()
                 .expectStatus().is2xxSuccessful();
     }
