@@ -66,6 +66,8 @@ smart-box/
 ├── espnow_crypto.py                    # AES-256-GCM (ucryptolib ECB + hand-rolled GHASH/CTR) + HKDF-SHA256 (ESP-NOW pairing/session keys)
 ├── frame_envelope.py                   # Klartext-Routing-Header (pack/unpack) + Duplikat-Erkennung (SeenCache) fuer ESP-NOW-Frames
 ├── pairing_codec.py                    # Baut/parst DISCOVER/OFFER/CONFIRM unter K_Box + leitet K_S ab (ESP-NOW-Pairing, ADR-003)
+├── onboarding_codec.py                 # Baut/parst HELLO/ONBOARD_OFFER (Erst-Kontakt, unauthentifiziert)
+├── onboarding_client.py                # OnboardingClient: HELLO-Backoff, Angebots-Validierung, AP-Beitritt, Provisionierung
 ├── hardware.py                         # GpioManager class + onboard LED
 ├── networkutils.py                     # WiFi connect/reconnect helpers
 ├── accesspoint.py                      # Captive portal for first-time WiFi setup
@@ -111,7 +113,7 @@ CA-pinned HTTPS client for talking to `smart-ground-node`'s box-api — the dire
 Unlike the old MQTT client, box-api calls are **stateless per-call** — there is no persistent connection to keep alive, reconnect, or explicitly disconnect.
 
 ### `box_provisioning.py` (replaces `publish_discovery`/`publish_heartbeat`/`_persist_mqtt_credentials`)
-- `discover_and_provision(mac_address, box_api_base_url, app_version, firmware_version, box_type, capabilities_json)` — `POST {box_api_base_url}/box-api/v1/discovery`; on success, persists the returned `kBoxBase64` into `userconfig/client_config.json` under `k_box_base64` (read-modify-write merge, same reasoning as the old `_persist_mqtt_credentials`: existing WiFi fields must survive)
+- `discover_and_provision(mac_address, box_api_base_url, token, app_version, firmware_version, box_type, capabilities_json)` — `POST {box_api_base_url}/box-api/v1/discovery`; `token` is now **required** (the Node's `ProvisioningTokenService` rejects any discovery call without a valid, unused, MAC-bound token — see `smart-ground-node/CLAUDE.md`'s onboarding section). On success, persists the returned `kBoxBase64` into `userconfig/client_config.json` under `k_box_base64` (read-modify-write merge, same reasoning as the old `_persist_mqtt_credentials`: existing WiFi fields must survive)
 - `send_heartbeat(mac_address, box_api_base_url, status)` — `POST {box_api_base_url}/box-api/v1/boxes/{mac}/status` with `{"status": status}`; does **not** catch its own exceptions — callers (`main.py`'s loop) are expected to catch and log, matching the old `publish_heartbeat`'s fail-soft behavior at the call site rather than inside the function
 
 ### `device_state.py` (non-MQTT parts salvaged from the deleted `mqttutils.py`)
@@ -158,6 +160,13 @@ One file per hardware type. All files are uploaded to every device; the correct 
 | `board_init()` | function | Called once at boot; no-op if nothing board-specific is needed |
 
 `main.py` registers the selected module as `sys.modules["board"]` so other modules can do a plain `import board`. Adding support for a new board = one new file in `boards/`, no changes to core logic.
+
+### `onboarding_client.py` (SmartBox coupling front door)
+`OnboardingClient` — the unprovisioned box's state machine: `tick(now_ms)` sends `HELLO` with exponential backoff (`HELLO_INITIAL_INTERVAL_MS` → `HELLO_MAX_INTERVAL_MS`, doubling), and when a radio-received frame is a valid `ONBOARD_OFFER` (addressed to this box's MAC, echoing the *most recently sent* HELLO nonce), joins the offered AP (`networkutils.connect_wifi`, reused as-is) and provisions via `box_provisioning.discover_and_provision` with the offer's one-time token. Unconditional return path: after any outcome (AP-join failure, provisioning failure, or success), the box deactivates its STA interface and resets the HELLO backoff — it never gets stuck mid-flow.
+
+**No real radio yet.** `radio_send`/`radio_poll` are swappable module-level functions (same pattern as `ota.py`'s `http_stream` seam) defaulting to logging-only stubs — there is no ESP-NOW transport anywhere in this repo (tracked as Phase 2a/2b, orthogonal to this plan, see the [hub-node-roadmap](../docs/superpowers/plans/2026-07-10-hub-node-roadmap.md)). **`main.py` does not call `OnboardingClient`** in this plan — wiring it into the boot flow is meaningful only once a real `radio_poll` exists to actually receive an offer; until then it is fully host-tested but not reachable from a running box.
+
+**Fingerprint parsed but not pinned.** The coupling design calls for pinning the `ONBOARD_OFFER`'s cert fingerprint for the provisioning TLS session specifically. MicroPython's `ussl`/`urequests` gives no per-connection access to the presented certificate to verify a fingerprint against, so `OnboardingClient` parses the fingerprint (via `onboarding_codec.fingerprint_of`) but does not act on it — the provisioning HTTPS call reuses `box_api_client`'s existing static `node_ca.crt` CA-root pinning, the same trust mechanism every other box-api call uses. This is the same category of open item already flagged elsewhere in this file (e.g. the `cadata` CA-pinning note under **box-api Client**) — not yet hardware-verified/implemented, not silently dropped.
 
 ---
 
@@ -274,9 +283,11 @@ The SmartBox MAC address (12-char lowercase hex) is used to identify the box in 
 ### Discovery/provisioning request (`box_provisioning.discover_and_provision` → `POST /box-api/v1/discovery`)
 `app_version` and `capabilities_json` (App Code) come from `systemconfig/firmware_config.json`; `firmware_version` defaults to `"unknown"` (see the `main.py` note above — reading the real MicroPython kernel string would need a new `os` import not currently made); `box_type` comes from the board module.
 ```json
-{ "macAddress": "aabbccddeeff", "appVersion": "1.0", "firmwareVersion": "unknown",
+{ "macAddress": "aabbccddeeff", "token": "deadbeefdeadbeefdeadbeefdeadbeef", "appVersion": "1.0", "firmwareVersion": "unknown",
   "boxType": "xiao-esp32s3", "capabilitiesJson": "{\"GPIO\": {...}, \"LED\": {...}}" }
 ```
+**Known, accepted consequence:** this makes discovery a one-time provisioning call, not the old idempotent every-boot call `main.py`'s current boot flow still makes (with no token) — that call site is unmodified by this plan and is already non-functional against the live `node-api`/`box-api` pair for this reason; see `smart-ground-node/CLAUDE.md`'s onboarding section ("the old idempotent every-boot discovery is redefined out, pre-v1.0"). Rewiring `main.py`'s boot flow onto `OnboardingClient` + real ESP-NOW pairing is a later plan's job (see this file's `onboarding_client.py` entry).
+
 Response: `{ "kBoxBase64": "...", "wasNewlyProvisioned": true }` — `kBoxBase64` is persisted into `userconfig/client_config.json`'s `k_box_base64` field.
 
 ### Status/heartbeat request (`box_provisioning.send_heartbeat` → `POST /box-api/v1/boxes/{mac}/status`)
