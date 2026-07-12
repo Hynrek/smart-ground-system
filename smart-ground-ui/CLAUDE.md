@@ -147,6 +147,7 @@ Non-obvious stores (the rest map 1:1 to a backend domain):
 | `competitionEventStore` | Wettkampf sessions: groups (Rotten), progress, Stechen (e.g. `getActiveStechenForRange`) |
 | `otaStore` | Polls `GET /smart-boxes/{id}/ota` every 3 s until a terminal phase (`APPLIED`/`FAILED`/`ROLLED_BACK`); views must call `stopAllPolling()` on unmount |
 | `profileStore` | Own QR check-in token (`/users/me/qr`, rotate) and personal play results (`/users/me/play-results`); consumed by `ShooterProfilView` and `QrScanModal` (resolve on scan) |
+| `onboardingStore` | Polls `GET /onboarding/pending` on `node-api` (not the Hub) every 5s; `coupleBox(mac)` posts `POST /onboarding/{mac}/couple`. Per-mac result kept in `coupleResults` (success or `{error}`) so a coupled/failed row swaps its button for a badge/message instead of disappearing. |
 
 Store rules:
 - Use `storeToRefs()` when destructuring store state in components
@@ -165,6 +166,7 @@ Non-obvious name → endpoint mappings:
 - `tiebreakerApi.js` → `/sessions/{id}/ties` + `/sessions/{id}/tiebreakers` (Stechen)
 - `otaApi.js` → `/ota/releases` uses multipart upload via `apiUpload` (not the JSON `apiClient` path)
 - `deviceTypeApi.js` also covers `/device-types/firmware-configs`; `deviceTypeGroupApi.js` covers `/device-types/groups`
+- `onboardingApi.js` → talks to **`node-api`** (`smart-ground-node`, a different origin than the Hub), not the Hub's `openapi.yaml`-backed API. Uses `apiFetch`'s third `baseUrl` argument (`VITE_NODE_API_BASE_URL`, default `/node-api/v1`) — every other `xxxApi.js` module implicitly targets the Hub.
 
 Naming: `xxxApi.js` wraps backend endpoints; a `xxxService.js` would hold local business logic (none currently).
 
@@ -280,6 +282,14 @@ VITE_API_BASE_URL=http://localhost:8080/api
 ```
 
 Access in code: `import.meta.env.VITE_API_BASE_URL`.
+
+### node-api (SmartBox onboarding)
+
+`smart-ground-node` serves a separate `node-api` (HTTPS, self-signed dev cert, port 8443) for the SmartBox coupling flow — see the [coupling design](../docs/superpowers/specs/2026-07-11-smartbox-coupling-design.md). The UI reaches it via a relative `/node-api` path that Vite proxies to `https://localhost:8443` in dev (`vite.config.js`) and that nginx will proxy same-origin in production. The existing `sg_token` JWT is reused as-is — the Node verifies it with the same shared HMAC secret the Hub signs with (`jwt.secret` must match across both `application.properties` files), so there is no separate login for `node-api`.
+
+```env
+VITE_NODE_API_BASE_URL=/node-api/v1
+```
 
 ---
 

@@ -12,7 +12,8 @@
             {{ deviceTypeStore.deviceTypes.length }} Typ{{ deviceTypeStore.deviceTypes.length !== 1 ? 'en' : '' }} ·
             {{ deviceTypeStore.deviceTypeGroups.length }} Gruppe{{ deviceTypeStore.deviceTypeGroups.length !== 1 ? 'n' : '' }}
           </p>
-          <p v-else class="subtitle">{{ otaStore.releases.length }} Release(s) hochgeladen</p>
+          <p v-else-if="activeTab === 'firmware-updates'" class="subtitle">{{ otaStore.releases.length }} Release(s) hochgeladen</p>
+          <p v-else class="subtitle">{{ onboardingStore.pendingBoxes.length }} neue(s) Gerät(e) gemeldet</p>
         </div>
         <Button
           v-if="activeTab === 'smartboxen'"
@@ -48,6 +49,13 @@
           @click="setTab('firmware-updates')"
         >
           Firmware-Updates
+        </button>
+        <button
+          :class="{ 'tab--active': activeTab === 'neue-geraete' }"
+          class="tab"
+          @click="setTab('neue-geraete')"
+        >
+          Neue Geräte
         </button>
       </div>
 
@@ -100,6 +108,9 @@
 
       <!-- Firmware-Updates tab -->
       <FirmwareUpdatesPanel v-else-if="activeTab === 'firmware-updates'" />
+
+      <!-- Neue Geräte tab -->
+      <PendingBoxesPanel v-else-if="activeTab === 'neue-geraete'" />
     </div>
   </div>
 </template>
@@ -110,20 +121,23 @@ import { useSmartBoxStore } from '@/stores/smartBoxStore.js';
 import { useDeviceStore } from '@/stores/deviceStore.js';
 import { useDeviceTypeStore } from '@/stores/deviceTypeStore.js';
 import { useOtaStore } from '@/stores/otaStore.js';
+import { useOnboardingStore } from '@/stores/onboardingStore.js';
 import * as deviceApi from '@/services/deviceApi.js';
 import Button from '@/components/Button.vue';
 import Icons from '@/components/Icons.vue';
 import SmartBoxCard from '@/components/SmartBoxCard.vue';
 import DeviceConfigPanel from '@/components/DeviceConfigPanel.vue';
 import FirmwareUpdatesPanel from '@/components/FirmwareUpdatesPanel.vue';
+import PendingBoxesPanel from '@/components/PendingBoxesPanel.vue';
 import { useUrlTab } from '@/composables/useUrlTab.js';
 
 const smartBoxStore = useSmartBoxStore();
 const deviceStore = useDeviceStore();
 const deviceTypeStore = useDeviceTypeStore();
 const otaStore = useOtaStore();
+const onboardingStore = useOnboardingStore();
 
-const { activeTab, setTab } = useUrlTab('smartboxen', ['smartboxen', 'geraetetypen', 'firmware-updates']);
+const { activeTab, setTab } = useUrlTab('smartboxen', ['smartboxen', 'geraetetypen', 'firmware-updates', 'neue-geraete']);
 
 watch(
   () => smartBoxStore.smartboxes,
