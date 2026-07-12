@@ -15,10 +15,20 @@ class TestBoxProvisioning(unittest.TestCase):
              patch('box_provisioning._read_config', return_value={}), \
              patch('box_provisioning._write_config', side_effect=fake_persist):
             result = box_provisioning.discover_and_provision(
-                'AA:BB:CC:DD:EE:01', 'https://node.local:8443')
+                'AA:BB:CC:DD:EE:01', 'https://node.local:8443', 'deadbeefdeadbeefdeadbeefdeadbeef')
 
         self.assertEqual(result['kBoxBase64'], 'ZmFrZS1rLWJveA==')
         self.assertEqual(written['k_box_base64'], 'ZmFrZS1rLWJveA==')
+
+    def test_discover_and_provision_sends_token(self):
+        with patch('box_provisioning.box_api_client.post_json', return_value={"kBoxBase64": "x"}) as mock_post, \
+             patch('box_provisioning._read_config', return_value={}), \
+             patch('box_provisioning._write_config'):
+            box_provisioning.discover_and_provision(
+                'AA:BB:CC:DD:EE:01', 'https://node.local:8443', 'deadbeefdeadbeefdeadbeefdeadbeef')
+
+        args, _ = mock_post.call_args
+        self.assertEqual(args[1]['token'], 'deadbeefdeadbeefdeadbeefdeadbeef')
 
     def test_send_heartbeat_posts_status(self):
         with patch('box_provisioning.box_api_client.post_json', return_value={}) as mock_post:

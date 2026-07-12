@@ -22,12 +22,13 @@ def _write_config(data):
         json.dump(data, f)
 
 
-def discover_and_provision(mac_address, box_api_base_url, app_version="unknown",
+def discover_and_provision(mac_address, box_api_base_url, token, app_version="unknown",
                             firmware_version="unknown", box_type="unknown", capabilities_json="{}"):
     result = box_api_client.post_json(
         box_api_base_url + "/box-api/v1/discovery",
         {
             "macAddress": mac_address,
+            "token": token,
             "appVersion": app_version,
             "firmwareVersion": firmware_version,
             "boxType": box_type,
