@@ -431,6 +431,7 @@ A **raw WebSocket** at `/node-channel` (separate from STOMP `/ws/shooting`), **N
 - `NodeConnectionRegistry` (in-RAM) maps nodeId → session + last-beat; `NodeLivenessSweeper` (`@Scheduled`) marks a Node **STALE** after `node-channel.stale-after` (30s default) and drops it. Liveness has exactly one source: the open, heartbeating channel.
 - `NodeChannelService.dispatchCommand(nodeId, commandType, payloadJson)` → `CommandOutcome`. Absent/stale node → `NODE_UNREACHABLE` (never dispatched into a dead socket). Sent-but-no-ack within `node-channel.command-timeout` → `COMMAND_OUTCOME_UNKNOWN` — **not** "failed": a timeout doesn't say whether the command ran; the caller re-reads target state. Commands carry a UUID; the Node dedups so a retried UUID re-acks without re-executing.
 - **Not wired to device commands.** `DeviceController.sendDeviceCommand` / `RangePositionService.sendPositionCommand` stay `501` — routing a *device* command to the owning Node needs the device→range→node table (multi-SmartBox assignment, still unexposed) and the real Node→Box ESP-NOW leg (Phase 2b). This sub-project built the generic dispatch primitive + channel + liveness only; the Node terminates each command at a logging seam.
+- **Also out of scope here:** the `hub-api` cross-range forwarding and the `node-api` facade that will sit in front of this channel are sub-project **#5**; and although the envelope is versioned/extensible, no cache-invalidation message type is built yet — that rides in once #5's sync read paths need it.
 
 ---
 

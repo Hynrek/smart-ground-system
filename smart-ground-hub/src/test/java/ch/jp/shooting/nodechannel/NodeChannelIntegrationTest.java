@@ -73,12 +73,22 @@ class NodeChannelIntegrationTest {
     }
 
     @Test
-    void dispatch_whenBackhaulCutMidCommand_returnsCommandOutcomeUnknown() throws Exception {
-        var node = connect(false);              // never acks
-        node.session.close();                   // cut the backhaul before any ack
-        CommandOutcome outcome = service.dispatchCommand("node-1", "FIRE", "{}");
-        // Either NODE_UNREACHABLE (sweep already saw the close) or COMMAND_OUTCOME_UNKNOWN (sent, no ack) —
-        // both are correct "don't claim failure" outcomes; assert it is never OK/REJECTED.
-        assertThat(outcome).isIn(CommandOutcome.COMMAND_OUTCOME_UNKNOWN, CommandOutcome.NODE_UNREACHABLE);
+    void dispatch_whenBackhaulCutAfterCommandSent_returnsCommandOutcomeUnknown() throws Exception {
+        var node = connect(false);              // never acks, session stays live for now
+
+        // dispatchCommand blocks until ack-or-timeout, so run it on its own thread
+        CompletableFuture<CommandOutcome> future = CompletableFuture.supplyAsync(
+                () -> service.dispatchCommand("node-1", "FIRE", "{}"));
+
+        // wait until the command genuinely left the Hub over the still-live connection
+        NodeChannelMessage command = node.received.poll(5, TimeUnit.SECONDS);
+        assertThat(command).isNotNull();
+        assertThat(command.type()).isEqualTo(NodeChannelTypes.TYPE_COMMAND);
+
+        // only now cut the backhaul — simulates the connection dying mid-command, after send, before any ack
+        node.session.close();
+
+        CommandOutcome outcome = future.get(5, TimeUnit.SECONDS);
+        assertThat(outcome).isEqualTo(CommandOutcome.COMMAND_OUTCOME_UNKNOWN);
     }
 }
