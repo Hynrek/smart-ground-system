@@ -1,0 +1,211 @@
+import board
+import time
+from machine import Pin
+from micropython import const
+
+# --- KONFIGURATION ---
+# Onboard-LED: Pin und Aktivierungspegel kommen aus dem Board-Modul
+led    = Pin(board.LED_PIN, Pin.OUT)
+_LED_ON  = board.LED_ON        # 1 = aktiv-high (Pico 2W), 0 = aktiv-low (XIAO ESP32-S3)
+_LED_OFF = 1 - board.LED_ON
+
+# Status-LED Timing (Boot-/Verbindungsanzeige)
+STARTUP_BLINKS       = const(3)    # Anzahl Blinks beim Start
+BLINK_ON_MS          = const(150)  # LED-AN-Dauer pro Blink
+BLINK_OFF_MS         = const(150)  # LED-AUS-Dauer pro Blink
+CONNECTING_TOGGLE_MS = const(250)  # Toggle-Intervall während WLAN-Verbindung
+FEED_SLEEP_CHUNK_MS  = const(4000) # Max. Schlafstück, damit der Watchdog gefüttert wird
+
+
+def led_on():
+    """Schaltet die Onboard-LED dauerhaft ein."""
+    led.value(_LED_ON)
+
+
+def led_off():
+    """Schaltet die Onboard-LED aus."""
+    led.value(_LED_OFF)
+
+
+def led_toggle():
+    """Wechselt den Zustand der Onboard-LED."""
+    led.toggle()
+
+
+def status_blink(times=STARTUP_BLINKS, on_ms=BLINK_ON_MS, off_ms=BLINK_OFF_MS):
+    """Blinkt die Onboard-LED `times` mal und lässt sie danach ausgeschaltet."""
+    for _ in range(times):
+        led.value(_LED_ON)
+        time.sleep_ms(on_ms)
+        led.value(_LED_OFF)
+        time.sleep_ms(off_ms)
+
+
+def feed_sleep_ms(total_ms, wdt=None, chunk_ms=FEED_SLEEP_CHUNK_MS):
+    """
+    Schläft total_ms und füttert dabei einen optionalen Watchdog in Stücken,
+    damit lange Wartezeiten (z.B. Reconnect-Delays) keinen WDT-Reset auslösen.
+    """
+    remaining = total_ms
+    while remaining > 0:
+        step = chunk_ms if remaining > chunk_ms else remaining
+        time.sleep_ms(step)
+        if wdt is not None:
+            wdt.feed()
+        remaining -= step
+
+
+class GpioManager:
+    """
+    Verwaltet dynamisch zugewiesene GPIO-Pins basierend auf der Config-Payload
+    des Backends.
+
+    Struktur der device_map:
+        { "<device-uuid>": {"pin": Pin-Objekt, "device": str, "direction": str, "command": str,
+                            "signal_duration_ms": int, "blocked": bool}, ... }
+
+    Wird bei jedem Config-Push neu aufgebaut (reset() + setup() aufrufen).
+    """
+
+    def __init__(self):
+        # Mapping: device_id (str) -> {"pin": Pin, "device": str, "direction": str, "command": str,
+        #                                "signal_duration_ms": int, "blocked": bool}
+        self._devices = {}
+        self._pulse_active = {}  # Aktive Pulse: device_id -> end_ticks
+
+    def setup(self, devices):
+        """
+        Initialisiert GPIO-Pins für alle Geräte aus der Config-Payload.
+
+        :param devices: Liste von Dicts mit 'device_id', 'device', 'direction',
+                        'command', 'signal_duration_ms', 'blocked'.
+        """
+        for dev in devices:
+            device_id = dev.get("device_id", "")
+            device_kind = dev.get("device", "GPIO")
+            direction = dev.get("direction", "OUTPUT")
+            command = dev.get("command", "")
+            signal_duration_ms = dev.get("signal_duration_ms", 0)
+            blocked = dev.get("blocked", False)
+
+            if not device_id or not command:
+                print("Ungültiger Geräte-Eintrag in Config, übersprungen:", dev)
+                continue
+
+            try:
+                # Nur GPIO-Geräte brauchen einen Pin; LED nutzt die Onboard-LED
+                pin = None
+                if device_kind == "GPIO":
+                    gpio_pin = int(command)
+                    pin = Pin(gpio_pin, Pin.OUT)
+                    pin.value(0)
+
+                self._devices[device_id] = {
+                    "pin": pin,
+                    "device": device_kind,
+                    "direction": direction,
+                    "command": command,
+                    "signal_duration_ms": signal_duration_ms,
+                    "blocked": blocked
+                }
+                print("GPIO initialisiert: device={} type={} cmd={} duration_ms={}".format(
+                    device_id, device_kind, command, signal_duration_ms))
+            except Exception as e:
+                print("GPIO-Initialisierung fehlgeschlagen: device={} fehler={}".format(device_id, e))
+
+    def reset(self):
+        """
+        Schaltet alle verwalteten Pins ab und leert die Zuordnungstabelle.
+        Wird vor jedem Config-Update aufgerufen.
+        """
+        for dev_info in self._devices.values():
+            try:
+                if dev_info["device"] == "GPIO" and dev_info["pin"] is not None:
+                    dev_info["pin"].value(0)
+                elif dev_info["device"] == "LED":
+                    led.value(_LED_OFF)
+            except Exception:
+                pass
+        self._devices.clear()
+        self._pulse_active.clear()
+
+    def set(self, device_id, value, signal_duration_ms=None):
+        """
+        Setzt den Ausgangszustand eines Geräts (einphasig, nicht-blockierend).
+
+        :param device_id:          UUID des Geräts (str).
+        :param value:              1 = EIN, 0 = AUS.
+        :param signal_duration_ms: Überschreibt den konfigurierten Wert, wenn angegeben.
+        :returns: True bei Erfolg; False wenn unbekannt, blockiert, beschäftigt (laufender
+                  Puls) oder OFF-Befehl für LED.
+        """
+        entry = self._devices.get(device_id)
+        if entry is None or entry["blocked"]:
+            return False
+
+        # LED-Geräte akzeptieren nur ON-Befehle (value=1)
+        if entry["device"] == "LED" and value == 0:
+            print("Fehler: OFF-Befehl für LED-Gerät blockiert: device={}".format(device_id))
+            return False
+
+        # Busy-Reject: laufenden Puls nicht erneut auslösen
+        if value == 1 and device_id in self._pulse_active:
+            print("Gerät beschäftigt, Befehl ignoriert: device={}".format(device_id))
+            return False
+
+        effective_duration_ms = signal_duration_ms if signal_duration_ms is not None else entry["signal_duration_ms"]
+        device_kind = entry["device"]
+
+        if device_kind == "GPIO":
+            pin = entry["pin"]
+            if value == 1 and effective_duration_ms > 0:
+                pin.value(1)
+                self._pulse_active[device_id] = time.ticks_add(
+                    time.ticks_ms(), effective_duration_ms)
+                print("GPIO-Puls gestartet: device={} duration_ms={}".format(
+                    device_id, effective_duration_ms))
+                return True
+            pin.value(value)
+            self._pulse_active.pop(device_id, None)
+
+        elif device_kind == "LED":
+            if value == 1 and effective_duration_ms > 0:
+                led.value(_LED_ON)
+                self._pulse_active[device_id] = time.ticks_add(
+                    time.ticks_ms(), effective_duration_ms)
+                print("LED-Puls gestartet: device={} duration_ms={}".format(
+                    device_id, effective_duration_ms))
+                return True
+            led.value(_LED_ON)
+            self._pulse_active.pop(device_id, None)
+
+        return True
+
+    def known_ids(self):
+        """Gibt alle bekannten device_ids zurück."""
+        return list(self._devices.keys())
+
+    def tick(self):
+        """
+        Läuft jeden Main-Loop-Tick: beendet abgelaufene Pulse (GPIO + LED).
+        Nutzt ticks_ms()/ticks_diff() für ms-Auflösung und korrekten 32-Bit-Überlauf.
+        """
+        now = time.ticks_ms()
+        expired = []
+        for device_id, end_time in self._pulse_active.items():
+            if time.ticks_diff(now, end_time) >= 0:
+                dev_info = self._devices.get(device_id)
+                if dev_info:
+                    if dev_info["device"] == "GPIO":
+                        dev_info["pin"].value(0)
+                    elif dev_info["device"] == "LED":
+                        led.value(_LED_OFF)
+                    print("Puls beendet: device={} type={}".format(device_id, dev_info["device"]))
+                expired.append(device_id)
+
+        for device_id in expired:
+            self._pulse_active.pop(device_id)
+
+
+# Globale Instanz – wird von mqttutils importiert und in main.py konfiguriert
+gpio_manager = GpioManager()

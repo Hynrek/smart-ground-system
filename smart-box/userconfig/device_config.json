@@ -1,0 +1,14 @@
+{
+  "devices": [
+    {
+      "device_id": "onboard-led-pico2w",
+      "alias": "Onboard LED",
+      "device": "LED",
+      "direction": "OUTPUT",
+      "command": "LED",
+      "signal_duration_ms": 0,
+      "delay_ms": null,
+      "blocked": false
+    }
+  ]
+}
