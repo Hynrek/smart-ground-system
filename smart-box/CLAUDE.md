@@ -45,7 +45,7 @@ Do not leave decisions only in commit messages or conversation history — this 
 ## Language & Runtime
 
 - **MicroPython 1.23+** only — no CPython-specific syntax or libraries
-- Allowed stdlib modules: `network`, `time`, `machine`, `json`, `sys`, `gc`, `os` (only in `ota.py`), `hashlib` (`ota.py`, `espnow_crypto.py`), `struct` (`frame_envelope.py`)
+- Allowed stdlib modules: `network`, `time`, `machine`, `json`, `sys`, `gc`, `os` (`ota.py` for directory ops; `onboarding_client.py` for `os.urandom`), `hashlib` (`ota.py`, `espnow_crypto.py`), `struct` (`frame_envelope.py`)
 - box-api transport: `urequests`, used directly by `box_api_client.py` (`post_json`/`get_bytes`, HTTPS with a pinned CA)
 - OTA HTTP download uses `box_api_client.get_bytes` (itself `urequests`-backed) via `ota.py`'s `_default_http_stream`
 - No `asyncio` / `uasyncio` — all logic is synchronous and polling-based
