@@ -51,8 +51,8 @@ export async function apiUpload(path, formData) {
   return handleResponse(response);
 }
 
-export async function apiFetch(path, options = {}) {
-  const response = await fetch(`${BASE_URL}${path}`, {
+export async function apiFetch(path, options = {}, baseUrl = BASE_URL) {
+  const response = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers: {
       ...getAuthHeaders(),
