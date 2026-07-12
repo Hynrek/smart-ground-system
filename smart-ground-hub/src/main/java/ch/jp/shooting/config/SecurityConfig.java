@@ -48,6 +48,8 @@ public class SecurityConfig {
                 // hub-api Sync-Pull: bis Teilprojekt #6 (Service-Token) unauthentifiziert auf dem
                 // vertrauenswürdigen Backhaul freigegeben — gleiche Haltung wie die OTA-GETs oben.
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/sync/**").permitAll()
+                // node-channel: Node-initiierter WebSocket. App-Level-Auth im HELLO-Token (bis #6).
+                .requestMatchers("/node-channel").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

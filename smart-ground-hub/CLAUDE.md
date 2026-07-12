@@ -424,6 +424,17 @@ When v1.0 is released:
 
 ---
 
+## node-channel (#4) — Hub→Node control channel
+
+A **raw WebSocket** at `/node-channel` (separate from STOMP `/ws/shooting`), **Node-initiated**: the Node dials out and holds the connection open, so the Hub never knows a Node's IP (works behind CGNAT for the cloud variant). Messages are the versioned `NodeChannelMessage` envelope (shared record in `contracts`, so Hub and Node can't diverge): `HELLO`/`HELLO_ACK` (app-level auth via a configured `node-channel.tokens.{nodeId}` — **temporary until the #6 service token**), `HEARTBEAT`, `COMMAND`/`COMMAND_ACK`.
+
+- `NodeConnectionRegistry` (in-RAM) maps nodeId → session + last-beat; `NodeLivenessSweeper` (`@Scheduled`) marks a Node **STALE** after `node-channel.stale-after` (30s default) and drops it. Liveness has exactly one source: the open, heartbeating channel.
+- `NodeChannelService.dispatchCommand(nodeId, commandType, payloadJson)` → `CommandOutcome`. Absent/stale node → `NODE_UNREACHABLE` (never dispatched into a dead socket). Sent-but-no-ack within `node-channel.command-timeout` → `COMMAND_OUTCOME_UNKNOWN` — **not** "failed": a timeout doesn't say whether the command ran; the caller re-reads target state. Commands carry a UUID; the Node dedups so a retried UUID re-acks without re-executing.
+- **Not wired to device commands.** `DeviceController.sendDeviceCommand` / `RangePositionService.sendPositionCommand` stay `501` — routing a *device* command to the owning Node needs the device→range→node table (multi-SmartBox assignment, still unexposed) and the real Node→Box ESP-NOW leg (Phase 2b). This sub-project built the generic dispatch primitive + channel + liveness only; the Node terminates each command at a logging seam.
+- **Also out of scope here:** the `hub-api` cross-range forwarding and the `node-api` facade that will sit in front of this channel are sub-project **#5**; and although the envelope is versioned/extensible, no cache-invalidation message type is built yet — that rides in once #5's sync read paths need it.
+
+---
+
 ## OpenAPI & REST Contracts
 
 > **Mandatory rule: `openapi.yaml` is the single source of truth for every REST endpoint. Any change to the API — new endpoint, removed endpoint, changed path, changed request/response shape, added/removed field, changed status code — must be reflected in `openapi.yaml` before or at the same time as the implementation. No exceptions.**
