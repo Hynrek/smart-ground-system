@@ -27,7 +27,7 @@ class NodeChannelClientIntegrationTest {
         props.setNodeId("node-1");
         props.setToken("secret");
         var handler = new NodeChannelClientHandler(props, codec,
-                (type, payload) -> NodeChannelTypes.OUTCOME_OK, new CommandDeduplicator(100), () -> {});
+                (type, payload) -> NodeChannelTypes.OUTCOME_OK, new CommandDeduplicator(100), () -> {}, s -> {});
 
         // 1) connection established → HELLO sent
         handler.afterConnectionEstablished(fakeSession);
@@ -54,7 +54,7 @@ class NodeChannelClientIntegrationTest {
         var runs = new int[]{0};
         var handler = new NodeChannelClientHandler(props, codec,
                 (type, payload) -> { runs[0]++; return NodeChannelTypes.OUTCOME_OK; },
-                new CommandDeduplicator(100), () -> {});
+                new CommandDeduplicator(100), () -> {}, s -> {});
 
         var id = UUID.randomUUID();
         var frame = new org.springframework.web.socket.TextMessage(

@@ -40,12 +40,6 @@ public class NodeChannelClientHandler extends TextWebSocketHandler {
 
     public NodeChannelClientHandler(NodeChannelProperties props, NodeChannelCodec codec,
                                     NodeCommandHandler commandHandler, CommandDeduplicator deduplicator,
-                                    Runnable onClosed) {
-        this(props, codec, commandHandler, deduplicator, onClosed, s -> { });
-    }
-
-    public NodeChannelClientHandler(NodeChannelProperties props, NodeChannelCodec codec,
-                                    NodeCommandHandler commandHandler, CommandDeduplicator deduplicator,
                                     Runnable onClosed, Consumer<WebSocketSession> onConnected) {
         this.props = props;
         this.codec = codec;
