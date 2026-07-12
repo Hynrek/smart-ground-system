@@ -2,7 +2,10 @@ package ch.jp.shooting.node.hub;
 
 import ch.jp.smartground.model.LoginRequest;
 import ch.jp.smartground.model.LoginResponse;
+import ch.jp.smartground.model.SerieSyncPage;
 import org.springframework.web.client.RestClient;
+
+import java.time.Instant;
 
 /**
  * Node's only channel to the Hub. Depends solely on {@code contracts} wire types —
@@ -38,5 +41,19 @@ public class HubClient {
     public byte[] fetchOtaFirmware(String version) {
         return restClient.get().uri("/api/ota/firmware/{version}", version)
                 .retrieve().body(byte[].class);
+    }
+
+    /**
+     * Zieht eine Sync-Seite der Serien vom Hub (hub-api, abwärts). updatedAfter als ISO-8601-Instant
+     * (inklusive untere Schranke). Auth folgt mit Teilprojekt #6 (Service-Token) — heute offen.
+     */
+    public SerieSyncPage fetchSerieSyncPage(Instant updatedAfter, int limit) {
+        return restClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/api/sync/serien")
+                        .queryParam("updatedAfter", updatedAfter.toString())
+                        .queryParam("limit", limit)
+                        .build())
+                .retrieve()
+                .body(SerieSyncPage.class);
     }
 }
