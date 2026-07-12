@@ -57,9 +57,18 @@
         </dependency>
 
         <dependency>
+            <!-- Compile-scope (not test-only): HubClient needs a Jackson 2.x MappingJackson2HttpMessageConverter
+                 to deserialize generated contracts models correctly. Spring Boot 4's default HTTP message
+                 conversion uses Jackson 3.x (tools.jackson), which silently returns null instead of an empty
+                 JsonNullable for JsonNullable<T> fields (e.g. SerieSyncItem.rangeId); see HubClientConfig
+                 and the analogous fix in smart-ground-hub's JacksonConfig. -->
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- java.time (de)serialization (OffsetDateTime etc.) for the Jackson 2.x converter above. -->
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
         <dependency>
