@@ -46,7 +46,11 @@ public class NodeJwtVerifier {
                 return false;
             }
             JsonNode claims = MAPPER.readTree(Base64.getUrlDecoder().decode(parts[1]));
-            if (claims.has("exp") && Instant.now().getEpochSecond() >= claims.get("exp").asLong()) {
+            // exp ist Pflichtfeld: fehlend oder nicht-numerisch => ungueltig (kein ewig gueltiges Token).
+            if (!claims.has("exp") || !claims.get("exp").canConvertToLong()) {
+                return false;
+            }
+            if (Instant.now().getEpochSecond() >= claims.get("exp").asLong()) {
                 return false;
             }
             return true;

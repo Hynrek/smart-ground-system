@@ -55,6 +55,31 @@ class OnboardingServiceTest {
     }
 
     @Test
+    void couple_successiveCalls_emitDifferentFrameIds() {
+        registry.onHello("AA:BB:CC:DD:EE:31", -40, new byte[]{1, 2, 3, 4, 5, 6, 7, 8});
+        registry.onHello("AA:BB:CC:DD:EE:32", -41, new byte[]{8, 7, 6, 5, 4, 3, 2, 1});
+
+        AtomicReference<byte[]> firstFrame = new AtomicReference<>();
+        AtomicReference<byte[]> secondFrame = new AtomicReference<>();
+        OnboardingService service = new OnboardingService(registry, tokenService, certFingerprint,
+                (dest, frame) -> {
+                    if (firstFrame.get() == null) {
+                        firstFrame.set(frame);
+                    } else {
+                        secondFrame.set(frame);
+                    }
+                },
+                "30:ae:a4:1f:2b:3c", "SmartGround-Node-1", "provision-pw-123", "https://192.168.4.1:8443");
+
+        service.couple("AA:BB:CC:DD:EE:31");
+        service.couple("AA:BB:CC:DD:EE:32");
+
+        int firstFrameId = FrameHeader.decode(firstFrame.get()).frameId();
+        int secondFrameId = FrameHeader.decode(secondFrame.get()).frameId();
+        assertThat(firstFrameId).isNotEqualTo(secondFrameId);
+    }
+
+    @Test
     void couple_unknownMac_throwsTypedRejection() {
         OnboardingService service = new OnboardingService(registry, tokenService, certFingerprint,
                 (dest, frame) -> { }, "30:ae:a4:1f:2b:3c", "S", "P", "https://x");

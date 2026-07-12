@@ -40,6 +40,24 @@ class NodeJwtVerifierTest {
         assertThat(verifier.isValid(token)).isFalse();
     }
 
+    private static String jwtWithoutExp(String secretBase64) throws Exception {
+        Base64.Encoder url = Base64.getUrlEncoder().withoutPadding();
+        String header = url.encodeToString("{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(StandardCharsets.UTF_8));
+        String payload = url.encodeToString(
+                "{\"sub\":\"admin@smartground.local\"}".getBytes(StandardCharsets.UTF_8));
+        String signingInput = header + "." + payload;
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(Base64.getDecoder().decode(secretBase64), "HmacSHA256"));
+        String sig = url.encodeToString(mac.doFinal(signingInput.getBytes(StandardCharsets.US_ASCII)));
+        return signingInput + "." + sig;
+    }
+
+    @Test
+    void missingExp_isInvalid() throws Exception {
+        String token = jwtWithoutExp(SECRET);
+        assertThat(verifier.isValid(token)).isFalse();
+    }
+
     @Test
     void wrongSecret_isInvalid() throws Exception {
         String token = jwt(Instant.now().getEpochSecond() + 3600,

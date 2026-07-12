@@ -10,6 +10,7 @@ import org.springframework.web.ErrorResponseException;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Orchestriert die Kopplung: schlägt die pending Box nach, mintet ein Einmal-Token,
@@ -26,6 +27,10 @@ public class OnboardingService {
     private final byte[] apSsid;
     private final byte[] apPsk;
     private final byte[] boxApiUrl;
+    // frame_id ist ein uint16 LE im Wire-Format (FrameHeader) -- pro Instanz monoton hochzaehlen
+    // und in [0, 65535] wrappen, damit ONBOARD_OFFER-Frames nicht alle die gleiche
+    // (srcMac, frameId)-Tupel-Identitaet tragen (SeenCache-Dedup-Kontrakt).
+    private final AtomicInteger frameIdCounter = new AtomicInteger(0);
 
     public OnboardingService(PendingBoxRegistry registry, ProvisioningTokenService tokenService,
                              NodeCertFingerprint certFingerprint, RadioSender radioSender,
@@ -53,7 +58,8 @@ public class OnboardingService {
 
         ProvisioningTokenService.MintedToken token = tokenService.mint(mac);
 
-        FrameHeader header = new FrameHeader(Macs.parse(mac), nodeMac, 1, 1, FrameType.ONBOARD_OFFER);
+        int frameId = frameIdCounter.getAndUpdate(current -> (current + 1) & 0xFFFF) & 0xFFFF;
+        FrameHeader header = new FrameHeader(Macs.parse(mac), nodeMac, frameId, 1, FrameType.ONBOARD_OFFER);
         byte[] frame = OnboardingCodec.buildOnboardOffer(header, box.boxNonce(), token.raw(),
                 certFingerprint.sha256(), apSsid, apPsk, boxApiUrl);
 
