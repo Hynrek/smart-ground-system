@@ -57,12 +57,12 @@ This project uses the Superpowers skill system. When working in this repo:
 
 ## Project Structure
 
-> **`model/` and the OpenAPI contract now live in separate repos.** `ch.jp.shooting.model.*`
+> **`model/` and the OpenAPI contract live outside this folder.** `ch.jp.shooting.model.*`
 > (JPA entities) is the `domain` module and `ch.jp.smartground.*` (generated interfaces/DTOs)
-> is the `contracts` module — both in the sibling `smart-ground-contracts` repo, consumed here
-> via versioned Maven coordinates (`ch.jp.shooting:domain`, `ch.jp.smartground:contracts`).
-> After editing `domain` or `contracts`, run `mvn install` in `smart-ground-contracts` before
-> building the Hub — there is no multi-repo reactor.
+> is the `contracts` module — both in the sibling `smart-ground-contracts/` folder of the
+> monorepo, consumed here via versioned Maven coordinates (`ch.jp.shooting:domain`,
+> `ch.jp.smartground:contracts`). After editing `domain` or `contracts`, run `mvn install`
+> in `smart-ground-contracts` before building the Hub — there is no shared Maven reactor.
 
 ```
 src/main/java/ch/jp/shooting/

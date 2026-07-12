@@ -6,13 +6,32 @@ Smart Ground is an IoT system for managing shooting-range devices (clay pigeon t
 smart-ground/
 ├── smart-ground-hub/       # Spring Boot 4 REST API — sync/competition authority (MQTT removed)
 ├── smart-ground-node/      # Spring Boot 4 process — box-api (HTTPS) for SmartBox discovery/status/OTA
-├── smart-ground-contracts/ # Shared contracts (OpenAPI types) + domain (JPA entities) — own repo, consumed via Maven coordinates
+├── smart-ground-contracts/ # Shared contracts (OpenAPI types) + domain (JPA entities) — consumed via Maven coordinates (`mvn install`)
 ├── smart-ground-ui/        # Vue 3 frontend
 ├── smart-box/              # MicroPython firmware (XIAO ESP32-S3; multi-board layer, Pico 2W parked)
 └── smart-ground-deploy/    # Deployment: docker-compose (no Mosquitto — MQTT removed)
 ```
 
 **No production release has been made.** Schema, API contracts, and migrations can be rewritten freely.
+
+---
+
+## Repository & Git Setup (settled 2026-07-12)
+
+**This is a monorepo.** The entire `Smart Ground` folder is one git repository:
+`git@github.com:Hynrek/smart-ground-system.git`. The subproject folders are **not**
+separate git repos — do not `git init` or add remotes inside them.
+
+- **One repo, one history**: the full histories of the former `smartground-backend`,
+  `smartground-ui`, `smartground-firmware`, and `smart-ground-contracts` repos were merged
+  in on 2026-07-12 (`git log -- <subfolder>/` reaches back to each subproject's first commit).
+- **Old GitHub repos** (`smartground-backend`, `smartground-ui`, `smartground-firmware`,
+  `smartground-deploy`): historical archives only — never push to them again.
+- **`.git-archive/`** (gitignored, local only): the pre-migration `.git` dirs of the old
+  subrepos, kept as backup (they also hold old side branches). Safe to delete once confident.
+- **Line endings**: `.gitattributes` normalizes all text files to LF in the repo.
+- **Branches**: work on `main` or short-lived feature branches; everything merges to `main`.
+- Cross-cutting changes (e.g. contract → hub → ui) are **one atomic commit**.
 
 ---
 

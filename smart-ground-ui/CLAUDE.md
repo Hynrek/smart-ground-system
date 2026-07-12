@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-The Smart Ground UI is a Vue 3 single-page application that provides the web interface for managing shooting-range devices, running live play sessions (Passen), and organizing competitions (Wettkämpfe). It communicates with the backend REST API defined in `smart-ground-backend/src/main/resources/static/openapi.yaml`.
+The Smart Ground UI is a Vue 3 single-page application that provides the web interface for managing shooting-range devices, running live play sessions (Passen), and organizing competitions (Wettkämpfe). It communicates with the Hub REST API defined contract-first in `smart-ground-contracts/contracts/src/main/resources/openapi.yaml` (sibling folder in the monorepo, consumed by the Hub). "Backend" in this document means **`smart-ground-hub`** (formerly `smart-ground-backend`).
+
+> ⚠️ **Architecture transition (Hub/Node).** Today the UI talks directly to the Hub. The target architecture — [Hub/Node spec](../docs/superpowers/specs/2026-07-10-hub-node-architecture-design.md), implementation tracked in the [roadmap](../docs/superpowers/plans/2026-07-10-hub-node-roadmap.md) — puts a **Node facade (`node-api`, sub-project #5)** between UI and Hub: the Node serves the Vue app locally, answers with a provenance envelope (`live` | `as_of`), degrades to stale reads or refusals (`ProblemDetail`: `/errors/hub-unreachable` etc.) when the Hub is away, and supports offline login. **UX flows built on "the backend is always reachable" will need rethinking** — check the spec before designing new flows or reworking existing ones.
 
 ---
 
@@ -68,7 +70,7 @@ Never fetch from the API directly inside a component. Always go through the stor
 
 ## Test Credentials
 
-Seeded by the backend `DataInitializer` — see the **Seeded users** table in [`smart-ground-backend/CLAUDE.md`](../smart-ground-backend/CLAUDE.md) (single source of truth; login accepts email or username).
+Seeded by the backend `DataInitializer` — see the **Seeded users** table in [`smart-ground-hub/CLAUDE.md`](../smart-ground-hub/CLAUDE.md) (single source of truth; login accepts email or username).
 
 ---
 
@@ -155,7 +157,7 @@ Store rules:
 
 ## Services (API layer)
 
-Thin wrappers around `apiClient` (fetch + auth header + 401 handling + error mapping), one `xxxApi.js` module per backend domain — the directory is the inventory; endpoints must exist in the backend `openapi.yaml`.
+Thin wrappers around `apiClient` (fetch + auth header + 401 handling + error mapping), one `xxxApi.js` module per backend domain — the directory is the inventory; endpoints must exist in the contracts `openapi.yaml` (see Project Overview).
 
 Non-obvious name → endpoint mappings:
 
@@ -307,7 +309,7 @@ Access in code: `import.meta.env.VITE_API_BASE_URL`.
 4. Connect to the appropriate Pinia store
 
 **Adding a new API call:**
-1. Add the function to the relevant `services/xxxApi.js` (endpoint must exist in the backend `openapi.yaml`)
+1. Add the function to the relevant `services/xxxApi.js` (endpoint must exist in the contracts `openapi.yaml`)
 2. Add/update a mapper if the response shape needs transforming
 3. Add a store action that calls the service and updates state
 4. Call the store action from the view

@@ -1,0 +1,84 @@
+erDiagram
+    %% ─────────────────────────────────────────
+    %% SMART GROUND – CURRENT ENTITIES
+    %% ─────────────────────────────────────────
+
+    smart_boxes {
+        uuid id PK
+        string mac_address UK
+        string alias
+        string status
+        timestamp last_seen
+        string firmware_version
+        uuid firmware_config_id FK
+        string mqtt_username
+        boolean config_synced
+    }
+
+    devices {
+        uuid id PK
+        uuid smartbox_id FK
+        uuid range_id FK
+        uuid group_id FK
+        uuid device_type_id FK
+        string alias
+        int delay_signal_duration_ms
+        int fire_delay_ms
+        jsonb pin_config
+        boolean blocked
+        boolean healthy
+    }
+
+    ranges {
+        uuid id PK
+        string name UK
+        string description
+        boolean locked
+        timestamp created_at
+    }
+
+    device_types {
+        uuid id PK
+        string name
+        string device_type
+        string box_type
+        int gpio_pin
+        uuid signal_type_id FK
+        uuid group_id FK
+        int signal_duration_ms
+        int delay_signal_duration_ms
+    }
+
+    device_type_groups {
+        uuid id PK
+        string name UK
+    }
+
+    signal_types {
+        uuid id PK
+        uuid firmware_config_id FK
+        string communication_direction
+        string device
+        string command
+    }
+
+    firmware_configs {
+        uuid id PK
+        string version
+        string box_type UK
+    }
+
+    %% ─────────────────────────────────────────
+    %% RELATIONSHIPS
+    %% ─────────────────────────────────────────
+
+    smart_boxes ||--o{ devices : "has"
+    devices }o--|| ranges : "assigned_to"
+    devices }o--|| device_type_groups : "typed_by"
+    devices }o--|| device_types : "configured_as"
+    ranges ||--o{ devices : "contains"
+    device_types }o--|| signal_types : "uses"
+    device_types }o--|| device_type_groups : "grouped_in"
+    signal_types }o--|| firmware_configs : "defined_in"
+    firmware_configs ||--o{ signal_types : "defines"
+    smart_boxes }o--|| firmware_configs : "runs"

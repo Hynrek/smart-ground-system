@@ -1,0 +1,75 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   SmartGround · Shooter Remote — "D" card + toggle treatment
+   Target: src/views/shooter/ShooterRemoteView.vue  →  <style scoped>
+
+   The view already sets the session state on the root element
+   (.session--erfassen / --verzoegert / --rufausloesung, default = Schiessen)
+   and already gives .device-btn a saturated border + outer glow per session.
+   These rules add the D language on top: a mode-tinted GRADIENT background,
+   a SOLID accent icon chip, and a card-style Solo/Pair toggle.
+
+   ── 1. Session → card accent variable ──────────────────────────────────
+   Add --card-accent to the existing token line and the three session rules.
+   (The base `.shooter-remote { --delay-color … }` line already exists — just
+    append --card-accent to it, then add the three session overrides.)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.shooter-remote                          { --card-accent: var(--sg-session-schiessen,     #48BB78); }
+.shooter-remote.session--erfassen        { --card-accent: var(--sg-session-erfassen,      #fc8181); }
+.shooter-remote.session--verzoegert      { --card-accent: var(--sg-session-verzoegert,    #EF9F27); }
+.shooter-remote.session--rufausloesung   { --card-accent: var(--sg-session-rufausloesung, #56C8D8); }
+
+/* ── 2. Device card — gradient tint background ─────────────────────────────
+   Adds to (does not replace) the existing border/glow session rules.       */
+.device-btn:not(:disabled) {
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--card-accent) 15%, transparent) 0%,
+      color-mix(in srgb, var(--card-accent) 6%,  transparent) 42%,
+      rgba(255, 255, 255, 0.05) 100%);
+}
+
+/* ── 3. Solid accent icon chip ─────────────────────────────────────────────
+   The round letter wrap becomes a solid fill; letter turns dark via the
+   iconColor() tweak in the README. Keep the chip solid through the transient
+   firing/fired/pair states so the dark glyph never lands on a dark tint.    */
+.device-btn:not(:disabled) .btn-icon-wrap,
+.device-btn--firing .btn-icon-wrap,
+.device-btn--fired .btn-icon-wrap,
+.device-btn--pair-pending .btn-icon-wrap {
+  background: var(--card-accent);
+}
+
+/* position index sits bottom-right of the chip — bump contrast on the fill */
+.device-btn:not(:disabled) .btn-position-num {
+  color: rgba(26, 26, 46, 0.55);
+}
+
+/* ── 4. Solo/Pair toggle — styled like the cards ───────────────────────────
+   REPLACES .solo-pair-toggle and .toggle-btn.active. The container gets the
+   same tint + dimmed border; the active tab is a solid fill with a dark label.
+   Active tab keeps the THROW-type colour (solo/pair/a.schuss/raffale) so the
+   sub-mode meaning is preserved.                                            */
+.solo-pair-toggle {
+  gap: 6px;
+  padding: 6px;
+  overflow: visible;
+  border: 1px solid color-mix(in srgb, var(--card-accent) 35%, transparent);
+  border-radius: 22px;
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--card-accent) 15%, transparent) 0%,
+      color-mix(in srgb, var(--card-accent) 6%,  transparent) 42%,
+      rgba(255, 255, 255, 0.05) 100%);
+  backdrop-filter: blur(16px);
+}
+
+.toggle-btn {
+  border-radius: 16px;
+}
+
+/* solid active fill per throw-type — dark label */
+.mode--solo     .toggle-btn.active { background: #1D9E75; color: #08130E; }
+.mode--pair     .toggle-btn.active { background: #378ADD; color: #06121F; }
+.mode--a_schuss .toggle-btn.active { background: #EF9F27; color: #1C1204; }
+.mode--raffale  .toggle-btn.active { background: #7F77DD; color: #0E0C1C; }

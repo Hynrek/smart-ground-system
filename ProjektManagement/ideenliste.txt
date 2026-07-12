@@ -1,0 +1,43 @@
+admin@smartground.local:admin123
+user@smartground.local:user
+
+Testing:
+Commando Counter should not count Block Commands
+
+Smartboxen löschbar machen.
+UI Store Refresh. Wie machen wir das einfach?
+Auto Update der SmartBoxen
+
+Bugs:
+Drag & Drop auf dem Handy
+Blockieren hat Bugs
+
+Visuals:
+Error on Login not good enough (Contrast)
+
+
+TODOS:
+Admin Device Overview (Owner Focused Dashboard). Should be a "Statistics" Overview
++ No Bird Tracking auf der Maschine!
+
+User-Stats: (Wie viele Tauben habe ich bereits ausgelöst)
+QR Gruppenerstellung
+User reaktivieren können
+Serie direkt veröffenbtlichen können
+Epic E auf „nur Sperrender/Admins" beschränken → bräuchte Backend-Feld lockedByUserId
+Serien Druckbar machen (Damit Sie physisch an den Ständen angebracht werden können)
+QR Code Standanmeldung
+
+Second app besides the deploy stuff (call it experimental) the idea is to pre-release a version of this system, so a user can test it before he chooses to update its "ground"
+FITASC Altersgruppen
+Ist der Admin Block im MC ein reiner In-Memory State?
+File Encryption auf dem MC (Damit die Files nicht "geklaut" werden können.
+DB Volume Backup für PROD
+
+-------
+I want to plan the First "Input" Device.
+
+It will be a "physical" Keyboard which should be assigned to a range. The Buttons should be coupled with the Positions.
+
+This way I have the option to use physical device to release machines instead of only a UI.
+

@@ -30,6 +30,29 @@ def _url_decode(s):
     return ''.join(result)
 
 
+# Nur erlaubte Schlüssel übernehmen – verhindert Injection fremder Felder.
+# box_api_base_url ersetzt broker_ip/broker_port: main.py's Boot-Gate prüft seit dem
+# box-api-Umbau nur noch client_network_ssid + box_api_base_url (kein MQTT-Broker mehr).
+ALLOWED_KEYS = ('client_network_ssid', 'client_network_pw', 'box_api_base_url')
+
+
+def extract_setup_params(query_string):
+    """Parst den Query-String und filtert auf ALLOWED_KEYS."""
+    raw = {}
+    for pair in query_string.split('&'):
+        if '=' in pair:
+            key, value = pair.split('=', 1)
+            raw[_url_decode(key)] = _url_decode(value)
+    return {k: raw[k] for k in ALLOWED_KEYS if k in raw}
+
+
+def validate_setup_params(params):
+    """Prüft Pflichtfelder. Gibt eine Fehlermeldung zurück oder None wenn gültig."""
+    if not params.get('client_network_ssid') or not params.get('box_api_base_url'):
+        return "Fehler: SSID und box-api-URL sind Pflichtfelder."
+    return None
+
+
 def start_ap():
     """Startet den Access Point und einen einfachen HTTP-Server für die Ersteinrichtung."""
     print("Aktiviere Access Point...")
@@ -77,20 +100,12 @@ def start_ap():
                     # Query-String aus der ersten Zeile der HTTP-Anfrage extrahieren
                     try:
                         query_string = request.split('/save?')[1].split(' ')[0]
-                        raw = {}
-                        for pair in query_string.split('&'):
-                            if '=' in pair:
-                                key, value = pair.split('=', 1)
-                                raw[_url_decode(key)] = _url_decode(value)
-
-                        # Nur erlaubte Schlüssel übernehmen – verhindert Injection fremder Felder
-                        ALLOWED_KEYS = ('client_network_ssid', 'client_network_pw',
-                                        'broker_ip', 'broker_port')
-                        params = {k: raw[k] for k in ALLOWED_KEYS if k in raw}
+                        params = extract_setup_params(query_string)
 
                         # Pflichtfelder prüfen bevor auf Flash geschrieben wird
-                        if not params.get('client_network_ssid') or not params.get('broker_ip'):
-                            cl.send('HTTP/1.1 400 Bad Request\r\nContent-Type: text/html\r\n\r\nFehler: SSID und Broker-IP sind Pflichtfelder.')
+                        error = validate_setup_params(params)
+                        if error:
+                            cl.send('HTTP/1.1 400 Bad Request\r\nContent-Type: text/html\r\n\r\n' + error)
                         else:
                             with open(USER_CONFIG_PATH, 'w') as f:
                                 json.dump(params, f)

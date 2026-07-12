@@ -513,14 +513,12 @@ python -m unittest discover -s tests -t . -v
 
 `tests/_stubs.py` installs fake `machine`/`micropython`/`network` modules into `sys.modules` and patches a **controllable clock** (`ticks_ms`/`ticks_add`/`ticks_diff`/`sleep_ms`, advanced via `_stubs.clock.advance(ms)`) onto the real `time` module, so timing is deterministic with no real sleeps. It also still installs a fake `umqtt.simple` — **vestigial**, nothing under test imports it any more since `mqttutils.py` was deleted; not yet cleaned up as part of this docs task. `tests/__init__.py` puts the repo root on `sys.path` and installs the stubs before any firmware import. Covered: scheduler timing + busy-reject, security routing (allowlist/admin block, currently exercised directly against `device_state.py` rather than via any message-router integration test), config handling, discovery/heartbeat payloads (against `box_provisioning.py`), and the watchdog-fed sleep. Hardware-only paths (`main.py`, real GPIO/WDT/WiFi, real HTTPS) are still verified manually on the XIAO ESP32-S3. `boards/test_board.py` provides a neutral board stub (`BOX_TYPE = "test-board"`, `LED_PIN = 0`). `tests/_stubs.py` registers it as `sys.modules["board"]` before any firmware module is imported, so `import board` in `hardware.py` resolves correctly under CPython.
 
-**Cross-repo test dependency:** `tests/test_espnow_crypto.py` reads its fixture from
-`../docs/espnow/crypto-test-vectors.json` — outside this repo, in the outer
-`smart-ground` monorepo this checkout normally lives nested inside (see
-`docs/espnow/crypto-test-vectors.json` in that monorepo; it is the single
-canonical copy shared with the `smart-ground-node` Java tests, deliberately never
-duplicated into this repo). A standalone clone of this repo (its real remote is
-`github.com:Hynrek/smartground-firmware.git`) will not have that file — the
-module detects this and skips with an explanatory message rather than failing.
+**Cross-folder test dependency:** `tests/test_espnow_crypto.py` reads its fixture from
+`../docs/espnow/crypto-test-vectors.json` — the monorepo-root copy, which is the single
+canonical version shared with the `smart-ground-node` Java tests (deliberately never
+duplicated into this folder). If the file is missing (e.g. `smart-box/` copied out of
+the monorepo on its own), the module detects this and skips with an explanatory
+message rather than failing.
 
 ## AppCode Variants — Splitting by Use Case (decision, 2026-06-30)
 

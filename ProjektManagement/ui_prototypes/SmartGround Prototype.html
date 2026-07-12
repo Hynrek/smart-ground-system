@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<title>SmartGround – Prototype</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #f7f8fc; color: #1a1a2e; }
+input, select, textarea { font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+/* ═══════════════════════════════════════
+   MOCK DATA
+═══════════════════════════════════════ */
+const MOCK_RANGES = [
+  { id: 'r1', name: 'Platz A – Nord', description: 'Nördlicher Bereich, 6 Bahnen' },
+  { id: 'r2', name: 'Platz B – Süd',  description: 'Südlicher Bereich, 4 Bahnen' },
+  { id: 'r3', name: 'Platz C – West', description: null },
+];
+
+const INIT_SMARTBOXES = [
+  { id: 'b1', alias: 'Box A-1', mac: 'AA:BB:CC:01', status: 'online',  firmware: '1.2.0', lastSeen: '2026-04-21T08:12:00' },
+  { id: 'b2', alias: 'Box A-2', mac: 'AA:BB:CC:02', status: 'online',  firmware: '1.2.0', lastSeen: '2026-04-21T08:11:45' },
+  { id: 'b3', alias: 'Box B-1', mac: 'BB:CC:DD:01', status: 'offline', firmware: '1.1.0', lastSeen: '2026-04-20T17:03:00' },
+  { id: 'b4', alias: 'Box C-1', mac: 'CC:DD:EE:01', status: 'online',  firmware: '1.2.1', lastSeen: '2026-04-21T08:10:00' },
+];
+
+const INIT_DEVICES = [
+  { id: 'd1',  boxId: 'b1', name: 'Werfer 1',      type: 'WERFER', pin: 17, status: 'online',  rangeId: 'r1' },
+  { id: 'd2',  boxId: 'b1', name: 'Werfer 2',      type: 'WERFER', pin: 18, status: 'offline', rangeId: 'r1' },
+  { id: 'd3',  boxId: 'b2', name: 'Zielscheibe 1', type: 'SENSOR', pin: 5,  status: 'online',  rangeId: 'r1' },
+  { id: 'd4',  boxId: 'b2', name: 'Ampel',         type: 'SIGNAL', pin: 9,  status: 'online',  rangeId: 'r1' },
+  { id: 'd5',  boxId: 'b2', name: 'Auslöser',      type: 'BUTTON', pin: 3,  status: 'warn',    rangeId: 'r1' },
+  { id: 'd6',  boxId: 'b3', name: 'Werfer 3',      type: 'WERFER', pin: 12, status: 'online',  rangeId: 'r2' },
+  { id: 'd7',  boxId: 'b3', name: 'Sensor B',      type: 'SENSOR', pin: 7,  status: 'online',  rangeId: 'r2' },
+  { id: 'd8',  boxId: 'b3', name: 'Klingel',       type: 'SIGNAL', pin: 11, status: 'offline', rangeId: 'r2' },
+  { id: 'd9',  boxId: 'b4', name: 'Werfer 4',      type: 'WERFER', pin: 14, status: 'online',  rangeId: null },
+  { id: 'd10', boxId: 'b4', name: 'Sensor C',      type: 'SENSOR', pin: 6,  status: 'online',  rangeId: null },
+];
+
+const DEVICE_TYPES = ['WERFER', 'SENSOR', 'BUTTON', 'SIGNAL'];
+const TYPE_COLORS = {
+  WERFER: { bg: '#dbeffe', text: '#1a5fa0' },
+  SENSOR: { bg: '#d4f5e2', text: '#1e6640' },
+  BUTTON: { bg: '#fff3d4', text: '#8a5a00' },
+  SIGNAL: { bg: '#ede8ff', text: '#4a2da0' },
+};
+
+/* ═══════════════════════════════════════
+   ICONS
+═══════════════════════════════════════ */
+const Icon = ({ d, size = 16, color = 'currentColor', fill = 'none', sw = 1.6 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill={fill} stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+    <path d={d} />
+  </svg>
+);
+
+const Icons = {
+  ranges:    () => <Icon d="M8 2a5 5 0 100 10A5 5 0 008 2zm0 3.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM8 1v2M8 13v2M1 8h2M13 8h2" />,
+  boxes:     () => <Icon d="M3 3h10a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V4a1 1 0 011-1zM5 8h6M8 5v6" />,
+  templates: () => <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>,
+  users:     () => <Icon d="M8 7a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM2.5 14c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />,
+  chevron:   ({ size = 12 }) => <svg width={size} height={size} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round"><path d="M4.5 2.5L8 6l-3.5 3.5"/></svg>,
+  plus:      ({ size = 14, color = 'currentColor' }) => <svg width={size} height={size} viewBox="0 0 14 14" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round"><path d="M7 2v10M2 7h10"/></svg>,
+  trash:     ({ size = 14, color = 'currentColor' }) => <svg width={size} height={size} viewBox="0 0 14 14" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M2 4h10M5 4V2.5h4V4M5.5 6.5v4M8.5 6.5v4M3 4l.8 8h6.4L11 4"/></svg>,
+  fire:      ({ size = 13, color = '#fff' }) => <svg width={size} height={size} viewBox="0 0 14 14" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M7 13c-3 0-5-2-5-4.5C2 5 5 3 5 3c0 2 2 2.5 2 2.5C7 4 9 2.5 9 1c2 1.5 3 3.5 3 5.5C12 10.5 10 13 7 13z"/></svg>,
+  x:         ({ size = 12, color = 'currentColor' }) => <svg width={size} height={size} viewBox="0 0 12 12" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round"><path d="M2 2l8 8M10 2L2 10"/></svg>,
+  grip:      ({ size = 13, color = '#c0c8d8' }) => <svg width={size} height={size} viewBox="0 0 14 14" fill={color}><circle cx="4.5" cy="3.5" r="1.1"/><circle cx="9.5" cy="3.5" r="1.1"/><circle cx="4.5" cy="7" r="1.1"/><circle cx="9.5" cy="7" r="1.1"/><circle cx="4.5" cy="10.5" r="1.1"/><circle cx="9.5" cy="10.5" r="1.1"/></svg>,
+  arrowR:    ({ size = 14, color = '#c0c8d8' }) => <svg width={size} height={size} viewBox="0 0 14 14" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round"><path d="M2 7h10M8 3l4 4-4 4"/></svg>,
+  wifi:      ({ size = 14, color = 'currentColor' }) => <svg width={size} height={size} viewBox="0 0 14 14" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round"><path d="M1 5.5a9 9 0 0112 0M3.5 8a5.5 5.5 0 017 0M6 10.5a2 2 0 012 0"/><circle cx="7" cy="13" r=".8" fill={color} stroke="none"/></svg>,
+  edit:      ({ size = 14, color = 'currentColor' }) => <svg width={size} height={size} viewBox="0 0 14 14" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2l2.5 2.5-7 7H2.5V9l7-7z"/></svg>,
+  check:     ({ size = 14, color = 'currentColor' }) => <svg width={size} height={size} viewBox="0 0 14 14" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M2 7l4 4 6-6"/></svg>,
+  bolt:      ({ size = 14, color = 'currentColor' }) => <svg width={size} height={size} viewBox="0 0 14 14" fill={color} stroke="none"><path d="M8.5 1L3 8h5l-2.5 5L13 6H8L8.5 1z"/></svg>,
+};
+
+/* ═══════════════════════════════════════
+   ATOMS
+═══════════════════════════════════════ */
+function StatusDot({ status }) {
+  const c = { online: '#38c97a', offline: '#e05252', warn: '#f5a623' };
+  return <span style={{ display:'inline-block', width:7, height:7, borderRadius:'50%', background: c[status] || '#ccc', flexShrink:0 }} />;
+}
+
+function Badge({ children, color = 'gray' }) {
+  const s = { blue:{bg:'#dbeffe',text:'#1a5fa0'}, green:{bg:'#d4f5e2',text:'#1e6640'}, red:{bg:'#fde0e0',text:'#9b2c2c'}, gray:{bg:'#e8edf0',text:'#555'}, warn:{bg:'#fff3d4',text:'#8a5a00'} }[color] || { bg:'#e8edf0', text:'#555' };
+  return <span style={{ display:'inline-block', background:s.bg, color:s.text, borderRadius:99, padding:'2px 9px', fontSize:11.5, fontWeight:600 }}>{children}</span>;
+}
+
+function TypeChip({ type }) {
+  const c = TYPE_COLORS[type] || { bg:'#e8edf0', text:'#555' };
+  return <span style={{ display:'inline-block', background:c.bg, color:c.text, borderRadius:5, padding:'2px 8px', fontSize:11.5, fontWeight:600, letterSpacing:0.2 }}>{type}</span>;
+}
+
+function Btn({ children, onClick, variant = 'primary', size = 'md', icon, disabled }) {
+  const base = { display:'flex', alignItems:'center', gap:5, border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:500, transition:'all 0.15s', borderRadius:7 };
+  const sz = { sm: { padding:'5px 11px', fontSize:12 }, md: { padding:'8px 16px', fontSize:13 } }[size];
+  const vars = {
+    primary: { background:'#1a1a2e', color:'#fff' },
+    ghost:   { background:'transparent', border:'1px solid #e2e8f0', color:'#4a5568' },
+    danger:  { background:'transparent', border:'1px solid #fca5a5', color:'#e05252' },
+  };
+  return (
+    <button onClick={onClick} disabled={disabled} style={{ ...base, ...sz, ...vars[variant], opacity: disabled ? 0.5 : 1 }}>
+      {icon && icon}{children}
+    </button>
+  );
+}
+
+function Breadcrumb({ items }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, marginBottom:6 }}>
+      {items.map((item, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && <Icons.chevron size={11} />}
+          {item.onClick
+            ? <button onClick={item.onClick} style={{ background:'none', border:'none', color:'#4fc3f7', cursor:'pointer', padding:0, fontSize:13, fontFamily:'inherit' }}>{item.label}</button>
+            : <span style={{ color: i === items.length-1 ? '#1a1a2e' : '#718096', fontWeight: i === items.length-1 ? 600 : 400 }}>{item.label}</span>
+          }
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════ */
+const NAV = [
+  { id:'ranges',     label:'Schiessplätze', Icon: Icons.ranges },
+  { id:'smartboxes', label:'SmartBoxen',    Icon: Icons.boxes },
+  { id:'templates',  label:'Ger.-Templates',Icon: Icons.templates },
+  { id:'users',      label:'Benutzer',      Icon: Icons.users },
+];
+
+function Sidebar({ active, onNav }) {
+  return (
+    <aside style={{ width:210, background:'#1a1a2e', display:'flex', flexDirection:'column', flexShrink:0 }}>
+      <div style={{ padding:'18px 18px 16px', borderBottom:'1px solid rgba(255,255,255,0.08)', display:'flex', alignItems:'center', gap:8 }}>
+        <span style={{ fontSize:20 }}>📡</span>
+        <span style={{ fontSize:15.5, fontWeight:700, color:'#fff', letterSpacing:0.2 }}>Smart Ground</span>
+      </div>
+      <nav style={{ flex:1, padding:'12px 0' }}>
+        {NAV.map(({ id, label, Icon }) => {
+          const on = active === id;
+          return (
+            <button key={id} onClick={() => onNav(id)} style={{
+              width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 18px',
+              background: on ? 'rgba(79,195,247,0.12)' : 'transparent',
+              border:'none', borderLeft:`3px solid ${on ? '#4fc3f7' : 'transparent'}`,
+              cursor:'pointer', textAlign:'left',
+            }}>
+              <Icon size={15} color={on ? '#4fc3f7' : '#718096'} />
+              <span style={{ fontSize:13.5, color: on ? '#fff' : '#a0aec0', fontWeight: on ? 600 : 400 }}>{label}</span>
+            </button>
+          );
+        })}
+      </nav>
+      <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', padding:'12px 18px', display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ width:30, height:30, borderRadius:'50%', background:'#4fc3f7', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:'#1a1a2e', flexShrink:0 }}>A</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, color:'#fff', fontWeight:600 }}>Admin</div>
+          <div style={{ fontSize:11, color:'#718096', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>admin@smartground.ch</div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+/* ═══════════════════════════════════════
+   RANGES VIEW
+═══════════════════════════════════════ */
+function RangesView({ ranges, devices, onSelect }) {
+  return (
+    <div style={{ padding:'28px', flex:1, overflowY:'auto' }}>
+      <div style={{ maxWidth:800 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
+          <div>
+            <h1 style={{ fontSize:22, fontWeight:700 }}>Schiessplätze</h1>
+            <p style={{ fontSize:13, color:'#718096', marginTop:4 }}>{ranges.length} Plätze · {devices.length} Geräte total</p>
+          </div>
+          <Btn icon={<Icons.plus size={13} color="#fff"/>}>Neuer Platz</Btn>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {ranges.map(range => {
+            const count = devices.filter(d => d.rangeId === range.id).length;
+            return (
+              <div key={range.id} onClick={() => onSelect(range)}
+                style={{ background:'#fff', borderRadius:10, padding:'16px 20px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, border:'1px solid #f0f4f8', cursor:'pointer', transition:'box-shadow 0.15s, border-color 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.1)'; e.currentTarget.style.borderColor='#c5d0e8'; }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,0.07)'; e.currentTarget.style.borderColor='#f0f4f8'; }}
+              >
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:600, fontSize:15.5 }}>{range.name}</div>
+                  {range.description && <div style={{ fontSize:13, color:'#718096', marginTop:3 }}>{range.description}</div>}
+                  <div style={{ fontSize:12, color:'#a0aec0', marginTop:5 }}>{count} Gerät{count !== 1 ? 'e' : ''} zugeordnet</div>
+                </div>
+                <Icons.arrowR size={14} color="#c0c8d8" />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════
+   RANGE DETAIL VIEW
+═══════════════════════════════════════ */
+const ALL_FILTER = ['Alle', ...DEVICE_TYPES];
+
+function RangeDetailView({ range, devices, setDevices, onBack }) {
+  const [filter, setFilter]       = React.useState('Alle');
+  const [assignOpen, setAssignOpen] = React.useState(false);
+  const [fired, setFired]         = React.useState({});
+  const [dragging, setDragging]   = React.useState(null);
+  const [dragOver, setDragOver]   = React.useState(false);
+
+  const rangeDevs = devices.filter(d => d.rangeId === range.id);
+  const freeDevs  = devices.filter(d => !d.rangeId);
+  const filtered  = filter === 'Alle' ? rangeDevs : rangeDevs.filter(d => d.type === filter);
+
+  const typeCounts = DEVICE_TYPES.reduce((a, t) => ({ ...a, [t]: rangeDevs.filter(d => d.type === t).length }), {});
+  const onlineCnt  = rangeDevs.filter(d => d.status === 'online').length;
+  const offlineCnt = rangeDevs.filter(d => d.status === 'offline').length;
+  const warnCnt    = rangeDevs.filter(d => d.status === 'warn').length;
+
+  const fire = id => { setFired(f => ({...f,[id]:true})); setTimeout(() => setFired(f => { const n={...f}; delete n[id]; return n; }), 1500); };
+  const assign   = id => setDevices(prev => prev.map(d => d.id === id ? { ...d, rangeId: range.id } : d));
+  const unassign = id => setDevices(prev => prev.map(d => d.id === id ? { ...d, rangeId: null } : d));
+
+  return (
+    <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', overflowY:'auto', padding:'28px' }}>
+        <Breadcrumb items={[{ label:'Schiessplätze', onClick:onBack }, { label:range.name }]} />
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20, marginTop:4 }}>
+          <div>
+            <h1 style={{ fontSize:22, fontWeight:700 }}>{range.name}</h1>
+            {range.description && <p style={{ fontSize:13, color:'#718096', marginTop:3 }}>{range.description}</p>}
+            <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap' }}>
+              <Badge color="blue">{rangeDevs.length} Geräte</Badge>
+              {onlineCnt > 0  && <Badge color="green">{onlineCnt} Online</Badge>}
+              {offlineCnt > 0 && <Badge color="red">{offlineCnt} Offline</Badge>}
+              {warnCnt > 0    && <Badge color="warn">{warnCnt} Warnung</Badge>}
+            </div>
+          </div>
+          <Btn onClick={() => setAssignOpen(o => !o)} icon={assignOpen ? <Icons.x size={12} color="#fff"/> : <Icons.plus size={13} color="#fff"/>}>
+            {assignOpen ? 'Schliessen' : 'Gerät zuordnen'}
+          </Btn>
+        </div>
+
+        {/* Filter chips */}
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:16 }}>
+          {ALL_FILTER.map(type => {
+            const cnt = type === 'Alle' ? rangeDevs.length : typeCounts[type];
+            const on  = filter === type;
+            return (
+              <button key={type} onClick={() => setFilter(type)} style={{
+                padding:'5px 13px', borderRadius:99, border:`1.5px solid ${on ? '#1a1a2e' : '#e2e8f0'}`,
+                background: on ? '#1a1a2e' : '#fff', color: on ? '#fff' : '#4a5568',
+                cursor:'pointer', fontSize:13, fontWeight: on ? 600 : 400, fontFamily:'inherit',
+                display:'flex', alignItems:'center', gap:5,
+              }}>
+                {type}
+                {cnt > 0 && <span style={{ background: on ? 'rgba(255,255,255,0.25)' : '#e8edf0', color: on ? '#fff' : '#718096', borderRadius:99, fontSize:11, padding:'1px 6px', fontWeight:600 }}>{cnt}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Drop zone */}
+        <div
+          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={e => { e.preventDefault(); if (dragging) assign(dragging.id); setDragging(null); setDragOver(false); }}
+          style={{ flex:1, border:`2px dashed ${dragOver ? '#4fc3f7' : 'transparent'}`, borderRadius:12, transition:'border 0.15s', background: dragOver ? 'rgba(79,195,247,0.04)' : 'transparent', minHeight:200 }}
+        >
+          {filtered.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'48px 24px', color:'#a0aec0' }}>
+              <div style={{ fontSize:32, marginBottom:12 }}>◎</div>
+              <div style={{ fontSize:14, fontWeight:500 }}>Keine {filter !== 'Alle' ? filter+'-' : ''}Geräte</div>
+              <div style={{ fontSize:13, marginTop:4 }}>{filter !== 'Alle' ? 'Wähle "Alle" um alle Geräte zu sehen.' : 'Ziehe Geräte aus der Seitenleiste hierher.'}</div>
+            </div>
+          ) : (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:12 }}>
+              {filtered.map(dev => (
+                <div key={dev.id} style={{ position:'relative' }}>
+                  <DeviceCard device={dev} onFire={fire} fired={!!fired[dev.id]} />
+                  {assignOpen && (
+                    <button onClick={() => unassign(dev.id)} title="Aus Platz entfernen" style={{ position:'absolute', top:8, right:8, width:22, height:22, borderRadius:'50%', background:'#fde0e0', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <Icons.x size={10} color="#c53030" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Slide-in panel */}
+      <div style={{ width: assignOpen ? 240 : 0, overflow:'hidden', transition:'width 0.3s cubic-bezier(0.2,0.8,0.3,1)', flexShrink:0 }}>
+        <div style={{ width:240, height:'100%', background:'#f4f6fb', borderLeft:'1px solid #e2e8f0', display:'flex', flexDirection:'column', overflowY:'auto' }}>
+          <div style={{ padding:'20px 16px 12px', borderBottom:'1px solid #e2e8f0' }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'#1a1a2e', marginBottom:4 }}>Verfügbare Geräte</div>
+            <div style={{ fontSize:12, color:'#718096' }}>{freeDevs.length} nicht zugeordnet · ziehen oder klicken</div>
+          </div>
+          {freeDevs.length === 0 ? (
+            <div style={{ padding:'32px 16px', textAlign:'center', color:'#a0aec0', fontSize:13 }}>Alle Geräte sind bereits zugeordnet.</div>
+          ) : (
+            <div style={{ padding:'10px 12px', display:'flex', flexDirection:'column', gap:6 }}>
+              {freeDevs.map(dev => (
+                <div key={dev.id} draggable
+                  onDragStart={e => { setDragging(dev); e.dataTransfer.effectAllowed='move'; }}
+                  onDragEnd={() => { setDragging(null); setDragOver(false); }}
+                  style={{ background:'#fff', borderRadius:8, padding:'9px 12px', border:'1px solid #e2e8f0', display:'flex', alignItems:'center', gap:8, cursor:'grab', opacity: dragging?.id === dev.id ? 0.4 : 1 }}
+                >
+                  <Icons.grip size={13} color="#c0c8d8" />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{dev.name}</div>
+                    <div style={{ fontSize:11, color:'#a0aec0' }}>{dev.boxId}</div>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
+                    <TypeChip type={dev.type} />
+                    <button onClick={() => assign(dev.id)} style={{ background:'#1a1a2e', color:'#fff', border:'none', borderRadius:5, padding:'3px 8px', fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>+ Zuordnen</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════
+   DEVICE CARD
+═══════════════════════════════════════ */
+function DeviceCard({ device, onFire, fired }) {
+  return (
+    <div style={{ background:'#fff', borderRadius:10, padding:'14px 16px', boxShadow:'0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.04)', display:'flex', flexDirection:'column', gap:10, border:`1px solid ${fired ? '#4fc3f7' : '#f0f4f8'}`, transition:'border-color 0.2s' }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8 }}>
+        <div style={{ minWidth:0 }}>
+          <div style={{ fontWeight:600, fontSize:14.5, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{device.name}</div>
+          <div style={{ fontSize:12, color:'#a0aec0', marginTop:2 }}>{device.boxId}</div>
+        </div>
+        <StatusDot status={device.status} />
+      </div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <TypeChip type={device.type} />
+        <button onClick={() => onFire(device.id)} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', background: fired ? '#4fc3f7' : '#1a1a2e', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:500, fontFamily:'inherit', transition:'background 0.2s' }}>
+          <Icons.fire size={12} />{fired ? 'Ausgelöst!' : 'Auslösen'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════
+   SMARTBOXES VIEW
+═══════════════════════════════════════ */
+function SmartBoxesView({ boxes, devices, setDevices, setBoxes }) {
+  const [typeFilter,  setTypeFilter]  = React.useState('Alle');
+  const [actionMode,  setActionMode]  = React.useState(false);
+  const [addingTo,    setAddingTo]    = React.useState(null);
+  const [fired,       setFired]       = React.useState({});
+
+  const fire = id => {
+    setFired(f => ({...f, [id]:true}));
+    setTimeout(() => setFired(f => { const n={...f}; delete n[id]; return n; }), 1500);
+  };
+
+  const filtered = (boxId) => {
+    const devs = devices.filter(d => d.boxId === boxId);
+    return typeFilter === 'Alle' ? devs : devs.filter(d => d.type === typeFilter);
+  };
+
+  const totalDevices = devices.length;
+  const typeCounts   = DEVICE_TYPES.reduce((a, t) => ({ ...a, [t]: devices.filter(d => d.type === t).length }), {});
+  const isFiltered   = typeFilter !== 'Alle';
+
+  // Hide boxes that have no matching devices when a filter is active
+  const visibleBoxes = isFiltered ? boxes.filter(b => filtered(b.id).length > 0) : boxes;
+
+  return (
+    <div style={{ padding:'28px', flex:1, overflowY:'auto' }}>
+      <div style={{ maxWidth:960 }}>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20 }}>
+          <div>
+            <h1 style={{ fontSize:22, fontWeight:700 }}>SmartBoxen</h1>
+            <p style={{ fontSize:13, color:'#718096', marginTop:4 }}>{boxes.length} Boxen · {totalDevices} Geräte total · automatisch erkannt</p>
+          </div>
+          {/* Aktionsmodus toggle */}
+          <button onClick={() => setActionMode(m => !m)} style={{
+            display:'flex', alignItems:'center', gap:7, padding:'8px 16px',
+            background: actionMode ? '#1a1a2e' : '#fff',
+            color:       actionMode ? '#fff'    : '#4a5568',
+            border:`1.5px solid ${actionMode ? '#1a1a2e' : '#e2e8f0'}`,
+            borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:500, fontFamily:'inherit', transition:'all 0.15s',
+          }}>
+            <Icons.bolt size={13} color={actionMode ? '#fbbf24' : '#a0aec0'} />
+            {actionMode ? 'Aktionsmodus aktiv' : 'Aktionsmodus'}
+          </button>
+        </div>
+
+        {/* Global type filter */}
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:20 }}>
+          {['Alle', ...DEVICE_TYPES].map(type => {
+            const cnt = type === 'Alle' ? totalDevices : typeCounts[type];
+            const on  = typeFilter === type;
+            return (
+              <button key={type} onClick={() => setTypeFilter(type)} style={{ padding:'5px 13px', borderRadius:99, border:`1.5px solid ${on ? '#1a1a2e' : '#e2e8f0'}`, background: on ? '#1a1a2e' : '#fff', color: on ? '#fff' : '#4a5568', cursor:'pointer', fontSize:13, fontWeight: on ? 600 : 400, fontFamily:'inherit', display:'flex', alignItems:'center', gap:5 }}>
+                {type}
+                {cnt > 0 && <span style={{ background: on ? 'rgba(255,255,255,0.25)' : '#e8edf0', color: on ? '#fff' : '#718096', borderRadius:99, fontSize:11, padding:'1px 6px', fontWeight:600 }}>{cnt}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {visibleBoxes.length === 0 && (
+          <div style={{ textAlign:'center', padding:'48px', color:'#a0aec0' }}>
+            <div style={{ fontSize:13 }}>Keine Boxen mit «{typeFilter}»-Geräten gefunden.</div>
+          </div>
+        )}
+
+        {/* Box cards */}
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          {visibleBoxes.map(box => (
+            <SmartBoxCard key={box.id} box={box} boxes={boxes}
+              devices={filtered(box.id)}
+              allDevicesCount={devices.filter(d => d.boxId === box.id).length}
+              actionMode={actionMode}
+              fired={fired} onFire={fire}
+              isAdding={addingTo === box.id}
+              onToggleAdd={() => setAddingTo(prev => prev === box.id ? null : box.id)}
+              onAdd={(newDev) => {
+                setDevices(prev => [...prev, { ...newDev, id: 'd_'+Date.now(), boxId: box.id, status:'online', rangeId:null }]);
+                setAddingTo(null);
+              }}
+              onRemove={(id) => setDevices(prev => prev.filter(d => d.id !== id))}
+              onUpdate={(id, patch) => setDevices(prev => prev.map(d => d.id === id ? {...d,...patch} : d))}
+              onRenameBox={(alias) => setBoxes(prev => prev.map(b => b.id === box.id ? {...b, alias} : b))}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════
+   SMART BOX CARD
+═══════════════════════════════════════ */
+function SmartBoxCard({ box, boxes, devices, allDevicesCount, actionMode, fired, onFire, isAdding, onToggleAdd, onAdd, onRemove, onUpdate, onRenameBox }) {
+  const [form,      setForm]      = React.useState({ name:'', type: DEVICE_TYPES[0] });
+  const [confirmId, setConfirmId] = React.useState(null);
+  const [editingId, setEditingId] = React.useState(null);
+  const [editForm,  setEditForm]  = React.useState({});
+  const [renamingBox, setRenamingBox] = React.useState(false);
+  const [aliasInput,  setAliasInput]  = React.useState(box.alias);
+
+  const statusColor = { online:'#38c97a', offline:'#e05252', warn:'#f5a623' }[box.status] || '#ccc';
+  const statusLabel = { online:'Online', offline:'Offline', warn:'Warnung' }[box.status] || box.status;
+
+  const handleAdd = () => {
+    if (!form.name.trim()) return;
+    onAdd({ name: form.name.trim(), type: form.type });
+    setForm({ name:'', type: DEVICE_TYPES[0] });
+  };
+
+  const startEdit = (dev) => {
+    setEditingId(dev.id);
+    setEditForm({ name: dev.name, type: dev.type, pin: dev.pin ?? '', boxId: dev.boxId });
+    setConfirmId(null);
+  };
+  const saveEdit = (id) => {
+    onUpdate(id, { name: editForm.name.trim() || editForm.name, type: editForm.type, pin: editForm.pin !== '' ? parseInt(editForm.pin) : undefined, boxId: editForm.boxId });
+    setEditingId(null);
+  };
+  const saveAlias = () => {
+    if (aliasInput.trim()) onRenameBox(aliasInput.trim());
+    setRenamingBox(false);
+  };
+
+  const hasBorder = devices.length > 0 || isAdding;
+
+  return (
+    <div style={{ background:'#fff', borderRadius:12, boxShadow:'0 1px 4px rgba(0,0,0,0.07)', border:`1px solid ${actionMode ? 'rgba(251,191,36,0.3)' : '#f0f4f8'}`, overflow:'hidden', transition:'border-color 0.2s' }}>
+      {/* Box header */}
+      <div style={{ padding:'14px 18px', display:'flex', alignItems:'center', gap:12, borderBottom: hasBorder ? '1px solid #f0f4f8' : 'none', background: actionMode ? 'rgba(251,191,36,0.03)' : '#fff' }}>
+        <div style={{ width:36, height:36, borderRadius:8, background:'#f4f6fb', border:'1px solid #e2e8f0', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <Icons.wifi size={16} color="#718096" />
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          {renamingBox ? (
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <input autoFocus value={aliasInput} onChange={e => setAliasInput(e.target.value)}
+                onKeyDown={e => { if (e.key==='Enter') saveAlias(); if (e.key==='Escape') { setAliasInput(box.alias); setRenamingBox(false); } }}
+                style={{ padding:'4px 8px', border:'1.5px solid #4fc3f7', borderRadius:6, fontSize:14, fontWeight:700, outline:'none', width:180 }} />
+              <button onClick={saveAlias} style={{ background:'#1a1a2e', color:'#fff', border:'none', borderRadius:5, padding:'4px 8px', cursor:'pointer', display:'flex', alignItems:'center' }}><Icons.check size={12} color="#fff"/></button>
+              <button onClick={() => { setAliasInput(box.alias); setRenamingBox(false); }} style={{ background:'none', border:'1px solid #e2e8f0', borderRadius:5, padding:'4px 8px', cursor:'pointer', color:'#718096', display:'flex', alignItems:'center' }}><Icons.x size={11}/></button>
+            </div>
+          ) : (
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <div style={{ fontWeight:700, fontSize:15, color:'#1a1a2e' }}>{box.alias}</div>
+              <button onClick={() => { setAliasInput(box.alias); setRenamingBox(true); }} title="Namen bearbeiten"
+                style={{ background:'none', border:'none', cursor:'pointer', color:'#c0c8d8', padding:'2px', display:'flex', alignItems:'center', opacity:0.6 }}
+                onMouseEnter={e => e.currentTarget.style.opacity='1'} onMouseLeave={e => e.currentTarget.style.opacity='0.6'}>
+                <Icons.edit size={13} color="#718096"/>
+              </button>
+            </div>
+          )}
+          <div style={{ fontSize:11.5, color:'#a0aec0', fontFamily:'monospace', marginTop:1 }}>{box.mac}</div>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+            <span style={{ width:7, height:7, borderRadius:'50%', background:statusColor, display:'inline-block' }}/>
+            <span style={{ fontSize:12, color:'#555' }}>{statusLabel}</span>
+          </div>
+          <span style={{ fontSize:11, color:'#a0aec0', background:'#f4f6fb', borderRadius:5, padding:'2px 7px' }}>v{box.firmware}</span>
+          <Badge color="blue">{allDevicesCount} Geräte</Badge>
+        </div>
+      </div>
+
+      {/* Device rows */}
+      {devices.length > 0 && (
+        <div style={{ borderBottom: isAdding ? '1px solid #f0f4f8' : 'none' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+            <thead>
+              <tr style={{ background:'#f9fafb' }}>
+                {['Name','Typ','Schiessplatz', actionMode ? 'Aktion' : '', ''].map((h,i) => (
+                  <th key={i} style={{ padding:'7px 16px', textAlign: i >= 3 ? 'right' : 'left', fontSize:11.5, fontWeight:600, color:'#718096', textTransform:'uppercase', letterSpacing:0.4, borderBottom:'1px solid #f0f4f8' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {devices.map((dev, i) => (
+                <React.Fragment key={dev.id}>
+                  <tr style={{ background: editingId === dev.id ? '#f0f9ff' : i % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                    <td style={{ padding:'9px 16px', fontWeight:600, color:'#1a1a2e' }}>{dev.name}</td>
+                    <td style={{ padding:'9px 16px' }}><TypeChip type={dev.type} /></td>
+                    <td style={{ padding:'9px 16px', fontSize:12 }}>
+                      {dev.rangeId ? <Badge color="blue">{MOCK_RANGES.find(r=>r.id===dev.rangeId)?.name || 'Zugeordnet'}</Badge> : <span style={{ color:'#c0c8d8' }}>–</span>}
+                    </td>
+                    {actionMode && (
+                      <td style={{ padding:'9px 16px', textAlign:'right' }}>
+                        <button onClick={() => onFire(dev.id)} style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 12px', background: fired[dev.id] ? '#4fc3f7' : '#1a1a2e', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontSize:12, fontFamily:'inherit', transition:'background 0.2s' }}>
+                          <Icons.bolt size={12} color={fired[dev.id] ? '#fff' : '#fbbf24'} />{fired[dev.id] ? 'Ausgelöst!' : 'Auslösen'}
+                        </button>
+                      </td>
+                    )}
+                    <td style={{ padding:'9px 16px', textAlign:'right' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'flex-end' }}>
+                        {confirmId === dev.id ? (
+                          <>
+                            <span style={{ fontSize:12, color:'#718096' }}>Löschen?</span>
+                            <button onClick={() => { onRemove(dev.id); setConfirmId(null); }} style={{ background:'#e05252', color:'#fff', border:'none', borderRadius:5, padding:'3px 9px', fontSize:11.5, cursor:'pointer', fontFamily:'inherit' }}>Ja</button>
+                            <button onClick={() => setConfirmId(null)} style={{ background:'#f4f6fb', color:'#555', border:'1px solid #e2e8f0', borderRadius:5, padding:'3px 9px', fontSize:11.5, cursor:'pointer', fontFamily:'inherit' }}>Nein</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => editingId === dev.id ? setEditingId(null) : startEdit(dev)} title="Bearbeiten" style={{ background: editingId===dev.id ? '#e8f5ff' : 'none', border:`1px solid ${editingId===dev.id ? '#4fc3f7' : '#e2e8f0'}`, borderRadius:6, padding:'5px 8px', cursor:'pointer', color: editingId===dev.id ? '#1a5fa0' : '#718096', display:'flex', alignItems:'center', gap:4 }}>
+                              <Icons.edit size={13} color={editingId===dev.id ? '#1a5fa0' : '#718096'} />
+                            </button>
+                            <button onClick={() => setConfirmId(dev.id)} title="Gerät entfernen" style={{ background:'none', border:'1px solid #fca5a5', borderRadius:6, padding:'5px 8px', cursor:'pointer', color:'#e05252', display:'flex', alignItems:'center' }}>
+                              <Icons.trash size={13} color="#e05252" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+
+                  {/* Inline edit row */}
+                  {editingId === dev.id && (
+                    <tr>
+                      <td colSpan={actionMode ? 5 : 4} style={{ padding:'0', background:'#f0f9ff', borderBottom:'2px solid #4fc3f7' }}>
+                        <div style={{ padding:'14px 18px', display:'flex', alignItems:'flex-end', gap:12, flexWrap:'wrap' }}>
+                          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                            <label style={{ fontSize:11.5, color:'#718096', fontWeight:500 }}>Name</label>
+                            <input value={editForm.name} onChange={e => setEditForm(f => ({...f, name: e.target.value}))}
+                              style={{ padding:'6px 10px', border:'1.5px solid #4fc3f7', borderRadius:7, fontSize:13, width:200, outline:'none', background:'#fff' }} />
+                          </div>
+                          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                            <label style={{ fontSize:11.5, color:'#718096', fontWeight:500 }}>Typ</label>
+                            <select value={editForm.type} onChange={e => setEditForm(f => ({...f, type: e.target.value}))}
+                              style={{ padding:'6px 10px', border:'1.5px solid #4fc3f7', borderRadius:7, fontSize:13, background:'#fff', outline:'none', cursor:'pointer' }}>
+                              {DEVICE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                          </div>
+                          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                            <label style={{ fontSize:11.5, color:'#718096', fontWeight:500 }}>GPIO-Pin</label>
+                            <input value={editForm.pin} onChange={e => setEditForm(f => ({...f, pin: e.target.value}))}
+                              type="number" min="0" max="40" placeholder="z.B. 17"
+                              style={{ padding:'6px 10px', border:'1.5px solid #4fc3f7', borderRadius:7, fontSize:13, width:100, outline:'none', background:'#fff', fontFamily:'monospace' }} />
+                          </div>
+                          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                            <label style={{ fontSize:11.5, color:'#718096', fontWeight:500 }}>SmartBox</label>
+                            <select value={editForm.boxId} onChange={e => setEditForm(f => ({...f, boxId: e.target.value}))}
+                              style={{ padding:'6px 10px', border:'1.5px solid #4fc3f7', borderRadius:7, fontSize:13, background:'#fff', outline:'none', cursor:'pointer' }}>
+                              {boxes.map(b => <option key={b.id} value={b.id}>{b.alias}</option>)}
+                            </select>
+                          </div>
+                          <div style={{ display:'flex', gap:8 }}>
+                            <button onClick={() => saveEdit(dev.id)} style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 14px', background:'#1a1a2e', color:'#fff', border:'none', borderRadius:7, cursor:'pointer', fontSize:13, fontFamily:'inherit', fontWeight:500 }}>
+                              <Icons.check size={12} color="#fff"/> Speichern
+                            </button>
+                            <button onClick={() => setEditingId(null)} style={{ padding:'7px 12px', background:'transparent', border:'1px solid #e2e8f0', borderRadius:7, cursor:'pointer', fontSize:13, color:'#718096', fontFamily:'inherit' }}>Abbrechen</button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Add device form / button */}
+      {isAdding ? (
+        <div style={{ padding:'14px 18px', background:'#f9fafb', display:'flex', alignItems:'flex-end', gap:10, flexWrap:'wrap', borderTop:'1px dashed #e2e8f0' }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+            <label style={{ fontSize:11.5, color:'#718096', fontWeight:500 }}>Name *</label>
+            <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
+              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+              placeholder="z.B. Werfer 3" style={{ padding:'6px 10px', border:'1px solid #e2e8f0', borderRadius:7, fontSize:13, width:200, outline:'none', background:'#fff' }} />
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+            <label style={{ fontSize:11.5, color:'#718096', fontWeight:500 }}>Typ *</label>
+            <select value={form.type} onChange={e => setForm(f => ({...f, type: e.target.value}))}
+              style={{ padding:'6px 10px', border:'1px solid #e2e8f0', borderRadius:7, fontSize:13, background:'#fff', outline:'none', cursor:'pointer' }}>
+              {DEVICE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={handleAdd} disabled={!form.name.trim()} style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 14px', background:'#1a1a2e', color:'#fff', border:'none', borderRadius:7, cursor: !form.name.trim() ? 'not-allowed' : 'pointer', fontSize:13, fontWeight:500, fontFamily:'inherit', opacity: !form.name.trim() ? 0.5 : 1 }}>
+              <Icons.plus size={12} color="#fff"/> Erfassen
+            </button>
+            <button onClick={() => { onToggleAdd(); setForm({ name:'', type: DEVICE_TYPES[0] }); }} style={{ padding:'7px 12px', background:'transparent', border:'1px solid #e2e8f0', borderRadius:7, cursor:'pointer', fontSize:13, color:'#718096', fontFamily:'inherit' }}>Abbrechen</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={onToggleAdd} style={{ width:'100%', padding:'10px 18px', background:'none', border:'none', borderTop: hasBorder ? '1px dashed #e2e8f0' : 'none', cursor:'pointer', display:'flex', alignItems:'center', gap:7, color:'#718096', fontSize:13, fontFamily:'inherit', transition:'background 0.12s' }}
+          onMouseEnter={e => e.currentTarget.style.background='#f9fafb'}
+          onMouseLeave={e => e.currentTarget.style.background='none'}>
+          <span style={{ width:20, height:20, borderRadius:'50%', background:'#f0f4f8', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <Icons.plus size={11} color="#718096"/>
+          </span>
+          Gerät erfassen
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════
+   PLACEHOLDER
+═══════════════════════════════════════ */
+function Placeholder({ title }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', flex:1, flexDirection:'column', gap:12, color:'#a0aec0' }}>
+      <div style={{ fontSize:42 }}>🚧</div>
+      <div style={{ fontSize:15, fontWeight:600 }}>{title}</div>
+      <div style={{ fontSize:13 }}>Noch nicht im Prototype enthalten</div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════
+   ROOT APP
+═══════════════════════════════════════ */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#4fc3f7",
+  "sidebarWidth": 210,
+  "showDeviceBox": true
+}/*EDITMODE-END*/;
+
+function App() {
+  const [nav,           setNav]      = React.useState('ranges');
+  const [selectedRange, setRange]    = React.useState(null);
+  const [devices,       setDevices]  = React.useState(INIT_DEVICES);
+  const [boxes,         setBoxes]    = React.useState(INIT_SMARTBOXES);
+  const [tweaks,        setTweaks]   = React.useState(TWEAK_DEFAULTS);
+  const [showTweaks,    setShowTweaks] = React.useState(false);
+
+  React.useEffect(() => {
+    window.addEventListener('message', e => {
+      if (e.data?.type === '__activate_edit_mode')   setShowTweaks(true);
+      if (e.data?.type === '__deactivate_edit_mode') setShowTweaks(false);
+    });
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+  }, []);
+
+  const handleNav = id => { setNav(id); setRange(null); };
+
+  return (
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
+      <Sidebar active={nav} onNav={handleNav} />
+      <div style={{ flex:1, display:'flex', overflow:'hidden', background:'#f7f8fc' }}>
+        {nav === 'ranges' && !selectedRange && <RangesView ranges={MOCK_RANGES} devices={devices} onSelect={setRange} />}
+        {nav === 'ranges' &&  selectedRange && <RangeDetailView range={selectedRange} devices={devices} setDevices={setDevices} onBack={() => setRange(null)} />}
+        {nav === 'smartboxes' && <SmartBoxesView boxes={boxes} devices={devices} setDevices={setDevices} setBoxes={setBoxes} />}
+        {nav === 'templates' && <Placeholder title="Geräte-Templates" />}
+        {nav === 'users'     && <Placeholder title="Benutzer" />}
+      </div>
+
+      {showTweaks && (
+        <div style={{ position:'fixed', bottom:20, right:20, background:'#fff', borderRadius:12, boxShadow:'0 8px 32px rgba(0,0,0,0.15)', padding:'16px 20px', width:260, border:'1px solid #e2e8f0', zIndex:100 }}>
+          <div style={{ fontWeight:700, fontSize:14, color:'#1a1a2e', marginBottom:14 }}>Tweaks</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            <label style={{ fontSize:12, color:'#718096', display:'flex', flexDirection:'column', gap:5 }}>
+              Akzentfarbe
+              <input type="color" value={tweaks.accentColor} onChange={e => { const v={...tweaks,accentColor:e.target.value}; setTweaks(v); window.parent.postMessage({type:'__edit_mode_set_keys',edits:{accentColor:e.target.value}},'*'); }} style={{ width:'100%', height:32, border:'1px solid #e2e8f0', borderRadius:6, cursor:'pointer' }} />
+            </label>
+            <label style={{ fontSize:12, color:'#718096', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              SmartBox-Infos zeigen
+              <input type="checkbox" checked={tweaks.showDeviceBox} onChange={e => { const v={...tweaks,showDeviceBox:e.target.checked}; setTweaks(v); window.parent.postMessage({type:'__edit_mode_set_keys',edits:{showDeviceBox:e.target.checked}},'*'); }} />
+            </label>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

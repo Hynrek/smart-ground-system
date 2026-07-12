@@ -1,0 +1,53 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   SmartGround · Shooter Home — "D" tile treatment
+   Target: src/views/shooter/ShooterHomeView.vue  →  <style scoped>
+
+   REPLACES the existing rules:
+     .app-tile--available            (background/cursor)
+     .app-tile--available:hover
+     .app-tile--available:active
+   ADDS the four category-hue classes + the solid icon chip.
+
+   Template change required (see README): add a hue class to each available
+   tile and set its <Icons color="#1a1a2e" /> so the glyph reads on the fill.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Per-category hue — carried on the tile so border, tint and chip all share it */
+.app-tile--cyan   { --tile: var(--sg-app-cyan,   #4fc3f7); }
+.app-tile--orange { --tile: var(--sg-app-orange, #F6AD55); }
+.app-tile--purple { --tile: var(--sg-app-purple, #C084FC); }
+.app-tile--green  { --tile: var(--sg-app-green,  #48BB78); }
+
+.app-tile--available {
+  cursor: pointer;
+  border-color: color-mix(in srgb, var(--tile) 35%, transparent);
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--tile) 15%, transparent) 0%,
+      color-mix(in srgb, var(--tile) 6%,  transparent) 42%,
+      rgba(255, 255, 255, 0.05) 100%);
+}
+
+.app-tile--available:hover {
+  border-color: color-mix(in srgb, var(--tile) 50%, transparent);
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--tile) 22%, transparent) 0%,
+      color-mix(in srgb, var(--tile) 9%,  transparent) 42%,
+      rgba(255, 255, 255, 0.07) 100%);
+}
+
+.app-tile--available:active {
+  transform: scale(0.96);
+}
+
+/* Solid icon chip — the daylight-contrast win. Glyph is dark (#1a1a2e),
+   set via the Icons `color` prop in the template. */
+.app-tile--available .tile-icon-wrap {
+  background: var(--tile);
+}
+
+/* The old soft-tint chip classes are now redundant for available tiles;
+   they still apply to the muted (coming-soon) tiles, so leave them in place.
+   .tile-icon-wrap--cyan/--orange/--purple/--green can be removed from the
+   available tiles' markup once the hue class is added. */

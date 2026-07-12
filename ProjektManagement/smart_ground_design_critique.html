@@ -1,0 +1,165 @@
+
+<style>
+.crit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.crit-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; }
+.crit-card.full { grid-column: 1 / -1; }
+.dim-label { font-size: 11px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+.dim-score { font-size: 22px; font-weight: 500; color: var(--color-text-primary); line-height: 1; }
+.dim-bar-bg { height: 5px; background: var(--color-background-tertiary); border-radius: 99px; margin: 8px 0; }
+.dim-bar { height: 5px; border-radius: 99px; }
+.finding { display: flex; gap: 8px; align-items: flex-start; padding: 7px 0; border-bottom: 0.5px solid var(--color-border-tertiary); font-size: 13px; }
+.finding:last-child { border-bottom: none; padding-bottom: 0; }
+.sev { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.sev.red { background: #E24B4A; }
+.sev.amber { background: #BA7517; }
+.sev.green { background: #3B6D11; }
+.find-text { flex: 1; line-height: 1.5; }
+.find-label { font-weight: 500; color: var(--color-text-primary); }
+.find-sub { color: var(--color-text-secondary); font-size: 12px; margin-top: 2px; }
+.access-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 0.5px solid var(--color-border-tertiary); font-size: 12px; }
+.access-row:last-child { border-bottom: none; }
+.access-pair { color: var(--color-text-secondary); flex: 1; font-family: var(--font-mono); font-size: 11px; }
+.access-ratio { font-weight: 500; color: var(--color-text-primary); width: 36px; text-align: right; }
+.pass { color: #3B6D11; }
+.fail { color: #A32D2D; }
+.warn { color: #854F0B; }
+.rec-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.rec-item:last-child { border-bottom: none; }
+.rec-num { width: 22px; height: 22px; border-radius: 50%; background: var(--color-background-tertiary); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; color: var(--color-text-primary); flex-shrink: 0; }
+.rec-body { flex: 1; }
+.rec-title { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+.rec-desc { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; line-height: 1.5; }
+.overall-row { display: flex; align-items: center; gap: 16px; padding: 4px 0; }
+.big-score { font-size: 36px; font-weight: 500; color: var(--color-text-primary); line-height: 1; }
+.overall-label { font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; }
+</style>
+
+<h2 class="sr-only">Design critique scorecard for Smart Ground UI, covering usability, hierarchy, consistency, and accessibility.</h2>
+
+<div class="crit-card full" style="display:flex; align-items:center; gap:24px; margin-bottom:0; padding-bottom:1rem;">
+  <div>
+    <div class="big-score">61<span style="font-size:18px; color:var(--color-text-secondary)">/100</span></div>
+    <div class="overall-label">Overall design score</div>
+  </div>
+  <div style="flex:1">
+    <div style="font-size:13px; color:var(--color-text-primary); font-weight:500; margin-bottom:4px;">Smart Ground — Admin SPA + Werfer Remote</div>
+    <div style="font-size:12px; color:var(--color-text-secondary); line-height:1.6;">Clean and functional, but generic. A single-tap hardware trigger is a critical safety issue. Several touch-target and contrast problems need fixing for the tablet context.</div>
+  </div>
+</div>
+
+<div class="crit-grid">
+
+  <div class="crit-card">
+    <div class="dim-label">Usability</div>
+    <div class="dim-score">55<span style="font-size:14px;color:var(--color-text-tertiary)">/100</span></div>
+    <div class="dim-bar-bg"><div class="dim-bar" style="width:55%; background:#E24B4A;"></div></div>
+    <div class="finding">
+      <div class="sev red"></div>
+      <div class="find-text"><div class="find-label">Fire button — no confirmation</div><div class="find-sub">1 tap → physical launcher. Press-and-hold required.</div></div>
+    </div>
+    <div class="finding">
+      <div class="sev red"></div>
+      <div class="find-text"><div class="find-label">Remote icon — no label</div><div class="find-sub">"program" icon not recognizable to first-time users.</div></div>
+    </div>
+    <div class="finding">
+      <div class="sev amber"></div>
+      <div class="find-text"><div class="find-label">Unassign is instant, no undo</div><div class="find-sub">Removing a device from a range is irreversible with no toast/undo.</div></div>
+    </div>
+    <div class="finding">
+      <div class="sev amber"></div>
+      <div class="find-text"><div class="find-label">Drag-to-assign invisible on touch</div><div class="find-sub">No touch drag event; click-to-assign is the fallback but not prominent.</div></div>
+    </div>
+  </div>
+
+  <div class="crit-card">
+    <div class="dim-label">Visual hierarchy</div>
+    <div class="dim-score">68<span style="font-size:14px;color:var(--color-text-tertiary)">/100</span></div>
+    <div class="dim-bar-bg"><div class="dim-bar" style="width:68%; background:#BA7517;"></div></div>
+    <div class="finding">
+      <div class="sev amber"></div>
+      <div class="find-text"><div class="find-label">Range cards — no status at-a-glance</div><div class="find-sub">A healthy range and a range with 3 offline devices look identical.</div></div>
+    </div>
+    <div class="finding">
+      <div class="sev amber"></div>
+      <div class="find-text"><div class="find-label">Status badges vs. filter chips look the same</div><div class="find-sub">Both are pills — users may not distinguish summary from control.</div></div>
+    </div>
+    <div class="finding">
+      <div class="sev green"></div>
+      <div class="find-text"><div class="find-label">Card reading order is correct</div><div class="find-sub">Name → description → count → actions. Good hierarchy within cards.</div></div>
+    </div>
+  </div>
+
+  <div class="crit-card">
+    <div class="dim-label">Consistency</div>
+    <div class="dim-score">60<span style="font-size:14px;color:var(--color-text-tertiary)">/100</span></div>
+    <div class="dim-bar-bg"><div class="dim-bar" style="width:60%; background:#BA7517;"></div></div>
+    <div class="finding">
+      <div class="sev amber"></div>
+      <div class="find-text"><div class="find-label">Back navigation — 2 patterns</div><div class="find-sub">SmartBoxDetail: plain "← Zurück" · RangeDetail: Breadcrumb component.</div></div>
+    </div>
+    <div class="finding">
+      <div class="sev amber"></div>
+      <div class="find-text"><div class="find-label">Create forms — 3 different positions</div><div class="find-sub">Top of list / inline in card / expanding section below header.</div></div>
+    </div>
+    <div class="finding">
+      <div class="sev amber"></div>
+      <div class="find-text"><div class="find-label">Empty states — not standardized</div><div class="find-sub">Some views have icon+title+text; others have one line of gray text.</div></div>
+    </div>
+  </div>
+
+  <div class="crit-card">
+    <div class="dim-label">Accessibility</div>
+    <div class="dim-score">42<span style="font-size:14px;color:var(--color-text-tertiary)">/100</span></div>
+    <div class="dim-bar-bg"><div class="dim-bar" style="width:42%; background:#E24B4A;"></div></div>
+    <div class="access-row">
+      <div class="access-pair">#a0aec0 on #fff</div>
+      <div class="access-ratio">2.7:1</div>
+      <div class="fail">✗ fail</div>
+    </div>
+    <div class="access-row">
+      <div class="access-pair">#718096 on #f7f8fc</div>
+      <div class="access-ratio">4.4:1</div>
+      <div class="warn">⚠ border</div>
+    </div>
+    <div class="access-row">
+      <div class="access-pair">#718096 on #fff</div>
+      <div class="access-ratio">4.6:1</div>
+      <div class="pass">✓ pass</div>
+    </div>
+    <div class="access-row">
+      <div class="access-pair">#4fc3f7 on #1a1a2e</div>
+      <div class="access-ratio">6.7:1</div>
+      <div class="pass">✓ pass</div>
+    </div>
+    <div class="access-row" style="border:none;padding-bottom:0">
+      <div class="access-pair">Touch targets (icon btns)</div>
+      <div class="access-ratio">~28px</div>
+      <div class="fail">✗ &lt;44px</div>
+    </div>
+  </div>
+
+  <div class="crit-card full">
+    <div class="dim-label">Priority recommendations</div>
+    <div class="rec-item">
+      <div class="rec-num">1</div>
+      <div class="rec-body"><div class="rec-title">Press-and-hold for the fire button</div><div class="rec-desc">Show a circular progress ring — trigger at 600ms. Cancel on release. This prevents accidental hardware triggers on a touch tablet and communicates intent.</div></div>
+    </div>
+    <div class="rec-item">
+      <div class="rec-num">2</div>
+      <div class="rec-body"><div class="rec-title">Add status color to Range cards</div><div class="rec-desc">A colored left border (green / amber / red) based on device health lets the Standwart triage problems without opening each range individually.</div></div>
+    </div>
+    <div class="rec-item">
+      <div class="rec-num">3</div>
+      <div class="rec-body"><div class="rec-title">Increase touch targets to 44×44px</div><div class="rec-desc">Edit, remote, and unassign icon buttons are ~28px. Add padding. This is a mandatory fix for the tablet context.</div></div>
+    </div>
+    <div class="rec-item">
+      <div class="rec-num">4</div>
+      <div class="rec-body"><div class="rec-title">Label the Remote button</div><div class="rec-desc">Always show "Remote" text beside the icon on range cards. The program icon alone is not recognizable to new users.</div></div>
+    </div>
+    <div class="rec-item">
+      <div class="rec-num">5</div>
+      <div class="rec-body"><div class="rec-title">Fix contrast failures + add aria-labels</div><div class="rec-desc">#a0aec0 on white fails WCAG AA — shift secondary text to #718096 minimum. Add aria-label to all icon buttons and StatusDot for screen readers.</div></div>
+    </div>
+  </div>
+
+</div>

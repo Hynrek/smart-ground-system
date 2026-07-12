@@ -1,0 +1,41 @@
+# Secrets — never commit
+.ssh/
+*.pem
+*.key
+id_ed25519
+id_ed25519.pub
+
+# Isolated worktrees (superpowers)
+.worktrees/
+
+# Archived pre-monorepo .git dirs (local backup only — delete when confident)
+.git-archive/
+
+# Local Claude settings
+**/.claude/settings.local.json
+
+# Office lock files
+.~lock.*
+
+# Dependencies / build output (sub-projects also have their own .gitignore)
+node_modules/
+dist/
+build/
+target/
+*.local
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# IDE / OS
+.idea/
+.DS_Store
+*.iml
+
+# Skill archives (install into .claude/skills/ instead)
+*.skill
+
+# Visual Studio workspace caches
+.vs/

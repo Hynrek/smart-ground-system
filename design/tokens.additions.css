@@ -1,0 +1,23 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   SmartGround · "D" card language — token additions
+   Append these inside the :root { … } block of
+   src/assets/main.css  (right after the existing --sg-* tokens).
+
+   They're optional (the CSS files fall back to literal hex if absent) but
+   keep the palette in one place.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Shooter Home — per-category tile accents (icon chip + border + tint) */
+  --sg-app-cyan:   #4fc3f7;   /* Schiessplätze */
+  --sg-app-orange: #F6AD55;   /* Trainings     */
+  --sg-app-purple: #C084FC;   /* Mein Profil   */
+  --sg-app-green:  #48BB78;   /* Verwaltung    */
+
+  /* Shooter Remote — the active session mode drives the card accent.
+     Same hues already used by the border/glow + mode badge, centralised. */
+  --sg-session-schiessen:     #48BB78;   /* Schiessen (default) */
+  --sg-session-erfassen:      #fc8181;   /* Erfassen            */
+  --sg-session-verzoegert:    #EF9F27;   /* Verzögert           */
+  --sg-session-rufausloesung: #56C8D8;   /* Rufauslösung        */
+}

@@ -16,7 +16,8 @@ Dieses Dokument legt die Tier-Struktur, die Vertragsgrenzen, die Autoritätsvert
 | Begriff | Hardware | Anzahl | Rolle |
 |---|---|---|---|
 | **SmartGround Hub** | Raspberry Pi | 1 pro Anlage | Alleiniger Schreiber der anlagenweiten Konfigurationswahrheit; Verzeichnis und Dispatcher |
-| **SmartGround Node** | Raspberry Pi | 1 pro Schiessplatz (+1 Clubhaus) | Cache, Fassade, Outbox; eigener WLAN-AP; ESP-NOW-Funkmodul; lokaler OTA-Server |
+| **SmartGround Node** | Raspberry Pi | 1 pro Schiessplatz (+1 Clubhaus) | Cache, Fassade, Outbox; DHCP/DNS/Origin-Autorität (dnsmasq); ESP-NOW-Funkmodul; lokaler OTA-Server |
+| **Client-AP** | dedizierte AP-Hardware | 1 pro Node (mit Client-Geräten) | Bridged Funkzelle für die Tablets; Dumb-AP (kein eigenes DHCP/DNS), am Node-LAN |
 | **SmartBox** | ESP32 | n pro Node | GPIO-Aktorik/Sensorik |
 
 Bei **einem** Schiessplatz laufen Hub und Node als zwei Prozesse auf derselben Hardware; der Node proxyt auf `localhost`. Das ist kein Sonderfall, sondern der allgemeine Fall bei N=1.
@@ -38,11 +39,15 @@ Bei **einem** Schiessplatz laufen Hub und Node als zwei Prozesse auf derselben H
    │ SQLite Cache │      │              │      │ (0 Boxen)    │
    │ Fassade      │      │              │      │              │
    │ Outbox       │      │              │      │              │
-   │ hostapd/dnsmasq · UART→ESP32-Radio │      │              │
+   │ dnsmasq (DHCP/DNS) · UART→ESP32-Radio │      │              │
    └──┬────────┬──┘      └──────────────┘      └──────────────┘
       │        │ ESP-NOW (Betrieb)   ┌─ WLAN-STA (Wartung: OTA, Provisionierung)
       │     SmartBoxen ──────────────┘
-      │ WLAN (AP) + node-api
+      │ LAN-Bridge
+   ┌──┴───────────┐
+   │ Client-AP    │  Dumb-AP, bridged, externe Antennen
+   └──┬───────────┘
+      │ WLAN + node-api
    Tablet / Smartphone
 ```
 
@@ -100,7 +105,7 @@ Darunter unverändert: die ESP-NOW-Frame-Spec (Bausteine A–D), bereits in Java
 
 ## Netze und Kanäle
 
-**Client-WLAN:** Jeder Node betreibt hostapd + dnsmasq und ist die einzige Origin, die seine Tablets je adressieren (`https://node-N.smartground.lan`). Selbstsigniertes Zertifikat, einmal beim Provisionieren des festen Tablets akzeptiert; danach voller Secure Context. Kein DNS-01, kein öffentliches PKI.
+**Client-WLAN:** Die Funkzelle liefert **dedizierte, am Node-LAN gebridgete AP-Hardware** (Dumb-AP, eigenes DHCP/DNS abgeschaltet) — nicht das Node-Radio. Der Grund ist Reichweite und Abdeckung über den Schiessplatz samt externer/Outdoor-Antennen; damit ist die Abdeckung von der Compute-Hardware des Node entkoppelt. **Der Node bleibt aber die alleinige DHCP-/DNS-/Origin-Autorität:** er betreibt weiter `dnsmasq` (DHCP-Vergabe, autoritative Auflösung des festen Hostnamens auf seine eigene IP) und ist die einzige Origin, die seine Tablets je adressieren (`https://node-N.smartground.lan`). Selbstsigniertes Zertifikat, einmal beim Provisionieren des festen Tablets akzeptiert; danach voller Secure Context. Kein DNS-01, kein öffentliches PKI. Der AP macht ausschliesslich L2-Bridging; genau ein DHCP-/DNS-Server (der Node) darf im Segment leben.
 
 **Backhaul:** IP zwischen Node und Hub. `hub-api` per HTTPS Node→Hub. Der Hub→Node-Kanal ist **Node-initiiert** (dauerhafte ausgehende Verbindung mit Reconnect/Backoff). Der Hub kennt die IP eines Node nie. Das ist die einzige Entscheidung, die die Cloud-Variante offenhält — hinter CGNAT gibt es keine eingehende Erreichbarkeit — und sie verhält sich im LAN identisch.
 
@@ -216,7 +221,7 @@ Dieses Dokument ist die Autorität. Die ADRs sind in einem separaten Arbeitspake
 | **ADR-001** | „Der Hauptserver bleibt Source of Truth" — der Hauptserver war ein Cloud-Backend. Ersetzt durch: lokaler Hub; Autorität nach Schreibklasse getrennt (Konfiguration ↔ operativer Zustand). Die Sync-Mechanik (Cursor-Pull, Tombstones, idempotente Outbox) bleibt wörtlich gültig. Ergänzt: Outbox ist FIFO/kausal geordnet; „Resultate: keine Konflikte möglich" schweigt über Referenzen auf offline erstellte Dokumente. |
 | **ADR-002** | Frametypen mappen 1:1 auf bestehende MQTT-Topics. Entfällt: kein MQTT. Frame-Format, `SeenCache`, `MAC_ACK`, Relais und Kanalplanung bleiben unverändert gültig. |
 | **ADR-003** | Erst-Kontakt für `K_Box` läuft zwingend über WLAN/MQTT; Bootstrap-dynsec-Rolle mit akzeptiertem Restrisiko. Ersetzt durch: `box-api` über HTTPS auf dem Node-AP, CA beim Flashen gepinnt. Das Restrisiko und das Bootstrap-Arbeitspaket entfallen. |
-| **ADR-004** | Echte Subdomain + Let's-Encrypt via DNS-01; Node als einzige Ebene ohne Hub-Tier. Ersetzt durch: selbstsigniertes Zertifikat, einmalig auf festen Tablets akzeptiert (Betriebsmodus „festes Tablet pro Schiessplatz"). Die Entscheide „Node als AP", „dnsmasq statt mDNS", „Uplink getrennt vom Client-WLAN" bleiben gültig. |
+| **ADR-004** | Echte Subdomain + Let's-Encrypt via DNS-01; Node als einzige Ebene ohne Hub-Tier. Ersetzt durch: selbstsigniertes Zertifikat, einmalig auf festen Tablets akzeptiert (Betriebsmodus „festes Tablet pro Schiessplatz"). Präzisiert: die Funkzelle liefert **externe, gebridgete AP-Hardware** (Dumb-AP), nicht das Node-Radio — `hostapd` verlässt den Node, `dnsmasq`/DHCP/DNS/Origin bleiben am Node (siehe „Client-WLAN"; ADR-004 Amendment 2026-07-10, dort bereits als Hardware-Option vorgesehen). Die Entscheide „dnsmasq statt mDNS", „Uplink getrennt vom Client-WLAN" bleiben gültig. |
 
 ## Offene Punkte (bewusst ausserhalb dieses Specs)
 

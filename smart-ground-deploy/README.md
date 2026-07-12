@@ -53,7 +53,7 @@ version or git SHA instead of `latest` (e.g. `:2026-06-24`) so you can pin/rollb
 ## Running on the laptop (or any machine)
 
 1. Install **Docker Desktop** and start it.
-2. Copy this `smart-ground-deploy` folder onto the machine (or `git clone` it).
+2. Copy this `smart-ground-deploy` folder onto the machine (or clone the monorepo).
 3. Create your env file and set the registry/tag:
 
    ```bash
