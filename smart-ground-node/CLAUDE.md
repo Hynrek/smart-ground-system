@@ -141,3 +141,7 @@ A **separate, lightweight registry from the Hub's `SmartBox`/`FirmwareConfig` do
 ### box-api discovery is now token-gated first-contact provisioning
 
 `POST /box-api/v1/discovery` now **requires** a valid `token` (`BoxDiscoveryRequest.token`): `ProvisioningTokenService.validateAndConsume(token, mac)` runs first (typed `400 /errors/invalid-provisioning-token` on unknown/used/expired/MAC-mismatch), then `BoxProvisioningService.provision(...)` mints `K_Box` and `RegistrationOutboxService.enqueueAndAttempt(...)` queues the registration. A provisioned box never re-fetches `K_Box` (it persists it and moves to the ESP-NOW paired path), so the old idempotent every-boot discovery is redefined out (pre-v1.0).
+
+## node-channel (#4) — client to the Hub
+
+`ch.jp.shooting.node.nodechannel` dials the Hub's `/node-channel` WebSocket outbound (`NodeChannelClient`, `StandardWebSocketClient`) with exponential reconnect/backoff, sends `HELLO` (configured `node-channel.node-id`/`token`) then periodic `HEARTBEAT`. Incoming `COMMAND`s run through `CommandDeduplicator` (idempotent on the command UUID) into the `NodeCommandHandler` **seam** — `LoggingNodeCommandHandler` is the default (logs, returns `OK`); real ESP-NOW box dispatch replaces it later (Phase 2b), exactly like `RadioSender`. Envelope types (`NodeChannelMessage`) come from `contracts`; the Node uses its own Jackson-3 codec. Reaches the Hub only via the shared contract types — `ModuleBoundaryTest` stays green (no dependency on `smart-ground-hub`).
