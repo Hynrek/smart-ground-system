@@ -1,0 +1,76 @@
+erDiagram
+    SMART_BOXES {
+        uuid id PK
+        string mac_address UK
+        string alias
+        string status
+        instant last_seen
+        string firmware_version
+        uuid firmware_config_id FK
+        string mqtt_username
+        boolean config_synced
+    }
+
+    DEVICES {
+        uuid id PK
+        uuid smartbox_id FK
+        uuid range_id FK
+        uuid group_id FK
+        uuid device_type_id FK
+        string alias
+        int delay_signal_duration_ms
+        int fire_delay_ms
+        jsonb pin_config
+        boolean blocked
+        boolean healthy
+    }
+
+    RANGES {
+        uuid id PK
+        string name UK
+        string description
+        boolean locked
+        datetime created_at
+    }
+
+    DEVICE_TYPES {
+        uuid id PK
+        string name
+        string device_type
+        string box_type
+        int gpio_pin
+        uuid signal_type_id FK
+        uuid group_id FK
+        int signal_duration_ms
+        int delay_signal_duration_ms
+    }
+
+    DEVICE_TYPE_GROUPS {
+        uuid id PK
+        string name UK
+    }
+
+    SIGNAL_TYPES {
+        uuid id PK
+        uuid firmware_config_id FK
+        string communication_direction
+        string device
+        string command
+    }
+
+    FIRMWARE_CONFIGS {
+        uuid id PK
+        string version
+        string box_type UK
+    }
+
+    SMART_BOXES ||--o{ DEVICES : "has"
+    DEVICES }o--|| SMART_BOXES : "belongs_to"
+    DEVICES }o--|| RANGES : "assigned_to"
+    DEVICES }o--|| DEVICE_TYPE_GROUPS : "typed_by"
+    DEVICES }o--|| DEVICE_TYPES : "configured_as"
+    RANGES ||--o{ DEVICES : "contains"
+    DEVICE_TYPES }o--|| SIGNAL_TYPES : "uses"
+    DEVICE_TYPES }o--|| DEVICE_TYPE_GROUPS : "grouped_in"
+    SIGNAL_TYPES }o--|| FIRMWARE_CONFIGS : "defined_in"
+    FIRMWARE_CONFIGS ||--o{ SIGNAL_TYPES : "defines"

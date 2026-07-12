@@ -1,0 +1,28 @@
+﻿# Maven
+target/
+.classpath
+.project
+.settings/
+*.class
+*.jar
+*.war
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# OTA artifact store (runtime, ota.artifact-dir default)
+ota-artifacts/
+
+.worktrees/

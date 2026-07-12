@@ -1,0 +1,1 @@
+docker exec smartground-mosquitto mosquitto_pub -t "devices/discovery" -m '{"clientId":"pico-001","name":"TestSensor","ipAddress":"192.168.1.100"}'

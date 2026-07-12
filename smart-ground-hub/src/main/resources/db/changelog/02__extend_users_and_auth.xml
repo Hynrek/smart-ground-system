@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="v1.0-9" author="smartground">
+        <comment>Extend users table with profile fields and create RBAC tables</comment>
+
+        <!-- Add personal info fields to users table -->
+        <addColumn tableName="users">
+            <column name="vorname" type="VARCHAR(100)" constraints="NOT NULL"/>
+            <column name="nachname" type="VARCHAR(100)" constraints="NOT NULL"/>
+            <column name="geburtsdatum" type="DATE"/>
+            <column name="geschlecht" type="VARCHAR(20)"/>
+        </addColumn>
+
+        <!-- Add contact info fields -->
+        <addColumn tableName="users">
+            <column name="telefonnummer" type="VARCHAR(20)"/>
+            <column name="telefon_bestaetigt" type="BOOLEAN" defaultValue="false"/>
+            <column name="strasse" type="VARCHAR(100)"/>
+            <column name="hausnummer" type="VARCHAR(10)"/>
+            <column name="plz" type="VARCHAR(10)"/>
+            <column name="stadt" type="VARCHAR(100)"/>
+            <column name="land" type="VARCHAR(100)"/>
+        </addColumn>
+
+        <!-- Add profile fields -->
+        <addColumn tableName="users">
+            <column name="profilbild_url" type="TEXT"/>
+            <column name="biographie" type="VARCHAR(500)"/>
+            <column name="sprache" type="VARCHAR(10)" defaultValue="DE"/>
+        </addColumn>
+
+        <!-- Add membership & credentials -->
+        <addColumn tableName="users">
+            <column name="mitgliedsnummer" type="VARCHAR(50)"/>
+            <column name="schiess_lizenz" type="VARCHAR(50)"/>
+            <column name="schiess_lizenz_verfallsdatum" type="DATE"/>
+        </addColumn>
+
+        <!-- Add verification & audit fields -->
+        <addColumn tableName="users">
+            <column name="email_bestaetigt" type="BOOLEAN" defaultValue="false"/>
+            <column name="letzter_login" type="TIMESTAMP"/>
+            <column name="deleted_at" type="TIMESTAMP"/>
+        </addColumn>
+
+        <!-- Rename and update users table constraints -->
+        <dropColumn tableName="users" columnName="username"/>
+        <dropColumn tableName="users" columnName="password"/>
+        <renameColumn tableName="users" oldColumnName="password_hash" newColumnName="password_hash"/>
+
+        <!-- Add unique constraint for mitgliedsnummer -->
+        <addUniqueConstraint tableName="users" columnNames="mitgliedsnummer"/>
+
+        <!-- Modify status column to support new status values -->
+        <dropDefaultValue tableName="users" columnName="role"/>
+        <dropColumn tableName="users" columnName="role"/>
+        <addColumn tableName="users">
+            <column name="status" type="VARCHAR(50)" defaultValue="ACTIVE" constraints="NOT NULL"/>
+        </addColumn>
+
+        <!-- Add indexes for common queries -->
+        <createIndex tableName="users" indexName="idx_users_email">
+            <column name="email"/>
+        </createIndex>
+        <createIndex tableName="users" indexName="idx_users_mitgliedsnummer">
+            <column name="mitgliedsnummer"/>
+        </createIndex>
+        <createIndex tableName="users" indexName="idx_users_status">
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="users" indexName="idx_users_deleted_at">
+            <column name="deleted_at"/>
+        </createIndex>
+
+        <!-- H2 compatibility -->
+        <modifySql dbms="h2">
+            <replace replace="TIMESTAMP" with="DATETIME"/>
+        </modifySql>
+    </changeSet>
+
+    <changeSet id="v1.0-10" author="smartground">
+        <comment>Create RBAC tables: roles, permissions, user_roles, role_permissions, scoped_access</comment>
+
+        <!-- Create roles table -->
+        <createTable tableName="roles">
+            <column name="id" type="UUID" constraints="PRIMARY KEY">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(100)" constraints="UNIQUE NOT NULL"/>
+            <column name="description" type="TEXT"/>
+            <column name="created_at" type="TIMESTAMP" constraints="NOT NULL" defaultValue="NOW()"/>
+        </createTable>
+
+        <!-- Create permissions table -->
+        <createTable tableName="permissions">
+            <column name="id" type="UUID" constraints="PRIMARY KEY">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(100)" constraints="UNIQUE NOT NULL"/>
+            <column name="description" type="TEXT"/>
+            <column name="module" type="VARCHAR(50)" constraints="NOT NULL"/>
+            <column name="created_at" type="TIMESTAMP" constraints="NOT NULL" defaultValue="NOW()"/>
+        </createTable>
+
+        <!-- Create user_roles junction table -->
+        <createTable tableName="user_roles">
+            <column name="id" type="UUID" constraints="PRIMARY KEY">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID" constraints="NOT NULL"/>
+            <column name="role_id" type="UUID" constraints="NOT NULL"/>
+            <column name="assigned_at" type="TIMESTAMP" constraints="NOT NULL" defaultValue="NOW()"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="user_roles" baseColumnNames="user_id"
+                                 referencedTableName="users" referencedColumnNames="id"
+                                 constraintName="fk_user_roles_user_id"
+                                 onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="user_roles" baseColumnNames="role_id"
+                                 referencedTableName="roles" referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addUniqueConstraint tableName="user_roles" columnNames="user_id,role_id"/>
+
+        <!-- Create role_permissions junction table -->
+        <createTable tableName="role_permissions">
+            <column name="id" type="UUID" constraints="PRIMARY KEY">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="role_id" type="UUID" constraints="NOT NULL"/>
+            <column name="permission_id" type="UUID" constraints="NOT NULL"/>
+            <column name="added_at" type="TIMESTAMP" constraints="NOT NULL" defaultValue="NOW()"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="role_permissions" baseColumnNames="role_id"
+                                 referencedTableName="roles" referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="role_permissions" baseColumnNames="permission_id"
+                                 referencedTableName="permissions" referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <addUniqueConstraint tableName="role_permissions" columnNames="role_id,permission_id"/>
+
+        <!-- Create scoped_access table -->
+        <createTable tableName="scoped_access">
+            <column name="id" type="UUID" constraints="PRIMARY KEY">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID" constraints="NOT NULL"/>
+            <column name="role_id" type="UUID" constraints="NOT NULL"/>
+            <column name="scope_type" type="VARCHAR(50)" constraints="NOT NULL"/>
+            <column name="scope_id" type="UUID" constraints="NOT NULL"/>
+            <column name="assigned_at" type="TIMESTAMP" constraints="NOT NULL" defaultValue="NOW()"/>
+            <column name="expires_at" type="TIMESTAMP"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="scoped_access" baseColumnNames="user_id"
+                                 referencedTableName="users" referencedColumnNames="id"
+                                 constraintName="fk_scoped_access_user_id"
+                                 onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="scoped_access" baseColumnNames="role_id"
+                                 referencedTableName="roles" referencedColumnNames="id"
+                                 constraintName="fk_scoped_access_role_id"
+                                 onDelete="CASCADE"/>
+        <addUniqueConstraint tableName="scoped_access" columnNames="user_id,role_id,scope_type,scope_id"/>
+
+        <!-- Create indexes -->
+        <createIndex tableName="roles" indexName="idx_roles_name">
+            <column name="name"/>
+        </createIndex>
+        <createIndex tableName="permissions" indexName="idx_permissions_module">
+            <column name="module"/>
+        </createIndex>
+        <createIndex tableName="user_roles" indexName="idx_user_roles_role_id">
+            <column name="role_id"/>
+        </createIndex>
+        <createIndex tableName="scoped_access" indexName="idx_scoped_access_scope">
+            <column name="scope_type"/>
+            <column name="scope_id"/>
+        </createIndex>
+
+        <!-- H2 compatibility -->
+        <modifySql dbms="h2">
+            <replace replace="TIMESTAMP" with="DATETIME"/>
+        </modifySql>
+    </changeSet>
+
+    <changeSet id="v1.0-11" author="smartground">
+        <comment>Seed 7 roles and permissions</comment>
+
+        <!-- Insert roles -->
+        <insert tableName="roles">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655440001"/>
+            <column name="name" value="ADMIN"/>
+            <column name="description" value="System administrator. Full system access, firmware/device type management."/>
+        </insert>
+        <insert tableName="roles">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655440002"/>
+            <column name="name" value="OWNER"/>
+            <column name="description" value="Range owner. Manages users and devices on assigned ranges. No firmware access."/>
+        </insert>
+        <insert tableName="roles">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655440003"/>
+            <column name="name" value="SHOOTER"/>
+            <column name="description" value="User with full operational access to all three modules."/>
+        </insert>
+        <insert tableName="roles">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655440004"/>
+            <column name="name" value="COMPETITION_MASTER"/>
+            <column name="description" value="Creates and manages competitions system-wide."/>
+        </insert>
+        <insert tableName="roles">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655440005"/>
+            <column name="name" value="COMPETITION_RANGE_MASTER"/>
+            <column name="description" value="Executes competitions on assigned range: runs programs, approves segments, tracks hits/misses."/>
+        </insert>
+        <insert tableName="roles">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655440006"/>
+            <column name="name" value="RANGE_OPERATOR"/>
+            <column name="description" value="Controls devices on ONE assigned range only (clay thrower, LEDs, etc.)."/>
+        </insert>
+        <insert tableName="roles">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655440007"/>
+            <column name="name" value="COMPETITION_GUEST"/>
+            <column name="description" value="Read-only access to competition results and career data."/>
+        </insert>
+
+        <!-- Insert permissions -->
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450001"/>
+            <column name="name" value="remote:read"/>
+            <column name="module" value="REMOTE"/>
+            <column name="description" value="View range status and device state"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450002"/>
+            <column name="name" value="remote:write"/>
+            <column name="module" value="REMOTE"/>
+            <column name="description" value="Control devices (fire clay thrower, set LEDs, etc.)"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450003"/>
+            <column name="name" value="remote:admin"/>
+            <column name="module" value="REMOTE"/>
+            <column name="description" value="Manage device configuration and assignments"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450004"/>
+            <column name="name" value="wettkampf:read"/>
+            <column name="module" value="WETTKAMPF"/>
+            <column name="description" value="View competition schedule and results"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450005"/>
+            <column name="name" value="wettkampf:write"/>
+            <column name="module" value="WETTKAMPF"/>
+            <column name="description" value="Manage competition scheduling and execution"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450006"/>
+            <column name="name" value="wettkampf:admin"/>
+            <column name="module" value="WETTKAMPF"/>
+            <column name="description" value="Create/delete competitions, manage system-wide scheduling"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450007"/>
+            <column name="name" value="wettkampf:approve_segment"/>
+            <column name="module" value="WETTKAMPF"/>
+            <column name="description" value="Approve segment completion (COMPETITION_RANGE_MASTER only)"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450008"/>
+            <column name="name" value="wettkampf:track_scores"/>
+            <column name="module" value="WETTKAMPF"/>
+            <column name="description" value="Track hits, misses, no birds in real-time"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450009"/>
+            <column name="name" value="karriere:read"/>
+            <column name="module" value="KARRIERE"/>
+            <column name="description" value="View shooter performance records"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450010"/>
+            <column name="name" value="karriere:write"/>
+            <column name="module" value="KARRIERE"/>
+            <column name="description" value="Update shooter career data"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450011"/>
+            <column name="name" value="system:manage_users"/>
+            <column name="module" value="SYSTEM"/>
+            <column name="description" value="Create, edit, delete users and assign roles"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450012"/>
+            <column name="name" value="system:manage_smartbox"/>
+            <column name="module" value="SYSTEM"/>
+            <column name="description" value="View SmartBox status, device assignments"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450013"/>
+            <column name="name" value="system:manage_firmware"/>
+            <column name="module" value="SYSTEM"/>
+            <column name="description" value="Upload firmware versions, manage device type registry"/>
+        </insert>
+        <insert tableName="permissions">
+            <column name="id" value="550e8400-e29b-41d4-a716-446655450014"/>
+            <column name="name" value="system:manage_device_types"/>
+            <column name="module" value="SYSTEM"/>
+            <column name="description" value="Edit device types and signal definitions"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>
