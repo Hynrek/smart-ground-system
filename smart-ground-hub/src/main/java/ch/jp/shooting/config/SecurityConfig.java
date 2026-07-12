@@ -45,6 +45,9 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health").permitAll()
                 // Box-zugewandte OTA-Downloads: die SmartBox hat kein JWT (nur lesende GETs)
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/ota/app/**", "/api/ota/firmware/**").permitAll()
+                // hub-api Sync-Pull: bis Teilprojekt #6 (Service-Token) unauthentifiziert auf dem
+                // vertrauenswürdigen Backhaul freigegeben — gleiche Haltung wie die OTA-GETs oben.
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/sync/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

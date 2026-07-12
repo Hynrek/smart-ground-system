@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,4 +34,15 @@ public interface SerieRepository extends JpaRepository<Serie, UUID> {
 
     /** Kombiniert: Besitzer-Filter + Platz-Filter */
     List<Serie> findByOwnerAndRange_Id(User owner, UUID rangeId);
+
+    /**
+     * Sync-Cursor-Query (hub-api, abwärts). NATIV, um @SQLRestriction("deleted = false")
+     * bewusst zu umgehen: der Node muss Grabsteine (deleted=true) sehen, sonst erfährt er
+     * nie von Löschungen. Inklusive untere Schranke (updated_at >= cursor) + idempotenter
+     * Upsert am Node → doppelt gelieferte Grenzzeilen sind harmlos. Ordnung (updated_at, id)
+     * macht den Cursor stabil. LIMIT läuft auf H2 wie PostgreSQL.
+     */
+    @Query(value = "SELECT * FROM serien WHERE updated_at >= :updatedAfter "
+                 + "ORDER BY updated_at ASC, id ASC LIMIT :limit", nativeQuery = true)
+    List<Serie> findForSyncFrom(@Param("updatedAfter") Instant updatedAfter, @Param("limit") int limit);
 }

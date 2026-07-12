@@ -2653,6 +2653,41 @@ paths:
           description: Serie not found
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # Sync (hub-api, Node→Hub downward pull). Auth deferred to sub-project #6.
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/sync/serien:
+    get:
+      tags: [Sync]
+      operationId: syncSerien
+      summary: Cursor pull of Serien for a Node's local cache, including deletion tombstones.
+      parameters:
+        - name: updatedAfter
+          in: query
+          required: false
+          description: >
+            Inclusive low-water-mark. Returns rows with updated_at >= this value,
+            ordered ascending. Omit on the first sync to pull everything.
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          description: Max rows per page (default 500).
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 2000
+      responses:
+        '200':
+          description: A page of Serien including tombstones (deleted=true rows).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerieSyncPage'
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Passen (formerly Programme)
   # ─────────────────────────────────────────────────────────────────────────────
   /api/passen:
@@ -5143,6 +5178,51 @@ components:
         deviceCount:
           type: integer
           format: int32
+    SerieSyncPage:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SerieSyncItem'
+        nextCursor:
+          type: string
+          format: date-time
+          description: Max updated_at in this page; echoes the request cursor when the page is empty.
+        hasMore:
+          type: boolean
+          description: True when the page was full (items.size == limit) — the caller should pull again.
+    SerieSyncItem:
+      type: object
+      required: [id, name, ownership, ownerId, stepsJson, published, createdAt, updatedAt, deleted]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        ownership:
+          type: string
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+        ownerId:
+          type: string
+          format: uuid
+        stepsJson:
+          type: string
+        published:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deleted:
+          type: boolean
 
   securitySchemes:
     bearerAuth:
