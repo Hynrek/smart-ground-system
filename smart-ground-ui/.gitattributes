@@ -1,0 +1,2 @@
+# Shell scripts run inside Alpine containers — must stay LF even on Windows checkouts.
+docker-entrypoint.sh text eol=lf

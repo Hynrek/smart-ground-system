@@ -1,0 +1,217 @@
+/* Global Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  width: 100%;
+}
+
+:root {
+  /* Dark-only app: native controls (selects, pickers, scrollbars) render dark */
+  color-scheme: dark;
+
+  /* ── One dark palette — the whole product runs on the shooter aesthetic ──
+     Navy canvas, raised translucent surfaces, white-alpha text ramp, cyan
+     accent. Admin and shooter share every token; they differ only in
+     intensity (see .sg-card-surface--calm). */
+
+  /* Surfaces (page → card → raised/hover) */
+  --sg-surface-0: #1a1a2e;
+  --sg-surface-1: #232338;
+  --sg-surface-2: #2c2c44;
+
+  --sg-brand: #1a1a2e;
+  --sg-brand-hover: #24243a;
+  --sg-accent: #4fc3f7;
+  --sg-accent-hover: #81d4fa;
+
+  /* Text ramp — alphas chosen to keep small text ≥4.5:1 on surface-0 */
+  --sg-text-primary: #ffffff;
+  --sg-text-muted: rgba(255, 255, 255, 0.62);
+  --sg-text-faint: rgba(255, 255, 255, 0.45);
+  --sg-text-disabled: rgba(255, 255, 255, 0.3);
+
+  /* Semantic aliases consumed throughout the app */
+  --sg-bg-page: var(--sg-surface-0);
+  --sg-bg-card: var(--sg-surface-1);
+  --sg-bg-panel: var(--sg-surface-2);
+  --sg-border: rgba(255, 255, 255, 0.1);
+  --sg-border-input: rgba(255, 255, 255, 0.18);
+  --sg-radius-card: 10px;
+  --sg-radius-btn: 7px;
+  --sg-radius-input: 6px;
+
+  /* Semantic status colors — bg = hue tint on dark, text = light badge hue */
+  --sg-color-success: #48bb78;
+  --sg-color-success-bg: rgba(72, 187, 120, 0.16);
+  --sg-color-success-text: #7ed9a5;
+  --sg-color-warning: #ed8936;
+  --sg-color-warning-bg: rgba(237, 137, 54, 0.16);
+  --sg-color-warning-text: #fac775;
+  --sg-color-danger: #f56565;
+  --sg-color-danger-bg: rgba(245, 101, 101, 0.16);
+  --sg-color-danger-text: #fc9d9d;
+  --sg-color-info-bg: rgba(79, 195, 247, 0.16);
+  --sg-color-info-text: #81d4fa;
+  --sg-color-neutral-bg: rgba(255, 255, 255, 0.08);
+  --sg-color-neutral-text: rgba(255, 255, 255, 0.7);
+  --sg-color-purple-bg: rgba(192, 132, 252, 0.16);
+  --sg-color-purple-text: #d8b4fe;
+
+  /* Spacing scale */
+  --sg-space-1: 0.25rem;
+  --sg-space-2: 0.5rem;
+  --sg-space-3: 0.75rem;
+  --sg-space-4: 1rem;
+  --sg-space-6: 1.5rem;
+  --sg-space-8: 2rem;
+
+  /* Typography scale */
+  --sg-text-xs: 0.72rem;
+  --sg-text-sm: 0.85rem;
+  --sg-text-base: 1rem;
+  --sg-text-lg: 1.125rem;
+  --sg-text-xl: 1.25rem;
+  --sg-text-2xl: 1.5rem;
+
+  /* Shadow scale */
+  --sg-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25);
+  --sg-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --sg-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  /* Accent/danger with opacity — used for hover/active backgrounds */
+  --sg-accent-subtle: color-mix(in srgb, var(--sg-accent) 8%, transparent);
+  --sg-accent-tint: color-mix(in srgb, var(--sg-accent) 12%, transparent);
+  --sg-danger-subtle: color-mix(in srgb, var(--sg-color-danger) 10%, transparent);
+
+  /* Shooter Home — per-category tile accents (icon chip + border + tint) */
+  --sg-app-cyan:   #4fc3f7;   /* Schiessplätze */
+  --sg-app-orange: #F6AD55;   /* Trainings     */
+  --sg-app-purple: #C084FC;   /* Mein Profil   */
+  --sg-app-green:  #48BB78;   /* Verwaltung    */
+
+  /* Shooter Remote — the active session mode drives the card accent.
+     Same hues already used by the border/glow + mode badge, centralised. */
+  --sg-session-schiessen:     #48BB78;   /* Schiessen (default) */
+  --sg-session-erfassen:      #fc8181;   /* Erfassen            */
+  --sg-session-verzoegert:    #EF9F27;   /* Verzögert           */
+  --sg-session-rufausloesung: #56C8D8;   /* Rufauslösung        */
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--sg-bg-page);
+  color: var(--sg-text-primary);
+  margin: 0;
+  padding: 0;
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+}
+
+/* Base form-control surface — components refine, nothing stays native-white */
+input,
+select,
+textarea {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sg-text-primary);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--sg-text-faint);
+}
+
+/* Remove default button styles */
+button {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+}
+
+/* ── Reusable card surface — the "D" treatment ──────────────────────────────
+   A mode-tinted surface: a diagonal gradient tint, a hued border, and a light
+   glow on the inner side of the border. Set --sg-card-accent on the element to
+   drive the hue (defaults to the UI accent); add .sg-card-surface--hover for
+   the interactive border/glow lift. Global on purpose so it composes inside a
+   component's scoped styles — set --sg-card-accent, radius and layout there.
+   Used by the shooter Home tiles, Remote cards/header buttons, Play step cards
+   and Range cards. */
+.sg-card-surface {
+  --sg-card-accent: var(--sg-accent);
+  -webkit-tap-highlight-color: transparent;
+  border: 1.5px solid color-mix(in srgb, var(--sg-card-accent) 45%, transparent);
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--sg-card-accent) 22%, transparent) 0%,
+      color-mix(in srgb, var(--sg-card-accent) 10%, transparent) 45%,
+      rgba(255, 255, 255, 0.04) 100%);
+  box-shadow: inset 0 0 12px color-mix(in srgb, var(--sg-card-accent) 20%, transparent);
+}
+
+.sg-card-surface--hover:hover {
+  border-color: color-mix(in srgb, var(--sg-card-accent) 62%, transparent);
+  box-shadow: inset 0 0 16px color-mix(in srgb, var(--sg-card-accent) 32%, transparent);
+}
+
+/* Calm variant — same language at admin volume: tint and glow dialed down so
+   dense management screens stay readable; glow is reserved for status and
+   interactive emphasis. */
+.sg-card-surface--calm {
+  border-width: 1px;
+  border-color: color-mix(in srgb, var(--sg-card-accent) 24%, transparent);
+  background:
+    linear-gradient(150deg,
+      color-mix(in srgb, var(--sg-card-accent) 10%, transparent) 0%,
+      color-mix(in srgb, var(--sg-card-accent) 4%, transparent) 45%,
+      rgba(255, 255, 255, 0.02) 100%);
+  box-shadow: inset 0 0 8px color-mix(in srgb, var(--sg-card-accent) 10%, transparent);
+}
+
+.sg-card-surface--calm.sg-card-surface--hover:hover {
+  border-color: color-mix(in srgb, var(--sg-card-accent) 40%, transparent);
+  box-shadow: inset 0 0 10px color-mix(in srgb, var(--sg-card-accent) 18%, transparent);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Accessibility */
+:focus-visible {
+  outline: 2px solid var(--sg-accent);
+  outline-offset: 2px;
+}
+
+/* Remove focus outline for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}

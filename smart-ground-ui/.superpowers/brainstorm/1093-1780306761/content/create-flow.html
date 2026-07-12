@@ -1,0 +1,26 @@
+<h2>Wie soll das Erstellen eines neuen Benutzers funktionieren?</h2>
+<p class="subtitle">Das Backend unterstützt viele Felder (Adresse, Geburtsdatum, Lizenz, etc.) — die Frage ist, wie der Admin diese eingeben soll.</p>
+
+<div class="options">
+  <div class="option" data-choice="inline-panel" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Inline-Panel (im Detail-Bereich)</h3>
+      <p>Klick auf „Neuer Benutzer" ersetzt den Detailbereich rechts durch ein mehrseitiges Formular. Pflichtfelder zuerst (Name, E-Mail, Passwort), danach optionale Felder. Kein Seitenwechsel, kein Modal.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="modal" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Modal mit Tabs</h3>
+      <p>Ein grosses Modal mit zwei Tabs: „Basisdaten" (Pflichtfelder) und „Erweitert" (Adresse, Lizenz, Mitgliedsnummer). Gut isoliert, klar getrennt.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="two-step" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Zweistufig: erst erstellen, dann bearbeiten</h3>
+      <p>Kleines Modal nur für Pflichtfelder (Vorname, Nachname, E-Mail, Passwort). Nach Erstellen öffnet sich der vollständige Detailbereich zum Ergänzen der restlichen Felder.</p>
+    </div>
+  </div>
+</div>

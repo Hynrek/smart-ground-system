@@ -1,0 +1,21 @@
+﻿# Node
+node_modules/
+dist/
+npm-debug.log
+.npmrc
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env.local
+.env.*.local
+.fuse_hidden*
+
+.worktrees/

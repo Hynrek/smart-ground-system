@@ -1,0 +1,48 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Solo: Thick center, alternating white gaps and black rings -->
+
+  <!-- Thick center -->
+  <circle cx="50" cy="50" r="14" fill="currentColor"/>
+
+  <!-- White line (normal) -->
+  <circle cx="50" cy="50" r="17" fill="white" stroke="none"/>
+
+  <!-- Black line (medium thick) -->
+  <circle cx="50" cy="50" r="19" fill="none" stroke="currentColor" stroke-width="2.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="50" cy="50" r="23" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="50" cy="50" r="25" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="50" cy="50" r="28" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="50" cy="50" r="30" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="50" cy="50" r="33" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="50" cy="50" r="38" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="50" cy="50" r="43" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) -->
+  <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="1.5"/>
+
+  <!-- White line (normal) -->
+  <circle cx="50" cy="50" r="48" fill="white" stroke="none"/>
+
+  <!-- Black line (normal) - outermost -->
+  <circle cx="50" cy="50" r="49.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+</svg>

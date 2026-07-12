@@ -1,0 +1,12 @@
+﻿{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "smart-ground-ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--mode", "preview", "--port", "5174"],
+      "port": 5174,
+      "autoPort": false
+    }
+  ]
+}

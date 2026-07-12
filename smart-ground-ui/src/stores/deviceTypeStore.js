@@ -1,0 +1,97 @@
+import { defineStore } from 'pinia';
+import { ref } from 'vue';
+import { fetchDeviceTypes, fetchDeviceTypeGroups, fetchFirmwareConfigs, fetchDeviceTypesByFirmware, updateDeviceType as updateDeviceTypeApi, createSignalType, createDeviceType as createDeviceTypeApi } from '../services/deviceTypeApi.js';
+
+export const useDeviceTypeStore = defineStore('deviceType', () => {
+  const deviceTypes = ref([]);
+  const deviceTypesByFirmware = ref({});
+  const deviceTypeGroups = ref([]);
+  const firmwareConfigs = ref([]);
+  const isLoading = ref(false);
+  const error = ref(null);
+
+  const loadApiData = async () => {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      deviceTypes.value = await fetchDeviceTypes();
+      deviceTypeGroups.value = await fetchDeviceTypeGroups();
+      firmwareConfigs.value = await fetchFirmwareConfigs();
+    } catch (e) {
+      console.error('Failed to load device types from API:', e);
+      error.value = e.message ?? 'Unbekannter Fehler';
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const initialize = async () => {
+    await loadApiData();
+  };
+
+  const updateDeviceType = async (id, payload) => {
+    try {
+      const updated = await updateDeviceTypeApi(id, payload);
+      const idx = deviceTypes.value.findIndex((dt) => dt.id === id);
+      if (idx !== -1) Object.assign(deviceTypes.value[idx], updated);
+      return updated;
+    } catch (e) {
+      console.error('Failed to update device type:', e);
+      error.value = e.message ?? 'Unbekannter Fehler';
+      throw e;
+    }
+  };
+
+  const loadDeviceTypesForFirmware = async (firmwareConfigId) => {
+    try {
+      const types = await fetchDeviceTypesByFirmware(firmwareConfigId);
+      deviceTypesByFirmware.value[firmwareConfigId] = types;
+    } catch (e) {
+      console.error('Failed to load device types for firmware:', e);
+    }
+  };
+
+  const createDeviceConfig = async (firmwareConfigId, { name, groupId, pin, signalDurationMs }) => {
+    error.value = null;
+    try {
+      const signalType = await createSignalType({
+        firmwareConfigId,
+        direction: 'OUTPUT',
+        device: 'GPIO',
+        command: String(pin),
+      });
+      const deviceType = await createDeviceTypeApi({
+        name,
+        groupId,
+        signalTypeId: signalType.id,
+        signalDurationMs,
+      });
+      deviceTypes.value.push(deviceType);
+      // Also update the per-firmware map
+      if (deviceTypesByFirmware.value[firmwareConfigId]) {
+        deviceTypesByFirmware.value[firmwareConfigId].push(deviceType);
+      }
+      return deviceType;
+    } catch (e) {
+      console.error('Failed to create device config:', e);
+      // If createSignalType succeeded but createDeviceType failed, a dangling
+      // signal type may exist on the backend. No rollback API is available yet.
+      error.value = e.message ?? 'Unbekannter Fehler';
+      throw e;
+    }
+  };
+
+  return {
+    deviceTypes,
+    deviceTypesByFirmware,
+    deviceTypeGroups,
+    firmwareConfigs,
+    isLoading,
+    error,
+    initialize,
+    loadApiData,
+    updateDeviceType,
+    createDeviceConfig,
+    loadDeviceTypesForFirmware,
+  };
+});

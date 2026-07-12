@@ -1,0 +1,197 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { setActivePinia, createPinia } from 'pinia'
+import { usePlaySessionStore } from '../playSessionStore'
+import { StepType } from '@/constants/playEnums.js'
+import { sendPositionCommand } from '@/services/rangePositionApi.js'
+
+vi.mock('@/services/rangePositionApi.js', () => ({
+  sendPositionCommand: vi.fn().mockResolvedValue(undefined),
+}))
+
+const prog = () => [{
+  steps: [
+    { type: StepType.SOLO, positionId: 'p0' },
+    { type: StepType.SOLO, positionId: 'p1' },
+    { type: StepType.SOLO, positionId: 'p2' },
+  ],
+}]
+
+const seedFirstShooter = (store) => {
+  store.playProg = prog()
+  store.sessionPlayers = [{ id: 'A', displayName: 'A' }, { id: 'B', displayName: 'B' }]
+  store.roundOrder = [0, 1]
+  store.currentPlayerIndex = 0
+  store.currentSerieIndex = 0
+  store.currentStepIndex = 0
+}
+
+describe('playSessionStore — preview', () => {
+  beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks() })
+
+  it('startPreview engages preview and places the cursor at the frontier', () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(prog())
+    store.startPreview()
+    expect(store.previewMode).toBe(true)
+    expect(store.previewEngaged).toBe(true)
+    expect(store.previewStep.positionId).toBe('p0')
+  })
+
+  it('advancePreviewStep fires the device and moves the frontier forward', async () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(prog())
+    store.startPreview()
+    await store.advancePreviewStep()
+    expect(sendPositionCommand).toHaveBeenCalledWith(null, 'p0')
+    expect(store.previewFrontier).toBe(1)
+    expect(store.previewStep.positionId).toBe('p1')
+  })
+
+  it('skipPreviewStep advances the frontier without firing a device', () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(prog())
+    store.startPreview()
+    store.skipPreviewStep()
+    expect(sendPositionCommand).not.toHaveBeenCalled()
+    expect(store.previewFrontier).toBe(1)
+    expect(store.previewStep.positionId).toBe('p1')
+  })
+
+  it('needsPreview is false when preview was never engaged', () => {
+    const store = usePlaySessionStore()
+    seedFirstShooter(store)
+    expect(store.needsPreview).toBe(false)
+  })
+
+  it('needsPreview pauses the first shooter at an unseen step and clears after previewing', async () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(prog())
+    store.startPreview()
+    await store.advancePreviewStep() // frontier = 1 (p0 seen)
+    store.stopPreview()
+    seedFirstShooter(store)
+
+    store.currentStepIndex = 0
+    expect(store.needsPreview).toBe(false) // scored index 0 < frontier 1
+    store.currentStepIndex = 1
+    expect(store.needsPreview).toBe(true)  // scored index 1 >= frontier 1
+
+    store.startPreview()
+    await store.advancePreviewStep() // frontier = 2
+    store.stopPreview()
+    expect(store.needsPreview).toBe(false)
+  })
+
+  it('needsPreview is false for shooters after the first', () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(prog())
+    store.startPreview()
+    store.stopPreview() // engaged, frontier 0
+    seedFirstShooter(store)
+    store.currentPlayerIndex = 1
+    expect(store.needsPreview).toBe(false)
+  })
+
+  // Mirrors the "preview first" group-start mechanic: startGroupPlay initiates the
+  // play (and starting shooter) up front, then the preview overlays on top.
+  it('after a full preview-first start, the starting shooter is not gated', async () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(prog())
+    await store.startGroupPlay([{ id: 'A', displayName: 'A' }])
+    store.startPreview()
+    // Walk the whole series (3 SOLO steps).
+    await store.advancePreviewStep()
+    await store.advancePreviewStep()
+    await store.advancePreviewStep()
+    expect(store.previewStep).toBeNull()
+    store.stopPreview()
+    expect(store.needsPreview).toBe(false) // fully previewed → play runs unblocked
+  })
+
+  it('after a partial preview-first start, the starting shooter is gated at the first unseen step', async () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(prog())
+    await store.startGroupPlay([{ id: 'A', displayName: 'A' }])
+    store.startPreview()
+    await store.advancePreviewStep() // frontier = 1 (only p0 seen)
+    store.stopPreview()
+
+    expect(store.currentStepIndex).toBe(0)
+    expect(store.needsPreview).toBe(false) // scored index 0 < frontier 1 → plays p0
+    store.currentStepIndex = 1
+    expect(store.needsPreview).toBe(true)  // reached the un-previewed step → gated
+  })
+
+  it('advancePreviewStep on an a_schuss step fires both positions in two phases before advancing the frontier', async () => {
+    const aSchussProg = () => [{
+      steps: [
+        { type: StepType.A_SCHUSS, positionId1: 'a1', positionId2: 'a2' },
+      ],
+    }]
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(aSchussProg())
+    store.startPreview()
+
+    await store.advancePreviewStep() // first tap
+    expect(sendPositionCommand).toHaveBeenCalledTimes(1)
+    expect(sendPositionCommand).toHaveBeenCalledWith(null, 'a1')
+    expect(sendPositionCommand).not.toHaveBeenCalledWith(null, 'a2')
+    expect(store.previewFrontier).toBe(0) // still mid-step
+    expect(store.previewStep.type).toBe(StepType.A_SCHUSS)
+
+    await store.advancePreviewStep() // second tap
+    expect(sendPositionCommand).toHaveBeenCalledTimes(2)
+    expect(sendPositionCommand).toHaveBeenLastCalledWith(null, 'a2')
+    expect(store.previewFrontier).toBe(1) // step complete
+    expect(store.previewStep).toBeNull()
+  })
+
+  it('completePreviewRaffaleStep fires the second throw and advances the frontier after the first advancePreviewStep call', async () => {
+    const raffaleProg = () => [{
+      steps: [
+        { type: StepType.RAFFALE, positionId: 'r0' },
+      ],
+    }]
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(raffaleProg())
+    store.startPreview()
+
+    await store.advancePreviewStep() // first throw
+    expect(sendPositionCommand).toHaveBeenCalledTimes(1)
+    expect(sendPositionCommand).toHaveBeenCalledWith(null, 'r0')
+    expect(store.previewFrontier).toBe(0) // raffale not done after one throw
+    expect(store.previewRaffaleStarted).toBe(true)
+
+    await store.completePreviewRaffaleStep() // explicit completion
+    expect(sendPositionCommand).toHaveBeenCalledTimes(2)
+    expect(sendPositionCommand).toHaveBeenLastCalledWith(null, 'r0')
+    expect(store.previewFrontier).toBe(1) // step complete
+    expect(store.previewStep).toBeNull()
+    expect(store.previewRaffaleStarted).toBe(false)
+  })
+
+  it('completePreviewRaffaleStep no-ops on a non-raffale preview step', async () => {
+    const store = usePlaySessionStore()
+    store.setPendingGroupSerien(prog()) // SOLO steps
+    store.startPreview()
+
+    await store.completePreviewRaffaleStep()
+    expect(sendPositionCommand).not.toHaveBeenCalled()
+    expect(store.previewFrontier).toBe(0)
+    expect(store.previewStep.positionId).toBe('p0')
+
+    const aSchussProg = () => [{
+      steps: [
+        { type: StepType.A_SCHUSS, positionId1: 'a1', positionId2: 'a2' },
+      ],
+    }]
+    const store2 = usePlaySessionStore()
+    store2.setPendingGroupSerien(aSchussProg())
+    store2.startPreview()
+
+    await store2.completePreviewRaffaleStep()
+    expect(sendPositionCommand).not.toHaveBeenCalled()
+    expect(store2.previewFrontier).toBe(0)
+    expect(store2.previewStep.type).toBe(StepType.A_SCHUSS)
+  })
+})

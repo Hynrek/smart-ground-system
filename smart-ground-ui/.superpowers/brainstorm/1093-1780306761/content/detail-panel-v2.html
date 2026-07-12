@@ -1,0 +1,94 @@
+<h2>Detailansicht v2 — mit Rolle in der Liste</h2>
+<p class="subtitle">Jeder Listeneintrag zeigt jetzt Name, Status-Badge und Rolle. Passt das?</p>
+
+<div class="mockup" style="max-width:900px;margin:0 auto;">
+  <div class="mockup-header">Benutzerverwaltung</div>
+  <div class="mockup-body" style="padding:0;display:flex;height:500px;">
+
+    <!-- Left: user list -->
+    <div style="width:260px;border-right:1px solid #e5e7eb;display:flex;flex-direction:column;flex-shrink:0;">
+      <div style="padding:0.75rem;border-bottom:1px solid #e5e7eb;display:flex;gap:0.5rem;align-items:center;">
+        <div class="mock-input" style="flex:1;font-size:0.8rem;color:#9ca3af;padding:0.4rem 0.6rem;">Suchen...</div>
+        <div class="mock-button" style="font-size:0.78rem;padding:0.4rem 0.75rem;white-space:nowrap;">+ Neu</div>
+      </div>
+      <div style="overflow-y:auto;flex:1;">
+        <!-- selected -->
+        <div style="padding:0.65rem 0.75rem;background:#eff6ff;border-left:3px solid #3b82f6;cursor:pointer;">
+          <div style="font-weight:600;font-size:0.85rem;">Hans Müller</div>
+          <div style="font-size:0.72rem;color:#6b7280;display:flex;gap:0.4rem;margin-top:0.25rem;align-items:center;flex-wrap:wrap;">
+            <span style="background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:8px;">Aktiv</span>
+            <span style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:8px;">Schütze</span>
+          </div>
+        </div>
+        <div style="padding:0.65rem 0.75rem;border-left:3px solid transparent;cursor:pointer;">
+          <div style="font-weight:500;font-size:0.85rem;">Anna Schmidt</div>
+          <div style="font-size:0.72rem;color:#6b7280;display:flex;gap:0.4rem;margin-top:0.25rem;align-items:center;flex-wrap:wrap;">
+            <span style="background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:8px;">Aktiv</span>
+            <span style="background:#f3e8ff;color:#7e22ce;padding:1px 6px;border-radius:8px;">Admin</span>
+          </div>
+        </div>
+        <div style="padding:0.65rem 0.75rem;border-left:3px solid transparent;cursor:pointer;">
+          <div style="font-weight:500;font-size:0.85rem;">Peter Keller</div>
+          <div style="font-size:0.72rem;color:#9ca3af;display:flex;gap:0.4rem;margin-top:0.25rem;align-items:center;flex-wrap:wrap;">
+            <span style="background:#f3f4f6;color:#6b7280;padding:1px 6px;border-radius:8px;">Inaktiv</span>
+            <span style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:8px;">Schütze</span>
+          </div>
+        </div>
+        <div style="padding:0.65rem 0.75rem;border-left:3px solid transparent;cursor:pointer;">
+          <div style="font-weight:500;font-size:0.85rem;">Maria Weber</div>
+          <div style="font-size:0.72rem;color:#6b7280;display:flex;gap:0.4rem;margin-top:0.25rem;align-items:center;flex-wrap:wrap;">
+            <span style="background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:8px;">Aktiv</span>
+            <span style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:8px;">Schütze</span>
+            <span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:8px;">Bereichsleiter</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: detail panel -->
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="padding:0.75rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:#f9fafb;">
+        <div>
+          <span style="font-weight:600;font-size:1rem;">Hans Müller</span>
+          <span style="margin-left:0.75rem;background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:10px;font-size:0.78rem;">Aktiv</span>
+          <span style="margin-left:0.5rem;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:10px;font-size:0.78rem;">Schütze</span>
+        </div>
+        <div style="display:flex;gap:0.5rem;">
+          <div class="mock-button" style="background:#f3f4f6;color:#374151;font-size:0.8rem;padding:0.35rem 0.85rem;">Bearbeiten</div>
+          <div class="mock-button" style="background:#fee2e2;color:#991b1b;font-size:0.8rem;padding:0.35rem 0.85rem;">Löschen</div>
+        </div>
+      </div>
+
+      <div style="flex:1;overflow-y:auto;padding:1rem 1.25rem;display:flex;flex-direction:column;gap:1rem;">
+        <div>
+          <div style="font-size:0.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">Kontakt</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;font-size:0.82rem;">
+            <div><div style="color:#9ca3af;font-size:0.72rem;">E-Mail</div><div>hans@mail.ch</div></div>
+            <div><div style="color:#9ca3af;font-size:0.72rem;">Telefon</div><div>+41 79 123 45 67</div></div>
+            <div><div style="color:#9ca3af;font-size:0.72rem;">Geburtsdatum</div><div>12.03.1985</div></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">Adresse</div>
+          <div style="font-size:0.82rem;">Hauptstrasse 12, 3000 Bern, CH</div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">Mitgliedschaft</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;font-size:0.82rem;">
+            <div><div style="color:#9ca3af;font-size:0.72rem;">Mitgliedsnummer</div><div>SG-0042</div></div>
+            <div><div style="color:#9ca3af;font-size:0.72rem;">Schiesslizenz</div><div>SL-99912</div></div>
+            <div><div style="color:#9ca3af;font-size:0.72rem;">Lizenz Ablauf</div><div style="color:#d97706;font-weight:500;">31.12.2025 ⚠</div></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">System</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.82rem;">
+            <div><div style="color:#9ca3af;font-size:0.72rem;">Erstellt am</div><div>01.01.2024</div></div>
+            <div><div style="color:#9ca3af;font-size:0.72rem;">Zuletzt aktualisiert</div><div>15.05.2025</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
