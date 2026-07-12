@@ -23,6 +23,7 @@
         <jakarta.persistence.version>3.2.0</jakarta.persistence.version>
         <jakarta.validation.version>3.1.1</jakarta.validation.version>
         <jspecify.version>1.0.0</jspecify.version>
+        <hibernate.version>7.2.7.Final</hibernate.version>
         <openapi.generator.version>7.9.0</openapi.generator.version>
         <jackson.version>2.21.2</jackson.version>
         <jackson.annotations.version>2.21</jackson.annotations.version>

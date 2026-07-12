@@ -32,5 +32,15 @@
             <artifactId>jspecify</artifactId>
             <version>${jspecify.version}</version>
         </dependency>
+        <!-- provided: only needed to compile @SQLRestriction; the Hub supplies the actual
+             hibernate-core jar at runtime via spring-boot-starter-data-jpa. Version matches
+             what smart-ground-hub's Spring Boot 4.0.5 BOM resolves, so no consumer sees two
+             Hibernate generations on its classpath. -->
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <version>${hibernate.version}</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 </project>
