@@ -2688,6 +2688,51 @@ paths:
                 $ref: '#/components/schemas/SerieSyncPage'
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # Outbox (hub-api, Node→Hub upward push). Auth deferred to sub-project #6.
+  # ─────────────────────────────────────────────────────────────────────────────
+  /api/outbox/serien:
+    post:
+      tags: [Outbox]
+      operationId: pushSerieOutboxItem
+      summary: >
+        Idempotent single-item push of a Node-minted Serie. Create if the id is unseen;
+        apply if baseVersion matches the Hub's current updated_at; reject as CONFLICT
+        if it diverges and the pushed content differs from what the Hub already has.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SerieOutboxItem'
+      responses:
+        '200':
+          description: Push outcome — ACCEPTED, CONFLICT, or REJECTED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerieOutboxResult'
+  /api/outbox/play-instances:
+    post:
+      tags: [Outbox]
+      operationId: pushPlayInstanceOutboxItem
+      summary: >
+        Idempotent single-item push of a Node-minted PlayInstance result. Append-only —
+        create if the id is unseen, no-op (ACCEPTED) if already present. No conflict concept.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayInstanceOutboxItem'
+      responses:
+        '200':
+          description: Push outcome — ACCEPTED or REJECTED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayInstanceOutboxResult'
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Passen (formerly Programme)
   # ─────────────────────────────────────────────────────────────────────────────
   /api/passen:
@@ -5223,6 +5268,93 @@ components:
           format: date-time
         deleted:
           type: boolean
+
+    SerieOutboxItem:
+      type: object
+      required: [id, name, ownership, ownerId, stepsJson, published]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Node-minted identity. Idempotency key for retries.
+        name:
+          type: string
+        ownership:
+          type: string
+        rangeId:
+          type: string
+          format: uuid
+          nullable: true
+        ownerId:
+          type: string
+          format: uuid
+        stepsJson:
+          type: string
+        published:
+          type: boolean
+        baseVersion:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            The Hub's updated_at the Node last saw for this id (from a prior sync pull).
+            Absent on a first-ever push (pure create). Present on a push that edits a
+            row the Node has synced before — the Hub compares it against the row's
+            current updated_at to detect a concurrent online edit.
+    SerieOutboxResult:
+      type: object
+      required: [status, updatedAt]
+      properties:
+        status:
+          type: string
+          enum: [ACCEPTED, CONFLICT, REJECTED]
+        updatedAt:
+          type: string
+          format: date-time
+          description: The Hub's authoritative updated_at for this id after processing the push.
+        message:
+          type: string
+          nullable: true
+    PlayInstanceOutboxItem:
+      type: object
+      required: [instanceId, type, templateId, templateName, ownerId, playersJson, stateJson, status, startedAt]
+      properties:
+        instanceId:
+          type: string
+          format: uuid
+        type:
+          type: string
+        templateId:
+          type: string
+          format: uuid
+        templateName:
+          type: string
+        ownerId:
+          type: string
+          format: uuid
+        playersJson:
+          type: string
+        stateJson:
+          type: string
+        status:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+    PlayInstanceOutboxResult:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ACCEPTED, REJECTED]
+        message:
+          type: string
+          nullable: true
 
   securitySchemes:
     bearerAuth:
