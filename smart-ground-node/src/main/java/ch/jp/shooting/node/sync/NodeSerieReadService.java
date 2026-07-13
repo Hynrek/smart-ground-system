@@ -45,6 +45,10 @@ public class NodeSerieReadService {
             }
         }
 
+        // Outbox-Einträge überschreiben absichtlich eine SyncedSerie mit derselben id (z. B. eine
+        // Offline-Bearbeitung einer bereits vom Hub synchronisierten Serie): der lokale
+        // pending/failed-Zustand soll gegenüber dem letzten bekannten Hub-Stand gewinnen, bis der
+        // Outbox-Eintrag bestätigt (SENT) und die nächste Abwärts-Synchronisierung ihn ersetzt hat.
         for (OutboxEntry entry : outboxRepository.findByEntityTypeOrderBySequenceAsc("SERIE")) {
             if ("SENT".equals(entry.getStatus())) {
                 continue; // bereits (oder bald) über SyncedSerie sichtbar

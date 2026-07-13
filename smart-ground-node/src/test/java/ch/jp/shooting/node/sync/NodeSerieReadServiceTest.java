@@ -76,4 +76,17 @@ class NodeSerieReadServiceTest {
         assertThat(visible).filteredOn(v -> v.id().equals(failedId))
                 .singleElement().matches(v -> v.provenance().equals("failed"));
     }
+
+    @Test
+    void findAllVisible_whenSameIdInSyncedAndPending_prefersOutboxEntry() throws Exception {
+        UUID sharedId = UUID.randomUUID();
+        synced(sharedId, "Original from Hub", false);
+        outboxEntry(sharedId, "Edited Offline", "PENDING");
+
+        var visible = readService.findAllVisible();
+
+        assertThat(visible).filteredOn(v -> v.id().equals(sharedId))
+                .singleElement().matches(v -> v.provenance().equals("pending")
+                        && v.name().equals("Edited Offline"));
+    }
 }
