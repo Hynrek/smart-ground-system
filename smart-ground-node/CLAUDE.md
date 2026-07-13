@@ -149,9 +149,46 @@ A **separate, lightweight registry from the Hub's `SmartBox`/`FirmwareConfig` do
 - `SerieSyncService.sync()` — drains all pages from the persisted cursor, upserts each `SerieSyncItem` into `SyncedSerie` **by the Hub-assigned id** (idempotent), and advances the `SyncState("serie")` cursor per page. No wrapping transaction: a crash mid-drain only under-advances the cursor; the next run re-pulls and re-upserts harmlessly. Tombstones (`deleted=true`) are stored, not dropped — the Node "sees" deletions.
 - `SerieSyncScheduler` — `@Scheduled(fixedDelayString="${sync.serie.interval-ms:15000}")`; a dead backhaul is logged at debug and swallowed (not an alarm), per the spec. `NodeSchedulingConfig` carries `@EnableScheduling` (nothing ran periodically before).
 - Reaches the Hub **only** via `HubClient.fetchSerieSyncPage` and generated `ch.jp.smartground.*` types — `ModuleBoundaryTest` still green.
-- **Not built here:** the upward Outbox (#3), service-token auth on hub-api (#6 — the pull is currently unauthenticated), and a node-api read endpoint exposing the mirror to clients (#5). `SyncedSerie` is a mirror only; nothing reads it yet.
+- **Not built here:** service-token auth on hub-api (#6 — the pull is currently unauthenticated) and a node-api read endpoint exposing the mirror to clients (#5). The upward Outbox is #3 — see the section below.
 - **Jackson 2.x message converter fix (found and fixed during E2E verification):** `HubClientConfig`'s `RestClient` bean now builds its own `ObjectMapper` (`JsonNullableModule` + `JavaTimeModule`) and routes through `MappingJackson2HttpMessageConverter`, replacing Spring Boot 4's default Jackson 3.x (`tools.jackson`) converter for this client only. Without this, `SerieSyncItem.getRangeId()` (a generated `JsonNullable<UUID>` field) deserialized to a silent `null` instead of an empty `JsonNullable`, and `SerieSyncService.upsert()`'s `.isPresent()` call threw an NPE on every tick — caught by the scheduler's `catch (RuntimeException)` and logged only at debug, so the sync silently never applied anything. Same root cause and same fix pattern as `smart-ground-hub`'s `JacksonConfig` (see that project's CLAUDE.md), just applied client-side here. `pom.xml` promotes `jackson-databind` from test-scope to compile-scope and adds `jackson-datatype-jsr310` for this converter.
 - **Deferred follow-up (documented, not implemented):** the Hub's cursor is `updated_at` only, with no id tiebreaker, so rows sharing an identical `updated_at` beyond the page `limit` (500) could theoretically stall pagination — low probability given real timestamp precision, but a proper `(updated_at, id)` keyset cursor is recommended before sub-project #3 (Outbox) or later sync entities extend this pattern.
+
+## Outbox (#3) — upward Serie/PlayInstance push
+
+`ch.jp.shooting.node.outbox` pushes Node-minted Serien and PlayInstances to the Hub's
+`POST /api/outbox/serien` / `POST /api/outbox/play-instances` (hub-api, upward):
+
+- `OutboxEntry` — a single H2 table shared by every entity type (`entityType` discriminator,
+  `payloadJson` TEXT column holding the full generated contracts DTO). Its `sequence`
+  (auto-increment PK) is the **one global FIFO order** across entity types — this is what
+  guarantees a Serie is always pushed before the PlayInstance that references it, with no
+  explicit dependency graph.
+- `SerieOutboxService.createSerieLocally(...)` / `PlayInstanceOutboxService.startSerieInstanceLocally(...)`
+  — the Node-local "create offline" / "shoot offline" entry points. Both only ever write to
+  `OutboxEntry`; neither calls the Hub. No node-api HTTP surface yet (that's #5, same
+  precedent as the Sync-Fundament mirror).
+- `OutboxDrainService.drainOnce()` — single-flight FIFO drain, `@Scheduled` via
+  `OutboxDrainScheduler` (`outbox.serie.interval-ms`, default 15s; `NodeSchedulingConfig`'s
+  `@EnableScheduling` from #2 covers it). **Stops at the first entry that isn't ACCEPTED** —
+  a transport error leaves it `PENDING` (retried next tick), a Hub `CONFLICT`/`REJECTED`
+  marks it `FAILED` and the loop does not skip past it, because a later entry might
+  reference it (`PlayInstance.templateId` and `Passe.serieIdsJson` are raw UUID values, not
+  JPA foreign keys — nothing at the DB level would stop a dangling reference except this rule).
+- `NodeSerieReadService.findAllVisible()` (`ch.jp.shooting.node.sync`) — read-your-writes:
+  unions `SyncedSerie` (confirmed from the Hub) with not-yet-`SENT` `OutboxEntry` rows, so a
+  Node-local read sees an offline-created Serie immediately, tagged `provenance`
+  (`"synced" | "pending" | "failed"`). No HTTP endpoint yet — #5 exposes it.
+- Reaches the Hub only via `HubClient.pushSerieOutboxItem` / `pushPlayInstanceOutboxItem`
+  and generated `ch.jp.smartground.*` types — `ModuleBoundaryTest` stays green.
+- **Conflict detection reuses `updated_at`, no new version column.** A `SerieOutboxItem`
+  carries `baseVersion` — the Hub's `updated_at` the Node last saw for that id from a prior
+  sync pull. The Hub compares it to the row's *current* `updated_at`; a match applies the
+  edit, a mismatch is `CONFLICT` and the Hub keeps its own row. A push whose content is
+  byte-identical to what the Hub already has is always accepted regardless of `baseVersion`
+  — that's what makes a duplicate/retried push idempotent instead of a false conflict.
+- **Not built here:** service-token auth (#6 — pushes are unauthenticated, `ownerId` is
+  trusted as sent), and the `Passe` entity (only `Serie` + `PlayInstance` are in scope,
+  matching the roadmap's stated deliverable).
 
 ## node-channel (#4) — client to the Hub
 

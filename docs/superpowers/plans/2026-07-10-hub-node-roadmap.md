@@ -26,7 +26,7 @@ Brainstorming entfällt — das Design ist entschieden und liegt in der Spec.
 |---|---|---|---|---|
 | 1 | Modulgrenze und Artefakt-Split | — | erledigt | [2026-07-10-module-boundary-split.md](2026-07-10-module-boundary-split.md) |
 | 2 | Sync-Fundament (`hub-api`, abwärts) | 1 | erledigt | [2026-07-12-sync-fundament.md](2026-07-12-sync-fundament.md) |
-| 3 | Outbox (`hub-api`, aufwärts) | 2 | offen | — |
+| 3 | Outbox (`hub-api`, aufwärts) | 2 | erledigt | [2026-07-13-outbox.md](2026-07-13-outbox.md) |
 | 4 | `node-channel` | 1 | erledigt | [2026-07-12-node-channel.md](2026-07-12-node-channel.md) |
 | 5 | `node-api`-Fassade | 4 | offen | — |
 | 6 | Offline-Login | 2 | offen | — |

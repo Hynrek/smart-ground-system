@@ -436,6 +436,23 @@ A **raw WebSocket** at `/node-channel` (separate from STOMP `/ws/shooting`), **N
 
 ---
 
+## Outbox (#3) — upward Serie/PlayInstance push
+
+`POST /api/outbox/serien` and `POST /api/outbox/play-instances` (`OutboxController implements
+OutboxApi`, `SerieOutboxService`/`PlayInstanceOutboxService`) accept Node-minted ids and upsert
+by that id — a **native SQL INSERT** handles the create path to work around Hibernate 7.2.7's
+behavior: when merging an entity with a `@GeneratedValue(strategy = GenerationType.UUID)` field
+but a client-provided (non-null) id that doesn't yet exist in the DB, Hibernate throws
+`StaleObjectStateException` instead of falling back to INSERT; the native `insertOutboxCreatedSerie` /
+`insertOutboxCreatedPlayInstance` repository methods bypass this. The update path (entity already
+exists) uses `save()` normally — merge() works fine there because the entity is already known to
+Hibernate. `Serie` push detects conflicts against a pushed `baseVersion` compared to the row's
+current `updated_at` (added by Sync-Fundament #2) — no separate version column. `PlayInstance` push
+is append-only, no conflict concept. Both endpoints are unauthenticated (`permitAll` on `POST /api/outbox/**`)
+until service-token auth lands in #6, same posture as the `GET /api/sync/**` pull from #2.
+
+---
+
 ## OpenAPI & REST Contracts
 
 > **Mandatory rule: `openapi.yaml` is the single source of truth for every REST endpoint. Any change to the API — new endpoint, removed endpoint, changed path, changed request/response shape, added/removed field, changed status code — must be reflected in `openapi.yaml` before or at the same time as the implementation. No exceptions.**
