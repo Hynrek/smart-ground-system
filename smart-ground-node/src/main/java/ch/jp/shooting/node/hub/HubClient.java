@@ -2,6 +2,10 @@ package ch.jp.shooting.node.hub;
 
 import ch.jp.smartground.model.LoginRequest;
 import ch.jp.smartground.model.LoginResponse;
+import ch.jp.smartground.model.PlayInstanceOutboxItem;
+import ch.jp.smartground.model.PlayInstanceOutboxResult;
+import ch.jp.smartground.model.SerieOutboxItem;
+import ch.jp.smartground.model.SerieOutboxResult;
 import ch.jp.smartground.model.SerieSyncPage;
 import org.springframework.web.client.RestClient;
 
@@ -55,5 +59,23 @@ public class HubClient {
                         .build())
                 .retrieve()
                 .body(SerieSyncPage.class);
+    }
+
+    /** Push eines Node-vergebenen Serie-Outbox-Eintrags (hub-api, aufwärts). */
+    public SerieOutboxResult pushSerieOutboxItem(SerieOutboxItem item) {
+        return restClient.post()
+                .uri("/api/outbox/serien")
+                .body(item)
+                .retrieve()
+                .body(SerieOutboxResult.class);
+    }
+
+    /** Push eines Node-vergebenen PlayInstance-Outbox-Eintrags (hub-api, aufwärts). */
+    public PlayInstanceOutboxResult pushPlayInstanceOutboxItem(PlayInstanceOutboxItem item) {
+        return restClient.post()
+                .uri("/api/outbox/play-instances")
+                .body(item)
+                .retrieve()
+                .body(PlayInstanceOutboxResult.class);
     }
 }
