@@ -45,7 +45,12 @@ public class OutboxDrainService {
             boolean advanced = switch (entry.getEntityType()) {
                 case "SERIE" -> pushSerie(entry);
                 case "PLAY_INSTANCE" -> pushPlayInstance(entry);
-                default -> throw new IllegalStateException("unknown outbox entityType: " + entry.getEntityType());
+                default -> {
+                    // Unknown entityType can never become recognized on retry -> unrecoverable, same as corrupt JSON below.
+                    entry.setStatus("FAILED");
+                    entry.setLastError("unknown outbox entityType: " + entry.getEntityType());
+                    yield false;
+                }
             };
             outboxRepository.save(entry);
             if (!advanced) {
@@ -57,8 +62,8 @@ public class OutboxDrainService {
     }
 
     private boolean pushSerie(OutboxEntry entry) {
-        SerieOutboxItem item = readJson(entry.getPayloadJson(), SerieOutboxItem.class);
         try {
+            SerieOutboxItem item = readJson(entry.getPayloadJson(), SerieOutboxItem.class);
             SerieOutboxResult result = hubClient.pushSerieOutboxItem(item);
             if (result.getStatus() == SerieOutboxResult.StatusEnum.ACCEPTED) {
                 entry.setStatus("SENT");
@@ -66,6 +71,12 @@ public class OutboxDrainService {
             }
             entry.setStatus("FAILED");
             entry.setLastError(result.getStatus() + (result.getMessage() != null ? ": " + result.getMessage() : ""));
+            return false;
+        } catch (CorruptPayloadException e) {
+            // Corrupt JSON on disk won't parse differently on the next tick -> unrecoverable, mark FAILED (not PENDING).
+            log.warn("Outbox entry (SERIE {}) has corrupt payload, marking FAILED: {}", entry.getEntityId(), e.getMessage());
+            entry.setStatus("FAILED");
+            entry.setLastError(e.getMessage());
             return false;
         } catch (RuntimeException e) {
             log.debug("Outbox push (SERIE {}) failed, staying PENDING: {}", entry.getEntityId(), e.getMessage());
@@ -75,8 +86,8 @@ public class OutboxDrainService {
     }
 
     private boolean pushPlayInstance(OutboxEntry entry) {
-        PlayInstanceOutboxItem item = readJson(entry.getPayloadJson(), PlayInstanceOutboxItem.class);
         try {
+            PlayInstanceOutboxItem item = readJson(entry.getPayloadJson(), PlayInstanceOutboxItem.class);
             PlayInstanceOutboxResult result = hubClient.pushPlayInstanceOutboxItem(item);
             if (result.getStatus() == PlayInstanceOutboxResult.StatusEnum.ACCEPTED) {
                 entry.setStatus("SENT");
@@ -84,6 +95,12 @@ public class OutboxDrainService {
             }
             entry.setStatus("FAILED");
             entry.setLastError(result.getStatus() + (result.getMessage() != null ? ": " + result.getMessage() : ""));
+            return false;
+        } catch (CorruptPayloadException e) {
+            // Corrupt JSON on disk won't parse differently on the next tick -> unrecoverable, mark FAILED (not PENDING).
+            log.warn("Outbox entry (PLAY_INSTANCE {}) has corrupt payload, marking FAILED: {}", entry.getEntityId(), e.getMessage());
+            entry.setStatus("FAILED");
+            entry.setLastError(e.getMessage());
             return false;
         } catch (RuntimeException e) {
             log.debug("Outbox push (PLAY_INSTANCE {}) failed, staying PENDING: {}", entry.getEntityId(), e.getMessage());
@@ -96,7 +113,14 @@ public class OutboxDrainService {
         try {
             return objectMapper.readValue(json, type);
         } catch (JsonProcessingException e) {
-            throw new IllegalStateException("corrupt outbox payload", e);
+            throw new CorruptPayloadException("corrupt outbox payload", e);
+        }
+    }
+
+    /** Internal marker for a deserialization failure, caught locally in pushSerie/pushPlayInstance and never rethrown. */
+    private static final class CorruptPayloadException extends RuntimeException {
+        CorruptPayloadException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 }

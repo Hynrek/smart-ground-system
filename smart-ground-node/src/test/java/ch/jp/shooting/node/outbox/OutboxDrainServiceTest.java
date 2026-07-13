@@ -93,4 +93,46 @@ class OutboxDrainServiceTest {
         assertThat(outboxRepository.findByStatusOrderBySequenceAsc("PENDING")).hasSize(2);
         assertThat(outboxRepository.findAll().get(0).getAttempts()).isEqualTo(1);
     }
+
+    @Test
+    void drainOnce_corruptPayload_marksFailed_stopsBeforeLaterEntries_doesNotThrow() {
+        var corrupt = new OutboxEntry();
+        corrupt.setEntityType("SERIE");
+        corrupt.setEntityId(UUID.randomUUID());
+        corrupt.setPayloadJson("{ this is not valid json");
+        corrupt.setStatus("PENDING");
+        corrupt.setCreatedAt(Instant.now());
+        corrupt.setAttempts(0);
+        outboxRepository.save(corrupt);
+        serieEntry("PENDING"); // must never be attempted — FIFO/single-flight stop-on-failure
+
+        int sent = drainService.drainOnce();
+
+        assertThat(sent).isEqualTo(0);
+        verify(hubClient, never()).pushSerieOutboxItem(any());
+        var rows = outboxRepository.findAll();
+        assertThat(rows).filteredOn(r -> "FAILED".equals(r.getStatus())).hasSize(1);
+        assertThat(rows).filteredOn(r -> "PENDING".equals(r.getStatus())).hasSize(1);
+    }
+
+    @Test
+    void drainOnce_unknownEntityType_marksFailed_stopsBeforeLaterEntries_doesNotThrow() {
+        var bogus = new OutboxEntry();
+        bogus.setEntityType("BOGUS");
+        bogus.setEntityId(UUID.randomUUID());
+        bogus.setPayloadJson("{}");
+        bogus.setStatus("PENDING");
+        bogus.setCreatedAt(Instant.now());
+        bogus.setAttempts(0);
+        outboxRepository.save(bogus);
+        serieEntry("PENDING"); // must never be attempted — FIFO/single-flight stop-on-failure
+
+        int sent = drainService.drainOnce();
+
+        assertThat(sent).isEqualTo(0);
+        verify(hubClient, never()).pushSerieOutboxItem(any());
+        var rows = outboxRepository.findAll();
+        assertThat(rows).filteredOn(r -> "FAILED".equals(r.getStatus())).hasSize(1);
+        assertThat(rows).filteredOn(r -> "PENDING".equals(r.getStatus())).hasSize(1);
+    }
 }
