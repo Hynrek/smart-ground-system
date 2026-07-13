@@ -1,7 +1,8 @@
 # ESP-NOW-Spike: SENDER — startet automatisch beim Boot (main.py).
-# Schickt alle 5 s einen LED-Befehl an das Ziel.
-# Direkt-Szenario:  NEXT_HOP_MAC = DEST_MAC = MAC des Empfaengers
-# Hop-Szenario:     NEXT_HOP_MAC = MAC des Relays, DEST_MAC = MAC des Empfaengers
+# Schickt alle 5 s an JEDEN konfigurierten Empfaenger einen LED-Befehl (Fan-out).
+# DESTINATIONS: dest_mac -> next_hop_mac
+#   Direkt-Szenario:  next_hop_mac == dest_mac (Empfaenger direkt erreichbar)
+#   Hop-Szenario:     next_hop_mac == MAC des Relays, dest_mac == MAC des Empfaengers
 # Upload: mpremote connect <port> cp sender/main.py :main.py
 # Self-contained — pro Board reicht genau eine Datei. Nur fuer leere ESPs.
 
@@ -12,8 +13,12 @@ import network
 # --- KONFIGURATION ---
 CHANNEL = 1
 LONG_RANGE = False  # True = 802.11-LR-Modus (mehr Reichweite, weniger Durchsatz) — auf ALLEN Boards gleich setzen!
-NEXT_HOP = "aa:bb:cc:dd:ee:ff"  # erster Funk-Hop (Empfaenger ODER Relay)
-DEST = "aa:bb:cc:dd:ee:ff"      # finales Ziel (immer der Empfaenger)
+# Jeder Eintrag: finales Ziel -> erster Funk-Hop (Empfaenger direkt ODER ein Relay davor)
+DESTINATIONS = {
+    "aa:bb:cc:dd:ee:ff": "aa:bb:cc:dd:ee:ff",  # Beispiel: Empfaenger 1, direkt
+    # "11:22:33:44:55:66": "11:22:33:44:55:66",  # Beispiel: Empfaenger 2, direkt
+    # "77:88:99:aa:bb:cc": "dd:ee:ff:00:11:22",  # Beispiel: Empfaenger 3, via Relay
+}
 SEND_INTERVAL_S = 5
 TTL = 3  # erlaubt bis zu 2 Relays dazwischen (ADR-002: max. TTL 3)
 
@@ -59,19 +64,27 @@ e = espnow.ESPNow()
 e.active(True)
 
 my_mac = sta.config("mac")
-next_hop_mac = mac_bytes(NEXT_HOP)
-dest_mac = mac_bytes(DEST)
-e.add_peer(next_hop_mac)
+# routes: Liste von (dest_str, dest_mac, next_hop_mac) — next_hop_mac je Ziel, aber nur einmal als Peer registriert
+routes = []
+registered_peers = set()
+for dest_str, next_hop_str in DESTINATIONS.items():
+    next_hop_mac = mac_bytes(next_hop_str)
+    if next_hop_str not in registered_peers:
+        e.add_peer(next_hop_mac)
+        registered_peers.add(next_hop_str)
+    routes.append((dest_str, mac_bytes(dest_str), next_hop_mac, next_hop_str))
+
 print("Eigene MAC:", mac_str(my_mac), "| Kanal:", CHANNEL)
-print("Sende alle %d s an %s (via %s)" % (SEND_INTERVAL_S, DEST, NEXT_HOP))
+print("Sende alle %d s an %d Ziel(e)" % (SEND_INTERVAL_S, len(routes)))
 
 frame_id = 0
 while True:
-    frame_id += 1
-    frame = pack_frame(dest_mac, my_mac, frame_id, TTL, CMD_LED)
-    try:
-        ok = e.send(next_hop_mac, frame)  # True = MAC-Layer-ACK vom naechsten Hop
-        print("Frame #%d -> %s | MAC-ACK: %s" % (frame_id, NEXT_HOP, ok))
-    except Exception as ex:
-        print("Frame #%d Sendefehler:" % frame_id, ex)
+    for dest_str, dest_mac, next_hop_mac, next_hop_str in routes:
+        frame_id += 1
+        frame = pack_frame(dest_mac, my_mac, frame_id, TTL, CMD_LED)
+        try:
+            ok = e.send(next_hop_mac, frame)  # True = MAC-Layer-ACK vom naechsten Hop
+            print("Frame #%d -> %s (via %s) | MAC-ACK: %s" % (frame_id, dest_str, next_hop_str, ok))
+        except Exception as ex:
+            print("Frame #%d Sendefehler:" % frame_id, ex)
     time.sleep(SEND_INTERVAL_S)

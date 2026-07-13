@@ -29,26 +29,32 @@ Nach dem Upload Board neu starten (`mpremote connect <port> reset`) — es läuf
 
 Jedes Script gibt beim Start die eigene MAC aus — diese Werte in die `# --- KONFIGURATION ---`-Blöcke der anderen Scripte eintragen (vor dem Upload). Alle Boards müssen auf demselben Kanal stehen (`CHANNEL = 1`).
 
-## Szenario 1: Direkt (2 Boards)
+Sender und Relay sind **Fan-out-fähig**: statt einem einzelnen `NEXT_HOP` konfiguriert man eine Routing-Tabelle (`DESTINATIONS` beim Sender, `ROUTES` beim Relay), die pro finalem Ziel (`dest_mac`) den nächsten Funk-Hop angibt. So sendet ein Sender an mehrere Empfänger (direkt oder gemischt über Relays), und ein Relay bedient mehrere Boxen hinter sich (ADR-002: „ein Relay am Bunkereingang, mehrere Maschinen dahinter"). Ein Empfänger hinter dem Sender/Relay ist **direkt** erreichbar, wenn `next_hop_mac == dest_mac`.
+
+## Szenario 1: Direkt (2+ Boards, 1..n Empfänger)
 
 ```
-Sender ──ESP-NOW──▶ Empfänger
+Sender ──ESP-NOW──▶ Empfänger 1
+       └─ESP-NOW──▶ Empfänger 2
+       └─ESP-NOW──▶ ...
 ```
 
-1. Empfänger hochladen und starten, MAC notieren.
-2. In `sender/main.py`: `NEXT_HOP` **und** `DEST` = Empfänger-MAC.
-3. Sender hochladen und starten → LED blinkt alle 5 s für 1 s; Konsole zeigt `MAC-ACK: True`.
+1. Jeden Empfänger hochladen und starten, MAC notieren.
+2. In `sender/main.py`: für jeden Empfänger einen Eintrag in `DESTINATIONS` mit `dest_mac == next_hop_mac` = Empfänger-MAC.
+3. Sender hochladen und starten → jede LED blinkt reihum alle 5 s für 1 s; Konsole zeigt pro Ziel `MAC-ACK: True`.
 
-## Szenario 2: Hop (3 Boards — stellt den Platz nach)
+## Szenario 2: Hop (3+ Boards — stellt den Platz nach, mit Fan-out)
 
 ```
-Sender ──▶ Relay ──▶ Empfänger
+Sender ──▶ Relay ──▶ Empfänger 1
+                └──▶ Empfänger 2
+                └──▶ ...
 ```
 
-1. Empfänger hochladen und starten, MAC notieren.
-2. In `relay/main.py`: `NEXT_HOP` = Empfänger-MAC. Hochladen, starten, Relay-MAC notieren.
-3. In `sender/main.py`: `NEXT_HOP` = **Relay**-MAC, `DEST` = **Empfänger**-MAC. Hochladen, starten.
-4. Konsole des Relays zeigt die Weiterleitung (`ttl 3->2`), der Empfänger meldet `(via Relay?)`, wenn der Frame nicht direkt von der Quelle kam.
+1. Jeden Empfänger hochladen und starten, MAC notieren.
+2. In `relay/main.py`: für jeden Empfänger einen Eintrag in `ROUTES` mit `dest_mac == next_hop_mac` = Empfänger-MAC. Hochladen, starten, Relay-MAC notieren.
+3. In `sender/main.py`: für jeden über das Relay erreichbaren Empfänger einen Eintrag in `DESTINATIONS` mit `next_hop_mac` = **Relay**-MAC, `dest_mac` = jeweilige **Empfänger**-MAC. Direkt erreichbare Empfänger können weiterhin parallel als eigene Einträge mit `next_hop_mac == dest_mac` konfiguriert werden. Hochladen, starten.
+4. Konsole des Relays zeigt die Weiterleitung pro Ziel (`ttl 3->2`), der Empfänger meldet `(via Relay?)`, wenn der Frame nicht direkt von der Quelle kam. Ein Frame an ein nicht in `ROUTES` gelistetes Ziel wird vom Relay verworfen und geloggt.
 
 Um den Hop ehrlich zu testen, Sender und Empfänger ausser Reichweite bringen (Distanz, Stahlbeton) — sonst kann der Empfänger Frames auch direkt hören (er ignoriert zwar nichts Falsches, aber der Beweis ist schwächer).
 
